@@ -9,25 +9,28 @@
 
   <div class="sheet-body">
 
+    <div class="character-info">
+      <div class="profile-image">
+        <img src="{{actor.img}}" data-tooltip="Click to Change Profil Image" data-edit="img" title="{{actor.name}}" />
+      </div>
+
+      <h1>
+        <input type="text" name="name" value="{{actor.name}}" placeholder="Character Name" />
+      </h1>
+
+      <div class="crew-field">
+        <input type="text" name="system.crew" value="{{actor.system.crew}}" placeholder="Crew/Affiliation Name" />
+      </div>
+
+      <div class="class-level">
+        {{actor.system.level}} <strong>{{actor.system.class}}</strong>
+      </div>
+    </div>
+
     <section class="tab-content" data-group="main">
       
       <!--This is our General tab where Image, and general gameplay goes-->
       <div class="tab" data-group="main" data-tab="general" >
-        <div class="profile-image">
-          <img src="{{actor.img}}" data-tooltip="Click to Change Profil Image" data-edit="img" title="{{actor.name}}" />
-        </div>
-
-        <h1>
-          <input type="text" name="name" value="{{actor.name}}" placeholder="Character Name" />
-        </h1>
-
-        <div class="crew-field">
-          <input type="text" name="system.crew" value="{{actor.system.crew}}" placeholder="Crew/Affiliation Name" />
-        </div>
-
-          <div class="class-level">
-            {{actor.system.level}} <strong>{{actor.system.class}}</strong>
-          </div>
 
           <div class="flashback-track">
             <label data-tooltip="Use this to spend a flashback during a job.">FB</label>
@@ -242,7 +245,43 @@
 
       <!--This is our journal for character information/backstory-->
       <div class="tab" data-group="main" data-tab="journal">
-        <!-- Character bio, race, notes -->
+        <div class="journal-fields">
+          <div class="field-pair">
+            <label>Race</label>
+            <input type="text" name="system.journal.race" value="{{actor.system.journal.race}}" />
+          </div>
+
+          <div class="field-pair">
+            <label>Sex</label>
+            <input type="text" name="system.journal.sex" value="{{actor.system.journal.sex}}" />
+          </div>
+
+          <div class="field-pair">
+            <label>Appearance</label>
+            <textarea name="system.journal.appearance">{{actor.system.journal.appearance}}</textarea>
+          </div>
+
+          <div class="field-pair">
+            <label>Traits</label>
+            <textarea name="system.journal.traits">{{actor.system.journal.traits}}</textarea>
+          </div>
+
+          <div class="field-pair">
+            <label>Ideals</label>
+            <textarea name="system.journal.ideals">{{actor.system.journal.ideals}}</textarea>
+          </div>
+
+          <div class="field-pair">
+            <label>Bonds</label>
+            <textarea name="system.journal.bonds">{{actor.system.journal.bonds}}</textarea>
+          </div>
+
+          <div class="field-pair">
+            <label>Flaws</label>
+            <textarea name="system.journal.flaws">{{actor.system.journal.flaws}}</textarea>
+          </div>
+        </div>
+
       </div>
     </section>
   </div>
