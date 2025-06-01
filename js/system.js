@@ -1,6 +1,7 @@
 import "./hooks.js";
-
 import { MidnightGambitActor } from "./actor.js";
+import { MidnightGambitItem } from "./item.js";
+import { GuiseSheet } from "./guise-sheet.js";
 
 //Initializing my custom actor and pointing to it's html structure
 Hooks.once("init", () => {

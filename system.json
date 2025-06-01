@@ -20,13 +20,19 @@
     "gridDistance": 5,
     "gridUnits": "ft",
     "primaryTokenAttribute": "strain.mortal",
-    "actorTypes": ["character"]
+    "actorTypes": ["character"],
+    "itemTypes": ["guise", "weapon"]
   },
   "config": {
     "actorTypes": {
       "character": {
         "label": "Character"
       }
+    },
+
+    "itemTypes": {
+      "guise": {"label": "Guise"},
+      "weapon": {"label": "Weapon"}
     }
   }
 }

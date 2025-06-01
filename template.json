@@ -5,6 +5,10 @@
 		"npc"
 		]
 	},
+	"Item": {
+		"types": ["guise", "weapon"]
+	},
+	
 	"type": "character",
 	"name": "New Character",
 	"system": {
