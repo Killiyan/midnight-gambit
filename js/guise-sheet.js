@@ -6,4 +6,10 @@ export class GuiseSheet extends ItemSheet {
       height: 400
     });
   }
+
+  getData(options) {
+    const data = super.getData(options);
+    data.system = this.item.system;
+    return data;
+  }
 }

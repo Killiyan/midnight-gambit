@@ -1,0 +1,19 @@
+<form class="guise-sheet">
+  <header class="sheet-header">
+    <h1><input type="text" name="name" value="{{item.name}}" /></h1>
+  </header>
+
+  <div class="sheet-body">
+    <label>Signature Perk</label>
+    <input type="text" name="system.signaturePerk" value="{{system.signaturePerk}}" />
+
+    <label>Mortal Strain Cap</label>
+    <input type="number" name="system.mortalCap" value="{{system.mortalCap}}" />
+
+    <label>Soul Strain Cap</label>
+    <input type="number" name="system.soulCap" value="{{system.soulCap}}" />
+
+    <label>Modifiers (JSON for now)</label>
+    <textarea name="system.modifiers">{{json system.modifiers}}</textarea>
+  </div>
+</form>

@@ -7,6 +7,13 @@ import { GuiseSheet } from "./guise-sheet.js";
 Hooks.once("init", () => {
   console.log("Midnight Gambit | Initializing System");
 
+  Items.unregisterSheet("core", ItemSheet);
+  Items.registerSheet("midnight-gambit", GuiseSheet, {
+    types: ["guise"],
+    makeDefault: true
+  });
+
+
   CONFIG.Actor.documentClass = MidnightGambitActor;
 
   // Register custom sheet

@@ -23,3 +23,7 @@ Handlebars.registerHelper("range", function (start, end, options) {
 Handlebars.registerHelper("riskShouldFill", function (index, dice, used) {
   return index <= (dice - used);
 });
+
+Handlebars.registerHelper("json", function(context) {
+  return JSON.stringify(context, null, 2);
+});
