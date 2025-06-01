@@ -13,7 +13,25 @@
     <label>Soul Strain Cap</label>
     <input type="number" name="system.soulCap" value="{{system.soulCap}}" />
 
+    <!--This will be modifiers-->
     <label>Modifiers (JSON for now)</label>
     <textarea name="system.modifiers">{{json system.modifiers}}</textarea>
   </div>
+
+  <!--This is rendering the Guise Basic moves-->
+  <div class="guise-moves">
+    <label>Basic Moves</label>
+
+    {{#each system.moves}}
+      <div class="move-block">
+        <input type="text" name="system.moves.{{@index}}.name" value="{{this.name}}" placeholder="Move Name" />
+        <textarea name="system.moves.{{@index}}.description" placeholder="Move Description">{{this.description}}</textarea>
+      </div>
+    {{/each}}
+
+    {{#if (lt system.moves.length 2)}}
+      <button type="button" class="add-move">+ Add Move</button>
+    {{/if}}
+  </div>
+
 </form>
