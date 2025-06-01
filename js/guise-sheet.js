@@ -10,12 +10,21 @@ export class GuiseSheet extends ItemSheet {
   getData(options) {
     const data = super.getData(options);
     data.system = this.item.system;
-
-    // Ensure array exists to prevent crash
     data.system.moves ??= [];
+    data.system.modifiers ??= {};
+    data.system.sparkSlots ??= 0;
+    data.system.riskDice ??= 5;
+    data.system.casterType ??= "none";
+
+    data.attributeKeys = [
+      "tenacity", "finesse", "resolve", "guile",
+      "instinct", "presence"
+    ];
 
     return data;
   }
+
+
 
 
   activateListeners(html) {
