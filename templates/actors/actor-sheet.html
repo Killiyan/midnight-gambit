@@ -1,0 +1,249 @@
+<form class="sheet actor" data-actor-id="{{actor._id}}" autocomplete="off">
+
+  <nav class="sheet-tabs floating" data-group="main">
+    <a class="item" data-tab="general"><i class="fas fa-user"></i></a>
+    <a class="item" data-tab="inventory"><i class="fa-solid fa-treasure-chest"></i></a>
+    <a class="item" data-tab="gambits"><i class="fa-solid fa-cards"></i></a>
+    <a class="item" data-tab="journal"><i class="fa-solid fa-book-open-cover"></i></a>
+  </nav>
+
+  <div class="sheet-body">
+
+    <section class="tab-content" data-group="main">
+      
+      <!--This is our General tab where Image, and general gameplay goes-->
+      <div class="tab" data-group="main" data-tab="general" >
+        <div class="profile-image">
+          <img src="{{actor.img}}" data-tooltip="Click to Change Profil Image" data-edit="img" title="{{actor.name}}" />
+        </div>
+
+        <h1>
+          <input type="text" name="name" value="{{actor.name}}" placeholder="Character Name" />
+        </h1>
+
+        <div class="crew-field">
+          <input type="text" name="system.crew" value="{{actor.system.crew}}" placeholder="Crew/Affiliation Name" />
+        </div>
+
+          <div class="class-level">
+            {{actor.system.level}} <strong>{{actor.system.class}}</strong>
+          </div>
+
+          <div class="flashback-track">
+            <label data-tooltip="Use this to spend a flashback during a job.">FB</label>
+            <span class="flashback-dot {{#unless actor.system.flashbackUsed}}filled{{/unless}}" data-action="flashback">
+              🧠
+            </span>
+          </div>
+
+          <div class="load-toggle">
+            <label>Load</label>
+            <div class="load-options">
+              <span class="load-icon {{#if (eq actor.system.load 'light')}}selected{{/if}}" data-load="light" title="Light Load">🎒</span>
+              <span class="load-icon {{#if (eq actor.system.load 'medium')}}selected{{/if}}" data-load="medium" title="Medium Load">🧳</span>
+              <span class="load-icon {{#if (eq actor.system.load 'heavy')}}selected{{/if}}" data-load="heavy" title="Heavy Load">💼</span>
+            </div>
+          </div>
+
+        <div class="attributes">
+          {{#each actor.system.attributes}}
+            <div>
+              <label>{{@key}}</label>
+              <input type="number" name="actor.system.attributes.{{@key}}" value="{{this}}">
+            </div>
+          {{/each}}
+        </div>
+
+        <div class="strain-track" data-strain="mortal">
+          <label>Mortal Strain:</label>
+          <div class="strain-boxes">
+            {{#range 1 5}}
+              <span class="strain-dot {{#if (lte this ../actor.system.strain.mortal)}}filled{{/if}}"
+                    data-value="{{this}}"
+                    data-type="mortal">
+                ●
+              </span>
+            {{/range}}
+          </div>
+        </div>
+
+        <div class="strain-track" data-strain="soul">
+          <label>Soul Strain:</label>
+          <div class="strain-boxes">
+            {{#range 1 5}}
+              <span class="strain-dot {{#if (lte this ../actor.system.strain.soul)}}filled{{/if}}"
+                    data-value="{{this}}"
+                    data-type="soul">
+                ●
+              </span>
+            {{/range}}
+          </div>
+        </div>
+
+        <div class="strain-capacity">
+          <div class="capacity-box">
+            <label data-tooltip="Physical damage affects this pool before your main tracks.">MC</label>
+            <input data-tooltip="Physical damage affects this pool before your main tracks." type="number" name="system.strain.mortal capacity" value="{{actor.system.strain.['mortal capacity']}}" min="0" />
+          </div>
+
+          <div class="capacity-box">
+            <label data-tooltip="Supernatural or emotional damage affects this pool before your main tracks.">SC</label>
+            <input data-tooltip="Supernatural or emotional damage affects this pool before your main tracks." type="number" name="system.strain.soul capacity" value="{{actor.system.strain.['soul capacity']}}" min="0" />
+          </div>
+        </div>
+
+        <div class="skills">
+          <h2>Skills</h2>
+
+          <div class="risk-track" data-resource="risk">
+            <label data-tooltip="Risk Dice represent your luck pool. Click to spend or restore.">Risk Dice:</label>
+            <div class="risk-boxes">
+              {{#range 1 actor.system.riskDice}}
+                <span class="risk-dot {{#if (riskShouldFill this ../actor.system.riskDice ../actor.system.riskUsed)}}filled{{/if}}"
+                      data-value="{{this}}">
+                  ●
+                </span>
+              {{/range}}
+            </div>
+          </div>
+
+          {{#each data.system.skills}}
+            <div>
+              <label>{{@key}}</label>
+              <input type="number" name="actor.system.skills.{{@key}}" value="{{this}}">
+            </div>
+          {{/each}}
+        </div>
+      </div>
+
+      <!--This is our Inventory with Lux and Search-->
+      <div class="tab" data-group="main" data-tab="inventory">
+        <div class="inventory-tab">
+
+          <div class="currency-field">
+            <label for="lux">Lux:</label>
+            <input type="number" name="system.currency.lux" value="{{actor.system.currency.lux}}" min="0" />
+          </div>
+
+          <div class="search-field">
+            <input type="text" id="item-search" placeholder="Search items..." />
+          </div>
+
+          <!-- Weapons -->
+          <div class="inventory-section weapons">
+            <h3>Weapons</h3>
+            <div class="inventory-header">
+              <span>Name</span>
+              <span>Qty</span>
+              <span>Equipped</span>
+              <span>Tags</span>
+            </div>
+            <div class="inventory-list weapon-list">
+              {{#each actor.system.inventory.weapons}}
+                <div class="inventory-item">
+                  <span>{{this.name}}</span>
+                  <span>{{this.quantity}}</span>
+                  <span><input type="checkbox" {{#if this.equipped}}checked{{/if}} disabled></span>
+                  <span class="item-tags">
+                    {{#each this.tags}}
+                      <span class="item-tag">{{this}}</span>
+                    {{/each}}
+                  </span>
+                </div>
+              {{/each}}
+            </div>
+          </div>
+
+          <!-- Armor -->
+          <div class="inventory-section armor">
+            <h3>Armor</h3>
+            <div class="inventory-header">
+              <span>Name</span>
+              <span>Qty</span>
+              <span>Equipped</span>
+              <span>Tags</span>
+            </div>
+            <div class="inventory-list armor-list">
+              {{#each actor.system.inventory.armor}}
+                <div class="inventory-item">
+                  <span>{{this.name}}</span>
+                  <span>{{this.quantity}}</span>
+                  <span><input type="checkbox" {{#if this.equipped}}checked{{/if}} disabled></span>
+                  <span class="item-tags">
+                    {{#each this.tags}}
+                      <span class="item-tag">{{this}}</span>
+                    {{/each}}
+                  </span>
+                </div>
+              {{/each}}
+            </div>
+          </div>
+
+          <!-- Misc -->
+          <div class="inventory-section misc">
+            <h3>Misc</h3>
+            <div class="inventory-list misc-list">
+              {{#each actor.system.inventory.misc}}
+                <div class="inventory-item">
+                  <span>{{this.name}}</span>
+                  <span>{{this.quantity}}</span>
+                </div>
+              {{/each}}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!--This is our Deck, and currently drawn Gambits-->
+      <div class="tab" data-group="main" data-tab="gambits">
+        <div class="gambit-tab">
+
+          <h2>Drawn Cards</h2>
+
+          <div class="gambit-hand">
+            {{#each actor.system.gambits.drawn}}
+
+              <div class="gambit-card drawn" data-source="drawn" draggable="true" data-card-id="{{this.id}}">
+
+                <div class="gambit-title">
+                  {{this.name}}
+                  <button type="button" class="return-to-deck" data-card-id="{{this.id}}" title="Return to Deck">✖️</button>
+                </div>
+
+                <div class="gambit-description">
+                  {{{this.description}}}
+                </div>
+
+              </div>
+
+            {{/each}}
+          </div>
+
+          <button type="button" class="draw-gambit">Draw Card</button>
+
+          <h2>Gambit Deck</h2>
+
+          <div class="gambit-deck">
+            {{#each actor.system.gambits.deck}}
+              <div class="gambit-card" data-source="deck" draggable="true" data-card-id="{{this.id}}">
+                
+                <div class="gambit-title">{{this.name}}</div>
+
+                <div class="gambit-description">
+                  {{{this.description}}}
+                </div>
+
+              </div>
+            {{/each}}
+          </div>
+        </div>
+
+      </div>
+
+      <!--This is our journal for character information/backstory-->
+      <div class="tab" data-group="main" data-tab="journal">
+        <!-- Character bio, race, notes -->
+      </div>
+    </section>
+  </div>
+</form>

@@ -1,0 +1,17 @@
+{
+    "liveSassCompile.settings.formats": [
+        {
+            "format": "compressed",
+            "extensionName": ".css",
+            "savePath": "/css",
+        }
+    ],
+    "liveSassCompile.settings.excludeList": [
+        "/.vscode/**"
+    ],
+    "liveSassCompile.settings.autoprefix": [ 
+        "defaults"
+    ],
+    "editor.insertSpaces": false,
+    "workbench.editor.tabSizing": "fit"
+}
