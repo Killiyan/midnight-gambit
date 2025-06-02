@@ -2,9 +2,11 @@
 
   <nav class="sheet-tabs floating" data-group="main">
     <a class="item" data-tab="general"><i class="fas fa-user"></i></a>
+    <a class="item" data-tab="moves"><i class="fa-solid fa-dagger"></i></a>
     <a class="item" data-tab="inventory"><i class="fa-solid fa-treasure-chest"></i></a>
     <a class="item" data-tab="gambits"><i class="fa-solid fa-cards"></i></a>
     <a class="item" data-tab="journal"><i class="fa-solid fa-book-open-cover"></i></a>
+    <a class="item" data-tab="settings"><i class="fa-solid fa-gears"></i></a>
   </nav>
 
   <div class="sheet-body">
@@ -22,15 +24,28 @@
         <input type="text" name="system.crew" value="{{actor.system.crew}}" placeholder="Crew/Affiliation Name" />
       </div>
 
-      <div class="class-level">
-        {{actor.system.level}} <strong>{{actor.system.class}}</strong>
+      <div class="guise-display">
+        <span class="guise-name">
+          {{#if guise}}
+          <span class="guise-name" data-tooltip="{{guise.system.description}}">
+            Lv {{actor.system.level}} {{guise.name}}
+          </span>
+          {{else}}
+            No Class Assigned
+          {{/if}}
+        </span>
       </div>
+
+
     </div>
 
     <section class="tab-content" data-group="main">
       
       <!--This is our General tab where Image, and general gameplay goes-->
       <div class="tab" data-group="main" data-tab="general" >
+
+        <button type="button" class="long-rest-button"><i class="fas fa-bed"></i> Long Rest</button>
+
 
           <div class="flashback-track">
             <label data-tooltip="Use this to spend a flashback during a job.">FB</label>
@@ -48,69 +63,90 @@
             </div>
           </div>
 
-        <div class="attributes">
-          {{#each actor.system.attributes}}
-            <div>
-              <label>{{@key}}</label>
-              <input type="number" name="actor.system.attributes.{{@key}}" value="{{this}}">
+          {{#each attributeKeys}}
+            <div class="attribute-row">
+              <label>{{capitalize this}}</label>
+              <input type="number" name="system.baseAttributes.{{this}}" value="{{lookup ../actor.system.baseAttributes this}}" />
+              <span class="final-attribute">Total: {{lookup ../actor.system.attributes this}}</span>
             </div>
           {{/each}}
-        </div>
 
-        <div class="strain-track" data-strain="mortal">
-          <label>Mortal Strain:</label>
-          <div class="strain-boxes">
-            {{#range 1 5}}
-              <span class="strain-dot {{#if (lte this ../actor.system.strain.mortal)}}filled{{/if}}"
-                    data-value="{{this}}"
-                    data-type="mortal">
-                ●
-              </span>
-            {{/range}}
-          </div>
-        </div>
-
-        <div class="strain-track" data-strain="soul">
-          <label>Soul Strain:</label>
-          <div class="strain-boxes">
-            {{#range 1 5}}
-              <span class="strain-dot {{#if (lte this ../actor.system.strain.soul)}}filled{{/if}}"
-                    data-value="{{this}}"
-                    data-type="soul">
-                ●
-              </span>
-            {{/range}}
-          </div>
-        </div>
-
-        <div class="strain-capacity">
-          <div class="capacity-box">
-            <label data-tooltip="Physical damage affects this pool before your main tracks.">MC</label>
-            <input data-tooltip="Physical damage affects this pool before your main tracks." type="number" name="system.strain.mortal capacity" value="{{actor.system.strain.['mortal capacity']}}" min="0" />
-          </div>
-
-          <div class="capacity-box">
-            <label data-tooltip="Supernatural or emotional damage affects this pool before your main tracks.">SC</label>
-            <input data-tooltip="Supernatural or emotional damage affects this pool before your main tracks." type="number" name="system.strain.soul capacity" value="{{actor.system.strain.['soul capacity']}}" min="0" />
-          </div>
-        </div>
-
-        <div class="skills">
-          <h2>Skills</h2>
-
-          <div class="risk-track" data-resource="risk">
-            <label data-tooltip="Risk Dice represent your luck pool. Click to spend or restore.">Risk Dice:</label>
-            <div class="risk-boxes">
-              {{#range 1 actor.system.riskDice}}
-                <span class="risk-dot {{#if (riskShouldFill this ../actor.system.riskDice ../actor.system.riskUsed)}}filled{{/if}}"
-                      data-value="{{this}}">
+          <div class="strain-track" data-strain="mortal">
+            <label>Mortal Strain:</label>
+            <div class="strain-boxes">
+              {{#range 1 5}}
+                <span class="strain-dot {{#if (lte this ../actor.system.strain.mortal)}}filled{{/if}}"
+                      data-value="{{this}}"
+                      data-type="mortal">
                   ●
                 </span>
               {{/range}}
             </div>
           </div>
 
-          {{#each data.system.skills}}
+          <div class="strain-track" data-strain="soul">
+            <label>Soul Strain:</label>
+            <div class="strain-boxes">
+              {{#range 1 5}}
+                <span class="strain-dot {{#if (lte this ../actor.system.strain.soul)}}filled{{/if}}"
+                      data-value="{{this}}"
+                      data-type="soul">
+                  ●
+                </span>
+              {{/range}}
+            </div>
+          </div>
+
+          <div class="strain-capacity">
+            <div class="capacity-box">
+              <label data-tooltip="Physical damage affects this pool before your main tracks.">MC</label>
+              <input
+                type="number"
+                name="system.strain.mortal capacity"
+                value="{{lookup actor.system.strain 'mortal capacity'}}"
+                min="0"
+                data-tooltip="Physical damage affects this pool before your main tracks." />
+            </div>
+
+            <div class="capacity-box">
+              <label data-tooltip="Supernatural or emotional damage affects this pool before your main tracks.">SC</label>
+              <input
+                type="number"
+                name="system.strain.soul capacity"
+                value="{{lookup actor.system.strain 'soul capacity'}}"
+                min="0"
+                data-tooltip="Supernatural or emotional damage affects this pool before your main tracks." />
+            </div>
+          </div>
+
+          <div class="spark-track" data-resource="spark">
+            <label data-tooltip="Spark slots represent mystical charges or energy. Click to spend or restore.">Spark:</label>
+            <div class="spark-boxes">
+              {{#range 1 actor.system.sparkSlots}}
+                <span class="spark-dot {{#if (sparkShouldFill this ../actor.system.sparkSlots ../actor.system.sparkUsed)}}filled{{/if}}"
+                      data-value="{{this}}">
+                  <i class="fas fa-bolt"></i>
+                </span>
+              {{/range}}
+            </div>
+          </div>
+
+          <div class="skills">
+            <h2>Skills</h2>
+
+            <div class="risk-track" data-resource="risk">
+              <label data-tooltip="Risk Dice represent your luck pool. Click to spend or restore.">Risk Dice:</label>
+              <div class="risk-boxes">
+                {{#range 1 actor.system.riskDice}}
+                  <span class="risk-dot {{#if (riskShouldFill this ../actor.system.riskDice ../actor.system.riskUsed)}}filled{{/if}}"
+                        data-value="{{this}}">
+                    ●
+                  </span>
+                {{/range}}
+              </div>
+            </div>
+
+          {{#each actor.system.skills}}
             <div>
               <label>{{@key}}</label>
               <input type="number" name="actor.system.skills.{{@key}}" value="{{this}}">
@@ -118,6 +154,36 @@
           {{/each}}
         </div>
       </div>
+
+      <!--This is our Moves tab. It shows Signature Perk, and moves on the character sheet-->
+      <div class="tab moves-tab" data-tab="moves">
+        {{#if guise}}
+          <div class="signature-perk">
+            <h3>
+              <span class="post-signature" data-perk-name="{{guise.system.signaturePerk}}" data-perk-description="{{guise.system.signatureDescription}}">
+                <i class="fa-solid fa-messages"></i>Signature Perk: {{guise.system.signaturePerk}}
+              </span>
+            </h3>
+            <p>{{guise.system.signatureDescription}}</p>
+          </div>
+
+
+          <div class="basic-moves">
+            <h3>Basic Moves</h3>
+            {{#each guise.system.moves}}
+              <div class="move-block" data-move-index="{{@index}}">
+                <strong class="post-move" data-move-name="{{this.name}}" data-move-description="{{this.description}}">
+                  <i class="fa-solid fa-messages"></i>{{this.name}}
+                </strong>
+                <p>{{this.description}}</p>
+              </div>
+            {{/each}}
+          </div>
+        {{else}}
+          <p>No guise assigned. Assign one to gain moves.</p>
+        {{/if}}
+      </div>
+
 
       <!--This is our Inventory with Lux and Search-->
       <div class="tab" data-group="main" data-tab="inventory">
@@ -283,6 +349,19 @@
         </div>
 
       </div>
+
+      <div class="tab" data-group="main" data-tab="settings">
+        <div class="guise-display">
+          <span class="guise-name">
+            {{#if guise}}
+              <button type="button" class="remove-guise" title="Remove Guise">Remove Guise</button>
+            {{else}}
+              No Class Assigned
+            {{/if}}
+          </span>
+        </div>
+      </div>
+
     </section>
   </div>
 </form>

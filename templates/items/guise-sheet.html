@@ -1,0 +1,73 @@
+<form class="guise-sheet">
+  <header class="sheet-header">
+    <h1><input type="text" name="name" value="{{item.name}}" /></h1>
+  </header>
+
+  <div class="sheet-body">
+    <div class="desription-group">
+      <label for="system.description">Description</label>
+      <textarea name="system.description" rows="3">{{system.description}}</textarea>
+    </div>
+
+    <label>Mortal Strain Cap</label>
+    <input type="number" name="system.mortalCap" value="{{system.mortalCap}}" />
+
+    <label>Soul Strain Cap</label>
+    <input type="number" name="system.soulCap" value="{{system.soulCap}}" />
+
+    <label for="sparkSlots">Spark Slots</label>
+    <input type="number" name="system.sparkSlots" value="{{system.sparkSlots}}" />
+
+    <label for="riskDice">Risk Dice</label>
+    <input type="number" name="system.riskDice" value="{{system.riskDice}}" />
+
+    <label for="casterType">Caster Type</label>
+    <select name="system.casterType">
+      <option value="none" {{#if (eq system.casterType "none")}}selected{{/if}}>No Caster</option>
+      <option value="half" {{#if (eq system.casterType "half")}}selected{{/if}}>Half Caster</option>
+      <option value="full" {{#if (eq system.casterType "full")}}selected{{/if}}>Full Caster</option>
+    </select>
+
+    <div class="attribute-modifiers">
+      <label>Attribute Modifiers</label>
+      <div class="grid">
+        {{#each attributeKeys}}
+          <div class="attr-row">
+            <label>{{capitalize this}}</label>
+            <input type="number" name="system.modifiers.{{this}}" value="{{lookup ../system.modifiers this}}" />
+          </div>
+        {{/each}}
+      </div>
+    </div>
+  </div>
+
+  <!--This is rendering the Guise Basic moves/Signature Perk-->
+  <div class="guise-moves">
+
+    <label>Signature Perk</label>
+    <input type="text" name="system.signaturePerk" value="{{system.signaturePerk}}" />
+
+    <div class="desription-group">
+      <label for="system.signatureDescription">Signature Description</label>
+      <textarea name="system.signatureDescription" rows="3">{{system.signatureDescription}}</textarea>
+    </div>
+
+
+    {{#each system.moves as |move idx|}}
+      <div class="move-block" data-index="{{idx}}">
+        <label>Move Name</label>
+        <input type="text" class="move-name" value="{{move.name}}" data-index="{{idx}}" />
+
+        <label>Move Description</label>
+        <textarea class="move-description" data-index="{{idx}}">{{move.description}}</textarea>
+
+        <button type="button" class="remove-move" data-index="{{idx}}">Remove</button>
+      </div>
+    {{/each}}
+
+    <button type="button" class="add-move">+ Add Move</button>
+
+
+  </div>
+
+</form>

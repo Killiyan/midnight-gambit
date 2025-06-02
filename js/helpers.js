@@ -23,3 +23,20 @@ Handlebars.registerHelper("range", function (start, end, options) {
 Handlebars.registerHelper("riskShouldFill", function (index, dice, used) {
   return index <= (dice - used);
 });
+
+Handlebars.registerHelper("json", function(context) {
+  return JSON.stringify(context, null, 2);
+});
+
+Handlebars.registerHelper("capitalize", str => {
+  return str.charAt(0).toUpperCase() + str.slice(1);
+});
+
+Handlebars.registerHelper("subtract", function(a, b) {
+  return a - b;
+});
+
+Handlebars.registerHelper("sparkShouldFill", function(index, total, used) {
+  const remaining = total - used;
+  return index <= remaining;
+});
