@@ -88,12 +88,22 @@
           <div class="strain-capacity">
             <div class="capacity-box">
               <label data-tooltip="Physical damage affects this pool before your main tracks.">MC</label>
-              <input data-tooltip="Physical damage affects this pool before your main tracks." type="number" name="system.strain.mortal capacity" value="{{actor.system.strain.['mortal capacity']}}" min="0" />
+              <input
+                type="number"
+                name="system.strain.mortal capacity"
+                value="{{lookup actor.system.strain 'mortal capacity'}}"
+                min="0"
+                data-tooltip="Physical damage affects this pool before your main tracks." />
             </div>
 
             <div class="capacity-box">
               <label data-tooltip="Supernatural or emotional damage affects this pool before your main tracks.">SC</label>
-              <input data-tooltip="Supernatural or emotional damage affects this pool before your main tracks." type="number" name="system.strain.soul capacity" value="{{actor.system.strain.['soul capacity']}}" min="0" />
+              <input
+                type="number"
+                name="system.strain.soul capacity"
+                value="{{lookup actor.system.strain 'soul capacity'}}"
+                min="0"
+                data-tooltip="Supernatural or emotional damage affects this pool before your main tracks." />
             </div>
           </div>
 

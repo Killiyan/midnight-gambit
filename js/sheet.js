@@ -267,7 +267,6 @@ export class MidnightGambitActorSheet extends ActorSheet {
         await actor.update(updates);
         ui.notifications.info(`${actor.name} has completed a Long Rest.`);
       });
-
     }
 
     async _onDropItemCreate(itemData) {
