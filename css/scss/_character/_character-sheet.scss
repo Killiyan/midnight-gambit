@@ -264,3 +264,14 @@ h1,h2,h3,h4 {
   margin-top: 0.25rem;
   white-space: pre-wrap;
 }
+
+
+.spark-dot {
+  cursor: pointer;
+  font-size: 1.5em;
+  color: #666;
+}
+
+.spark-dot.filled {
+  color: #ffd700; /* gold lightning bolt */
+}
