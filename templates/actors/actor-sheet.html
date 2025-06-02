@@ -2,9 +2,11 @@
 
   <nav class="sheet-tabs floating" data-group="main">
     <a class="item" data-tab="general"><i class="fas fa-user"></i></a>
+    <a class="item" data-tab="moves"><i class="fa-solid fa-dagger"></i></a>
     <a class="item" data-tab="inventory"><i class="fa-solid fa-treasure-chest"></i></a>
     <a class="item" data-tab="gambits"><i class="fa-solid fa-cards"></i></a>
     <a class="item" data-tab="journal"><i class="fa-solid fa-book-open-cover"></i></a>
+    <a class="item" data-tab="settings"><i class="fa-solid fa-gears"></i></a>
   </nav>
 
   <div class="sheet-body">
@@ -22,9 +24,19 @@
         <input type="text" name="system.crew" value="{{actor.system.crew}}" placeholder="Crew/Affiliation Name" />
       </div>
 
-      <div class="class-level">
-        {{actor.system.level}} <strong>{{actor.system.class}}</strong>
+      <div class="guise-display">
+        <span class="guise-name">
+          {{#if guise}}
+          <span class="guise-name" data-tooltip="{{guise.system.description}}">
+            Lv {{actor.system.level}} {{guise.name}}
+          </span>
+          {{else}}
+            No Class Assigned
+          {{/if}}
+        </span>
       </div>
+
+
     </div>
 
     <section class="tab-content" data-group="main">
@@ -142,6 +154,36 @@
           {{/each}}
         </div>
       </div>
+
+      <!--This is our Moves tab. It shows Signature Perk, and moves on the character sheet-->
+      <div class="tab moves-tab" data-tab="moves">
+        {{#if guise}}
+          <div class="signature-perk">
+            <h3>
+              <span class="post-signature" data-perk-name="{{guise.system.signaturePerk}}" data-perk-description="{{guise.system.signatureDescription}}">
+                <i class="fa-solid fa-messages"></i>Signature Perk: {{guise.system.signaturePerk}}
+              </span>
+            </h3>
+            <p>{{guise.system.signatureDescription}}</p>
+          </div>
+
+
+          <div class="basic-moves">
+            <h3>Basic Moves</h3>
+            {{#each guise.system.moves}}
+              <div class="move-block" data-move-index="{{@index}}">
+                <strong class="post-move" data-move-name="{{this.name}}" data-move-description="{{this.description}}">
+                  <i class="fa-solid fa-messages"></i>{{this.name}}
+                </strong>
+                <p>{{this.description}}</p>
+              </div>
+            {{/each}}
+          </div>
+        {{else}}
+          <p>No guise assigned. Assign one to gain moves.</p>
+        {{/if}}
+      </div>
+
 
       <!--This is our Inventory with Lux and Search-->
       <div class="tab" data-group="main" data-tab="inventory">
@@ -307,6 +349,19 @@
         </div>
 
       </div>
+
+      <div class="tab" data-group="main" data-tab="settings">
+        <div class="guise-display">
+          <span class="guise-name">
+            {{#if guise}}
+              <button type="button" class="remove-guise" title="Remove Guise">Remove Guise</button>
+            {{else}}
+              No Class Assigned
+            {{/if}}
+          </span>
+        </div>
+      </div>
+
     </section>
   </div>
 </form>

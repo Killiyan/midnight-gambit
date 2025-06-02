@@ -46,6 +46,7 @@ export class MidnightGambitActor extends Actor {
       }
     }
 
+    data.level ??= 1;
     data.attributes = base;
     data.sparkUsed ??= 0;
   }

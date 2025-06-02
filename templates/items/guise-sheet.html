@@ -4,6 +4,11 @@
   </header>
 
   <div class="sheet-body">
+    <div class="desription-group">
+      <label for="system.description">Description</label>
+      <textarea name="system.description" rows="3">{{system.description}}</textarea>
+    </div>
+
     <label>Mortal Strain Cap</label>
     <input type="number" name="system.mortalCap" value="{{system.mortalCap}}" />
 
@@ -42,18 +47,27 @@
     <label>Signature Perk</label>
     <input type="text" name="system.signaturePerk" value="{{system.signaturePerk}}" />
 
-    <label>Basic Moves</label>
+    <div class="desription-group">
+      <label for="system.signatureDescription">Signature Description</label>
+      <textarea name="system.signatureDescription" rows="3">{{system.signatureDescription}}</textarea>
+    </div>
 
-    {{#each system.moves}}
-      <div class="move-block">
-        <input type="text" name="system.moves.{{@index}}.name" value="{{this.name}}" placeholder="Move Name" />
-        <textarea name="system.moves.{{@index}}.description" placeholder="Move Description">{{this.description}}</textarea>
+
+    {{#each system.moves as |move idx|}}
+      <div class="move-block" data-index="{{idx}}">
+        <label>Move Name</label>
+        <input type="text" class="move-name" value="{{move.name}}" data-index="{{idx}}" />
+
+        <label>Move Description</label>
+        <textarea class="move-description" data-index="{{idx}}">{{move.description}}</textarea>
+
+        <button type="button" class="remove-move" data-index="{{idx}}">Remove</button>
       </div>
     {{/each}}
 
-    {{#if (lt system.moves.length 2)}}
-      <button type="button" class="add-move">+ Add Move</button>
-    {{/if}}
+    <button type="button" class="add-move">+ Add Move</button>
+
+
   </div>
 
 </form>

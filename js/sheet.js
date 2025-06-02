@@ -18,6 +18,12 @@ export class MidnightGambitActorSheet extends ActorSheet {
         "instinct",
         "presence"
       ];
+      // Inject the full guise object if it exists
+      const guiseId = this.actor.system.guise;
+      if (guiseId) {
+        const guise = game.items.get(guiseId);
+        if (guise) data.guise = guise;
+      }
 
       return data;
     }
@@ -126,6 +132,43 @@ export class MidnightGambitActorSheet extends ActorSheet {
         });
       });
 
+      //Making it so if you click moves in the Character sheet they post to chat!
+      html.find(".post-move").on("click", event => {
+        const name = event.currentTarget.dataset.moveName || "Unknown Move";
+        const description = event.currentTarget.dataset.moveDescription || "";
+
+        const chatContent = `
+          <div class="chat-move">
+            <h2>${name}</h2>
+            <p>${description}</p>
+          </div>
+        `;
+
+        ChatMessage.create({
+          user: game.user.id,
+          speaker: ChatMessage.getSpeaker({ actor: this.actor }),
+          content: chatContent
+        });
+      });
+
+      //Doing the same chat posting for Signature Perks
+      html.find(".post-signature").on("click", async (event) => {
+        const name = event.currentTarget.dataset.perkName;
+        const description = event.currentTarget.dataset.perkDescription;
+
+        const chatContent = `
+          <div class="chat-move">
+            <h2>Signature Perk: ${name}</h2>
+            <p>${description}</p>
+          </div>
+        `;
+
+        ChatMessage.create({
+          user: game.user.id,
+          speaker: ChatMessage.getSpeaker({ actor: this.actor }),
+          content: chatContent
+        });
+      });
 
       // Returning Gambits to Deck when removed
       html.find('.return-to-deck').on('click', async (event) => {
@@ -267,8 +310,28 @@ export class MidnightGambitActorSheet extends ActorSheet {
         await actor.update(updates);
         ui.notifications.info(`${actor.name} has completed a Long Rest.`);
       });
+
+      //Remove guise button to return the sheet to default if needed.
+      html.find(".remove-guise").on("click", async (event) => {
+        event.preventDefault();
+
+        const confirmed = await Dialog.confirm({
+          title: "Remove Guise?",
+          content: "<p>Are you sure you want to unassign this Guise? This will keep all your current values.</p>",
+          yes: () => true,
+          no: () => false,
+          defaultYes: false
+        });
+
+        if (!confirmed) return;
+
+        await this.actor.update({ "system.guise": null });
+        this.render(true);
+      });
+
     }
 
+    //Drag and Drop guise action
     async _onDropItemCreate(itemData) {
       if (itemData.type === "guise") {
         console.log("✅ Dropped a guise item on actor");
@@ -281,6 +344,7 @@ export class MidnightGambitActorSheet extends ActorSheet {
 
         // Update actor to reference the guise
         await this.actor.update({ "system.guise": itemData._id });
+        ui.notifications.info(`${itemData.name} applied as new Guise!`);
 
         // Prevent item from being added to inventory
         return [];
