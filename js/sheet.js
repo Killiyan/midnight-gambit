@@ -226,6 +226,28 @@ export class MidnightGambitActorSheet extends ActorSheet {
       html.find('.gambit-hand').on('dragover', e => e.preventDefault());
       html.find('.gambit-deck').on('drop', handleDrop("deck"));
       html.find('.gambit-hand').on('drop', handleDrop("drawn"));
+
+      // Spark slot click logic
+      html.find(".spark-dot").on("click", async (event) => {
+        const el = event.currentTarget;
+        const clicked = parseInt(el.dataset.value);
+        const total = this.actor.system.sparkSlots ?? 0;
+        const used = this.actor.system.sparkUsed ?? 0;
+        const remaining = total - used;
+
+        let newUsed;
+        if (clicked > remaining) {
+          // Fill up to clicked
+          newUsed = total - clicked;
+        } else {
+          // Unfill clicked and right
+          newUsed = total - (clicked - 1);
+        }
+
+        console.log(`Spark clicked: ${clicked} → sparkUsed: ${newUsed} (was ${used})`);
+        await this.actor.update({ "system.sparkUsed": newUsed });
+        this.render(false);
+      });
     }
 
     async _onDropItemCreate(itemData) {

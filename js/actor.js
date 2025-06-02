@@ -13,39 +13,57 @@ export class MidnightGambitActor extends Actor {
     if (guiseId) {
       const guise = game.items.get(guiseId);
       if (guise?.type === "guise") {
-        const modifiers = guise.system.modifiers || {};
+        const gSys = guise.system;
+        const modifiers = gSys.modifiers || {};
+
         for (const [key, mod] of Object.entries(modifiers)) {
           if (base[key] != null) {
             base[key] += mod;
           }
         }
+
+        //Put everything here where guise is defined
+        if (gSys.mortalCap != null) data.strain["mortal capacity"] = gSys.mortalCap;
+        if (gSys.soulCap != null) data.strain["soul capacity"] = gSys.soulCap;
+        if (gSys.sparkSlots != null) data.sparkSlots = gSys.sparkSlots;
+        if (gSys.riskDice != null) data.riskDice = gSys.riskDice;
+        if (gSys.casterType) data.casterType = gSys.casterType;
       }
     }
 
     data.attributes = base;
+    data.sparkUsed ??= 0;
   }
 
-    async _onCreateDescendantDocuments(embeddedName, documents, context) {
-      if (embeddedName !== "Item") return;
+  async _onCreateDescendantDocuments(embeddedName, documents, context) {
+    if (embeddedName !== "Item") return;
 
-      const guise = documents.find(doc => doc.type === "guise");
-      if (!guise) return;
+    const guise = documents.find(doc => doc.type === "guise");
+    if (!guise) return;
 
-      console.log(`✅ Intercepted Guise creation: ${guise.name}`);
+    console.log(`✅ Intercepted Guise creation: ${guise.name}`);
 
-      if (!this.system.baseAttributes || Object.keys(this.system.baseAttributes).length === 0) {
-        const base = foundry.utils.deepClone(this.system.attributes);
-        await this.update({ "system.baseAttributes": base });
-      }
-
-      await this.update({ "system.guise": guise.id });
-
-      await this.deleteEmbeddedDocuments("Item", [guise.id]);
-
-      // Tell Foundry NOT to finalize anything else
-      context.keepId = true;
-      return [];
+    if (!this.system.baseAttributes || Object.keys(this.system.baseAttributes).length === 0) {
+      const base = foundry.utils.deepClone(this.system.attributes);
+      await this.update({ "system.baseAttributes": base });
     }
 
+    const updates = {
+      "system.guise": guise.id,
+      "system.strain['mortal capacity']": guise.system.mortalCap ?? 5,
+      "system.strain['soul capacity']": guise.system.soulCap ?? 5,
+      "system.sparkSlots": guise.system.sparkSlots ?? 0,
+      "system.sparkUsed": 0,
+      "system.riskDice": guise.system.riskDice ?? 5
+    };
 
+    console.log("Guise sparkSlots value before update:", guise.system.sparkSlots);
+    console.log("Full updates object:", updates);
+
+    await this.update(updates);
+    await this.deleteEmbeddedDocuments("Item", [guise.id]);
+
+    context.keepId = true;
+    return [];
+  }
 }

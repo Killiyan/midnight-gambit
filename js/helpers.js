@@ -31,3 +31,12 @@ Handlebars.registerHelper("json", function(context) {
 Handlebars.registerHelper("capitalize", str => {
   return str.charAt(0).toUpperCase() + str.slice(1);
 });
+
+Handlebars.registerHelper("subtract", function(a, b) {
+  return a - b;
+});
+
+Handlebars.registerHelper("sparkShouldFill", function(index, total, used) {
+  const remaining = total - used;
+  return index <= remaining;
+});

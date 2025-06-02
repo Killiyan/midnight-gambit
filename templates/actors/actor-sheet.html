@@ -48,10 +48,6 @@
             </div>
           </div>
 
-          <p>Keys Test: {{attributeKeys}}</p>
-
-
-
           {{#each attributeKeys}}
             <div class="attribute-row">
               <label>{{capitalize this}}</label>
@@ -60,61 +56,70 @@
             </div>
           {{/each}}
 
-
-
-
-        <div class="strain-track" data-strain="mortal">
-          <label>Mortal Strain:</label>
-          <div class="strain-boxes">
-            {{#range 1 5}}
-              <span class="strain-dot {{#if (lte this ../actor.system.strain.mortal)}}filled{{/if}}"
-                    data-value="{{this}}"
-                    data-type="mortal">
-                ●
-              </span>
-            {{/range}}
-          </div>
-        </div>
-
-        <div class="strain-track" data-strain="soul">
-          <label>Soul Strain:</label>
-          <div class="strain-boxes">
-            {{#range 1 5}}
-              <span class="strain-dot {{#if (lte this ../actor.system.strain.soul)}}filled{{/if}}"
-                    data-value="{{this}}"
-                    data-type="soul">
-                ●
-              </span>
-            {{/range}}
-          </div>
-        </div>
-
-        <div class="strain-capacity">
-          <div class="capacity-box">
-            <label data-tooltip="Physical damage affects this pool before your main tracks.">MC</label>
-            <input data-tooltip="Physical damage affects this pool before your main tracks." type="number" name="system.strain.mortal capacity" value="{{actor.system.strain.['mortal capacity']}}" min="0" />
-          </div>
-
-          <div class="capacity-box">
-            <label data-tooltip="Supernatural or emotional damage affects this pool before your main tracks.">SC</label>
-            <input data-tooltip="Supernatural or emotional damage affects this pool before your main tracks." type="number" name="system.strain.soul capacity" value="{{actor.system.strain.['soul capacity']}}" min="0" />
-          </div>
-        </div>
-
-        <div class="skills">
-          <h2>Skills</h2>
-
-          <div class="risk-track" data-resource="risk">
-            <label data-tooltip="Risk Dice represent your luck pool. Click to spend or restore.">Risk Dice:</label>
-            <div class="risk-boxes">
-              {{#range 1 actor.system.riskDice}}
-                <span class="risk-dot {{#if (riskShouldFill this ../actor.system.riskDice ../actor.system.riskUsed)}}filled{{/if}}"
-                      data-value="{{this}}">
+          <div class="strain-track" data-strain="mortal">
+            <label>Mortal Strain:</label>
+            <div class="strain-boxes">
+              {{#range 1 5}}
+                <span class="strain-dot {{#if (lte this ../actor.system.strain.mortal)}}filled{{/if}}"
+                      data-value="{{this}}"
+                      data-type="mortal">
                   ●
                 </span>
               {{/range}}
             </div>
           </div>
+
+          <div class="strain-track" data-strain="soul">
+            <label>Soul Strain:</label>
+            <div class="strain-boxes">
+              {{#range 1 5}}
+                <span class="strain-dot {{#if (lte this ../actor.system.strain.soul)}}filled{{/if}}"
+                      data-value="{{this}}"
+                      data-type="soul">
+                  ●
+                </span>
+              {{/range}}
+            </div>
+          </div>
+
+          <div class="strain-capacity">
+            <div class="capacity-box">
+              <label data-tooltip="Physical damage affects this pool before your main tracks.">MC</label>
+              <input data-tooltip="Physical damage affects this pool before your main tracks." type="number" name="system.strain.mortal capacity" value="{{actor.system.strain.['mortal capacity']}}" min="0" />
+            </div>
+
+            <div class="capacity-box">
+              <label data-tooltip="Supernatural or emotional damage affects this pool before your main tracks.">SC</label>
+              <input data-tooltip="Supernatural or emotional damage affects this pool before your main tracks." type="number" name="system.strain.soul capacity" value="{{actor.system.strain.['soul capacity']}}" min="0" />
+            </div>
+          </div>
+
+          <div class="spark-track" data-resource="spark">
+            <label data-tooltip="Spark slots represent mystical charges or energy. Click to spend or restore.">Spark:</label>
+            <div class="spark-boxes">
+              {{#range 1 actor.system.sparkSlots}}
+                <span class="spark-dot {{#if (sparkShouldFill this ../actor.system.sparkSlots ../actor.system.sparkUsed)}}filled{{/if}}"
+                      data-value="{{this}}">
+                  <i class="fas fa-bolt"></i>
+                </span>
+              {{/range}}
+            </div>
+          </div>
+
+          <div class="skills">
+            <h2>Skills</h2>
+
+            <div class="risk-track" data-resource="risk">
+              <label data-tooltip="Risk Dice represent your luck pool. Click to spend or restore.">Risk Dice:</label>
+              <div class="risk-boxes">
+                {{#range 1 actor.system.riskDice}}
+                  <span class="risk-dot {{#if (riskShouldFill this ../actor.system.riskDice ../actor.system.riskUsed)}}filled{{/if}}"
+                        data-value="{{this}}">
+                    ●
+                  </span>
+                {{/range}}
+              </div>
+            </div>
 
           {{#each actor.system.skills}}
             <div>

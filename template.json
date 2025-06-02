@@ -8,7 +8,7 @@
 	"Item": {
 		"types": ["guise", "weapon"]
 	},
-	
+
 	"type": "character",
 	"name": "New Character",
 	"system": {
@@ -49,7 +49,8 @@
 			"soul capacity": 0
 		},
 
-		"sparkSlots": 3,
+		"sparkSlots": 0,
+		"sparkUsed": 0,
 		"riskDice": 5,
 		"riskUsed": 0,
 		"crew": "",
