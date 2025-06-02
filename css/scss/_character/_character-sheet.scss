@@ -5,6 +5,78 @@ h1,h2,h3,h4 {
 	font-size: 1rem;
 }
 
+/*Window Styling
+==============================================================================*/
+
+.window-app {
+
+  .window-header {
+    background: $mg-blue-main;
+    color: $mg-ivory;
+    border-radius: .5rem .5rem 0 0;
+    @include mg-border();
+    padding: 1.125rem;
+    overflow: visible;
+  }
+
+  &.minimized {
+    @include mg-border();
+    transition: border .2s ease, border-radius .2s ease;
+    border-radius: .5rem;
+  }
+
+  &.sheet .window-content {
+    padding: 0;
+    border-radius: 0 0 .5rem .5rem;
+    background: $mg-blue-main;
+    @include mg-border();
+
+    .actor {
+        .character-info {
+          position: relative;
+        }
+
+        .personal-info {
+          position: absolute;
+          top: 1.25rem;
+          left: 5%;
+          width: 90%;
+          background: rgba($mg-blue-main, .8);
+          display: flex;
+          padding: 1.125rem;
+          border-radius: .5rem;
+          border: 2px solid $mg-blue-main-2;
+          justify-content: space-between;
+          color: $mg-ivory;
+
+          h1 {
+            border-bottom: 0;
+          }
+
+          input {
+            border-bottom: .125rem solid $mg-blue-main-2;
+            border-radius: 0;
+            border-top: 0;
+            border-left: 0;
+            border-right: 0;
+            background: none;
+            color: $mg-ivory;
+            padding-bottom: .25rem;
+
+            &::placeholder {
+              color: $mg-ivory !important;
+            }
+          }
+
+          .name-guise {
+            display: flex;
+            flex-direction: column;
+          }
+        }
+    }
+  }
+}
+
 /*Image and Name styling
 ==============================================================================*/
 .profile-image {

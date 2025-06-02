@@ -13,30 +13,32 @@
 
     <div class="character-info">
       <div class="profile-image">
-        <img src="{{actor.img}}" data-tooltip="Click to Change Profil Image" data-edit="img" title="{{actor.name}}" />
+        <img src="{{actor.img}}" data-tooltip="Click to Change Profile Image" data-edit="img" title="{{actor.name}}" />
       </div>
 
-      <h1>
-        <input type="text" name="name" value="{{actor.name}}" placeholder="Character Name" />
-      </h1>
+      <div class="personal-info">
+        <div class="name-guise">
+          <h1>
+            <input type="text" name="name" value="{{actor.name}}" placeholder="Character Name" />
+          </h1>
 
-      <div class="crew-field">
-        <input type="text" name="system.crew" value="{{actor.system.crew}}" placeholder="Crew/Affiliation Name" />
-      </div>
+          <div class="crew-field">
+            <input type="text" name="system.crew" value="{{actor.system.crew}}" placeholder="Crew/Affiliation Name" />
+          </div>
+        </div>
 
-      <div class="guise-display">
-        <span class="guise-name">
-          {{#if guise}}
-          <span class="guise-name" data-tooltip="{{guise.system.description}}">
-            Lv {{actor.system.level}} {{guise.name}}
+        <div class="guise-display">
+          <span class="guise-name">
+            {{#if guise}}
+            <span class="guise-name" data-tooltip="{{guise.system.description}}">
+              Lv {{actor.system.level}} {{guise.name}}
+            </span>
+            {{else}}
+              No Class Assigned
+            {{/if}}
           </span>
-          {{else}}
-            No Class Assigned
-          {{/if}}
-        </span>
+        </div>
       </div>
-
-
     </div>
 
     <section class="tab-content" data-group="main">

@@ -16,14 +16,14 @@ body {
 
 #sidebar {
   background: $mg-blue-main;
-  border: 3px solid $mg-blue-main-2 !important;
+  @include mg-border();
 
   .chat-message,
   .message,
   .whisper {
     background-color: rgba($black, 0.2);
     background-image: none;
-    border: 3px solid $mg-blue-main-2;
+    @include mg-border();
     color: $white;
     padding: 1.125rem;
   }
@@ -62,7 +62,7 @@ body {
   #chat-form textarea {
     background-color: rgba($black, 0.5);
     background-image: none;
-    border: 3px solid $mg-blue-main-2;
+    @include mg-border();
     color: $mg-ivory;
     padding: 1.125rem;
     @include roboto();
@@ -72,7 +72,7 @@ body {
 
     &:focus,
     &:hover {
-      border: 3px solid $mg-ivory;
+      border: 1px solid $mg-ivory;
       box-shadow: 0 0 6px $mg-blue-2;
     }
   }
