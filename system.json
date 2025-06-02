@@ -2,12 +2,13 @@
   "name": "midnight-gambit",
   "title": "Midnight Gambit",
   "type": "system",
-  "version": "0.0.8",
+  "version": "0.1.0",
   "author": "Vaughn Gallagher / Killiyan",
   "description": "A custom system for high-stakes narrative action.",
   "esmodules": ["midnight-gambit.js"],
   "styles": [
-    "css/style.css"
+    "css/style.css",
+    "https://fonts.googleapis.com/css2?family=Oswald:wght@200..700&family=Roboto:ital,wght@0,100..900;1,100..900&display=swap"
   ],
   "scripts": [
     "https://kit.fontawesome.com/44ed447bce.js"

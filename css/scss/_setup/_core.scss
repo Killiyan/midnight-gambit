@@ -3,6 +3,10 @@
 /*Core Styling
 ==============================================================================*/
 
+body {
+  background: $mg-blue-main;
+}
+
 .tabs {
   background: $mg-blue-main;
 }
@@ -17,15 +21,69 @@
   .chat-message,
   .message,
   .whisper {
-    background: rgba($black, 0.2);
+    background-color: rgba($black, 0.2);
+    background-image: none;
     border: 3px solid $mg-blue-main-2;
     color: $white;
+    padding: 1.125rem;
+  }
+
+  .message-content {
+    color: $mg-blue-2;
+    padding-top: 1.125rem;
   }
 
   .message-sender,
   .message-metadata,
   .whisper-to,
   .nue {
-    color: $white;
+    color: $mg-ivory;
+  }
+
+  .message-sender {
+    @include oswald();
+    text-transform: uppercase;
+    font-weight: 400;
+  }
+
+  .nue {
+    color: $mg-blue-2;
+    opacity: 1;
+    line-height: 1.5;
+    font-size: .8rem;
+    @include roboto();
+  }
+
+  .nue-tab,
+  .nue a {
+    color: $mg-ivory;
+  }
+
+  #chat-form textarea {
+    background-color: rgba($black, 0.5);
+    background-image: none;
+    border: 3px solid $mg-blue-main-2;
+    color: $mg-ivory;
+    padding: 1.125rem;
+    @include roboto();
+    font-size: .8rem;
+    line-height: 1.5;
+    transition: border 0.2s ease, box-shadow 0.2s ease;
+
+    &:focus,
+    &:hover {
+      border: 3px solid $mg-ivory;
+      box-shadow: 0 0 6px $mg-blue-2;
+    }
+  }
+  
+  a {
+    transition: color 0.2s ease, text-shadow 0.2s ease;
+
+    &:hover,
+    &:focus {
+      color: $mg-blue-2;
+      text-shadow: 0 0 6px $mg-blue-3;
+    }
   }
 }
