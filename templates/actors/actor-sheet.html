@@ -48,14 +48,20 @@
             </div>
           </div>
 
-        <div class="attributes">
-          {{#each actor.system.attributes}}
-            <div>
-              <label>{{@key}}</label>
-              <input type="number" name="actor.system.attributes.{{@key}}" value="{{this}}">
+          <p>Keys Test: {{attributeKeys}}</p>
+
+
+
+          {{#each attributeKeys}}
+            <div class="attribute-row">
+              <label>{{capitalize this}}</label>
+              <input type="number" name="system.baseAttributes.{{this}}" value="{{lookup ../actor.system.baseAttributes this}}" />
+              <span class="final-attribute">Total: {{lookup ../actor.system.attributes this}}</span>
             </div>
           {{/each}}
-        </div>
+
+
+
 
         <div class="strain-track" data-strain="mortal">
           <label>Mortal Strain:</label>
@@ -110,7 +116,7 @@
             </div>
           </div>
 
-          {{#each data.system.skills}}
+          {{#each actor.system.skills}}
             <div>
               <label>{{@key}}</label>
               <input type="number" name="actor.system.skills.{{@key}}" value="{{this}}">

@@ -27,3 +27,7 @@ Handlebars.registerHelper("riskShouldFill", function (index, dice, used) {
 Handlebars.registerHelper("json", function(context) {
   return JSON.stringify(context, null, 2);
 });
+
+Handlebars.registerHelper("capitalize", str => {
+  return str.charAt(0).toUpperCase() + str.slice(1);
+});
