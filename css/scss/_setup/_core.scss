@@ -1,0 +1,31 @@
+@import "variables";
+
+/*Core Styling
+==============================================================================*/
+
+.tabs {
+  background: $mg-blue-main;
+}
+.sidebar-tab {
+  background: $mg-blue-main;
+}
+
+#sidebar {
+  background: $mg-blue-main;
+  border: 3px solid $mg-blue-main-2 !important;
+
+  .chat-message,
+  .message,
+  .whisper {
+    background: rgba($black, 0.2);
+    border: 3px solid $mg-blue-main-2;
+    color: $white;
+  }
+
+  .message-sender,
+  .message-metadata,
+  .whisper-to,
+  .nue {
+    color: $white;
+  }
+}
