@@ -248,6 +248,26 @@ export class MidnightGambitActorSheet extends ActorSheet {
         await this.actor.update({ "system.sparkUsed": newUsed });
         this.render(false);
       });
+
+      //Long rest button that resets values to base
+      html.find(".long-rest-button").click(async () => {
+        const actor = this.actor;
+        const guiseId = actor.system.guise;
+        const guise = guiseId ? game.items.get(guiseId) : null;
+
+        const updates = {
+          "system.sparkUsed": 0,
+          "system.strain.mortal": 0,
+          "system.strain.soul": 0,
+          "system.riskUsed": 0,
+          "system.baseStrainCapacity.mortal": guise?.system.strainCapacity?.mortal ?? 0,
+          "system.baseStrainCapacity.soul": guise?.system.strainCapacity?.soul ?? 0
+        };
+
+        await actor.update(updates);
+        ui.notifications.info(`${actor.name} has completed a Long Rest.`);
+      });
+
     }
 
     async _onDropItemCreate(itemData) {

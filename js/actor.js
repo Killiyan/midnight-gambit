@@ -3,6 +3,7 @@ export class MidnightGambitActor extends Actor {
     super.prepareData();
     const data = this.system;
 
+    //Initialize base attributes
     data.baseAttributes ??= {
       tenacity: 0, finesse: 0, resolve: 0,
       guile: 0, instinct: 0, presence: 0
@@ -10,6 +11,15 @@ export class MidnightGambitActor extends Actor {
 
     const base = foundry.utils.deepClone(data.baseAttributes);
     const guiseId = data.guise;
+
+    // Set default strain values
+    data.strain ??= { mortal: 0, soul: 0 };
+    data.baseStrainCapacity ??= { mortal: 0, soul: 0 };
+
+    // Set default risk dice ammount
+    data.baseRiskDice ??= 5;
+    data.riskDiceCapacity = data.baseRiskDice; // default max
+
     if (guiseId) {
       const guise = game.items.get(guiseId);
       if (guise?.type === "guise") {
@@ -28,6 +38,11 @@ export class MidnightGambitActor extends Actor {
         if (gSys.sparkSlots != null) data.sparkSlots = gSys.sparkSlots;
         if (gSys.riskDice != null) data.riskDice = gSys.riskDice;
         if (gSys.casterType) data.casterType = gSys.casterType;
+
+        // Apply bonus risk capacity (not current count!)
+        if (gSys.riskDice != null) {
+          data.riskDiceCapacity = gSys.riskDice;
+        }
       }
     }
 
