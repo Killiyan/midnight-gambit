@@ -47,6 +47,10 @@ export class MidnightGambitActor extends Actor {
       }
     }
 
+    // Clamp attribute modifiers to -2 (min) and +3 (max)
+    for (const key of Object.keys(base)) {
+      base[key] = Math.max(-2, Math.min(3, base[key]));
+    }
 
     data.level ??= 1;
     data.attributes = base;

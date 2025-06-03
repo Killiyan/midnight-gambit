@@ -368,34 +368,28 @@ export class MidnightGambitActorSheet extends ActorSheet {
         const attrKey = event.currentTarget.dataset.key;
         const mod = this.actor.system.attributes?.[attrKey] ?? 0;
 
-        let roll;
-        let keptDice = [];
-        let rollFormula = "";
-
+        let formula;
         if (mod >= 0) {
-          const pool = 2 + Math.min(mod, 3); // cap at +3
-          roll = new Roll(`${pool}d6kh2`);
-          rollFormula = `${pool}d6 (keep highest 2)`;
+          const pool = 2 + Math.min(mod, 3);
+          formula = `${pool}d6kh2`;
         } else {
-          const pool = 2 + Math.abs(mod); // e.g. -1 = 3d6
-          roll = new Roll(`${pool}d6kl2`);
-          rollFormula = `${pool}d6 (keep lowest 2)`;
+          const pool = 2 + Math.abs(mod);
+          formula = `${pool}d6kl2`;
         }
+
+        // Add space to Foundry formula string
+        const displayFormula = formula.replace("kh2", " kh2").replace("kl2", " kl2");
+        const roll = new Roll(formula);
+        roll._formula = displayFormula; // <-- Tweak what Foundry shows
 
         await roll.evaluate({ async: true });
 
-        // Extract kept dice
-        keptDice = roll.terms[0].results
-          .filter(r => r.active)
-          .map(r => r.result);
-
+        const keptDice = roll.terms[0].results.filter(r => r.active).map(r => r.result);
         const total = keptDice.reduce((a, b) => a + b, 0);
 
-        // Determine result category
-        let resultText = "";
-
+        let resultText;
         if (keptDice.every(d => d === 6)) {
-          resultText = "<strong>ACE!</strong> — You steal the spotlight";
+          resultText = "<strong>ACE!</strong> — You steal the spotlight.";
         } else if (keptDice.every(d => d === 1)) {
           resultText = "<strong>Critical Failure</strong> — It goes horribly wrong.";
         } else if (total <= 6) {
@@ -408,11 +402,8 @@ export class MidnightGambitActorSheet extends ActorSheet {
 
         const chatContent = `
           <div class="chat-roll">
-            <strong>Attribute Roll: ${attrKey.toUpperCase()}</strong><br/>
-            <em>${rollFormula}</em><br/>
-            <strong>Total: ${total}</strong><br/>
-            <strong>Kept Dice:</strong> [${keptDice.join(", ")}]<br/>
-            ${resultText}
+            <strong>Attribute Roll:</strong> <p class=roll-header">${attrKey.toUpperCase()}</p><br/>
+            <strong>${resultText}</strong>
             <hr/>
             ${await roll.render()}
           </div>
@@ -421,11 +412,12 @@ export class MidnightGambitActorSheet extends ActorSheet {
         ChatMessage.create({
           user: game.user.id,
           speaker: ChatMessage.getSpeaker({ actor: this.actor }),
-          content: chatContent
+          content: chatContent,
+          roll: roll,              // <- Add the roll object
+          type: CONST.CHAT_MESSAGE_TYPES.ROLL, // <- Mark it as a roll
+          rollMode: game.settings.get("core", "rollMode") // Respect user roll mode (public/private)
         });
       });
-
-
     }
 
     //Drag and Drop guise action

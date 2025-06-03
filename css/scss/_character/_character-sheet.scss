@@ -41,6 +41,8 @@ h1,h2,h3,h4 {
     }
 
     .actor {
+        color:$mg-ivory;
+
         .character-info {
           position: relative;
         }
@@ -295,6 +297,11 @@ h1,h2,h3,h4 {
 /*Tab Styling
 ==============================================================================*/
 
+//Removing tabs when you minimize the character sheet
+.sheet.minimized nav.sheet-tabs.floating {
+  opacity: 0;
+}
+
 .sheet nav {
   &.sheet-tabs.floating {
     position: absolute;
@@ -306,6 +313,7 @@ h1,h2,h3,h4 {
     z-index: 100;
     pointer-events: auto;
     border: none;
+    opacity: 1;
 
     .item {
       background: $mg-blue-main;
