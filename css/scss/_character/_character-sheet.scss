@@ -182,15 +182,20 @@ h1,h2,h3,h4 {
       transition: all 0.3s ease;
       color: $mg-blue-main-2;
 
+      &:hover,
+      &:focus {
+        color: $mg-blue-3;
+      }
+
       i {
         color: inherit;
       }
 
       &.selected {
         color: $mg-blue-3;
-        transform: scale(1.2);
       }
     }
+
 
     button {
       transition: background-color .5s ease, color 0.5s ease, border .5s ease;
@@ -216,7 +221,7 @@ h1,h2,h3,h4 {
         color: $mg-blue-main-2;
         transition: color 0.2s;
 
-        &.filled {
+        &.filled  i {
           color: $mg-blue-3;
         }
       }
@@ -290,32 +295,46 @@ h1,h2,h3,h4 {
 /*Tab Styling
 ==============================================================================*/
 
-.sheet-tabs.floating {
-  position: absolute;
-  right: -47px;
-  top: 80px;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5em;
-  z-index: 100;
-  pointer-events: auto;
-}
+.sheet nav {
+  &.sheet-tabs.floating {
+    position: absolute;
+    right: -53px;
+    top: 87px;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5em;
+    z-index: 100;
+    pointer-events: auto;
+    border: none;
 
-.sheet-tabs.floating .item {
-  background: #2a2a2a;
-  color: #ccc;
-  padding: 0.5em 1em;
-  border-radius: 0 6px 6px 0;
-  border-left: 3px solid transparent;
-  white-space: nowrap;
-  font-weight: bold;
-  cursor: pointer;
-}
+    .item {
+      background: $mg-blue-main;
+      color: $mg-blue-2;
+      padding: .875rem;
+      border-radius: 0 .625rem .625rem 0;
+      border: 2px solid $mg-blue-main-2;
+      white-space: nowrap;
+      font-weight: bold;
+      cursor: pointer;
+      display: flex;
+      justify-content: center;
+      transition: color .2s ease, border-color .2s ease, background .2s ease;
 
-.sheet-tabs.floating .item.active {
-  background: #444;
-  color: white;
-  border-left: 3px solid var(--color-text-light-heading, #aaa);
+      &:hover,
+      &:focus {
+        background:$mg-blue-3;
+        border-color: $mg-blue-main-2;
+        color: $mg-ivory;
+        text-shadow: none;
+      }
+
+      &.active {
+        background: $mg-blue-3;
+        border-color: $mg-blue-main-2;
+        color: $mg-ivory;
+      }
+    }
+  }
 }
 
 /*Inventory Styling

@@ -8,9 +8,13 @@ export class MidnightGambitActorSheet extends ActorSheet {
   }
 
     async getData(options) {
-      const data = await super.getData(options);
+      const context = await super.getData(options);
 
-      data.attributeKeys = [
+      // Make sure the actor is available in the template
+      context.actor = this.actor;
+      context.system = this.actor.system;
+
+      context.attributeKeys = [
         "tenacity",
         "finesse",
         "resolve",
@@ -18,15 +22,16 @@ export class MidnightGambitActorSheet extends ActorSheet {
         "instinct",
         "presence"
       ];
-      // Inject the full guise object if it exists
+
       const guiseId = this.actor.system.guise;
       if (guiseId) {
-        const guise = game.items.get(guiseId);
-        if (guise) data.guise = guise;
+        const guise = fromUuidSync(guiseId) || game.items.get(guiseId);
+        if (guise) context.guise = guise;
       }
 
-      return data;
+      return context;
     }
+
 
     /** Binds event listeners after rendering. This is the Event listener for most the system*/
     activateListeners(html) {
@@ -88,12 +93,18 @@ export class MidnightGambitActorSheet extends ActorSheet {
         const selected = event.currentTarget.dataset.load;
         await this.actor.update({ "system.load": selected });
 
-        // Remove from all icons
+        // Remove all selected immediately
         html.find(".load-icon").removeClass("selected");
 
-        // Add to the clicked one
-        $(event.currentTarget).addClass("selected");
+        const $clicked = $(event.currentTarget);
+
+        // Step 1: Force reflow to commit the style
+        void $clicked[0].offsetWidth;
+
+        // Step 2: Add animating class
+        $clicked.addClass("selected");
       });
+
 
       /** This adds a tab section for the charaacter sheet and sets the selectors for said tabs. Also sets the tabs to stay on the active tab after a render */
       const currentTab = this.actor.getFlag("midnight-gambit", "activeTab") ?? "general";
@@ -332,6 +343,88 @@ export class MidnightGambitActorSheet extends ActorSheet {
         await this.actor.update({ "system.guise": null });
         this.render(true);
       });
+
+      html.find(".attribute-modifier").on("contextmenu", async (event) => {
+        event.preventDefault();
+
+        const $target = $(event.currentTarget);
+        const attrKey = $target.data("key");
+        const current = Number($target.data("base"));
+
+        const newValue = await Dialog.prompt({
+          title: `Edit ${attrKey}`,
+          content: `<label>Base ${attrKey}: <input type="number" value="${current}" name="value" /></label>`,
+          callback: (html) => html.find('input[name="value"]').val(),
+          rejectClose: false,
+        });
+
+        if (newValue !== null) {
+          await this.actor.update({ [`system.baseAttributes.${attrKey}`]: parseInt(newValue) });
+        }
+      });
+
+      //Rolling Attributes in chat with the right logic
+      html.find(".attribute-modifier").on("click", async (event) => {
+        const attrKey = event.currentTarget.dataset.key;
+        const mod = this.actor.system.attributes?.[attrKey] ?? 0;
+
+        let roll;
+        let keptDice = [];
+        let rollFormula = "";
+
+        if (mod >= 0) {
+          const pool = 2 + Math.min(mod, 3); // cap at +3
+          roll = new Roll(`${pool}d6kh2`);
+          rollFormula = `${pool}d6 (keep highest 2)`;
+        } else {
+          const pool = 2 + Math.abs(mod); // e.g. -1 = 3d6
+          roll = new Roll(`${pool}d6kl2`);
+          rollFormula = `${pool}d6 (keep lowest 2)`;
+        }
+
+        await roll.evaluate({ async: true });
+
+        // Extract kept dice
+        keptDice = roll.terms[0].results
+          .filter(r => r.active)
+          .map(r => r.result);
+
+        const total = keptDice.reduce((a, b) => a + b, 0);
+
+        // Determine result category
+        let resultText = "";
+
+        if (keptDice.every(d => d === 6)) {
+          resultText = "<strong>ACE!</strong> — You steal the spotlight";
+        } else if (keptDice.every(d => d === 1)) {
+          resultText = "<strong>Critical Failure</strong> — It goes horribly wrong.";
+        } else if (total <= 6) {
+          resultText = "Failure — something goes awry.";
+        } else if (total <= 10) {
+          resultText = "Complication — success with a cost.";
+        } else {
+          resultText = "Flourish — narrate your success.";
+        }
+
+        const chatContent = `
+          <div class="chat-roll">
+            <strong>Attribute Roll: ${attrKey.toUpperCase()}</strong><br/>
+            <em>${rollFormula}</em><br/>
+            <strong>Total: ${total}</strong><br/>
+            <strong>Kept Dice:</strong> [${keptDice.join(", ")}]<br/>
+            ${resultText}
+            <hr/>
+            ${await roll.render()}
+          </div>
+        `;
+
+        ChatMessage.create({
+          user: game.user.id,
+          speaker: ChatMessage.getSpeaker({ actor: this.actor }),
+          content: chatContent
+        });
+      });
+
 
     }
 

@@ -21,7 +21,8 @@ export class MidnightGambitActor extends Actor {
     data.riskDiceCapacity = data.baseRiskDice; // default max
 
     if (guiseId) {
-      const guise = game.items.get(guiseId);
+      const guise = fromUuidSync(guiseId) || game.items.get(guiseId);
+
       if (guise?.type === "guise") {
         const gSys = guise.system;
         const modifiers = gSys.modifiers || {};
@@ -32,19 +33,20 @@ export class MidnightGambitActor extends Actor {
           }
         }
 
-        //Put everything here where guise is defined
+        // Additional field logic
         if (gSys.mortalCap != null) data.strain["mortal capacity"] = gSys.mortalCap;
         if (gSys.soulCap != null) data.strain["soul capacity"] = gSys.soulCap;
         if (gSys.sparkSlots != null) data.sparkSlots = gSys.sparkSlots;
         if (gSys.riskDice != null) data.riskDice = gSys.riskDice;
         if (gSys.casterType) data.casterType = gSys.casterType;
 
-        // Apply bonus risk capacity (not current count!)
+        // Apply bonus risk capacity
         if (gSys.riskDice != null) {
           data.riskDiceCapacity = gSys.riskDice;
         }
       }
     }
+
 
     data.level ??= 1;
     data.attributes = base;
@@ -65,7 +67,7 @@ export class MidnightGambitActor extends Actor {
     }
 
     const updates = {
-      "system.guise": guise.id,
+      "system.guise": guise.uuid,
       "system.strain['mortal capacity']": guise.system.mortalCap ?? 5,
       "system.strain['soul capacity']": guise.system.soulCap ?? 5,
       "system.sparkSlots": guise.system.sparkSlots ?? 0,
