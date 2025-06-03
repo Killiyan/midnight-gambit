@@ -84,11 +84,15 @@ export class MidnightGambitActorSheet extends ActorSheet {
         this.render(false);
       });
 
-      /**This is the listener for clicking the :Load Levels */
       html.find(".load-icon").on("click", async (event) => {
-        const load = event.currentTarget.dataset.load;
-        await this.actor.update({ "system.load": load });
-        this.render(false);
+        const selected = event.currentTarget.dataset.load;
+        await this.actor.update({ "system.load": selected });
+
+        // Remove from all icons
+        html.find(".load-icon").removeClass("selected");
+
+        // Add to the clicked one
+        $(event.currentTarget).addClass("selected");
       });
 
       /** This adds a tab section for the charaacter sheet and sets the selectors for said tabs. Also sets the tabs to stay on the active tab after a render */

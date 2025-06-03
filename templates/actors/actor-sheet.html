@@ -17,7 +17,7 @@
       </div>
 
       <div class="personal-info">
-        <div class="name-guise">
+        <div class="name">
           <h1>
             <input type="text" name="name" value="{{actor.name}}" placeholder="Character Name" />
           </h1>
@@ -31,7 +31,7 @@
           <span class="guise-name">
             {{#if guise}}
             <span class="guise-name" data-tooltip="{{guise.system.description}}">
-              Lv {{actor.system.level}} {{guise.name}}
+              <span class="level">Lv {{actor.system.level}}</span> {{guise.name}}
             </span>
             {{else}}
               No Class Assigned
@@ -45,108 +45,108 @@
       
       <!--This is our General tab where Image, and general gameplay goes-->
       <div class="tab" data-group="main" data-tab="general" >
-
-        <button type="button" class="long-rest-button"><i class="fas fa-bed"></i> Long Rest</button>
-
+        <div class="over-image">
+          <button type="button" data-tooltip="Recover" class="long-rest-button"><i class="fas fa-bed"></i></button>
 
           <div class="flashback-track">
             <label data-tooltip="Use this to spend a flashback during a job.">FB</label>
             <span class="flashback-dot {{#unless actor.system.flashbackUsed}}filled{{/unless}}" data-action="flashback">
-              🧠
+              <i class="fa-solid fa-clock-rotate-left"></i>
             </span>
           </div>
 
           <div class="load-toggle">
             <label>Load</label>
             <div class="load-options">
-              <span class="load-icon {{#if (eq actor.system.load 'light')}}selected{{/if}}" data-load="light" title="Light Load">🎒</span>
-              <span class="load-icon {{#if (eq actor.system.load 'medium')}}selected{{/if}}" data-load="medium" title="Medium Load">🧳</span>
-              <span class="load-icon {{#if (eq actor.system.load 'heavy')}}selected{{/if}}" data-load="heavy" title="Heavy Load">💼</span>
+              <span class="load-icon {{#if (eq actor.system.load 'light')}}selected{{/if}}" data-load="light" title="Light Load"><i class="fa-solid fa-feather-pointed"></i></span>
+              <span class="load-icon {{#if (eq actor.system.load 'medium')}}selected{{/if}}" data-load="medium" title="Medium Load"><i class="fa-solid fa-scale-balanced"></i></span>
+              <span class="load-icon {{#if (eq actor.system.load 'heavy')}}selected{{/if}}" data-load="heavy" title="Heavy Load"><i class="fa-solid fa-weight-hanging"></i></span>
             </div>
           </div>
+        </div>
 
-          {{#each attributeKeys}}
-            <div class="attribute-row">
-              <label>{{capitalize this}}</label>
-              <input type="number" name="system.baseAttributes.{{this}}" value="{{lookup ../actor.system.baseAttributes this}}" />
-              <span class="final-attribute">Total: {{lookup ../actor.system.attributes this}}</span>
-            </div>
-          {{/each}}
+        {{#each attributeKeys}}
+          <div class="attribute-row">
+            <label>{{capitalize this}}</label>
+            <input type="number" name="system.baseAttributes.{{this}}" value="{{lookup ../actor.system.baseAttributes this}}" />
+            <span class="final-attribute">Total: {{lookup ../actor.system.attributes this}}</span>
+          </div>
+        {{/each}}
 
-          <div class="strain-track" data-strain="mortal">
-            <label>Mortal Strain:</label>
-            <div class="strain-boxes">
-              {{#range 1 5}}
-                <span class="strain-dot {{#if (lte this ../actor.system.strain.mortal)}}filled{{/if}}"
-                      data-value="{{this}}"
-                      data-type="mortal">
-                  ●
-                </span>
-              {{/range}}
-            </div>
+        <div class="strain-track" data-strain="mortal">
+          <label>Mortal Strain:</label>
+          <div class="strain-boxes">
+            {{#range 1 5}}
+              <span class="strain-dot {{#if (lte this ../actor.system.strain.mortal)}}filled{{/if}}"
+                    data-value="{{this}}"
+                    data-type="mortal">
+                ●
+              </span>
+            {{/range}}
+          </div>
+        </div>
+
+        <div class="strain-track" data-strain="soul">
+          <label>Soul Strain:</label>
+          <div class="strain-boxes">
+            {{#range 1 5}}
+              <span class="strain-dot {{#if (lte this ../actor.system.strain.soul)}}filled{{/if}}"
+                    data-value="{{this}}"
+                    data-type="soul">
+                ●
+              </span>
+            {{/range}}
+          </div>
+        </div>
+
+        <div class="strain-capacity">
+          <div class="capacity-box">
+            <label data-tooltip="Physical damage affects this pool before your main tracks.">MC</label>
+            <input
+              type="number"
+              name="system.strain.mortal capacity"
+              value="{{lookup actor.system.strain 'mortal capacity'}}"
+              min="0"
+              data-tooltip="Physical damage affects this pool before your main tracks." />
           </div>
 
-          <div class="strain-track" data-strain="soul">
-            <label>Soul Strain:</label>
-            <div class="strain-boxes">
-              {{#range 1 5}}
-                <span class="strain-dot {{#if (lte this ../actor.system.strain.soul)}}filled{{/if}}"
-                      data-value="{{this}}"
-                      data-type="soul">
-                  ●
-                </span>
-              {{/range}}
-            </div>
+          <div class="capacity-box">
+            <label data-tooltip="Supernatural or emotional damage affects this pool before your main tracks.">SC</label>
+            <input
+              type="number"
+              name="system.strain.soul capacity"
+              value="{{lookup actor.system.strain 'soul capacity'}}"
+              min="0"
+              data-tooltip="Supernatural or emotional damage affects this pool before your main tracks." />
           </div>
+        </div>
 
-          <div class="strain-capacity">
-            <div class="capacity-box">
-              <label data-tooltip="Physical damage affects this pool before your main tracks.">MC</label>
-              <input
-                type="number"
-                name="system.strain.mortal capacity"
-                value="{{lookup actor.system.strain 'mortal capacity'}}"
-                min="0"
-                data-tooltip="Physical damage affects this pool before your main tracks." />
-            </div>
-
-            <div class="capacity-box">
-              <label data-tooltip="Supernatural or emotional damage affects this pool before your main tracks.">SC</label>
-              <input
-                type="number"
-                name="system.strain.soul capacity"
-                value="{{lookup actor.system.strain 'soul capacity'}}"
-                min="0"
-                data-tooltip="Supernatural or emotional damage affects this pool before your main tracks." />
-            </div>
+        <div class="spark-track" data-resource="spark">
+          <label data-tooltip="Spark slots represent mystical charges or energy. Click to spend or restore.">Spark:</label>
+          <div class="spark-boxes">
+            {{#range 1 actor.system.sparkSlots}}
+              <span class="spark-dot {{#if (sparkShouldFill this ../actor.system.sparkSlots ../actor.system.sparkUsed)}}filled{{/if}}"
+                    data-value="{{this}}">
+                <i class="fas fa-bolt"></i>
+              </span>
+            {{/range}}
           </div>
+        </div>
 
-          <div class="spark-track" data-resource="spark">
-            <label data-tooltip="Spark slots represent mystical charges or energy. Click to spend or restore.">Spark:</label>
-            <div class="spark-boxes">
-              {{#range 1 actor.system.sparkSlots}}
-                <span class="spark-dot {{#if (sparkShouldFill this ../actor.system.sparkSlots ../actor.system.sparkUsed)}}filled{{/if}}"
+        <div class="skills">
+          <h2>Skills</h2>
+
+          <div class="risk-track" data-resource="risk">
+            <label data-tooltip="Risk Dice represent your luck pool. Click to spend or restore.">Risk Dice:</label>
+            <div class="risk-boxes">
+              {{#range 1 actor.system.riskDice}}
+                <span class="risk-dot {{#if (riskShouldFill this ../actor.system.riskDice ../actor.system.riskUsed)}}filled{{/if}}"
                       data-value="{{this}}">
-                  <i class="fas fa-bolt"></i>
+                  ●
                 </span>
               {{/range}}
             </div>
           </div>
-
-          <div class="skills">
-            <h2>Skills</h2>
-
-            <div class="risk-track" data-resource="risk">
-              <label data-tooltip="Risk Dice represent your luck pool. Click to spend or restore.">Risk Dice:</label>
-              <div class="risk-boxes">
-                {{#range 1 actor.system.riskDice}}
-                  <span class="risk-dot {{#if (riskShouldFill this ../actor.system.riskDice ../actor.system.riskUsed)}}filled{{/if}}"
-                        data-value="{{this}}">
-                    ●
-                  </span>
-                {{/range}}
-              </div>
-            </div>
 
           {{#each actor.system.skills}}
             <div>

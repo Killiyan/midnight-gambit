@@ -9,18 +9,22 @@ h1,h2,h3,h4 {
 ==============================================================================*/
 
 .window-app {
+  border: 3px solid $mg-blue-main-2;
+  border-radius: .625rem;
 
   .window-header {
     background: $mg-blue-main;
     color: $mg-ivory;
     border-radius: .5rem .5rem 0 0;
-    @include mg-border();
+    border: 0;
     padding: 1.125rem;
     overflow: visible;
+    height: 100%;
+    width: 100%;
   }
 
   &.minimized {
-    @include mg-border();
+    border: 3px solid $mg-blue-main-2;
     transition: border .2s ease, border-radius .2s ease;
     border-radius: .5rem;
   }
@@ -31,6 +35,11 @@ h1,h2,h3,h4 {
     background: $mg-blue-main;
     @include mg-border();
 
+    &::-webkit-scrollbar-thumb {
+      background: $mg-blue-1;
+      border-color: $mg-blue-2;
+    }
+
     .actor {
         .character-info {
           position: relative;
@@ -39,8 +48,8 @@ h1,h2,h3,h4 {
         .personal-info {
           position: absolute;
           top: 1.25rem;
-          left: 5%;
-          width: 90%;
+          left: 2.5%;
+          width: 95%;
           background: rgba($mg-blue-main, .8);
           display: flex;
           padding: 1.125rem;
@@ -48,13 +57,29 @@ h1,h2,h3,h4 {
           border: 2px solid $mg-blue-main-2;
           justify-content: space-between;
           color: $mg-ivory;
+          z-index: 10;
 
           h1 {
             border-bottom: 0;
+            margin: 0;
+
+            input {
+              @include oswald();
+              text-transform: uppercase;
+              letter-spacing: -.03rem;
+              font-size: 1.5rem;
+            }
+          }
+
+          .crew-field input {
+            color: $mg-blue-2;
+            font-size: .875rem;
+            text-transform: uppercase;
+            letter-spacing: -0.0175rem;
           }
 
           input {
-            border-bottom: .125rem solid $mg-blue-main-2;
+            border-bottom: .125rem solid transparent;
             border-radius: 0;
             border-top: 0;
             border-left: 0;
@@ -62,37 +87,169 @@ h1,h2,h3,h4 {
             background: none;
             color: $mg-ivory;
             padding-bottom: .25rem;
+            transition: border 0.2s ease;
+
+              &:hover,
+              &:focus {
+                border-bottom-color: $mg-ivory;
+              }
 
             &::placeholder {
               color: $mg-ivory !important;
             }
           }
 
-          .name-guise {
+          .guise-display {
             display: flex;
             flex-direction: column;
+
+            .guise-name {
+              @include roboto();
+              font-size: 1.125rem;
+              letter-spacing: -0.0225rem;
+              font-weight: 700;
+              font-style: italic;
+              color: $mg-blue-1;
+
+              .level {
+                font-size: .75rem;
+                color: $mg-blue-2;
+              }
+            }
           }
         }
     }
   }
 }
 
-/*Image and Name styling
+/*Character Sheet Styling
 ==============================================================================*/
-.profile-image {
-  top: 0;
-  right: 0;
-  width: 100%;
-  height: 30rem;
-  z-index: 10;
+
+.sheet .actor {
+  .sheet-body {
+    position: relative;
+  }
+
+  .tab-content {
+    .over-image {
+      position: absolute;
+      top: 9rem;
+      left: -2px;
+      z-index: 10;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 2rem;
+    }
+
+    .long-rest-button,
+    .flashback-track,
+    .load-toggle {
+      background: $mg-blue-main;
+      border: 2px solid $mg-blue-main-2;
+      display: flex;
+      align-items: center;
+      margin: 0;
+      width: auto;
+      padding: 1.125rem 1.9375rem 1.125rem 1rem;
+      border-radius: 0rem 0.625rem 0.625rem 0rem;
+      gap: 1rem;
+      @include oswald();
+      font-size: 1rem;
+      color: $mg-ivory;
+      text-transform: uppercase;
+
+      i {
+        font-size: 1rem;
+        transition: color 0.2s ease;
+        color: $mg-blue-main-2;
+        display: block;
+      }
+    }
+
+    .load-toggle {
+      margin-bottom: 1em;
+    }
+
+    .load-options {
+      display: flex;
+      gap: .875rem;
+    }
+
+    .load-icon {
+      cursor: pointer;
+      transform: scale(1);
+      transition: all 0.3s ease;
+      color: $mg-blue-main-2;
+
+      i {
+        color: inherit;
+      }
+
+      &.selected {
+        color: $mg-blue-3;
+        transform: scale(1.2);
+      }
+    }
+
+    button {
+      transition: background-color .5s ease, color 0.5s ease, border .5s ease;
+
+      &:hover,
+      &:focus {
+        box-shadow: none;
+        background-color: $mg-blue-3;
+        border-color: $mg-blue-main-2;
+
+          i {
+            color: $mg-ivory;
+          }
+      }
+    }
+
+    .flashback-track {
+      gap: 1.775rem;
+
+      .flashback-dot {
+        font-size: 1.5em;
+        cursor: pointer;
+        color: $mg-blue-main-2;
+        transition: color 0.2s;
+
+        &.filled {
+          color: $mg-blue-3;
+        }
+      }
+    }
+  }
+
+  .profile-image {
+    top: 0;
+    right: 0;
+    width: 100%;
+    height: 30rem;
+    z-index: 10;
+    position: relative;
+
+      &:before {
+        background:radial-gradient(80.16% 80.16% at 50% 76.69%, rgba(37, 66, 108, 0.00) 41.35%, #25426C 100%), url(<path-to-image>) transparent 50% / cover no-repeat;
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+      }
+
+      img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        cursor: pointer; 
+      }
+  }
 }
 
-.profile-image img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  cursor: pointer;
-}
 
 
 /*Strain Styling
@@ -128,46 +285,6 @@ h1,h2,h3,h4 {
 }
 .risk-dot.filled {
   color: gold;
-}
-
-/*Flashback and Load Styling
-==============================================================================*/
-
-.flashback-track {
-  margin-bottom: 1em;
-}
-
-.flashback-dot {
-  font-size: 1.5em;
-  cursor: pointer;
-  color: gray;
-  filter: grayscale(100%);
-  transition: filter 0.2s, color 0.2s;
-}
-
-.flashback-dot.filled {
-  color: violet;
-  filter: grayscale(0%);
-}
-
-.load-toggle {
-  margin-bottom: 1em;
-}
-
-.load-options {
-  display: flex;
-  gap: 0.5em;
-}
-
-.load-icon {
-  font-size: 1.5em;
-  cursor: pointer;
-  opacity: 0.4;
-  transition: opacity 0.2s;
-}
-
-.load-icon.selected {
-  opacity: 1;
 }
 
 /*Tab Styling
