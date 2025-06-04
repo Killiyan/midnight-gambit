@@ -64,34 +64,24 @@
             </div>
           </div>
         </div>
-
-        <!--{{#each attributeKeys}}
-          <div class="attribute-row">
-            <label>{{capitalize this}}</label>
-            <input type="number" name="system.baseAttributes.{{this}}" value="{{lookup ../actor.system.baseAttributes this}}" />
-            <span class="final-attribute">Total: {{lookup ../actor.system.attributes this}}</span>
-          </div>
-        {{/each}}-->
-
-        {{#each attributeKeys as |key|}}
-          <div class="attribute-row">
-            <label>{{key}}</label>
-            <span class="attribute-modifier"
-                  data-key="{{key}}"
-                  data-base="{{lookup ../system.baseAttributes key}}">
-              {{#if (gte (lookup ../system.attributes key) 0)}}
-                +{{lookup ../system.attributes key}}
-              {{else}}
-                {{lookup ../system.attributes key}}
-              {{/if}}
-            </span>
-          </div>
-        {{/each}}
-
-
-
-
-
+        
+        <div class="attribute-container">
+          {{#each attributeKeys as |key|}}
+            <div class="attribute-row">
+              <label>{{key}}</label>
+              <span class="attribute-modifier"
+                    data-tooltip="Click to roll | Right click to edit base Attribute"
+                    data-key="{{key}}"
+                    data-base="{{lookup ../system.baseAttributes key}}">
+                {{#if (gte (lookup ../system.attributes key) 0)}}
+                  +{{lookup ../system.attributes key}}
+                {{else}}
+                  {{lookup ../system.attributes key}}
+                {{/if}}
+              </span>
+            </div>
+          {{/each}}
+        </div>
 
         <div class="strain-track" data-strain="mortal">
           <label>Mortal Strain:</label>

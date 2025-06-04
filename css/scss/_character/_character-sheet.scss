@@ -23,6 +23,92 @@ h1,h2,h3,h4 {
     width: 100%;
   }
 
+  .window-content {
+    background: $mg-blue-main;
+    color: $mg-blue-2;
+    @include roboto();
+
+    label {
+      color: $mg-ivory;
+      @include oswald();
+      font-size: 1rem;
+      text-transform: uppercase;
+      margin-bottom: .5rem;
+    }
+
+    input {
+      @include mg-border();
+      border-color: $mg-blue-3;
+      border-radius: .5rem;
+      transition: color .5s ease, border-color .5s ease, box-shadow 0.5s ease;
+
+      &:hover,
+      &:focus {
+        color: $mg-ivory;
+        border-color: $mg-ivory;
+        box-shadow: 0 0 .5rem $mg-ivory;
+      }
+    }
+
+    input[type="number"],
+    input[type="text"] {
+      color: $mg-blue-2;
+      transition: color .5s ease, border-color .5s ease, box-shadow .5s ease;
+
+      &:hover,
+      &:focus {
+        color: $mg-ivory;
+      }
+    }
+
+    input::placeholder {
+       color: $mg-blue-2;
+       transition: color .5s ease;
+    }
+    .dialog-content {
+      gap: 1.125rem;
+
+      input {
+        padding: 1rem;
+        height: auto;
+      }
+    }
+
+    .dialog-buttons {
+      margin-top: 1.125rem;
+    
+      button {
+        background: $mg-blue-3;
+        color: $mg-ivory;
+        @include oswald();
+        font-size: 1rem;
+        text-transform: uppercase;
+        @include mg-border();
+        border-radius: .5rem;
+        transition: background 0.5s ease, color 0.5s ease;
+
+        &:hover {
+          background: $mg-blue-1;
+          color: $mg-blue-main-2;
+          box-shadow: 0 0 .5rem $mg-ivory;
+
+          i {
+            color: $mg-blue-main;
+          }
+        }
+
+        &:focus {
+          box-shadow: none;
+        }
+
+          i {
+            color: $mg-ivory;
+            transition: color 0.5s ease;
+          }
+      }
+    }
+  }
+
   &.minimized {
     border: 3px solid $mg-blue-main-2;
     transition: border .2s ease, border-radius .2s ease;
@@ -169,36 +255,6 @@ h1,h2,h3,h4 {
       }
     }
 
-    .load-toggle {
-      margin-bottom: 1em;
-    }
-
-    .load-options {
-      display: flex;
-      gap: .875rem;
-    }
-
-    .load-icon {
-      cursor: pointer;
-      transform: scale(1);
-      transition: all 0.3s ease;
-      color: $mg-blue-main-2;
-
-      &:hover,
-      &:focus {
-        color: $mg-blue-3;
-      }
-
-      i {
-        color: inherit;
-      }
-
-      &.selected {
-        color: $mg-blue-3;
-      }
-    }
-
-
     button {
       transition: background-color .5s ease, color 0.5s ease, border .5s ease;
 
@@ -225,6 +281,85 @@ h1,h2,h3,h4 {
 
         &.filled  i {
           color: $mg-blue-3;
+        }
+      }
+    }
+
+    .load-toggle {
+      margin-bottom: 1em;
+
+      .load-options {
+        display: flex;
+        gap: .875rem;
+        
+        .load-icon {
+          cursor: pointer;
+          transform: scale(1);
+          transition: all 0.3s ease;
+          color: $mg-blue-main-2;
+
+          &:hover,
+          &:focus {
+            color: $mg-blue-3;
+          }
+
+          i {
+            color: inherit;
+          }
+
+          &.selected {
+            color: $mg-blue-3;
+          }
+        }
+      }
+    }
+
+    .attribute-container {
+      display: flex;
+      gap: 2.125rem;
+      justify-content: center;
+      margin-top: -2.25rem;
+      margin-bottom: 2.125rem;
+      position: relative;
+      z-index: 10;
+      padding: 0 2.125rem 0 2.125rem;
+
+      .attribute-row {
+        display: flex;
+        flex-direction: column;
+        padding: 1.125rem;
+        border-radius: .625rem;
+        background: $mg-blue-main;
+        @include mg-border();
+        padding: 1.125rem;
+        text-align: center;
+        gap: .625rem;
+        width: 100%;
+        
+        label {
+          @include oswald();
+          font-family: 1rem;
+          text-transform: uppercase;
+          color: $mg-ivory;
+        }
+
+        .attribute-modifier {
+          display: flex;
+          justify-content: center;
+          padding: 1.125rem;
+          width: 100%;
+          background: $mg-blue-main-2;
+          color: $mg-blue-1;
+          @include oswald();
+          font-size: 1rem;
+          border-radius: .5rem;
+          transition: background .5s ease, color .5s ease;
+
+          &:hover,
+          &:focus {
+            background: $mg-blue-3;
+            color: $mg-ivory;
+          }
         }
       }
     }
