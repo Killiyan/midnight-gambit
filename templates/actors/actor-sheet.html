@@ -83,33 +83,34 @@
           {{/each}}
         </div>
 
-        <div class="strain-track" data-strain="mortal">
-          <label>Mortal Strain:</label>
-          <div class="strain-boxes">
+        <div class="strain-container">
+
+          <label class="strain-label">Strain</label>
+
+          <div class="strain-track" data-strain="mortal">
+            <label>M</label>
+
             {{#range 1 5}}
               <span class="strain-dot {{#if (lte this ../actor.system.strain.mortal)}}filled{{/if}}"
                     data-value="{{this}}"
                     data-type="mortal">
-                ●
+                <i class="fa-solid fa-dagger"></i>
               </span>
             {{/range}}
           </div>
-        </div>
 
-        <div class="strain-track" data-strain="soul">
-          <label>Soul Strain:</label>
-          <div class="strain-boxes">
+          <div class="strain-track" data-strain="soul">
+            <label>S</label>
+
             {{#range 1 5}}
               <span class="strain-dot {{#if (lte this ../actor.system.strain.soul)}}filled{{/if}}"
                     data-value="{{this}}"
                     data-type="soul">
-                ●
+                <i class="fa-solid fa-moon-over-sun"></i>
               </span>
             {{/range}}
           </div>
-        </div>
 
-        <div class="strain-capacity">
           <div class="capacity-box">
             <label data-tooltip="Physical damage affects this pool before your main tracks.">MC</label>
             <input
@@ -120,7 +121,7 @@
               data-tooltip="Physical damage affects this pool before your main tracks." />
           </div>
 
-          <div class="capacity-box">
+          <div class="capacity-box soul">
             <label data-tooltip="Supernatural or emotional damage affects this pool before your main tracks.">SC</label>
             <input
               type="number"

@@ -230,6 +230,10 @@ h1,h2,h3,h4 {
       gap: 2rem;
     }
 
+    .tab {
+      padding: 0 2.125rem 0 2.125rem;
+    }
+
     .long-rest-button,
     .flashback-track,
     .load-toggle {
@@ -322,7 +326,6 @@ h1,h2,h3,h4 {
       margin-bottom: 2.125rem;
       position: relative;
       z-index: 10;
-      padding: 0 2.125rem 0 2.125rem;
 
       .attribute-row {
         display: flex;
@@ -363,6 +366,83 @@ h1,h2,h3,h4 {
         }
       }
     }
+
+    .strain-container {
+      display: flex;
+      width: 100%;
+      @include mg-border();
+      border-radius: .625rem;
+
+      label {
+        margin-bottom: 0;
+        @include oswald();
+        font-size: 1rem;
+      }
+
+      .strain-track,
+      .capacity-box,
+      .strain-label {
+        padding: 1.25rem;
+        display: flex;
+        gap: .625rem;
+        align-items: center;
+        border-right: 0.125rem solid $mg-blue-main-2;
+
+        label {
+          color: $mg-blue-2;
+        }
+
+
+        i {
+          font-size: 1rem;
+          color: $mg-blue-main-2;
+        }
+      }
+
+      .capacity-box {
+        display: flex;
+        gap: .625rem;
+        justify-content: center;
+
+        input[type="number"] {
+          border-top: none;
+          border-right: none;
+          border-bottom: 2px solid $mg-blue-3;
+          border-left: none;
+          width: 20%;
+          text-align: center;
+          background: none;
+          border-radius: 0;
+          font-size: 1rem;
+
+          &:hover,
+          &:focus {
+            box-shadow: none;
+          }
+        }
+      }
+
+      .strain-dot {
+        transition: color 0.5s ease, transform .5s ease;
+
+        &:hover {
+          transform: scale(1.2);
+        }
+
+        &.filled i {
+          color: $mg-blue-3;
+        }
+      }
+
+      .soul {
+        border: none;
+        color: $mg-blue-2;
+      }
+    }
+
+    .strain-label {
+      color: $mg-ivory;
+    }
   }
 
   .profile-image {
@@ -397,18 +477,6 @@ h1,h2,h3,h4 {
 /*Strain Styling
 ==============================================================================*/
 
-.strain-track {
-  margin-bottom: 1em;
-}
-.strain-boxes {
-  display: flex;
-  gap: 0.5em;
-}
-.strain-dot {
-  cursor: pointer;
-  font-size: 1.5em;
-  color: gray;
-}
 .strain-dot.filled {
   color: red;
 }
