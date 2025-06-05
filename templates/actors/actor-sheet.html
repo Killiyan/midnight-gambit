@@ -204,26 +204,30 @@
         {{/if}}
 
         <div class="skills">
-          <h2>Skills</h2>
+          <div class="skills-header">
+            <label class="skills-label">Skills</label>
 
-          <div class="risk-track" data-resource="risk">
-            <label data-tooltip="Risk Dice represent your luck pool. Click to spend or restore.">Risk Dice:</label>
-            <div class="risk-boxes">
-              {{#range 1 actor.system.riskDice}}
-                <span class="risk-dot {{#if (riskShouldFill this ../actor.system.riskDice ../actor.system.riskUsed)}}filled{{/if}}"
-                      data-value="{{this}}">
-                  ●
-                </span>
-              {{/range}}
+            <div class="risk-track" data-resource="risk">
+              <label data-tooltip="Risk Dice represent your luck pool. Click to spend or restore.">Risk Dice:</label>
+              <div class="risk-boxes">
+                {{#range 1 actor.system.riskDice}}
+                  <span class="risk-dot {{#if (riskShouldFill this ../actor.system.riskDice ../actor.system.riskUsed)}}filled{{/if}}"
+                        data-value="{{this}}">
+                    <i class="fa-solid fa-dice"></i>
+                  </span>
+                {{/range}}
+              </div>
             </div>
           </div>
 
-          {{#each actor.system.skills}}
-            <div>
-              <label>{{@key}}</label>
-              <input type="number" name="actor.system.skills.{{@key}}" value="{{this}}">
-            </div>
-          {{/each}}
+          <div class="skill-container">
+            {{#each actor.system.skills}}
+              <div class="skill">
+                <input type="number" name="actor.system.skills.{{@key}}" value="{{this}}">
+                <label>{{@key}}</label>
+              </div>
+            {{/each}}
+          </div>
         </div>
       </div>
 
