@@ -29,13 +29,17 @@ export class MidnightGambitActorSheet extends ActorSheet {
         if (guise) {
           context.guise = guise;
 
-          const casterType = guise.system?.casterType;
-          const normalized = casterType === "full" ? "caster" : casterType;
-          context.isCaster = ["caster", "half-caster"].includes(normalized);
+          const casterType = guise.system?.casterType ?? null;
+
+          context.isCaster = casterType === "full" || casterType === "half";
+          context.isFullCaster = casterType === "full";
+          context.isHalfCaster = casterType === "half";
 
           console.log("Guise ID:", guiseId);
           console.log("Caster Type:", casterType);
           console.log("isCaster?", context.isCaster);
+          console.log("isFullCaster?", context.isFullCaster);
+          console.log("isHalfCaster?", context.isHalfCaster);
         }
       } else {
         context.isCaster = false;
@@ -433,73 +437,148 @@ export class MidnightGambitActorSheet extends ActorSheet {
           rollMode: game.settings.get("core", "rollMode") // Respect user roll mode (public/private)
         });
       });
+
+      // Handle disabling duplicate spark school selections
+      const select1 = html.find("#spark-school-1");
+      const select2 = html.find("#spark-school-2");
+
+      // Update options to prevent duplicate selection
+      function updateSparkOptions() {
+        const val1 = select1.val();
+        const val2 = select2.val();
+
+        // Reset all options to enabled
+        select1.find("option").prop("disabled", false);
+        select2.find("option").prop("disabled", false);
+
+        // Disable selected option in the opposite select
+        if (val2) {
+          select1.find(`option[value="${val2}"]`).prop("disabled", true);
+        }
+        if (val1) {
+          select2.find(`option[value="${val1}"]`).prop("disabled", true);
+        }
+      }
+
+      // Attach listeners
+      select1.on("change", updateSparkOptions);
+      select2.on("change", updateSparkOptions);
+
+      // Run it once on render to sync state
+      updateSparkOptions();
     }
 
   //Drag and Drop guise action
   async _onDropItemCreate(itemData) {
-if (itemData.type === "guise") {
-  console.log("✅ Dropped a guise item on actor");
+    if (itemData.type === "guise") {
+      console.log("✅ Dropped a guise item on actor");
 
-  // Set base attributes if missing
-  if (!this.actor.system.baseAttributes || Object.keys(this.actor.system.baseAttributes).length === 0) {
-    const base = foundry.utils.deepClone(this.actor.system.attributes);
-    await this.actor.update({ "system.baseAttributes": base });
-  }
+      // Set base attributes if missing
+      if (!this.actor.system.baseAttributes || Object.keys(this.actor.system.baseAttributes).length === 0) {
+        const base = foundry.utils.deepClone(this.actor.system.attributes);
+        await this.actor.update({ "system.baseAttributes": base });
+      }
 
-  let guise = await fromUuid(itemData.uuid || `Item.${itemData._id}`);
-  if (!guise) guise = game.items.get(itemData._id);
-  if (!guise) {
-    ui.notifications.error("Could not locate the dropped Guise item.");
-    return [];
-  }
+      let guise = await fromUuid(itemData.uuid || `Item.${itemData._id}`);
+      if (!guise) guise = game.items.get(itemData._id);
+      if (!guise) {
+        ui.notifications.error("Could not locate the dropped Guise item.");
+        return [];
+      }
 
-  const casterType = guise.system?.casterType ?? null;
+      const casterType = guise.system?.casterType ?? null;
+      let sparkSchool1 = "";
+      let sparkSchool2 = "";
 
-  let sparkSchool1 = "";
-  let sparkSchool2 = "";
+      if (["full", "half"].includes(casterType)) {
+        const schools = [
+          { value: "veiling", label: "Veiling" },
+          { value: "sundering", label: "Sundering" },
+          { value: "binding", label: "Binding" },
+          { value: "drift", label: "Drift" },
+          { value: "threading", label: "Threading" },
+          { value: "warding", label: "Warding" },
+          { value: "shaping", label: "Shaping" },
+          { value: "gloom", label: "Gloom" },
+          { value: "ember", label: "Ember" }
+        ];
 
-  if (["full", "half-caster", "caster"].includes(casterType)) {
-    const schoolOptions = `
-      <option value="">-- Select --</option>
-      <option value="fire">Fire</option>
-      <option value="ice">Ice</option>
-      <option value="arcane">Arcane</option>
-      <option value="void">Void</option>
-    `;
+        const form = document.createElement("form");
 
-    const content = `
-      <form>
-        <label>Spark School 1</label>
-        <select name="sparkSchool1">${schoolOptions}</select>
-        <br />
-        <label>Spark School 2</label>
-        <select name="sparkSchool2">${schoolOptions}</select>
-      </form>
-    `;
+        // Spark School 1
+        const label1 = document.createElement("label");
+        label1.textContent = "Spark School 1";
+        const select1 = document.createElement("select");
+        select1.name = "sparkSchool1";
+        select1.innerHTML = `<option value="">-- Select --</option>` +
+          schools.map(s => `<option value="${s.value}">${s.label}</option>`).join("");
 
-    const result = await Dialog.prompt({
-      title: "Choose Spark Schools",
-      content,
-      callback: (html) => {
-        sparkSchool1 = html.find('[name="sparkSchool1"]').val();
-        sparkSchool2 = html.find('[name="sparkSchool2"]').val();
-      },
-      rejectClose: false,
-    });
-  }
+        form.appendChild(label1);
+        form.appendChild(select1);
 
-  await this.actor.update({
-    "system.guise": guise.id,
-    "system.casterType": casterType,
-    "system.sparkSchool1": sparkSchool1,
-    "system.sparkSchool2": sparkSchool2
-  });
+        let select2;
+        if (["full", "caster"].includes(casterType)) {
+          const label2 = document.createElement("label");
+          label2.textContent = "Spark School 2";
+          select2 = document.createElement("select");
+          select2.name = "sparkSchool2";
+          select2.innerHTML = `<option value="">-- Select --</option>` +
+            schools.map(s => `<option value="${s.value}">${s.label}</option>`).join("");
 
-  ui.notifications.info(`${guise.name} applied as new Guise!`);
-  await this.render(true);
-  return [];
-}
+          // Prevent duplicate selections
+          select1.addEventListener("change", () => {
+            const selected1 = select1.value;
+            select2.querySelectorAll("option").forEach(opt => {
+              opt.disabled = opt.value === selected1 && opt.value !== "";
+            });
+          });
 
+          form.appendChild(label2);
+          form.appendChild(select2);
+        }
+
+        await Dialog.prompt({
+          title: "Choose Spark School(s)",
+          content: form.outerHTML,
+          callback: () => {
+            const selected1 = document.querySelector('[name="sparkSchool1"]')?.value || "";
+            sparkSchool1 = selected1;
+
+            if (["full", "caster"].includes(casterType)) {
+              const selected2 = document.querySelector('[name="sparkSchool2"]')?.value || "";
+              sparkSchool2 = selected2;
+            }
+          },
+          render: (html) => {
+            if (["full", "caster"].includes(casterType)) {
+              const select1El = html[0].querySelector('[name="sparkSchool1"]');
+              const select2El = html[0].querySelector('[name="sparkSchool2"]');
+
+              select1El.addEventListener("change", () => {
+                const selected1 = select1El.value;
+                Array.from(select2El.options).forEach(opt => {
+                  opt.disabled = opt.value === selected1 && opt.value !== "";
+                });
+              });
+            }
+          },
+          rejectClose: false
+        });
+      }
+
+      await this.actor.update({
+        "system.guise": guise.id,
+        "system.casterType": casterType,
+        "system.sparkSchool1": sparkSchool1,
+        "system.sparkSchool2": sparkSchool2
+      });
+
+      ui.notifications.info(`${guise.name} applied as new Guise!`);
+      await this.render(true);
+      return [];
+    }
+
+    return super._onDropItemCreate(itemData);
   }
 
 }

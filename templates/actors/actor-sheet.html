@@ -132,39 +132,76 @@
           </div>
         </div>
 
-        {{#if data.isCaster}}
-          <div class="spark-school-selectors">
-            <label for="sparkSchool1">Spark School 1</label>
-            <select name="system.sparkSchool1">
-              <option value="">-- Select --</option>
-              <option value="fire" {{#if (eq system.sparkSchool1 "fire")}}selected{{/if}}>Fire</option>
-              <option value="ice" {{#if (eq system.sparkSchool1 "ice")}}selected{{/if}}>Ice</option>
-              <option value="arcane" {{#if (eq system.sparkSchool1 "arcane")}}selected{{/if}}>Arcane</option>
-              <option value="void" {{#if (eq system.sparkSchool1 "void")}}selected{{/if}}>Void</option>
-            </select>
+        {{#if (or data.isFullCaster data.isHalfCaster)}}
+          <div class="spark-container">
+            <label class="spark-label" data-tooltip="Spark slots represent mystical charges or energy. Click to spend or restore.">Sparks</label>
 
-            <label for="sparkSchool2">Spark School 2</label>
-            <select name="system.sparkSchool2">
-              <option value="">-- Select --</option>
-              <option value="fire" {{#if (eq system.sparkSchool2 "fire")}}selected{{/if}}>Fire</option>
-              <option value="ice" {{#if (eq system.sparkSchool2 "ice")}}selected{{/if}}>Ice</option>
-              <option value="arcane" {{#if (eq system.sparkSchool2 "arcane")}}selected{{/if}}>Arcane</option>
-              <option value="void" {{#if (eq system.sparkSchool2 "void")}}selected{{/if}}>Void</option>
-            </select>
+            {{#if data.isFullCaster}}
+              <div class="spark-school-selectors">
+                <label for="sparkSchool1">Schools</label>
+                <select id="spark-school-1" name="system.sparkSchool1">
+                  <option value="">-- Select --</option>
+                  <option value="veiling" {{#if (eq system.sparkSchool1 "veiling")}}selected{{/if}}>Veiling</option>
+                  <option value="sundering" {{#if (eq system.sparkSchool1 "sundering")}}selected{{/if}}>Sundering</option>
+                  <option value="binding" {{#if (eq system.sparkSchool1 "binding")}}selected{{/if}}>Binding</option>
+                  <option value="drift" {{#if (eq system.sparkSchool1 "drift")}}selected{{/if}}>Drift</option>
+                  <option value="threading" {{#if (eq system.sparkSchool1 "threading")}}selected{{/if}}>Threading</option>
+                  <option value="warding" {{#if (eq system.sparkSchool1 "warding")}}selected{{/if}}>Warding</option>
+                  <option value="shaping" {{#if (eq system.sparkSchool1 "shaping")}}selected{{/if}}>Shaping</option>
+                  <option value="gloom" {{#if (eq system.sparkSchool1 "gloom")}}selected{{/if}}>Gloom</option>
+                  <option value="ember" {{#if (eq system.sparkSchool1 "ember")}}selected{{/if}}>Ember</option>
+                </select>
+
+                <select id="spark-school-2" class="spark-select" name="system.sparkSchool2">
+                  <option value="">-- Select --</option>
+                  <option value="veiling" {{#if (eq system.sparkSchool2 "veiling")}}selected{{/if}}>Veiling</option>
+                  <option value="sundering" {{#if (eq system.sparkSchool2 "sundering")}}selected{{/if}}>Sundering</option>
+                  <option value="binding" {{#if (eq system.sparkSchool2 "binding")}}selected{{/if}}>Binding</option>
+                  <option value="drift" {{#if (eq system.sparkSchool2 "drift")}}selected{{/if}}>Drift</option>
+                  <option value="threading" {{#if (eq system.sparkSchool2 "threading")}}selected{{/if}}>Threading</option>
+                  <option value="warding" {{#if (eq system.sparkSchool2 "warding")}}selected{{/if}}>Warding</option>
+                  <option value="shaping" {{#if (eq system.sparkSchool2 "shaping")}}selected{{/if}}>Shaping</option>
+                  <option value="gloom" {{#if (eq system.sparkSchool2 "gloom")}}selected{{/if}}>Gloom</option>
+                  <option value="ember" {{#if (eq system.sparkSchool2 "ember")}}selected{{/if}}>Ember</option>
+                </select>
+
+              </div>
+
+            {{else if data.isHalfCaster}}
+              <div class="spark-school-selectors">
+                <label for="sparkSchool1">Spark School</label>
+                <select class="spark-select" name="system.sparkSchool1">
+                  <option value="">-- Select --</option>
+                  <option value="veiling" {{#if (eq system.sparkSchool1 "veiling")}}selected{{/if}}>Veiling</option>
+                  <option value="sundering" {{#if (eq system.sparkSchool1 "sundering")}}selected{{/if}}>Sundering</option>
+                  <option value="binding" {{#if (eq system.sparkSchool1 "binding")}}selected{{/if}}>Binding</option>
+                  <option value="drift" {{#if (eq system.sparkSchool1 "drift")}}selected{{/if}}>Drift</option>
+                  <option value="threading" {{#if (eq system.sparkSchool1 "threading")}}selected{{/if}}>Threading</option>
+                  <option value="warding" {{#if (eq system.sparkSchool1 "warding")}}selected{{/if}}>Warding</option>
+                  <option value="shaping" {{#if (eq system.sparkSchool1 "shaping")}}selected{{/if}}>Shaping</option>
+                  <option value="gloom" {{#if (eq system.sparkSchool1 "gloom")}}selected{{/if}}>Gloom</option>
+                  <option value="ember" {{#if (eq system.sparkSchool1 "ember")}}selected{{/if}}>Ember</option>
+                </select>
+              </div>
+            {{/if}}
+
+            {{#if (or data.isFullCaster data.isHalfCaster)}}
+              <div class="spark-track" data-resource="spark">
+                <div class="spark-boxes">
+                  <label>Slots</label>
+                  <div class="box-container">
+                    {{#range 1 actor.system.sparkSlots}}
+                      <span class="spark-dot {{#if (sparkShouldFill this ../actor.system.sparkSlots ../actor.system.sparkUsed)}}filled{{/if}}"
+                            data-value="{{this}}">
+                        <i class="fa-solid fa-dice-d10"></i>
+                      </span>
+                    {{/range}}
+                  </div>
+                </div>
+              </div>
+            {{/if}}
           </div>
         {{/if}}
-
-        <div class="spark-track" data-resource="spark">
-          <label data-tooltip="Spark slots represent mystical charges or energy. Click to spend or restore.">Spark:</label>
-          <div class="spark-boxes">
-            {{#range 1 actor.system.sparkSlots}}
-              <span class="spark-dot {{#if (sparkShouldFill this ../actor.system.sparkSlots ../actor.system.sparkUsed)}}filled{{/if}}"
-                    data-value="{{this}}">
-                <i class="fas fa-bolt"></i>
-              </span>
-            {{/range}}
-          </div>
-        </div>
 
         <div class="skills">
           <h2>Skills</h2>
