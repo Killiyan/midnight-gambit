@@ -49,13 +49,8 @@
 			"soul capacity": 0
 		},
 
-		"sparks": {
-			"sparkSlots": 0,
-			"sparkUsed": 0,
-			"school1": "",
-			"school2": ""
-		},
-
+		"sparkSlots": 0,
+		"sparkUsed": 0,
 		"riskDice": 5,
 		"riskUsed": 0,
 		"crew": "",
@@ -76,6 +71,10 @@
 		"level": 1,
 		"load": "light",
 		"flashbackUsed": false,
+
+		"casterType": null,
+		"sparkSchool1":"",
+		"sparkSchool2": "",
 
 		"inventory": {
 		"weapons": [

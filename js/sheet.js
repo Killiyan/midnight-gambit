@@ -25,9 +25,24 @@ export class MidnightGambitActorSheet extends ActorSheet {
 
       const guiseId = this.actor.system.guise;
       if (guiseId) {
-        const guise = fromUuidSync(guiseId) || game.items.get(guiseId);
-        if (guise) context.guise = guise;
+        const guise = game.items.get(guiseId);
+        if (guise) {
+          context.guise = guise;
+
+          const casterType = guise.system?.casterType;
+          const normalized = casterType === "full" ? "caster" : casterType;
+          context.isCaster = ["caster", "half-caster"].includes(normalized);
+
+          console.log("Guise ID:", guiseId);
+          console.log("Caster Type:", casterType);
+          console.log("isCaster?", context.isCaster);
+        }
+      } else {
+        context.isCaster = false;
       }
+
+
+      context.data = context;  // <- this makes all context vars available to the template root
 
       return context;
     }
@@ -420,26 +435,71 @@ export class MidnightGambitActorSheet extends ActorSheet {
       });
     }
 
-    //Drag and Drop guise action
-    async _onDropItemCreate(itemData) {
-      if (itemData.type === "guise") {
-        console.log("✅ Dropped a guise item on actor");
+  //Drag and Drop guise action
+  async _onDropItemCreate(itemData) {
+if (itemData.type === "guise") {
+  console.log("✅ Dropped a guise item on actor");
 
-        // Snapshot base attributes if not already set
-        if (!this.actor.system.baseAttributes || Object.keys(this.actor.system.baseAttributes).length === 0) {
-          const base = foundry.utils.deepClone(this.actor.system.attributes);
-          await this.actor.update({ "system.baseAttributes": base });
-        }
+  // Set base attributes if missing
+  if (!this.actor.system.baseAttributes || Object.keys(this.actor.system.baseAttributes).length === 0) {
+    const base = foundry.utils.deepClone(this.actor.system.attributes);
+    await this.actor.update({ "system.baseAttributes": base });
+  }
 
-        // Update actor to reference the guise
-        await this.actor.update({ "system.guise": itemData._id });
-        ui.notifications.info(`${itemData.name} applied as new Guise!`);
+  let guise = await fromUuid(itemData.uuid || `Item.${itemData._id}`);
+  if (!guise) guise = game.items.get(itemData._id);
+  if (!guise) {
+    ui.notifications.error("Could not locate the dropped Guise item.");
+    return [];
+  }
 
-        // Prevent item from being added to inventory
-        return [];
-      }
+  const casterType = guise.system?.casterType ?? null;
 
-      // Let Foundry handle other item types
-      return super._onDropItemCreate(itemData);
-    }
+  let sparkSchool1 = "";
+  let sparkSchool2 = "";
+
+  if (["full", "half-caster", "caster"].includes(casterType)) {
+    const schoolOptions = `
+      <option value="">-- Select --</option>
+      <option value="fire">Fire</option>
+      <option value="ice">Ice</option>
+      <option value="arcane">Arcane</option>
+      <option value="void">Void</option>
+    `;
+
+    const content = `
+      <form>
+        <label>Spark School 1</label>
+        <select name="sparkSchool1">${schoolOptions}</select>
+        <br />
+        <label>Spark School 2</label>
+        <select name="sparkSchool2">${schoolOptions}</select>
+      </form>
+    `;
+
+    const result = await Dialog.prompt({
+      title: "Choose Spark Schools",
+      content,
+      callback: (html) => {
+        sparkSchool1 = html.find('[name="sparkSchool1"]').val();
+        sparkSchool2 = html.find('[name="sparkSchool2"]').val();
+      },
+      rejectClose: false,
+    });
+  }
+
+  await this.actor.update({
+    "system.guise": guise.id,
+    "system.casterType": casterType,
+    "system.sparkSchool1": sparkSchool1,
+    "system.sparkSchool2": sparkSchool2
+  });
+
+  ui.notifications.info(`${guise.name} applied as new Guise!`);
+  await this.render(true);
+  return [];
+}
+
+  }
+
 }

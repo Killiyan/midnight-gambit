@@ -132,6 +132,28 @@
           </div>
         </div>
 
+        {{#if data.isCaster}}
+          <div class="spark-school-selectors">
+            <label for="sparkSchool1">Spark School 1</label>
+            <select name="system.sparkSchool1">
+              <option value="">-- Select --</option>
+              <option value="fire" {{#if (eq system.sparkSchool1 "fire")}}selected{{/if}}>Fire</option>
+              <option value="ice" {{#if (eq system.sparkSchool1 "ice")}}selected{{/if}}>Ice</option>
+              <option value="arcane" {{#if (eq system.sparkSchool1 "arcane")}}selected{{/if}}>Arcane</option>
+              <option value="void" {{#if (eq system.sparkSchool1 "void")}}selected{{/if}}>Void</option>
+            </select>
+
+            <label for="sparkSchool2">Spark School 2</label>
+            <select name="system.sparkSchool2">
+              <option value="">-- Select --</option>
+              <option value="fire" {{#if (eq system.sparkSchool2 "fire")}}selected{{/if}}>Fire</option>
+              <option value="ice" {{#if (eq system.sparkSchool2 "ice")}}selected{{/if}}>Ice</option>
+              <option value="arcane" {{#if (eq system.sparkSchool2 "arcane")}}selected{{/if}}>Arcane</option>
+              <option value="void" {{#if (eq system.sparkSchool2 "void")}}selected{{/if}}>Void</option>
+            </select>
+          </div>
+        {{/if}}
+
         <div class="spark-track" data-resource="spark">
           <label data-tooltip="Spark slots represent mystical charges or energy. Click to spend or restore.">Spark:</label>
           <div class="spark-boxes">
