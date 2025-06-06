@@ -360,6 +360,7 @@ export class MidnightGambitActorSheet extends ActorSheet {
           "system.strain.mortal": 0,
           "system.strain.soul": 0,
           "system.riskUsed": 0,
+          "system.flashbackUsed": false,
           "system.strain.manualOverride.mortal capacity": false,
           "system.strain.manualOverride.soul capacity": false
         };

@@ -616,6 +616,50 @@ h1,h2,h3,h4 {
 
     .signature-perk {
       background: $mg-blue-main-2;
+      padding: 0;
+
+      h3 {
+        @include oswald();
+        font-weight: 700;
+        font-style: italic;
+        font-size: 1.25rem;
+        line-height: 1.1;
+        padding:  1.25rem;
+        display: block;
+        background: $mg-blue-3;
+        color: $mg-ivory;
+        border-radius: .5rem .5rem 0 0;
+        transition: color .5s ease, background .5s ease;
+
+        .post-signature {
+          display: flex;
+          gap: .625rem;
+        }
+
+        &:hover {
+          background: $mg-blue-1;
+          color: $mg-blue-main-2;
+
+          i {
+            color: $mg-blue-3;
+          }
+        }
+
+        i {
+          display: block;
+          font-size: 1.25rem;
+          color: $mg-blue-4;
+          transition: color .5s ease;
+        }
+      }
+
+      p {
+        padding: 0 1.25rem;
+        margin: 1.25rem 0;
+        @include roboto();
+        font-size: 1rem;
+        line-height: 1.5;
+      }
     }
 
     .basic-moves {
