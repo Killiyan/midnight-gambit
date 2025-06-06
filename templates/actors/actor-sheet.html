@@ -208,7 +208,7 @@
             <label class="skills-label">Skills</label>
 
             <div class="risk-track" data-resource="risk">
-              <label data-tooltip="Risk Dice represent your luck pool. Click to spend or restore.">Risk Dice:</label>
+              <label data-tooltip="Risk Dice represent your luck pool. Click to spend or restore.">Risk</label>
               <div class="risk-boxes">
                 {{#range 1 actor.system.riskDice}}
                   <span class="risk-dot {{#if (riskShouldFill this ../actor.system.riskDice ../actor.system.riskUsed)}}filled{{/if}}"
@@ -236,7 +236,7 @@
       </div>
 
       <!--This is our Moves tab. It shows Signature Perk, and moves on the character sheet-->
-      <div class="tab moves-tab" data-tab="moves">
+      <div class="tab tab-moves" data-tab="moves">
         {{#if guise}}
           <div class="signature-perk">
             <h3>
@@ -266,7 +266,7 @@
 
 
       <!--This is our Inventory with Lux and Search-->
-      <div class="tab" data-group="main" data-tab="inventory">
+      <div class="tab tab-inventory" data-group="main" data-tab="inventory">
         <div class="inventory-tab">
 
           <div class="currency-field">
@@ -344,7 +344,7 @@
       </div>
 
       <!--This is our Deck, and currently drawn Gambits-->
-      <div class="tab" data-group="main" data-tab="gambits">
+      <div class="tab tab-gambits" data-group="main" data-tab="gambits">
         <div class="gambit-tab">
 
           <h2>Drawn Cards</h2>
@@ -390,7 +390,7 @@
       </div>
 
       <!--This is our journal for character information/backstory-->
-      <div class="tab" data-group="main" data-tab="journal">
+      <div class="tab  tab-journal" data-group="main" data-tab="journal">
         <div class="journal-fields">
           <div class="field-pair">
             <label>Race</label>
@@ -430,7 +430,7 @@
 
       </div>
 
-      <div class="tab" data-group="main" data-tab="settings">
+      <div class="tab tab-settings" data-group="main" data-tab="settings">
         <div class="guise-display">
           <span class="guise-name">
             {{#if guise}}

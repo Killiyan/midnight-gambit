@@ -494,6 +494,10 @@ h1,h2,h3,h4 {
         gap: 1.25rem;
         border: 0;
 
+        label {
+          color: $mg-ivory;
+        }
+
         .risk-boxes {
           display: flex;
           gap: 1.25rem;
@@ -519,6 +523,70 @@ h1,h2,h3,h4 {
     .skills-header {
       margin-bottom: 0;
       border-radius: .5rem .5rem 0 0;
+    }
+
+    .skill-container {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      padding: 1.25rem;
+      @include mg-border();
+      border-radius: 0 0 .5rem .5rem;
+      margin-bottom: 2.125rem;
+
+      .skill-row {
+        border-right: 2px solid $mg-blue-main-2;
+        padding: .625rem 0 .625rem 1.25rem;
+        display: flex;
+        align-items: center;
+
+        &:nth-child(5n) {
+          border: none;
+        }
+
+        .skill-name {
+          color: $mg-blue-2;
+          @include roboto();
+          font-size: 1rem;
+          letter-spacing: .01em;
+          text-transform: capitalize;
+        }
+
+        .skill-value {
+          @include oswald();
+          font-size: 1rem;
+          text-transform: uppercase;
+          color: $mg-blue-1;
+          margin-right: .625rem;
+          display: inline-flex;
+          padding: .25rem .5rem;
+          border-radius: .5rem;
+          justify-content: center;
+          text-align: center;
+          background: $mg-blue-main-2;
+          transition: color .5s ease, background .5s ease;
+          min-width: 1.875rem;
+
+          &:hover {
+            color: $mg-ivory;
+            background: $mg-blue-3;
+          }
+        }
+      }
+    }
+  }
+
+  .tab-moves {
+
+    .signature-perk {
+      border-radius: .5rem;
+      @include mg-border();
+      padding: 1.25rem;
+      background: $mg-blue-main-2;
+
+      h3 {
+        border-bottom: 1px solid $mg-blue-main;
+        padding-bottom: 1.25rem;
+      }
     }
   }
 
@@ -547,6 +615,18 @@ h1,h2,h3,h4 {
         object-fit: cover;
         cursor: pointer; 
       }
+  }
+
+  .name input{
+    display: inline;
+
+    &:hover,
+    &:focus {
+      box-shadow: none;
+      border-left: none;
+      border-top: none;
+      border-right: none;
+    }
   }
 }
 
