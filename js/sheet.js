@@ -1,3 +1,5 @@
+import { evaluateRoll } from "./roll-utils.js";
+
 export class MidnightGambitActorSheet extends ActorSheet {
   static get defaultOptions() {
     return mergeObject(super.defaultOptions, {
@@ -363,6 +365,7 @@ export class MidnightGambitActorSheet extends ActorSheet {
         this.render(true);
       });
 
+      //Attribute Roll Logic
       html.find(".attribute-modifier").on("contextmenu", async (event) => {
         event.preventDefault();
 
@@ -387,54 +390,14 @@ export class MidnightGambitActorSheet extends ActorSheet {
         const attrKey = event.currentTarget.dataset.key;
         const mod = this.actor.system.attributes?.[attrKey] ?? 0;
 
-        let formula;
-        if (mod >= 0) {
-          const pool = 2 + Math.min(mod, 3);
-          formula = `${pool}d6kh2`;
-        } else {
-          const pool = 2 + Math.abs(mod);
-          formula = `${pool}d6kl2`;
-        }
+        const pool = 2 + Math.abs(mod);
+        const rollType = mod >= 0 ? "kh2" : "kl2";
+        const formula = `${pool}d6${rollType}`;
 
-        // Add space to Foundry formula string
-        const displayFormula = formula.replace("kh2", " kh2").replace("kl2", " kl2");
-        const roll = new Roll(formula);
-        roll._formula = displayFormula; // <-- Tweak what Foundry shows
-
-        await roll.evaluate({ async: true });
-
-        const keptDice = roll.terms[0].results.filter(r => r.active).map(r => r.result);
-        const total = keptDice.reduce((a, b) => a + b, 0);
-
-        let resultText;
-        if (keptDice.every(d => d === 6)) {
-          resultText = "<strong>ACE!</strong> — You steal the spotlight.";
-        } else if (keptDice.every(d => d === 1)) {
-          resultText = "<strong>Critical Failure</strong> — It goes horribly wrong.";
-        } else if (total <= 6) {
-          resultText = "Failure — something goes awry.";
-        } else if (total <= 10) {
-          resultText = "Complication — success with a cost.";
-        } else {
-          resultText = "Flourish — narrate your success.";
-        }
-
-        const chatContent = `
-          <div class="chat-roll">
-            <strong>Attribute Roll:</strong> <p class=roll-header">${attrKey.toUpperCase()}</p><br/>
-            <strong>${resultText}</strong>
-            <hr/>
-            ${await roll.render()}
-          </div>
-        `;
-
-        ChatMessage.create({
-          user: game.user.id,
-          speaker: ChatMessage.getSpeaker({ actor: this.actor }),
-          content: chatContent,
-          roll: roll,              // <- Add the roll object
-          type: CONST.CHAT_MESSAGE_TYPES.ROLL, // <- Mark it as a roll
-          rollMode: game.settings.get("core", "rollMode") // Respect user roll mode (public/private)
+        await evaluateRoll({
+          formula,
+          label: `Attribute Roll: ${attrKey.toUpperCase()}`,
+          actor: this.actor
         });
       });
 
@@ -466,6 +429,62 @@ export class MidnightGambitActorSheet extends ActorSheet {
 
       // Run it once on render to sync state
       updateSparkOptions();
+
+      //Adding Skill rolling logic based off Attributes + and adding Skill +
+      const skillAttributeMap = {
+        brawl: "tenacity", endure: "tenacity", athletics: "tenacity",
+        aim: "finesse", stealth: "finesse", sleight: "finesse",
+        will: "resolve", grit: "resolve",
+        lore: "guile", investigate: "guile", deceive: "guile", spark: "guile",
+        survey: "instinct", hunt: "instinct", nature: "instinct",
+        command: "presence", charm: "presence", perform: "presence"
+      };
+
+      html.find(".skill-name, .skill-value").on("click", async (event) => {
+        const skillKey = event.currentTarget.dataset.key;
+        const skillMod = this.actor.system.skills?.[skillKey] ?? 0;
+
+        const skillAttributeMap = {
+          brawl: "tenacity", endure: "tenacity", athletics: "tenacity",
+          aim: "finesse", stealth: "finesse", sleight: "finesse",
+          will: "resolve", grit: "resolve",
+          lore: "guile", investigate: "guile", deceive: "guile", spark: "guile",
+          survey: "instinct", hunt: "instinct", nature: "instinct",
+          command: "presence", charm: "presence", perform: "presence"
+        };
+
+        const attrKey = skillAttributeMap[skillKey];
+        const attrMod = this.actor.system.attributes?.[attrKey] ?? 0;
+
+        const pool = 2 + Math.abs(attrMod);
+        const rollType = attrMod >= 0 ? "kh2" : "kl2";
+        const formula = `${pool}d6${rollType}`;
+
+        await evaluateRoll({
+          formula,
+          skillMod,
+          label: `Skill Roll: ${skillKey.toUpperCase()} (${attrKey.toUpperCase()})`,
+          actor: this.actor
+        });
+      });
+
+      html.find(".skill-value").on("contextmenu", async (event) => {
+        event.preventDefault();
+        const key = event.currentTarget.dataset.key;
+        const current = parseInt(event.currentTarget.dataset.base) || 0;
+
+        const newValue = await Dialog.prompt({
+          title: `Edit Skill: ${key}`,
+          content: `<label>${key}: <input type="number" value="${current}" name="value" /></label>`,
+          callback: html => html.find('input[name="value"]').val(),
+          rejectClose: false,
+        });
+
+        if (newValue !== null && !isNaN(parseInt(newValue))) {
+          await this.actor.update({ [`system.skills.${key}`]: parseInt(newValue) });
+          this.render(false);
+        }
+      });
     }
 
   //Drag and Drop guise action

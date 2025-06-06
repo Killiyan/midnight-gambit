@@ -221,10 +221,14 @@
           </div>
 
           <div class="skill-container">
-            {{#each actor.system.skills}}
-              <div class="skill">
-                <input type="number" name="actor.system.skills.{{@key}}" value="{{this}}">
-                <label>{{@key}}</label>
+            {{#each system.skills as |value key|}}
+              <div class="skill-row">
+                <span class="skill-value" data-key="{{key}}" data-base="{{value}}">
+                  {{value}}
+                </span>
+                <span class="skill-name" data-key="{{key}}">
+                  {{key}}
+                </span>
               </div>
             {{/each}}
           </div>

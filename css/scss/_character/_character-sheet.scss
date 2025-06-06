@@ -28,6 +28,10 @@ h1,h2,h3,h4 {
     color: $mg-blue-2;
     @include roboto();
 
+  .notes {
+    color: $mg-blue-2;
+  }
+
     label {
       color: $mg-ivory;
       @include oswald();
@@ -37,7 +41,8 @@ h1,h2,h3,h4 {
     }
 
     input,
-    select {
+    select,
+    textarea {
       @include mg-border();
       @include roboto();
       border-color: $mg-blue-3;
@@ -59,7 +64,8 @@ h1,h2,h3,h4 {
     }
 
     input[type="number"],
-    input[type="text"] {
+    input[type="text"],
+    textarea {
       color: $mg-blue-2;
       transition: color .5s ease, border-color .5s ease, box-shadow .5s ease;
 
@@ -270,21 +276,6 @@ h1,h2,h3,h4 {
         transition: color 0.2s ease;
         color: $mg-blue-main-2;
         display: block;
-      }
-    }
-
-    button {
-      transition: background-color .5s ease, color 0.5s ease, border .5s ease;
-
-      &:hover,
-      &:focus {
-        box-shadow: none;
-        background-color: $mg-blue-3;
-        border-color: $mg-blue-main-2;
-
-          i {
-            color: $mg-ivory;
-          }
       }
     }
 
@@ -558,6 +549,22 @@ h1,h2,h3,h4 {
       }
   }
 }
+
+/*Animating Roll behavior
+==============================================================================*/
+@keyframes pop-flash {
+  0%   { transform: scale(1);   opacity: 1; }
+  50%  { transform: scale(1.15); opacity: 1; }
+  100% { transform: scale(1);   opacity: 1; }
+}
+
+.flourish-animate {
+  animation: pop-flash 0.5s ease-out;
+  color: $mg-ivory; // or whatever fits your theme
+  font-weight: bold;
+  display: inline-block;
+}
+
 
 /*Tab Styling
 ==============================================================================*/
