@@ -250,14 +250,16 @@
 
           <div class="basic-moves">
             <h3>Basic Moves</h3>
-            {{#each guise.system.moves}}
-              <div class="move-block" data-move-index="{{@index}}">
-                <strong class="post-move" data-move-name="{{this.name}}" data-move-description="{{this.description}}">
-                  <i class="fa-solid fa-messages"></i>{{this.name}}
-                </strong>
-                <p>{{this.description}}</p>
-              </div>
-            {{/each}}
+            <div class="move-container">
+              {{#each guise.system.moves}}
+                <div class="move-block" data-move-index="{{@index}}">
+                  <strong class="post-move" data-move-name="{{this.name}}" data-move-description="{{this.description}}">
+                    <i class="fa-solid fa-messages"></i>{{this.name}}
+                  </strong>
+                  <p>{{this.description}}</p>
+                </div>
+              {{/each}}
+            </div>
           </div>
         {{else}}
           <p>No guise assigned. Assign one to gain moves.</p>

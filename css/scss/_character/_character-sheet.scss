@@ -238,6 +238,7 @@ h1,h2,h3,h4 {
     position: relative;
   }
 
+  //The first tab of the character sheet
   .tab-content {
     .over-image {
       position: absolute;
@@ -251,9 +252,10 @@ h1,h2,h3,h4 {
     }
 
     .tab {
-      padding: 0 2.125rem 0 2.125rem;
+      padding: 2.125rem;
     }
 
+    //Setting consisten styling for the over image toggles
     .long-rest-button,
     .flashback-track,
     .load-toggle {
@@ -279,6 +281,7 @@ h1,h2,h3,h4 {
       }
     }
 
+    //Differing Flashback slightly
     .flashback-track {
       gap: 1.775rem;
 
@@ -294,6 +297,7 @@ h1,h2,h3,h4 {
       }
     }
 
+    //Specific Load toggling for the spacing and coloring
     .load-toggle {
       margin-bottom: 1em;
 
@@ -323,11 +327,12 @@ h1,h2,h3,h4 {
       }
     }
 
+    //Attribute styling
     .attribute-container {
       display: flex;
       gap: 2.125rem;
       justify-content: center;
-      margin-top: -2.25rem;
+      margin-top: -4.5rem;
       margin-bottom: 2.125rem;
       position: relative;
       z-index: 10;
@@ -351,6 +356,7 @@ h1,h2,h3,h4 {
           color: $mg-ivory;
         }
 
+        //This specifically targets the + or -
         .attribute-modifier {
           display: flex;
           justify-content: center;
@@ -372,6 +378,7 @@ h1,h2,h3,h4 {
       }
     }
 
+    //Combining common header/container styling
     .strain-container,
     .spark-container,
     .skills-header {
@@ -387,6 +394,7 @@ h1,h2,h3,h4 {
         font-size: 1rem;
       }
 
+      //Combining interior styling of the different elements
       .strain-track,
       .capacity-box,
       .strain-label,
@@ -412,6 +420,7 @@ h1,h2,h3,h4 {
         }
       }
 
+      //Giving Capacity box specific styling to overwrite pesky Foundry shite
       .capacity-box {
         display: flex;
         gap: .625rem;
@@ -435,6 +444,7 @@ h1,h2,h3,h4 {
         }
       }
 
+      //This styles the exact icon of strain
       .strain-dot {
         transition: color 0.5s ease, transform .5s ease;
 
@@ -452,6 +462,7 @@ h1,h2,h3,h4 {
         color: $mg-blue-2;
       }
 
+      //Tarking the Spark items to give them full width getting spacing more consistent
       .spark-school-selectors,
       .spark-track {
         width: 100%;
@@ -461,6 +472,7 @@ h1,h2,h3,h4 {
         }
       }
 
+      //Styling Spark track more specifically
       .spark-track {
         border: none;
 
@@ -488,6 +500,7 @@ h1,h2,h3,h4 {
         }
       }
 
+      //Styling Risk Track more specifically
       .risk-track {
         width: 100%;
         display: flex;
@@ -516,10 +529,12 @@ h1,h2,h3,h4 {
       }
     }
 
+    //Overwriting the common color for label
     .strain-label {
       color: $mg-ivory;
     }
 
+    //Start Skill styling and it's grid
     .skills-header {
       margin-bottom: 0;
       border-radius: .5rem .5rem 0 0;
@@ -531,7 +546,6 @@ h1,h2,h3,h4 {
       padding: 1.25rem;
       @include mg-border();
       border-radius: 0 0 .5rem .5rem;
-      margin-bottom: 2.125rem;
 
       .skill-row {
         border-right: 2px solid $mg-blue-main-2;
@@ -575,21 +589,93 @@ h1,h2,h3,h4 {
     }
   }
 
+  //Start the Moves Tab of the character sheet
   .tab-moves {
 
-    .signature-perk {
+    .signature-perk,
+    .move-block {
       border-radius: .5rem;
       @include mg-border();
       padding: 1.25rem;
-      background: $mg-blue-main-2;
+      background: $mg-blue-main;
 
       h3 {
         border-bottom: 1px solid $mg-blue-main;
-        padding-bottom: 1.25rem;
+        padding-bottom: .75rem;
+        font-size: 1.25rem;
+        @include oswald();
+        font-weight: 700;
+        font-style: italic;
+      }
+    }
+
+    .signature-perk {
+      background: $mg-blue-main-2;
+    }
+
+    .basic-moves {
+      h3 {
+        border-bottom: 1px solid $mg-blue-main-2;
+        margin: 2.125rem 0;
+        padding-bottom: .75rem;
+        @include oswald();
+        font-size: 1.25rem;
+      }
+
+      .move-container {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1.25rem;
+
+        .move-block {
+          position: relative;
+          padding: 0;
+
+          .post-move {
+            @include oswald();
+            font-weight: 700;
+            font-style: italic;
+            font-size: 1.25rem;
+            line-height: 1.1;
+            padding:  1.25rem;
+            display: block;
+            background: $mg-blue-3;
+            color: $mg-ivory;
+            border-radius: .5rem .5rem 0 0;
+            display: flex;
+            gap: .625rem;
+            transition: color .5s ease, background .5s ease;
+
+            &:hover {
+              background: $mg-blue-1;
+              color: $mg-blue-main-2;
+
+              i {
+                color: $mg-blue-3;
+              }
+            }
+
+            i {
+              display: block;
+              font-size: 1.25rem;
+              color: $mg-blue-4;
+              transition: color .5s ease;
+            }
+          }
+
+          p {
+            padding: 0 1.25rem;
+            margin: 1.25rem 0;
+            @include roboto();
+            font-size: 1rem;
+            line-height: 1.5;
+          }
+        }
       }
     }
   }
 
+  //Styling the profile image on all tabs
   .profile-image {
     top: 0;
     right: 0;
@@ -617,8 +703,8 @@ h1,h2,h3,h4 {
       }
   }
 
+  //Styling Name input to get rid of the form styling that makes it look weird
   .name input{
-    display: inline;
 
     &:hover,
     &:focus {

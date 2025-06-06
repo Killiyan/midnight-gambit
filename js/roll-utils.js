@@ -10,23 +10,25 @@ export async function evaluateRoll({ formula, rollData = {}, skillMod = 0, label
   	let resultText;
   	const kept = roll.terms[0].results.filter(r => r.active).map(r => r.result);
 	if (kept.every(d => d === 6)) {
-	resultText = `<i class="fa-solid fa-star text-gold"></i> <strong>ACE!</strong> — You steal the spotlight.`;
+	resultText = `<div class="result-label"><i class="fa-solid fa-star text-gold"></i> <strong>ACE!</strong></div><span>You steal the spotlight.</span>`;
 	} else if (kept.every(d => d === 1)) {
-	resultText = `<i class="fa-solid fa-skull-crossbones"></i> <strong>Critical Failure</strong> — It goes horribly wrong.`;
+	resultText = `<div class="result-label"><i class="fa-solid fa-skull-crossbones"></i> <strong>Critical Failure</strong></div><span>It goes horribly wrong.</span>`;
 	} else if (total <= 6) {
-	resultText = `<i class="fa-solid fa-fire-flame"></i> <strong>Failure</strong> — something goes awry.`;
+	resultText = `<div class="result-label"><i class="fa-solid fa-fire-flame"></i> <strong>Failure</strong></div><span>something goes awry.</span>`;
 	} else if (total <= 10) {
-	resultText = `<i class="fa-solid fa-swords"></i> <strong>Complication</strong> — success with a cost.`;
+	resultText = `<div class="result-label"><i class="fa-solid fa-swords"></i> <strong>Complication</strong></div> <span>success with a cost.</span>`;
 	} else {
-	resultText = `<i class="fa-solid fa-sparkles flourish-animate"></i> <strong class="flourish-animate">Flourish</strong> — narrate your success.`;
+	resultText = `<div class="result-label"><i class="fa-solid fa-sparkles flourish-animate"></i> <strong class="flourish-animate">Flourish</strong></div><span>narrate your success.</span>`;
 
 	}
 
 
 	const chatContent = `
 		<div class="chat-roll">
-		<strong>${label}</strong><br/>
-		<strong>${resultText}</strong>
+		<div class="roll-container">
+			<label>${label}</label><br/>
+			<strong>${resultText}</strong>
+		</div>
 		<hr/>
 		${await roll.render()}
 		</div>
