@@ -197,6 +197,9 @@ form button {
 
   .message-sender {
     @include oswald();
+    font-weight: 700;
+    font-style: italic;
+    letter-spacing: .02em;
     text-transform: uppercase;
     font-weight: 400;
   }
