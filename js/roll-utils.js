@@ -14,9 +14,9 @@ export async function evaluateRoll({ formula, rollData = {}, skillMod = 0, label
 	} else if (kept.every(d => d === 1)) {
 	resultText = `<div class="result-label"><i class="fa-solid fa-skull-crossbones"></i> <strong>Critical Failure</strong></div><span>It goes horribly wrong.</span>`;
 	} else if (total <= 6) {
-	resultText = `<div class="result-label"><i class="fa-solid fa-fire-flame"></i> <strong>Failure</strong></div><span>something goes awry.</span>`;
+	resultText = `<div class="result-label"><i class="fa-solid fa-fire-flame result-fail"></i> <strong>Failure</strong></div><span>something goes awry.</span>`;
 	} else if (total <= 10) {
-	resultText = `<div class="result-label"><i class="fa-solid fa-swords"></i> <strong>Complication</strong></div> <span>success with a cost.</span>`;
+	resultText = `<div class="result-label"><i class="fa-solid fa-swords result-mixed"></i> <strong>Complication</strong></div> <span>success with a cost.</span>`;
 	} else {
 	resultText = `<div class="result-label"><i class="fa-solid fa-sparkles flourish-animate"></i> <strong class="flourish-animate">Flourish</strong></div><span>narrate your success.</span>`;
 

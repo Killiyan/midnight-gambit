@@ -9,6 +9,7 @@ export class MidnightGambitActorSheet extends ActorSheet {
     });
   }
 
+
     async getData(options) {
       const context = await super.getData(options);
 
@@ -57,6 +58,26 @@ export class MidnightGambitActorSheet extends ActorSheet {
     /** Binds event listeners after rendering. This is the Event listener for most the system*/
     activateListeners(html) {
       super.activateListeners(html);
+
+      // Dynamically apply .narrow-mode based on sheet width
+      const appWindow = html[0]?.closest(".window-app");
+      const form = html[0];
+
+      if (appWindow && form) {
+        const observer = new ResizeObserver(entries => {
+          for (let entry of entries) {
+            const width = entry.contentRect.width;
+            if (width < 700) {
+              form.classList.add("narrow-mode");
+            } else {
+              form.classList.remove("narrow-mode");
+            }
+          }
+        });
+
+        observer.observe(appWindow);
+        this._resizeObserver = observer;
+      }
 
       /** This looks for strain amount and adds/removes on clicks */
       html.find(".strain-dot").on("click", async (event) => {
@@ -486,6 +507,7 @@ export class MidnightGambitActorSheet extends ActorSheet {
         }
       });
     }
+
 
   //Drag and Drop guise action
   async _onDropItemCreate(itemData) {

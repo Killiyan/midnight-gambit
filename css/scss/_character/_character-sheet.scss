@@ -273,6 +273,10 @@ h1,h2,h3,h4 {
       color: $mg-ivory;
       text-transform: uppercase;
 
+      label {
+        margin: 0;
+      }
+
       i {
         font-size: 1rem;
         transition: color 0.2s ease;
@@ -714,6 +718,80 @@ h1,h2,h3,h4 {
       border-right: none;
     }
   }
+
+  /*Adding Responsive
+ ------------------------------*/
+
+ &.narrow-mode {
+  touch-action: manipulation;
+  overscroll-behavior: none;
+
+  .strain-dot,
+  .risk-dot,
+  .spark-dot,
+  .load-icon,
+  .attribute-modifier,
+  .skill-name {
+    outline: none;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  pointer-events: auto;
+  /* prevent focus */
+  -webkit-user-select: none;
+  user-select: none;
+  }
+
+  .tab-content {
+
+    .attribute-container {
+      flex-wrap: wrap;
+
+      .attribute-row {
+        width: auto;
+        min-width: 6.125rem;
+      }
+    }
+
+    .strain-track,
+    .spark-container {
+      flex-direction: column;
+    }
+
+    .spark-container {
+      .spark-label,
+      .spark-school-selectors {
+        border: none;
+        flex-wrap: wrap;
+      }
+    }
+
+    .risk-track,
+    .risk-boxes,
+    .box-container {
+      flex-wrap: wrap;
+    }
+
+    .capacity-box {
+      align-items: flex-start;
+      flex-wrap: wrap;
+    }
+
+    .skill-container {
+      display: flex;
+      flex-wrap: wrap;
+
+      .skill-row {
+        width: 50%;
+        border: none;
+
+        &:nth-of-type(odd) {
+          border-right: 2px $mg-blue-main-2 solid;
+        }
+      }
+    }
+  }
+ }
 }
 
 /*Animating Roll behavior
@@ -729,6 +807,38 @@ h1,h2,h3,h4 {
   color: $mg-ivory; // or whatever fits your theme
   font-weight: bold;
   display: inline-block;
+}
+
+.result-label i {
+  &.result-flourish {
+    animation: flourish-pulse 1s ease-in-out;
+  }
+
+  &.result-mixed {
+    animation: shake 0.6s;
+  }
+
+  &.result-fail {
+    animation: fail-grow 0.4s ease-in-out;
+  }
+}
+
+@keyframes flourish-pulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.05) rotate(-1deg); }
+  100% { transform: scale(1); }
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-6px); }
+  40%, 80% { transform: translateX(6px); }
+}
+
+@keyframes fail-grow {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.3); color: #ff4444; }
+  100% { transform: scale(1); }
 }
 
 
