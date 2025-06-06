@@ -46,7 +46,11 @@
 			"mortal": 0,
 			"soul": 0,
 			"mortal capacity": 0,
-			"soul capacity": 0
+			"soul capacity": 0,
+			"manualOverride": {
+				"mortal capacity": false,
+				"soul capacity": false
+			}
 		},
 
 		"sparkSlots": 0,

@@ -16,6 +16,17 @@ export class MidnightGambitActor extends Actor {
     data.strain ??= { mortal: 0, soul: 0 };
     data.baseStrainCapacity ??= { mortal: 0, soul: 0 };
 
+    //Setting Manual override until next long rest
+    const manualOverride = data.strain?.manualOverride ?? {};
+
+    if (!manualOverride["mortal capacity"]) {
+      data.strain["mortal capacity"] = data.baseStrainCapacity?.mortal ?? 0;
+    }
+    if (!manualOverride["soul capacity"]) {
+      data.strain["soul capacity"] = data.baseStrainCapacity?.soul ?? 0;
+    }
+
+
     // Set default risk dice ammount
     data.baseRiskDice ??= 5;
     data.riskDiceCapacity = data.baseRiskDice; // default max
@@ -33,17 +44,22 @@ export class MidnightGambitActor extends Actor {
           }
         }
 
-        // Additional field logic
-        if (gSys.mortalCap != null) data.strain["mortal capacity"] = gSys.mortalCap;
-        if (gSys.soulCap != null) data.strain["soul capacity"] = gSys.soulCap;
-        if (gSys.sparkSlots != null) data.sparkSlots = gSys.sparkSlots;
-        if (gSys.riskDice != null) data.riskDice = gSys.riskDice;
-        if (gSys.casterType) data.casterType = gSys.casterType;
+        // Defensive init
+        data.strain.manualOverride ??= {};
+        const manual = data.strain.manualOverride;
 
-        // Apply bonus risk capacity
-        if (gSys.riskDice != null) {
-          data.riskDiceCapacity = gSys.riskDice;
+        // Only overwrite if not overridden
+        if (!manual["mortal capacity"]) {
+          data.strain["mortal capacity"] = gSys.mortalCap ?? 0;
         }
+
+        if (!manual["soul capacity"]) {
+          data.strain["soul capacity"] = gSys.soulCap ?? 0;
+        }
+
+        data.sparkSlots = gSys.sparkSlots ?? 0;
+        data.riskDice = gSys.riskDice ?? 5;
+        data.casterType = gSys.casterType ?? null;
       }
     }
 

@@ -360,13 +360,16 @@ export class MidnightGambitActorSheet extends ActorSheet {
           "system.strain.mortal": 0,
           "system.strain.soul": 0,
           "system.riskUsed": 0,
-          "system.baseStrainCapacity.mortal": guise?.system.strainCapacity?.mortal ?? 0,
-          "system.baseStrainCapacity.soul": guise?.system.strainCapacity?.soul ?? 0
+          "system.strain.manualOverride.mortal capacity": false,
+          "system.strain.manualOverride.soul capacity": false
         };
 
         await actor.update(updates);
+        await actor.prepareData();  // force recompute
+        this.render(true);
         ui.notifications.info(`${actor.name} has completed a Long Rest.`);
       });
+
 
       //Remove guise button to return the sheet to default if needed.
       html.find(".remove-guise").on("click", async (event) => {
@@ -506,6 +509,30 @@ export class MidnightGambitActorSheet extends ActorSheet {
           this.render(false);
         }
       });
+
+      //Setting values before Foundry Sheet refresh - Fixes Mortal and Soul Capacity
+      html.find("input").on("keydown", async (event) => {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          const input = event.currentTarget;
+          const name = input.name;
+          const value = parseInt(input.value);
+
+          const updates = {};
+
+          if (name === "system.strain.mortal capacity") {
+            updates["system.strain.manualOverride.mortal capacity"] = true;
+            updates["system.strain.mortal capacity"] = value;
+          } else if (name === "system.strain.soul capacity") {
+            updates["system.strain.manualOverride.soul capacity"] = true;
+            updates["system.strain.soul capacity"] = value;
+          }
+
+          await this.actor.update(updates);
+          input.blur();
+        }
+      });
+
     }
 
 
