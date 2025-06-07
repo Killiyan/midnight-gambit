@@ -582,6 +582,55 @@ export class MidnightGambitActorSheet extends ActorSheet {
         if (item) item.sheet.render(true);
       });
 
+      //Posting Item Tags listener
+      html.find(".post-weapon-tags, .post-armor-tags, .post-misc-tags").on("click", async (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+
+        const itemId = event.currentTarget.dataset.itemId;
+        const item = this.actor.items.get(itemId);
+        if (!item) return;
+
+        const { name, system, type } = item;
+        const tagData = (system.tags || [])
+          .map(tagId => {
+            const tagDef = CONFIG.MidnightGambit?.ITEM_TAGS?.find(t => t.id === tagId);
+            return tagDef
+              ? `<span class="item-tag" data-tooltip="${tagDef.description}">${tagDef.label}</span>`
+              : `<span class="item-tag">${tagId}</span>`;
+          })
+          .join(" ");
+
+
+        let extraInfo = "";
+
+        if (type === "weapon" && system.strainDamage) {
+          extraInfo += `<p><strong>Strain Damage:</strong> ${system.strainDamage}</p>`;
+        }
+
+        if (type === "armor") {
+          const mc = system.mortalCapacity ?? 0;
+          const sc = system.soulCapacity ?? 0;
+          if (mc || sc) {
+            extraInfo += `<p><strong>Strain Capacity:</strong> MC ${mc} / SC ${sc}</p>`;
+          }
+        }
+
+        const content = `
+          <div class="chat-item">
+            <h2>${name}</h2>
+            ${system.description ? `<p><em>${system.description}</em></p>` : ""}
+            ${extraInfo}
+            ${tagData ? `<p><strong>Tags:</strong><br>${tagData}</p>` : ""}
+          </div>
+        `;
+
+        ChatMessage.create({
+          user: game.user.id,
+          speaker: ChatMessage.getSpeaker({ actor: this.actor }),
+          content
+        });
+      });
     }
     //END EVENT LISTENERS
     //---------------------------------------------------------------------------------------------------------------------------

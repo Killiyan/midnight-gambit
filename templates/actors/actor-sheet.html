@@ -293,12 +293,21 @@
             <!-- Weapons - Item -->
             {{#each (filterItems @root.actor.items "weapon") as |item|}}
               <div class="inventory-item" data-item-id="{{item._id}}">
-                <span class="clickable-item">{{item.name}}</span>
+                <span>
+                  <button class="post-weapon-tags" data-item-id="{{item._id}}" title="Post Weapon Tags to Chat">
+                    <i class="fas fa-tags"></i>
+                  </button>
+                  <span class="clickable-item">{{item.name}}</span>
+                </span>
                 <span><input type="number" class="item-quantity" value="{{item.system.quantity}}" min="0" /></span>
                 <span><input type="checkbox" class="item-equipped" {{#if item.system.equipped}}checked{{/if}} /></span>
                 <span class="item-tags">
                   {{#each item.system.tags}}
-                    <span class="item-tag">{{this}}</span>
+                    {{#with (lookup ../../CONFIG.MidnightGambit.ITEM_TAGS this) as |tag|}}
+                      <span class="item-tag" data-tooltip="{{tag.description}}">{{tag.label}}</span>
+                    {{else}}
+                      <span class="item-tag">{{this}}</span>
+                    {{/with}}
                   {{/each}}
                 </span>
 
@@ -322,12 +331,21 @@
             <!-- Armor - Item -->
             {{#each (filterItems @root.actor.items "armor") as |item|}}
               <div class="inventory-item" data-item-id="{{item._id}}">
-                <span class="clickable-item">{{item.name}}</span>
+                <span>
+                  <button class="post-armor-tags" data-item-id="{{item._id}}" title="Post Armor Tags to Chat">
+                    <i class="fas fa-tags"></i>
+                  </button>
+                  <span class="clickable-item">{{item.name}}</span>
+                </span>
                 <span><input type="number" class="item-quantity" value="{{item.system.quantity}}" min="0" /></span>
                 <span><input type="checkbox" class="item-equipped" {{#if item.system.equipped}}checked{{/if}} /></span>
                 <span class="item-tags">
                   {{#each item.system.tags}}
-                    <span class="item-tag">{{this}}</span>
+                    {{#with (lookup ../../CONFIG.MidnightGambit.ITEM_TAGS this) as |tag|}}
+                      <span class="item-tag" data-tooltip="{{tag.description}}">{{tag.label}}</span>
+                    {{else}}
+                      <span class="item-tag">{{this}}</span>
+                    {{/with}}
                   {{/each}}
                 </span>
 
@@ -346,12 +364,21 @@
             <!-- Misc - Item -->
             {{#each (filterItems @root.actor.items "misc") as |item|}}
               <div class="inventory-item" data-item-id="{{item._id}}">
-                <span class="clickable-item">{{item.name}}</span>
+                <span>
+                  <button class="post-misc-tags" data-item-id="{{item._id}}" title="Post Misc Tags to Chat">
+                    <i class="fas fa-tags"></i>
+                  </button>
+                  <span class="clickable-item">{{item.name}}</span>
+                </span>
                 <span><input type="number" class="item-quantity" value="{{item.system.quantity}}" min="0" /></span>
                 <span><input type="checkbox" class="item-equipped" {{#if item.system.equipped}}checked{{/if}} /></span>
                 <span class="item-tags">
                   {{#each item.system.tags}}
-                    <span class="item-tag">{{this}}</span>
+                    {{#with (lookup ../../CONFIG.MidnightGambit.ITEM_TAGS this) as |tag|}}
+                      <span class="item-tag" data-tooltip="{{tag.description}}">{{tag.label}}</span>
+                    {{else}}
+                      <span class="item-tag">{{this}}</span>
+                    {{/with}}
                   {{/each}}
                 </span>
 
