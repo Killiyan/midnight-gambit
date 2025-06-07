@@ -40,3 +40,21 @@ Handlebars.registerHelper("sparkShouldFill", function(index, total, used) {
   const remaining = total - used;
   return index <= remaining;
 });
+
+//Filter Items Handlebar
+Handlebars.registerHelper("filterItems", function(items, type) {
+  return items.filter(item => item.type === type);
+});
+
+Handlebars.registerHelper("eq", function(a, b) {
+  return a === b;
+});
+
+Handlebars.registerHelper("join", function(array, separator) {
+  return Array.isArray(array) ? array.join(separator) : "";
+});
+
+Handlebars.registerHelper("includes", function(array, value) {
+  return Array.isArray(array) && array.includes(value);
+});
+

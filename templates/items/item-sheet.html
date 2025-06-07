@@ -1,0 +1,46 @@
+<form class="item-sheet" autocomplete="off">
+  <header class="sheet-header">
+    <img class="profile-img" src="{{item.img}}" data-edit="img" title="{{item.name}}" />
+    <h1><input name="name" type="text" value="{{item.name}}" /></h1>
+  </header>
+
+  <section class="sheet-body">
+    <label>Description</label>
+    <textarea name="system.description">{{system.description}}</textarea>
+
+	<label>Tags</label>
+	<div class="tag-selector">
+	{{#each tags}}
+		<button
+		type="button"
+		class="tag-pill {{#if (includes ../system.tags this.id)}}selected{{/if}}"
+		data-tag-id="{{this.id}}"
+		title="{{this.description}}"
+		>
+		{{this.label}}
+		</button>
+	{{/each}}
+	</div>
+
+    {{#if (eq itemType "weapon")}}
+      <label>Strain Damage</label>
+      <input type="number" name="system.strainDamage" value="{{system.strainDamage}}" min="0" />
+    {{/if}}
+
+    {{#if (eq itemType "armor")}}
+      <label>Mortal Capacity</label>
+      <input type="number" name="system.mortalCapacity" value="{{system.mortalCapacity}}" min="0" />
+      <label>Soul Capacity</label>
+      <input type="number" name="system.soulCapacity" value="{{system.soulCapacity}}" min="0" />
+    {{/if}}
+
+    {{#if (eq itemType "misc")}}
+      <label>Strain Damage</label>
+      <input type="number" name="system.strainDamage" value="{{system.strainDamage}}" min="0" />
+      <label>Mortal Capacity</label>
+      <input type="number" name="system.mortalCapacity" value="{{system.mortalCapacity}}" min="0" />
+      <label>Soul Capacity</label>
+      <input type="number" name="system.soulCapacity" value="{{system.soulCapacity}}" min="0" />
+    {{/if}}
+  </section>
+</form>

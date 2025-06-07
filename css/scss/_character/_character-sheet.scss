@@ -1073,3 +1073,31 @@ h1,h2,h3,h4 {
   margin-top: 0.25rem;
   white-space: pre-wrap;
 }
+
+.tag-selector {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5em;
+}
+
+.tag-pill {
+  background: #333;
+  color: #fff;
+  border: 1px solid #555;
+  padding: 0.3em 0.6em;
+  border-radius: 0.4em;
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: background 0.2s, border 0.2s;
+}
+
+.tag-pill:hover {
+  background: #444;
+}
+
+.tag-pill.selected {
+  background: #00c2ff;
+  border-color: #00f0ff;
+  color: black;
+  font-weight: bold;
+}

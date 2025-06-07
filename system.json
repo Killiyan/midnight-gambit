@@ -2,7 +2,7 @@
   "name": "midnight-gambit",
   "title": "Midnight Gambit",
   "type": "system",
-  "version": "0.1.0",
+  "version": "0.1.5",
   "author": "Vaughn Gallagher / Killiyan",
   "description": "A custom system for high-stakes narrative action.",
   "esmodules": ["midnight-gambit.js"],
@@ -22,7 +22,7 @@
     "gridUnits": "ft",
     "primaryTokenAttribute": "strain.mortal",
     "actorTypes": ["character"],
-    "itemTypes": ["guise", "weapon"]
+    "itemTypes": ["guise", "weapon", "armor", "misc"]
   },
   "config": {
     "actorTypes": {
@@ -33,7 +33,9 @@
 
     "itemTypes": {
       "guise": {"label": "Guise"},
-      "weapon": {"label": "Weapon"}
+      "weapon": { "label": "Weapon" },
+      "armor":  { "label": "Armor" },
+      "misc":   { "label": "Misc" }
     }
   }
 }

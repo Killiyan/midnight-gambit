@@ -534,8 +534,57 @@ export class MidnightGambitActorSheet extends ActorSheet {
         }
       });
 
-    }
+      // Handle quantity changes
+      html.find(".item-quantity").on("change", async (event) => {
+        const itemId = event.currentTarget.closest(".inventory-item").dataset.itemId;
+        const quantity = parseInt(event.currentTarget.value);
+        const item = this.actor.items.get(itemId);
+        if (item) await item.update({ "system.quantity": quantity });
+      });
 
+      html.find(".item-equipped").on("change", async (event) => {
+        const itemId = event.currentTarget.closest(".inventory-item").dataset.itemId;
+        const equipped = event.currentTarget.checked;
+        const item = this.actor.items.get(itemId);
+        if (item) await item.update({ "system.equipped": equipped });
+      });
+
+      //Remove item from Inventory
+      html.find(".item-delete").on("click", async (event) => {
+        const itemId = event.currentTarget.dataset.itemId;
+        const item = this.actor.items.get(itemId);
+        if (!item) return;
+
+        const confirmed = await Dialog.confirm({
+          title: `Delete ${item.name}?`,
+          content: `<p>Are you sure you want to permanently delete <strong>${item.name}</strong> from your inventory?</p>`,
+          yes: () => true,
+          no: () => false,
+          defaultYes: false
+        });
+
+        if (confirmed) {
+          await item.delete();
+        }
+      });
+
+      // Open item sheet when clicking the inventory item
+      html.find(".clickable-item").on("click", async (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+
+        // Go up to the inventory-item div
+        const parent = event.currentTarget.closest(".inventory-item");
+        if (!parent) return;
+
+        const itemId = parent.dataset.itemId;
+        const item = this.actor.items.get(itemId);
+        if (item) item.sheet.render(true);
+      });
+
+    }
+    //END EVENT LISTENERS
+    //---------------------------------------------------------------------------------------------------------------------------
 
   //Drag and Drop guise action
   async _onDropItemCreate(itemData) {
@@ -649,5 +698,6 @@ export class MidnightGambitActorSheet extends ActorSheet {
 
     return super._onDropItemCreate(itemData);
   }
-
+  //END DRAG AND DROP
+  //---------------------------------------------------------------------------------------------------------------------------
 }

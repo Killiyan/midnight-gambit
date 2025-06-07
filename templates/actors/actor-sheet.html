@@ -289,20 +289,25 @@
               <span>Equipped</span>
               <span>Tags</span>
             </div>
-            <div class="inventory-list weapon-list">
-              {{#each actor.system.inventory.weapons}}
-                <div class="inventory-item">
-                  <span>{{this.name}}</span>
-                  <span>{{this.quantity}}</span>
-                  <span><input type="checkbox" {{#if this.equipped}}checked{{/if}} disabled></span>
-                  <span class="item-tags">
-                    {{#each this.tags}}
-                      <span class="item-tag">{{this}}</span>
-                    {{/each}}
-                  </span>
-                </div>
-              {{/each}}
-            </div>
+
+            <!-- Weapons - Item -->
+            {{#each (filterItems @root.actor.items "weapon") as |item|}}
+              <div class="inventory-item" data-item-id="{{item._id}}">
+                <span class="clickable-item">{{item.name}}</span>
+                <span><input type="number" class="item-quantity" value="{{item.system.quantity}}" min="0" /></span>
+                <span><input type="checkbox" class="item-equipped" {{#if item.system.equipped}}checked{{/if}} /></span>
+                <span class="item-tags">
+                  {{#each item.system.tags}}
+                    <span class="item-tag">{{this}}</span>
+                  {{/each}}
+                </span>
+
+                <button class="item-delete" data-item-id="{{item._id}}" title="Delete Item">
+                  <i class="fas fa-trash"></i>
+                </button>
+
+              </div>
+            {{/each}}
           </div>
 
           <!-- Armor -->
@@ -314,33 +319,49 @@
               <span>Equipped</span>
               <span>Tags</span>
             </div>
-            <div class="inventory-list armor-list">
-              {{#each actor.system.inventory.armor}}
-                <div class="inventory-item">
-                  <span>{{this.name}}</span>
-                  <span>{{this.quantity}}</span>
-                  <span><input type="checkbox" {{#if this.equipped}}checked{{/if}} disabled></span>
-                  <span class="item-tags">
-                    {{#each this.tags}}
-                      <span class="item-tag">{{this}}</span>
-                    {{/each}}
-                  </span>
-                </div>
-              {{/each}}
-            </div>
+            <!-- Armor - Item -->
+            {{#each (filterItems @root.actor.items "armor") as |item|}}
+              <div class="inventory-item" data-item-id="{{item._id}}">
+                <span class="clickable-item">{{item.name}}</span>
+                <span><input type="number" class="item-quantity" value="{{item.system.quantity}}" min="0" /></span>
+                <span><input type="checkbox" class="item-equipped" {{#if item.system.equipped}}checked{{/if}} /></span>
+                <span class="item-tags">
+                  {{#each item.system.tags}}
+                    <span class="item-tag">{{this}}</span>
+                  {{/each}}
+                </span>
+
+                <button class="item-delete" data-item-id="{{item._id}}" title="Delete Item">
+                  <i class="fas fa-trash"></i>
+                </button>
+
+              </div>
+            {{/each}}
+
           </div>
 
           <!-- Misc -->
           <div class="inventory-section misc">
             <h3>Misc</h3>
-            <div class="inventory-list misc-list">
-              {{#each actor.system.inventory.misc}}
-                <div class="inventory-item">
-                  <span>{{this.name}}</span>
-                  <span>{{this.quantity}}</span>
-                </div>
-              {{/each}}
-            </div>
+            <!-- Misc - Item -->
+            {{#each (filterItems @root.actor.items "misc") as |item|}}
+              <div class="inventory-item" data-item-id="{{item._id}}">
+                <span class="clickable-item">{{item.name}}</span>
+                <span><input type="number" class="item-quantity" value="{{item.system.quantity}}" min="0" /></span>
+                <span><input type="checkbox" class="item-equipped" {{#if item.system.equipped}}checked{{/if}} /></span>
+                <span class="item-tags">
+                  {{#each item.system.tags}}
+                    <span class="item-tag">{{this}}</span>
+                  {{/each}}
+                </span>
+
+                <button class="item-delete" data-item-id="{{item._id}}" title="Delete Item">
+                  <i class="fas fa-trash"></i>
+                </button>
+
+              </div>
+            {{/each}}
+
           </div>
         </div>
       </div>

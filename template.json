@@ -1,26 +1,55 @@
 {
 	"Actor": {
 		"types": [
-		"character",
-		"npc"
+			"character",
+			"npc"
 		]
 	},
 	"Item": {
-		"types": ["guise", "weapon"]
+		"types": ["guise", "weapon", "armor", "misc"],
+		"weapon": {
+			"system": {
+				"description": "",
+				"tags": [],
+				"quantity": 1,
+				"equipped": false,
+				"strainDamage": 0
+			}
+		},
+		"armor": {
+			"system": {
+				"description": "",
+				"tags": [],
+				"quantity": 1,
+				"equipped": false,
+				"mortalCapacity": 0,
+				"soulCapacity": 0
+			}
+		},
+		"misc": {
+			"system": {
+				"description": "",
+				"tags": [],
+				"quantity": 1,
+				"equipped": false,
+				"strainDamage": 0,
+				"mortalCapacity": 0,
+				"soulCapacity": 0
+			}
+		}
 	},
 
 	"type": "character",
 	"name": "New Character",
 	"system": {
 		"attributes": {
-		"tenacity": 0,
-		"finesse": 0,
-		"resolve": 0,
-		"guile": 0,
-		"instinct": 0,
-		"presence": 0
+			"tenacity": 0,
+			"finesse": 0,
+			"resolve": 0,
+			"guile": 0,
+			"instinct": 0,
+			"presence": 0
 		},
-
 		"skills": {
 			"brawl": 0,
 			"endure": 0,
@@ -41,7 +70,6 @@
 			"charm": 0,
 			"perform": 0
 		},
-
 		"strain": {
 			"mortal": 0,
 			"soul": 0,
@@ -52,7 +80,6 @@
 				"soul capacity": false
 			}
 		},
-
 		"sparkSlots": 0,
 		"sparkUsed": 0,
 		"riskDice": 5,
@@ -62,68 +89,49 @@
 		"gambitDraw": [],
 		"gambits": {
 			"deck": [
-				{ "id": "g1", "name": "Smoke Bomb", "description": "Disorient your foe and gain +1 to your next finesse or deceive check."},
-				{ "id": "g2", "name": "Overclock", "description": "Disorient your foe and gain +1 to your next finesse or deceive check 2"},
-				{ "id": "g3", "name": "Flash Step", "description": "Disorient your HOMIE" },
-				{ "id": "g4", "name": "Blackout Pulse", "description": "Disorient your foe and gain +1 to your next finesse or deceive check."},
-				{ "id": "g5", "name": "Mirrored Edge", "description": "Disorient your foe and gain +1 to your next finesse or deceive check." }
+				{
+					"id": "g1",
+					"name": "Smoke Bomb",
+					"description": "Disorient your foe and gain +1 to your next finesse or deceive check."
+				},
+				{
+					"id": "g2",
+					"name": "Overclock",
+					"description": "Disorient your foe and gain +1 to your next finesse or deceive check 2"
+				},
+				{
+					"id": "g3",
+					"name": "Flash Step",
+					"description": "Disorient your HOMIE"
+				},
+				{
+					"id": "g4",
+					"name": "Blackout Pulse",
+					"description": "Disorient your foe and gain +1 to your next finesse or deceive check."
+				},
+				{
+					"id": "g5",
+					"name": "Mirrored Edge",
+					"description": "Disorient your foe and gain +1 to your next finesse or deceive check."
+				}
 			],
-
-			"drawn": []			
+			"drawn": []
 		},
-		"class":"class placeholder",
+		"class": "class placeholder",
 		"level": 1,
 		"load": "light",
 		"flashbackUsed": false,
-
 		"casterType": null,
-		"sparkSchool1":"",
+		"sparkSchool1": "",
 		"sparkSchool2": "",
-
-		"inventory": {
-		"weapons": [
-			{
-			"name": "Silent Revolver",
-			"quantity": 1,
-			"equipped": true,
-			"tags": ["Concealed", "Silenced"]
-			},
-			{
-			"name": "Shock Dagger",
-			"quantity": 2,
-			"equipped": false,
-			"tags": ["Close", "Electric"]
-			}
-		],
-		"armor": [
-			{
-			"name": "Aegis Trenchcoat",
-			"quantity": 1,
-			"equipped": true,
-			"tags": ["Heavy", "Stylish"]
-			}
-		],
-		"misc": [
-			{
-			"name": "Fake ID",
-			"quantity": 3
-			},
-			{
-			"name": "Rope",
-			"quantity": 1
-			}
-		]
-		},
-
 		"journal": {
-		"traits": "",
-		"race": "",
-		"sex": "",
-		"appearance": "",
-		"ideals": "",
-		"bonds": "",
-		"flaws": ""
+			"traits": "",
+			"race": "",
+			"sex": "",
+			"appearance": "",
+			"ideals": "",
+			"bonds": "",
+			"flaws": ""
 		}
-
 	}
 }
