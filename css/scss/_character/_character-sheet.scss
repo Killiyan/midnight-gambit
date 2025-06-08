@@ -65,6 +65,7 @@ h1,h2,h3,h4 {
 
     input[type="number"],
     input[type="text"],
+    input[type="checkbox"],
     textarea {
       color: $mg-blue-2;
       transition: color .5s ease, border-color .5s ease, box-shadow .5s ease;
@@ -293,7 +294,11 @@ h1,h2,h3,h4 {
         font-size: 1.5em;
         cursor: pointer;
         color: $mg-blue-main-2;
-        transition: color 0.2s;
+        transition: color 0.5s ease, transform .5s ease;
+
+        &:hover {
+          transform: scale(1.2);
+        }
 
         &.filled  i {
           color: $mg-blue-3;
@@ -355,7 +360,7 @@ h1,h2,h3,h4 {
         
         label {
           @include oswald();
-          font-family: 1rem;
+          font-size: 1rem;
           text-transform: uppercase;
           color: $mg-ivory;
         }
@@ -944,67 +949,250 @@ h1,h2,h3,h4 {
 .inventory-tab {
   display: flex;
   flex-direction: column;
-  gap: 1em;
-}
+  gap: 1.875rem;
+  margin-top: -5rem;
+  position: relative;
+  z-index: 10;
 
-.currency-field,
-.search-field {
-  display: flex;
-  align-items: center;
-  gap: 0.5em;
-}
+  .currency-field {
+    display: flex;
+    flex-direction: column;
+    padding: 1.125rem;
+    border-radius: .625rem;
+    background: $mg-blue-main;
+    @include mg-border();
+    padding: 1.125rem;
+    text-align: center;
+    gap: .625rem;
+    max-width: 10rem;
+    
+    label {
+      @include oswald();
+      font-size: 1rem;
+      text-transform: uppercase;
+      color: $mg-ivory;
+    }
 
-.currency-field input,
-.search-field input {
-  width: 150px;
-}
+    input {
+      background: $mg-blue-main-2;
+      border: none;
+      box-shadow: none;
+      @include oswald();
+      font-size: 1rem;
+      text-transform: uppercase;
+      color: $mg-ivory;
+      width: auto;
+      padding: 2.125rem 0;
+    }
+  }
 
-.inventory-section h3 {
-  margin-bottom: 0.25em;
-  color: var(--color-text-light-1);
-}
+  h3 {
+    @include oswald();
+    font-size: 1rem;
+    text-transform: uppercase;
+    color: $mg-ivory;
+    border: none;
+  }
 
-.inventory-header,
-.inventory-list {
-  display: grid;
-  grid-template-columns: 2fr 1fr 1fr 2fr;
-  gap: 0.5em;
-  align-items: center;
-}
+  .inventory-header,
+  .inventory-list {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 2fr 1fr;
+    gap: 1.5rem;
+    align-items: center;
+  }
 
-.inventory-header {
-  font-weight: bold;
-  padding-bottom: 0.25em;
-  border-bottom: 1px solid #444;
-}
+  .inventory-section {
+    @include mg-border();
+    border-radius: .5rem;
+    //padding: 1.25rem;
 
-.inventory-list {
-  padding: 0.5em 0;
-}
+    .inventory-wrapper {
+      padding: 1.25rem;
+      border-bottom: 1px solid $mg-blue-main-2;
 
-.inventory-item {
-  display: contents;
-}
+      span {
+        color: $mg-blue-2;
+        font-size: .85rem;
+        text-transform: uppercase;
+        @include roboto();
+        font-weight: 700;
+        letter-spacing: .02em;
+      }
+    }
 
-.inventory-item span,
-.inventory-item input[type="text"],
-.inventory-item input[type="number"] {
-  font-size: 0.9em;
-}
+    .inventory-header {
+      border: none;
+    }
 
-.item-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.25em;
+    .inventory-item {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr 2fr 1fr;
+      gap: 1.5rem;
+      align-items: flex-start;
+      padding: 1.25rem;
+      border-bottom: 1px $mg-blue-main-2 solid;
+
+      &:last-of-type {
+        border: none;
+      }
+
+      input[type="checkbox"] {
+        background: $mg-blue-main-2;
+        @include mg-border();
+        border-radius: .5rem;
+        margin: 0;
+        appearance: unset;
+        position: relative;
+        padding: .75rem;
+        transition: background .5s ease, box-shadow .5s ease, color .5s ease;
+
+        &:after {
+          font-family: "Font Awesome 6 Pro";
+          content: "\f00c";
+          position: absolute;
+          font-size: 1rem;
+          font-weight: 700;
+          color: $mg-blue-4;
+          top: 0.25rem;
+          left: 0.35rem;
+          opacity: 0;
+          transition: opacity .5s ease, color .5s ease;
+        }
+
+        &:checked {
+          background: $mg-blue-1;
+
+          &:after {
+            opacity: 1;
+          }
+        }
+
+        &:hover {
+          background: $mg-blue-3;
+
+          &:checked::after {
+            color: $mg-ivory;
+          }
+        }
+      }
+
+      .item-name {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+
+        .clickable-item {
+          @include roboto();
+          font-size: 1rem;
+          font-weight: 700;
+        }
+
+        .post-weapon-tags,
+        .post-armor-tags,
+        .post-misc-tags {
+          width: auto;
+          height: auto;
+          background: none;
+          border: none;
+          padding: 0;
+
+          i {
+            color: $mg-ivory;
+            transition: color 0.5s ease, text-shadow 0.5s ease;
+          }
+
+          &:hover {
+            box-shadow: none;
+            
+            i {
+              color: $mg-blue-2;
+              text-shadow: 0 1px $mg-blue-3;
+            }
+          }
+
+          &:focus {
+            box-shadow: none;
+          }
+        }
+      }
+
+      .status-buttons {
+        display: flex;
+      }
+
+      .item-tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: .5rem;
+        justify-content: flex-start;
+      }
+    }
+
+    &.armor {
+      .inventory-header {
+        grid-template-columns: 1fr 1fr 1fr 1fr 3.75fr;
+      }
+
+      .inventory-item {
+        grid-template-columns: 1fr 1fr 1fr 1fr 2fr 1fr;
+
+        .item-capacity {
+          display: flex;
+          flex-direction: column;
+          gap: .5rem;
+
+          .mortal-remain,
+          .soul-remain {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: $mg-blue-main-2;
+            color: $mg-blue-1;
+            border-radius: .5rem;
+            line-height: 1;
+            padding: .25rem;
+            gap: .5rem;
+            margin: 0;
+
+            .remaining-number {
+              font-weight: 400;
+            }
+          }
+
+          span {
+            @include oswald();
+            font-weight: 700;
+          }
+        }
+      }
+    }
+  }
 }
 
 .item-tag {
-  background: #333;
-  border-radius: 4px;
-  padding: 0 0.5em;
-  font-size: 0.75em;
-  color: #aaa;
+  background: $mg-blue-main-2;
+  @include roboto();
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  font-weight: 700;
+  font-size: .75rem;
+  color: $mg-blue-1;
+  padding: .5rem;
+  border-radius: .5rem;
 }
+
+.chat-tags {
+  display: flex;
+  flex-wrap: wrap;
+  margin-top: .5rem;
+  gap: .5rem;
+
+  .item-tag {
+    width: auto;
+  }
+}
+
 
 /*Gambit Character Sheet Styling
 ==============================================================================*/

@@ -370,7 +370,9 @@ export class MidnightGambitActorSheet extends ActorSheet {
         };
 
         // After updating actor strain values...
-        for (const item of actor.items.filter(i => i.type === "armor")) {
+        for (const item of actor.items.filter(i =>
+        ["armor", "misc"].includes(i.type) &&
+        (i.system.mortalCapacity > 0 || i.system.soulCapacity > 0))) {
           await item.update({ "system.capacityApplied": false });
         }
 
@@ -613,7 +615,10 @@ export class MidnightGambitActorSheet extends ActorSheet {
 
         await item.update({ "system.equipped": equipped });
 
-        if (item.type !== "armor") return;
+        // Skip unless this item can grant capacity
+        const grantsCapacity = ["armor", "misc"].includes(item.type) &&
+          (item.system.mortalCapacity > 0 || item.system.soulCapacity > 0);
+        if (!grantsCapacity) return;
 
         const { mortalCapacity = 0, soulCapacity = 0, capacityApplied = false } = item.system;
 
@@ -649,7 +654,10 @@ export class MidnightGambitActorSheet extends ActorSheet {
       html.find(".repair-armor").on("click", async (event) => {
         const itemId = event.currentTarget.dataset.itemId;
         const item = this.actor.items.get(itemId);
-        if (!item || !item.system.equipped) return;
+        const isRepairable = ["armor", "misc"].includes(item.type) &&
+        (item.system.mortalCapacity > 0 || item.system.soulCapacity > 0);
+
+        if (!isRepairable || !item.system.equipped) return;
 
         const {
           mortalCapacity = 0,
@@ -748,7 +756,7 @@ export class MidnightGambitActorSheet extends ActorSheet {
             <h2>${name}</h2>
             ${system.description ? `<p><em>${system.description}</em></p>` : ""}
             ${extraInfo}
-            ${tagData ? `<p><strong>Tags:</strong><br>${tagData}</p>` : ""}
+            ${tagData ? `<strong>Tags:</strong><div class="chat-tags">${tagData}</div>` : ""}
           </div>
         `;
 
