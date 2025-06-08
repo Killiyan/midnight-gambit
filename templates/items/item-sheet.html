@@ -27,18 +27,14 @@
 	{{/each}}
 	</div>
 
-	{{#each system.tags as |tagId|}}
-  		{{#with (lookup ../tagsMap tagId) as |tag|}}
-			<div class="item-tag" data-tooltip="{{tag.description}}">
-			<span class="editable-tag-label" data-tag-id="{{tag.id}}">{{tag.label}}</span>
-
-			{{#if tag.isCustom}}
-			<button type="button" class="remove-tag" data-tag-id="{{tag.id}}" title="Remove Tag">×</button>
-			{{/if}}
-
-			</div>
+	{{#each item.system.tags}}
+		{{#with (findTag ../tags this) as |tag|}}
+		<span class="item-tag" data-tooltip="{{tag.description}}">{{tag.label}}</span>
+		{{else}}
+		<span class="item-tag">{{this}}</span>
 		{{/with}}
 	{{/each}}
+
 
 
 	<button class="add-custom-tag"><i class="fa-solid fa-plus"></i> Add Custom Tag</button>

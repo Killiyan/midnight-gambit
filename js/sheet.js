@@ -26,6 +26,8 @@ export class MidnightGambitActorSheet extends ActorSheet {
         "presence"
       ];
 
+      context.CONFIG = CONFIG;
+
       const guiseId = this.actor.system.guise;
       if (guiseId) {
         const guise = game.items.get(guiseId);
@@ -50,7 +52,7 @@ export class MidnightGambitActorSheet extends ActorSheet {
 
 
       context.data = context;  // <- this makes all context vars available to the template root
-
+      context.tags = CONFIG.MidnightGambit?.ITEM_TAGS ?? [];
       return context;
     }
 
@@ -362,8 +364,15 @@ export class MidnightGambitActorSheet extends ActorSheet {
           "system.riskUsed": 0,
           "system.flashbackUsed": false,
           "system.strain.manualOverride.mortal capacity": false,
-          "system.strain.manualOverride.soul capacity": false
+          "system.strain.manualOverride.soul capacity": false,
+          "system.strain.mortal capacity": actor.system.baseStrainCapacity?.mortal ?? 0,
+          "system.strain.soul capacity": actor.system.baseStrainCapacity?.soul ?? 0
         };
+
+        // After updating actor strain values...
+        for (const item of actor.items.filter(i => i.type === "armor")) {
+          await item.update({ "system.capacityApplied": false });
+        }
 
         await actor.update(updates);
         await actor.prepareData();  // force recompute
@@ -371,6 +380,60 @@ export class MidnightGambitActorSheet extends ActorSheet {
         ui.notifications.info(`${actor.name} has completed a Long Rest.`);
       });
 
+      //Checking if armor is damaged, if so it lowers on inventory
+      const checkArmorDamage = async (actor, oldValue, newValue, type) => {
+        if (newValue >= oldValue) return; // Only track damage
+        console.log(`[ArmorCheck] ${type} damage taken: ${oldValue} → ${newValue}`);
+
+        let damage = oldValue - newValue;
+        const updates = [];
+
+        for (const item of actor.items.filter(i => i.type === "armor" && i.system.equipped)) {
+          const remaining = item.system.remainingCapacity?.[type] ?? item.system[`${type}Capacity`] ?? 0;
+
+          console.log(`[ArmorScan] Checking: ${item.name} | Equipped: ${item.system.equipped} | Remaining: ${item.system.remainingCapacity?.[type]}`);
+
+          if (remaining <= 0) continue;
+
+          const absorbed = Math.min(remaining, damage);
+          const newRemaining = remaining - absorbed;
+
+          updates.push({
+            _id: item.id,
+            [`system.remainingCapacity.${type}`]: newRemaining
+          });
+
+          damage -= absorbed;
+          if (damage <= 0) break;
+        }
+
+        if (updates.length) {
+          console.log(`[ArmorUpdate] Applying updates:`, updates);
+          await actor.updateEmbeddedDocuments("Item", updates);
+        }
+      };
+
+      //Capacity Boxes add on Click, and remove on Shift click
+      html.find(".capacity-box input").on("click", async (event) => {
+        const input = event.currentTarget;
+        const name = input.name; // e.g., "system.strain.mortal capacity"
+        const path = input.name; // e.g. "system.strain.mortal capacity"
+        const current = foundry.utils.getProperty(this.actor.system, path.replace("system.", ""));
+        const type = name.includes("mortal") ? "mortal" : "soul";
+
+        const direction = event.shiftKey ? 1 : -1;
+        const newValue = Math.max(0, current + direction);
+
+        await checkArmorDamage(this.actor, current, newValue, type);
+
+        const updates = {
+          [`system.strain.${type} capacity`]: newValue,
+          [`system.strain.manualOverride.${type} capacity`]: true
+        };
+
+        await this.actor.update(updates);
+        this.render(false);
+      });
 
       //Remove guise button to return the sheet to default if needed.
       html.find(".remove-guise").on("click", async (event) => {
@@ -546,7 +609,71 @@ export class MidnightGambitActorSheet extends ActorSheet {
         const itemId = event.currentTarget.closest(".inventory-item").dataset.itemId;
         const equipped = event.currentTarget.checked;
         const item = this.actor.items.get(itemId);
-        if (item) await item.update({ "system.equipped": equipped });
+        if (!item) return;
+
+        await item.update({ "system.equipped": equipped });
+
+        if (item.type !== "armor") return;
+
+        const { mortalCapacity = 0, soulCapacity = 0, capacityApplied = false } = item.system;
+
+        console.log(`🛡️ Equip event for ${item.name}`);
+        console.log("Equipped?", equipped, "| Already Applied?", capacityApplied);
+        console.log("MC/SC Bonus from item:", mortalCapacity, soulCapacity);
+
+        const currentMC = this.actor.system.strain["mortal capacity"] ?? 0;
+        const currentSC = this.actor.system.strain["soul capacity"] ?? 0;
+
+        if (equipped && !capacityApplied) {
+          await this.actor.update({
+            "system.strain.mortal capacity": currentMC + mortalCapacity,
+            "system.strain.soul capacity": currentSC + soulCapacity,
+            "system.strain.manualOverride.mortal capacity": true,
+            "system.strain.manualOverride.soul capacity": true
+          });
+          await item.update({ "system.capacityApplied": true });
+        }
+
+        if (!equipped && capacityApplied) {
+          await this.actor.update({
+            "system.strain.mortal capacity": currentMC - mortalCapacity,
+            "system.strain.soul capacity": currentSC - soulCapacity,
+            "system.strain.manualOverride.mortal capacity": true,
+            "system.strain.manualOverride.soul capacity": true
+          });
+          await item.update({ "system.capacityApplied": false });
+        }
+      });
+
+      //Repair Armor
+      html.find(".repair-armor").on("click", async (event) => {
+        const itemId = event.currentTarget.dataset.itemId;
+        const item = this.actor.items.get(itemId);
+        if (!item || !item.system.equipped) return;
+
+        const {
+          mortalCapacity = 0,
+          soulCapacity = 0,
+          remainingCapacity = { mortal: 0, soul: 0 }
+        } = item.system;
+
+        const remainingMC = remainingCapacity.mortal ?? 0;
+        const remainingSC = remainingCapacity.soul ?? 0;
+
+        const isDamaged = remainingMC < mortalCapacity || remainingSC < soulCapacity;
+        if (!isDamaged) {
+          ui.notifications.info(`${item.name} is already fully repaired.`);
+          return;
+        }
+
+        // Restore armor’s own durability
+        await item.update({
+          "system.remainingCapacity.mortal": mortalCapacity,
+          "system.remainingCapacity.soul": soulCapacity,
+          "system.capacityApplied": false
+        });
+
+        ui.notifications.info(`${item.name} repaired. Durability restored.`);
       });
 
       //Remove item from Inventory
@@ -630,8 +757,73 @@ export class MidnightGambitActorSheet extends ActorSheet {
           speaker: ChatMessage.getSpeaker({ actor: this.actor }),
           content
         });
+
+        //Making Item tag visible on hover in Inventory
+        html.find(".item-tag").each(function () {
+          const tooltip = this.dataset.tooltip;
+          if (tooltip) this.setAttribute("title", tooltip);
+        });
+
       });
-    }
+
+      // Enable tooltips manually after rendering the sheet
+      html.find(".sync-tags").on("click", async (event) => {
+        event.preventDefault();
+
+        const itemId = event.currentTarget.dataset.itemId;
+        const ownedItem = this.actor.items.get(itemId);
+        if (!ownedItem) return;
+
+        // Step 1: Try sourceId first
+        let sourceItem = null;
+        const sourceId = ownedItem.flags?.core?.sourceId;
+
+        if (sourceId) {
+          sourceItem = game.items.get(sourceId);
+        }
+
+        // Step 2: Fallback — find item in world by name
+        if (!sourceItem) {
+          sourceItem = game.items.find(i => i.name === ownedItem.name && i.type === ownedItem.type);
+        }
+
+        if (!sourceItem) {
+          ui.notifications.warn(`Could not find base item for ${ownedItem.name}`);
+          return;
+        }
+
+        // Merge tags
+        const ownedTags = ownedItem.system.tags ?? [];
+        const sourceTags = sourceItem.system.tags ?? [];
+
+        const allTags = [...new Set([...ownedTags, ...sourceTags])];
+
+        await ownedItem.update({ "system.tags": allTags });
+
+        ui.notifications.info(`${ownedItem.name} tags synced from base item.`);
+      });
+
+      //Right click to remove tag from character sheet
+      html.find(".item-tag").on("contextmenu", async (event) => {
+        event.preventDefault();
+
+        const $tag = $(event.currentTarget);
+        const itemId = $tag.data("item-id");
+        const tagId = $tag.data("tag-id");
+
+        const item = this.actor.items.get(itemId);
+        if (!item) return;
+
+        const currentTags = item.system.tags || [];
+        const updatedTags = currentTags.filter(t => t !== tagId);
+
+        await item.update({ "system.tags": updatedTags });
+
+        ui.notifications.info(`Removed tag '${tagId}' from ${item.name}`);
+      });
+
+      }
+
     //END EVENT LISTENERS
     //---------------------------------------------------------------------------------------------------------------------------
 

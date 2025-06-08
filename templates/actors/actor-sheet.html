@@ -302,14 +302,22 @@
                 <span><input type="number" class="item-quantity" value="{{item.system.quantity}}" min="0" /></span>
                 <span><input type="checkbox" class="item-equipped" {{#if item.system.equipped}}checked{{/if}} /></span>
                 <span class="item-tags">
-                  {{#each item.system.tags}}
-                    {{#with (lookup ../../CONFIG.MidnightGambit.ITEM_TAGS this) as |tag|}}
-                      <span class="item-tag" data-tooltip="{{tag.description}}">{{tag.label}}</span>
+                  {{#each item.system.tags as |tagId|}}
+                    {{#with (lookup ../../CONFIG.MidnightGambit.ITEM_TAGS tagId) as |tag|}}
+                      <div class="item-tag" data-item-id="{{item._id}}" data-tag-id="{{tagId}}" title="Right-click to remove">
+                        <span data-tooltip="{{tag.description}}">{{tag.label}}</span>
+                      </div>
                     {{else}}
-                      <span class="item-tag">{{this}}</span>
+                      <div class="item-tag" data-item-id="{{item._id}}" data-tag-id="{{tagId}}" title="Right-click to remove">
+                        <span>{{tagId}}</span>
+                      </div>
                     {{/with}}
                   {{/each}}
                 </span>
+
+                <button class="sync-tags" data-item-id="{{_id}}" title="Sync tags with global list">
+                  <i class="fa-solid fa-arrows-rotate"></i>
+                </button>
 
                 <button class="item-delete" data-item-id="{{item._id}}" title="Delete Item">
                   <i class="fas fa-trash"></i>
@@ -337,17 +345,34 @@
                   </button>
                   <span class="clickable-item">{{item.name}}</span>
                 </span>
+
+                <span class="item-capacity" title="Remaining Strain Capacity">
+                  MC: {{item.system.remainingCapacity.mortal}} / SC: {{item.system.remainingCapacity.soul}}
+                </span>
+
                 <span><input type="number" class="item-quantity" value="{{item.system.quantity}}" min="0" /></span>
                 <span><input type="checkbox" class="item-equipped" {{#if item.system.equipped}}checked{{/if}} /></span>
                 <span class="item-tags">
-                  {{#each item.system.tags}}
-                    {{#with (lookup ../../CONFIG.MidnightGambit.ITEM_TAGS this) as |tag|}}
-                      <span class="item-tag" data-tooltip="{{tag.description}}">{{tag.label}}</span>
+                  {{#each item.system.tags as |tagId|}}
+                    {{#with (lookup ../../CONFIG.MidnightGambit.ITEM_TAGS tagId) as |tag|}}
+                      <div class="item-tag" data-item-id="{{item._id}}" data-tag-id="{{tagId}}" title="Right-click to remove">
+                        <span data-tooltip="{{tag.description}}">{{tag.label}}</span>
+                      </div>
                     {{else}}
-                      <span class="item-tag">{{this}}</span>
+                      <div class="item-tag" data-item-id="{{item._id}}" data-tag-id="{{tagId}}" title="Right-click to remove">
+                        <span>{{tagId}}</span>
+                      </div>
                     {{/with}}
                   {{/each}}
                 </span>
+
+                <button class="repair-armor" data-item-id="{{item._id}}" title="Repair Armor">
+                  <i class="fa-solid fa-hammer"></i>
+                </button>
+
+                <button class="sync-tags" data-item-id="{{_id}}" title="Sync tags with global list">
+                  <i class="fa-solid fa-arrows-rotate"></i>
+                </button>
 
                 <button class="item-delete" data-item-id="{{item._id}}" title="Delete Item">
                   <i class="fas fa-trash"></i>
@@ -372,15 +397,23 @@
                 </span>
                 <span><input type="number" class="item-quantity" value="{{item.system.quantity}}" min="0" /></span>
                 <span><input type="checkbox" class="item-equipped" {{#if item.system.equipped}}checked{{/if}} /></span>
-                <span class="item-tags">
-                  {{#each item.system.tags}}
-                    {{#with (lookup ../../CONFIG.MidnightGambit.ITEM_TAGS this) as |tag|}}
-                      <span class="item-tag" data-tooltip="{{tag.description}}">{{tag.label}}</span>
-                    {{else}}
-                      <span class="item-tag">{{this}}</span>
-                    {{/with}}
-                  {{/each}}
-                </span>
+                  <span class="item-tags">
+                    {{#each item.system.tags as |tagId|}}
+                      {{#with (lookup ../../CONFIG.MidnightGambit.ITEM_TAGS tagId) as |tag|}}
+                        <div class="item-tag" data-item-id="{{item._id}}" data-tag-id="{{tagId}}" title="Right-click to remove">
+                          <span data-tooltip="{{tag.description}}">{{tag.label}}</span>
+                        </div>
+                      {{else}}
+                        <div class="item-tag" data-item-id="{{item._id}}" data-tag-id="{{tagId}}" title="Right-click to remove">
+                          <span>{{tagId}}</span>
+                        </div>
+                      {{/with}}
+                    {{/each}}
+                  </span>
+
+                <button class="sync-tags" data-item-id="{{_id}}" title="Sync tags with global list">
+                  <i class="fa-solid fa-arrows-rotate"></i>
+                </button>
 
                 <button class="item-delete" data-item-id="{{item._id}}" title="Delete Item">
                   <i class="fas fa-trash"></i>

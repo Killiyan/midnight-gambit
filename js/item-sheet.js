@@ -15,6 +15,24 @@ export class MidnightGambitItemSheet extends ItemSheet {
 	context.system = this.item.system;
 	context.itemType = this.item.type;
 
+	// Initialize remainingCapacity if needed
+	if (context.itemType === "armor") {
+	context.system.remainingCapacity ??= {
+		mortal: context.system.mortalCapacity ?? 0,
+		soul: context.system.soulCapacity ?? 0
+	};
+
+	// Persist back to item if it was undefined
+	if (!this.item.system.remainingCapacity) {
+		await this.item.update({
+		"system.remainingCapacity": {
+			mortal: context.system.mortalCapacity ?? 0,
+			soul: context.system.soulCapacity ?? 0
+		}
+		});
+	}
+	}
+
 	// Load global tags
 	let globalTags = CONFIG.MidnightGambit?.ITEM_TAGS;
 

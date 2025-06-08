@@ -26,6 +26,21 @@ export class MidnightGambitActor extends Actor {
       data.strain["soul capacity"] = data.baseStrainCapacity?.soul ?? 0;
     }
 
+    for (const item of this.items) {
+      if (item.type === "armor") {
+        const sys = item.system;
+        if (!sys.remainingCapacity) {
+          item.updateSource({
+            "system.remainingCapacity": {
+              mortal: sys.mortalCapacity ?? 0,
+              soul: sys.soulCapacity ?? 0
+            }
+          });
+        }
+      }
+    }
+
+
 
     // Set default risk dice ammount
     data.baseRiskDice ??= 5;
