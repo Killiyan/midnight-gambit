@@ -49,6 +49,28 @@ export class MidnightGambitActorSheet extends ActorSheet {
       } else {
         context.isCaster = false;
       }
+      
+      for (const item of context.actor.items) {
+        const mc = item.system.mortalCapacity || 0;
+        const sc = item.system.soulCapacity || 0;
+
+        // If remaining not set yet, default it to full
+        if (!item.system.remainingCapacity) {
+          item.system.remainingCapacity = {};
+        }
+
+        if (item.system.remainingCapacity.mortal === undefined) {
+          item.system.remainingCapacity.mortal = mc;
+        }
+
+        if (item.system.remainingCapacity.soul === undefined) {
+          item.system.remainingCapacity.soul = sc;
+        }
+
+        item.system.isFullyRepaired =
+          (!mc || item.system.remainingCapacity.mortal === mc) &&
+          (!sc || item.system.remainingCapacity.soul === sc);
+      }
 
 
       context.data = context;  // <- this makes all context vars available to the template root
@@ -387,33 +409,26 @@ export class MidnightGambitActorSheet extends ActorSheet {
         if (newValue >= oldValue) return; // Only track damage
         console.log(`[ArmorCheck] ${type} damage taken: ${oldValue} → ${newValue}`);
 
-        let damage = oldValue - newValue;
-        const updates = [];
+        const capacityItems = actor.items.filter(item =>
+          ["armor", "misc"].includes(item.type) &&
+          item.system.equipped &&
+          item.system.capacityApplied &&
+          item.system.remainingCapacity?.[type] > 0
+        );
 
-        for (const item of actor.items.filter(i => i.type === "armor" && i.system.equipped)) {
-          const remaining = item.system.remainingCapacity?.[type] ?? item.system[`${type}Capacity`] ?? 0;
+        for (const item of capacityItems) {
+          const remaining = item.system.remainingCapacity[type];
+          if (remaining > 0) {
+            await item.update({
+              [`system.remainingCapacity.${type}`]: remaining - 1
+            });
 
-          console.log(`[ArmorScan] Checking: ${item.name} | Equipped: ${item.system.equipped} | Remaining: ${item.system.remainingCapacity?.[type]}`);
-
-          if (remaining <= 0) continue;
-
-          const absorbed = Math.min(remaining, damage);
-          const newRemaining = remaining - absorbed;
-
-          updates.push({
-            _id: item.id,
-            [`system.remainingCapacity.${type}`]: newRemaining
-          });
-
-          damage -= absorbed;
-          if (damage <= 0) break;
-        }
-
-        if (updates.length) {
-          console.log(`[ArmorUpdate] Applying updates:`, updates);
-          await actor.updateEmbeddedDocuments("Item", updates);
+            console.log(`🛡️ ${item.name} absorbed 1 ${type} damage (now ${remaining - 1})`);
+            break; // Only damage the first item that can take it
+          }
         }
       };
+
 
       //Capacity Boxes add on Click, and remove on Shift click
       html.find(".capacity-box input").on("click", async (event) => {
@@ -639,15 +654,21 @@ export class MidnightGambitActorSheet extends ActorSheet {
           await item.update({ "system.capacityApplied": true });
         }
 
-        if (!equipped && capacityApplied) {
+        if (equipped && !capacityApplied) {
           await this.actor.update({
-            "system.strain.mortal capacity": currentMC - mortalCapacity,
-            "system.strain.soul capacity": currentSC - soulCapacity,
+            "system.strain.mortal capacity": currentMC + mortalCapacity,
+            "system.strain.soul capacity": currentSC + soulCapacity,
             "system.strain.manualOverride.mortal capacity": true,
             "system.strain.manualOverride.soul capacity": true
           });
-          await item.update({ "system.capacityApplied": false });
+
+          await item.update({
+            "system.capacityApplied": true,
+            "system.remainingCapacity.mortal": mortalCapacity,
+            "system.remainingCapacity.soul": soulCapacity
+          });
         }
+
       });
 
       //Repair Armor
@@ -736,14 +757,28 @@ export class MidnightGambitActorSheet extends ActorSheet {
           })
           .join(" ");
 
-
         let extraInfo = "";
 
+        // Weapon: Strain Damage
         if (type === "weapon" && system.strainDamage) {
           extraInfo += `<p><strong>Strain Damage:</strong> ${system.strainDamage}</p>`;
         }
 
+        // Armor: MC / SC
         if (type === "armor") {
+          const mc = system.mortalCapacity ?? 0;
+          const sc = system.soulCapacity ?? 0;
+          if (mc || sc) {
+            extraInfo += `<p><strong>Strain Capacity:</strong> MC ${mc} / SC ${sc}</p>`;
+          }
+        }
+
+        // Misc: Strain Damage + Capacity
+        if (type === "misc") {
+          if (system.strainDamage) {
+            extraInfo += `<p><strong>Strain Damage:</strong> ${system.strainDamage}</p>`;
+          }
+
           const mc = system.mortalCapacity ?? 0;
           const sc = system.soulCapacity ?? 0;
           if (mc || sc) {
@@ -766,12 +801,11 @@ export class MidnightGambitActorSheet extends ActorSheet {
           content
         });
 
-        //Making Item tag visible on hover in Inventory
+        // Tooltip fallback (redundant, but safe)
         html.find(".item-tag").each(function () {
           const tooltip = this.dataset.tooltip;
           if (tooltip) this.setAttribute("title", tooltip);
         });
-
       });
 
       // Enable tooltips manually after rendering the sheet

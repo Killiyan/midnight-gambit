@@ -997,7 +997,6 @@ h1,h2,h3,h4 {
   .inventory-header,
   .inventory-list {
     display: grid;
-    grid-template-columns: 1fr 1fr 1fr 2fr 1fr;
     gap: 1.5rem;
     align-items: center;
   }
@@ -1027,7 +1026,7 @@ h1,h2,h3,h4 {
 
     .inventory-item {
       display: grid;
-      grid-template-columns: 1fr 1fr 1fr 2fr 1fr;
+      grid-template-columns: 1fr 1fr 1fr 1fr 2fr 1fr;
       gap: 1.5rem;
       align-items: flex-start;
       padding: 1.25rem;
@@ -1084,8 +1083,9 @@ h1,h2,h3,h4 {
 
         .clickable-item {
           @include roboto();
-          font-size: 1rem;
+          font-size: .75rem;
           font-weight: 700;
+          color: $mg-blue-2;
         }
 
         .post-weapon-tags,
@@ -1096,6 +1096,7 @@ h1,h2,h3,h4 {
           background: none;
           border: none;
           padding: 0;
+          display: flex;
 
           i {
             color: $mg-ivory;
@@ -1119,6 +1120,32 @@ h1,h2,h3,h4 {
 
       .status-buttons {
         display: flex;
+
+        button {
+          text-align: center;
+
+          i {
+            margin: 0;
+          }
+        }
+
+        .repair-armor.disabled {
+          background-color: $mg-blue-4;
+          pointer-events: none;
+          border-color: $mg-blue-4;
+
+          &:hover {
+            box-shadow: none;
+          }
+          
+          i {
+            color: $mg-blue-main-2;
+          }
+        } 
+
+        .repair-armor {
+          pointer-events: all;
+        }
       }
 
       .item-tags {
@@ -1129,9 +1156,12 @@ h1,h2,h3,h4 {
       }
     }
 
-    &.armor {
+    &.weapons,
+    &.armor,
+    &.misc {
       .inventory-header {
         grid-template-columns: 1fr 1fr 1fr 1fr 3.75fr;
+        align-items: flex-start;
       }
 
       .inventory-item {
@@ -1143,7 +1173,8 @@ h1,h2,h3,h4 {
           gap: .5rem;
 
           .mortal-remain,
-          .soul-remain {
+          .soul-remain,
+          .strain-damage {
             display: flex;
             justify-content: center;
             align-items: center;
@@ -1165,6 +1196,13 @@ h1,h2,h3,h4 {
             font-weight: 700;
           }
         }
+      }
+    }
+
+    &.weapons {
+      .inventory-header,
+      .inventory-item {
+        grid-template-columns: 1fr 1fr 1fr 1fr 2fr 1fr;
       }
     }
   }
