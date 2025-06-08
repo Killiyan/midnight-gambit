@@ -3,31 +3,29 @@ export class MidnightGambitActor extends Actor {
     super.prepareData();
     const data = this.system;
 
-    //Initialize base attributes
+    // === Initialize attribute and strain structures ===
     data.baseAttributes ??= {
       tenacity: 0, finesse: 0, resolve: 0,
       guile: 0, instinct: 0, presence: 0
     };
-
     const base = foundry.utils.deepClone(data.baseAttributes);
-    const guiseId = data.guise;
 
-    // Set default strain values
     data.strain ??= { mortal: 0, soul: 0 };
     data.baseStrainCapacity ??= { mortal: 0, soul: 0 };
+    data.strain.manualOverride ??= {};
 
-    //Setting Manual override until next long rest
-    const manualOverride = data.strain?.manualOverride ?? {};
+    const manual = data.strain.manualOverride;
 
-    if (!manualOverride["mortal capacity"]) {
+    if (!manual["mortal capacity"]) {
       data.strain["mortal capacity"] = data.baseStrainCapacity?.mortal ?? 0;
     }
-    if (!manualOverride["soul capacity"]) {
+    if (!manual["soul capacity"]) {
       data.strain["soul capacity"] = data.baseStrainCapacity?.soul ?? 0;
     }
 
+    // === Armor: initialize remaining capacity if missing ===
     for (const item of this.items) {
-      if (item.type === "armor") {
+      if (item.type === "armor" || item.type === "misc") {
         const sys = item.system;
         if (!sys.remainingCapacity) {
           item.updateSource({
@@ -40,15 +38,15 @@ export class MidnightGambitActor extends Actor {
       }
     }
 
-
-
-    // Set default risk dice ammount
+    // === Risk & Spark defaults ===
     data.baseRiskDice ??= 5;
-    data.riskDiceCapacity = data.baseRiskDice; // default max
+    data.riskDiceCapacity = data.baseRiskDice;
+    data.sparkUsed ??= 0;
 
+    // === Guise application ===
+    const guiseId = data.guise;
     if (guiseId) {
-      const guise = fromUuidSync(guiseId) || game.items.get(guiseId);
-
+      const guise = this.items.get(guiseId);
       if (guise?.type === "guise") {
         const gSys = guise.system;
         const modifiers = gSys.modifiers || {};
@@ -59,33 +57,32 @@ export class MidnightGambitActor extends Actor {
           }
         }
 
-        // Defensive init
-        data.strain.manualOverride ??= {};
-        const manual = data.strain.manualOverride;
-
-        // Only overwrite if not overridden
+        // Apply Guise strain capacity if not manually overridden
         if (!manual["mortal capacity"]) {
           data.strain["mortal capacity"] = gSys.mortalCap ?? 0;
         }
-
         if (!manual["soul capacity"]) {
           data.strain["soul capacity"] = gSys.soulCap ?? 0;
         }
 
+        // Apply other Guise fields
+        data.baseStrainCapacity = {
+          mortal: gSys.mortalCap ?? 0,
+          soul: gSys.soulCap ?? 0
+        };
         data.sparkSlots = gSys.sparkSlots ?? 0;
         data.riskDice = gSys.riskDice ?? 5;
         data.casterType = gSys.casterType ?? null;
       }
     }
 
-    // Clamp attribute modifiers to -2 (min) and +3 (max)
+    // === Clamp attributes ===
     for (const key of Object.keys(base)) {
       base[key] = Math.max(-2, Math.min(3, base[key]));
     }
 
     data.level ??= 1;
     data.attributes = base;
-    data.sparkUsed ??= 0;
   }
 
   async _onCreateDescendantDocuments(embeddedName, documents, context) {
@@ -114,7 +111,7 @@ export class MidnightGambitActor extends Actor {
     console.log("Full updates object:", updates);
 
     await this.update(updates);
-    await this.deleteEmbeddedDocuments("Item", [guise.id]);
+    //await this.deleteEmbeddedDocuments("Item", [guise.id]);
 
     context.keepId = true;
     return [];

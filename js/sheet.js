@@ -30,7 +30,7 @@ export class MidnightGambitActorSheet extends ActorSheet {
 
       const guiseId = this.actor.system.guise;
       if (guiseId) {
-        const guise = game.items.get(guiseId);
+        const guise = this.actor.items.get(guiseId) || game.items.get(guiseId);
         if (guise) {
           context.guise = guise;
 
@@ -872,20 +872,48 @@ export class MidnightGambitActorSheet extends ActorSheet {
   //Drag and Drop guise action
   async _onDropItemCreate(itemData) {
     if (itemData.type === "guise") {
-      console.log("✅ Dropped a guise item on actor");
+    console.log("✅ Dropped a guise item on actor");
 
-      // Set base attributes if missing
-      if (!this.actor.system.baseAttributes || Object.keys(this.actor.system.baseAttributes).length === 0) {
-        const base = foundry.utils.deepClone(this.actor.system.attributes);
-        await this.actor.update({ "system.baseAttributes": base });
-      }
+    if (!this.actor.system.baseAttributes || Object.keys(this.actor.system.baseAttributes).length === 0) {
+      const base = foundry.utils.deepClone(this.actor.system.attributes);
+      await this.actor.update({ "system.baseAttributes": base });
+    }
 
-      let guise = await fromUuid(itemData.uuid || `Item.${itemData._id}`);
-      if (!guise) guise = game.items.get(itemData._id);
-      if (!guise) {
-        ui.notifications.error("Could not locate the dropped Guise item.");
-        return [];
+    let guise;
+    try {
+      console.log("🧪 Dropped itemData:", itemData);
+
+      // Use fromUuid if coming from compendium (has UUID)
+      if (itemData?.uuid) {
+        guise = await fromUuid(itemData.uuid);
+        if (!guise) throw new Error("Failed to load item from UUID");
+      } else {
+        // Flatten if the data is embedded like a compendium wrapper
+        const data = itemData.system?.system ? itemData.system : itemData;
+
+        // Validate required fields
+        if (!data.name || !data.type) {
+          throw new Error("Dropped item is missing required fields");
+        }
+
+        guise = await Item.implementation.create(data, { temporary: true });
       }
+    } catch (err) {
+      console.error("Failed to retrieve dropped guise:", err);
+      ui.notifications.error("Could not load the dropped Guise item.");
+      return [];
+    }
+
+    const [embedded] = await this.actor.createEmbeddedDocuments("Item", [guise.toObject()]);
+    await this.actor.update({ "system.guise": embedded.id });
+
+
+
+    if (!guise || guise.type !== "guise") {
+      ui.notifications.error("Dropped item is not a valid Guise.");
+      return [];
+    }
+
 
       const casterType = guise.system?.casterType ?? null;
       let sparkSchool1 = "";
@@ -968,12 +996,13 @@ export class MidnightGambitActorSheet extends ActorSheet {
       }
 
       await this.actor.update({
-        "system.guise": guise.id,
+        "system.guise": embedded.id,
         "system.casterType": casterType,
         "system.sparkSchool1": sparkSchool1,
         "system.sparkSchool2": sparkSchool2
       });
 
+      await this.actor.update({});   // <-- force apply guise bonuses
       ui.notifications.info(`${guise.name} applied as new Guise!`);
       await this.render(true);
       return [];
