@@ -22,6 +22,15 @@ Hooks.once("init", async () => {
     makeDefault: true
   });
 
+  //Setting custom tag rules so they persist
+  game.settings.register("midnight-gambit", "customTags", {
+    name: "Custom Tags",
+    scope: "world",
+    config: false,
+    type: Array,
+    default: []
+  });
+
   // Register Item Sheets
   Items.unregisterSheet("core", ItemSheet);
   Items.registerSheet("midnight-gambit", MidnightGambitItemSheet, {
@@ -37,7 +46,9 @@ Hooks.once("init", async () => {
   try {
     const { ITEM_TAGS } = await import("../config.js");
     CONFIG.MidnightGambit ??= {};
-    CONFIG.MidnightGambit.ITEM_TAGS = ITEM_TAGS;
+    const customTags = game.settings.get("midnight-gambit", "customTags") || [];
+    CONFIG.MidnightGambit.ITEM_TAGS = [...ITEM_TAGS, ...customTags];
+
     console.log("✅ ITEM_TAGS loaded into CONFIG at init");
   } catch (e) {
     console.error("❌ Failed to load ITEM_TAGS in init:", e);

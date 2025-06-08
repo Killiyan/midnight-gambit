@@ -2,7 +2,7 @@
   "name": "midnight-gambit",
   "title": "Midnight Gambit",
   "type": "system",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "author": "Vaughn Gallagher / Killiyan",
   "description": "A custom system for high-stakes narrative action.",
   "esmodules": ["midnight-gambit.js"],
@@ -37,5 +37,30 @@
       "armor":  { "label": "Armor" },
       "misc":   { "label": "Misc" }
     }
-  }
+  },
+
+  "packs": [
+    {
+      "name": "items",
+      "label": "Midnight Gambit Items",
+      "system": "midnight-gambit",
+      "path": "./packs/items.db",
+      "type": "Item"
+    },
+    {
+      "name": "guises",
+      "label": "Midnight Gambit Guises",
+      "system": "midnight-gambit",
+      "path": "./packs/guises.db",
+      "type": "Item"
+    },
+    {
+      "name": "gambits",
+      "label": "Midnight Gambit Gambits",
+      "system": "midnight-gambit",
+      "path": "./packs/gambits.db",
+      "type": "Item"
+    }
+  ]
+
 }

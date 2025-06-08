@@ -8,56 +8,67 @@
     <label>Description</label>
     <textarea name="system.description">{{system.description}}</textarea>
 
-	<label>Tags</label>
-	<div class="tag-selector">
-	{{#each tags}}
-		<button
-		type="button"
-		class="tag-pill {{#if (includes ../system.tags this.id)}}selected{{/if}}"
-		data-tag-id="{{this.id}}"
-		title="{{this.description}}"
-		>
-		{{this.label}}
-		</button>
+    <div class="wrapper">
+      <label>Tags</label>
+      <div class="tag-selector">
 
-      {{#if this.isCustom}}
-        <button type="button" class="delete-custom-tag" data-tag-id="{{this.id}}" title="Delete custom tag globally">🗑️</button>
-      {{/if}}
-	  
-	{{/each}}
-	</div>
+        {{#each tags}}
+          <div class="tag-container">
+            <button
+            type="button"
+            class="tag-pill {{#if (includes ../system.tags this.id)}}selected{{/if}}"
+            data-tag-id="{{this.id}}"
+            title="{{this.description}}"
+            >
+            {{this.label}}
+            </button>
 
-	{{#each item.system.tags}}
-		{{#with (findTag ../tags this) as |tag|}}
-		<span class="item-tag" data-tooltip="{{tag.description}}">{{tag.label}}</span>
-		{{else}}
-		<span class="item-tag">{{this}}</span>
-		{{/with}}
-	{{/each}}
-
-
-
-	<button class="add-custom-tag"><i class="fa-solid fa-plus"></i> Add Custom Tag</button>
+              {{#if this.isCustom}}
+                <button type="button" class="delete-custom-tag" data-tag-id="{{this.id}}" title="Delete custom tag globally">🗑️</button>
+              {{/if}}
+          </div>
+        {{/each}}
+        
+      </div>
+    </div>
+    
+    <div class="wrapper">
+      {{#each item.system.tags}}
+        {{#with (findTag ../tags this) as |tag|}}
+        <span class="item-tag" data-tooltip="{{tag.description}}">{{tag.label}}</span>
+        {{else}}
+        <span class="item-tag">{{this}}</span>
+        {{/with}}
+      {{/each}}
+      
+      <button class="add-custom-tag"><i class="fa-solid fa-plus"></i> Add Custom Tag</button>
+    </div>
 
     {{#if (eq itemType "weapon")}}
-      <label>Strain Damage</label>
-      <input type="number" name="system.strainDamage" value="{{system.strainDamage}}" min="0" />
+      <div class="wrapper">
+        <label>Strain Damage</label>
+        <input type="number" name="system.strainDamage" value="{{system.strainDamage}}" min="0" />
+      </div>
     {{/if}}
 
     {{#if (eq itemType "armor")}}
-      <label>Mortal Capacity</label>
-      <input type="number" name="system.mortalCapacity" value="{{system.mortalCapacity}}" min="0" />
-      <label>Soul Capacity</label>
-      <input type="number" name="system.soulCapacity" value="{{system.soulCapacity}}" min="0" />
+      <div class="wrapper">
+        <label>Mortal Capacity</label>
+        <input type="number" name="system.mortalCapacity" value="{{system.mortalCapacity}}" min="0" />
+        <label>Soul Capacity</label>
+        <input type="number" name="system.soulCapacity" value="{{system.soulCapacity}}" min="0" />
+      </div>
     {{/if}}
 
     {{#if (eq itemType "misc")}}
-      <label>Strain Damage</label>
-      <input type="number" name="system.strainDamage" value="{{system.strainDamage}}" min="0" />
-      <label>Mortal Capacity</label>
-      <input type="number" name="system.mortalCapacity" value="{{system.mortalCapacity}}" min="0" />
-      <label>Soul Capacity</label>
-      <input type="number" name="system.soulCapacity" value="{{system.soulCapacity}}" min="0" />
+      <div class="wrapper">
+        <label>Strain Damage</label>
+        <input type="number" name="system.strainDamage" value="{{system.strainDamage}}" min="0" />
+        <label>Mortal Capacity</label>
+        <input type="number" name="system.mortalCapacity" value="{{system.mortalCapacity}}" min="0" />
+        <label>Soul Capacity</label>
+        <input type="number" name="system.soulCapacity" value="{{system.soulCapacity}}" min="0" />
+      </div>
     {{/if}}
   </section>
 </form>

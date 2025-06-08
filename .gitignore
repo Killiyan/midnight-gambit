@@ -50,3 +50,7 @@ Thumbs.db
 
 style.css
 style.css.map
+
+# Ignore LevelDB files
+*/*
+!*.db

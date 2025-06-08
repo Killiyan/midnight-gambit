@@ -117,28 +117,40 @@ export class MidnightGambitItemSheet extends ItemSheet {
 	if (!tagResult) return;
 
 	const newTag = {
-	id: tagResult.name.toLowerCase().replace(/\s+/g, "-"),
-	label: tagResult.name,
-	description: tagResult.description || "",
-	isCustom: true
+		id: tagResult.name.toLowerCase().replace(/\s+/g, "-"),
+		label: tagResult.name,
+		description: tagResult.description || "",
+		isCustom: true
 	};
 
-	// Push it to global CONFIG so it shows up in future sheets
-	CONFIG.MidnightGambit.ITEM_TAGS.push(newTag);
+	// 🔁 Check game settings for existing tags
+	let customTags = game.settings.get("midnight-gambit", "customTags") || [];
+	const exists = customTags.some(t => t.id === newTag.id);
 
+	if (!exists) {
+		customTags.push(newTag);
+		await game.settings.set("midnight-gambit", "customTags", customTags);
+		CONFIG.MidnightGambit.ITEM_TAGS.push(newTag); // Live update for this session
+		ui.notifications.info(`Added custom tag: ${newTag.label}`);
+	} else {
+		ui.notifications.warn(`Tag "${newTag.label}" already exists.`);
+	}
+
+	// ✅ Add tag to the item
 	const currentTags = [...(this.item.system.tags || [])];
-	currentTags.push(newTag.id);
+	if (!currentTags.includes(newTag.id)) {
+		currentTags.push(newTag.id);
+	}
 
 	await this.item.update({
-	"system.tags": currentTags,
-	"system.customTags": {
+		"system.tags": currentTags,
+		"system.customTags": {
 		...(this.item.system.customTags || {}),
 		[newTag.id]: newTag.description
-	}
+		}
 	});
 
 	this.render();
-
 	});
 
 	//Option to Remove a tag if it has been added as a custom one

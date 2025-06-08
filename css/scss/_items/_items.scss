@@ -6,33 +6,23 @@
   gap: 0.5em;
 }
 
-.tag-pill {
-  background: #333;
-  color: #fff;
-  border: 1px solid #555;
-  padding: 0.3em 0.6em;
-  border-radius: 0.4em;
-  cursor: pointer;
-  font-size: 0.85rem;
-  transition: background 0.2s, border 0.2s;
-}
+.item-sheet {
+  padding: 2.125rem;
 
-.tag-pill:hover {
-  background: #444;
-}
+  .sheet-body {
+    display: flex;
+    flex-direction: column;
+    gap: 2.125rem;
 
-.tag-pill.selected {
-  background: #00c2ff;
-  border-color: #00f0ff;
-  color: black;
-  font-weight: bold;
-}
+    .tag-selector {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 0.5em;
 
-.remove-tag {
-  background: none;
-  border: none;
-  color: red;
-  font-weight: bold;
-  margin-left: 5px;
-  cursor: pointer;
+      .tag-pill.selected {
+        background: $mg-blue-main-2;
+        color: $mg-blue-2;
+      }
+    }
+  }
 }
