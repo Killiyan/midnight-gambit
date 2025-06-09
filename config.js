@@ -1,5 +1,8 @@
 export const ITEM_TAGS = [
   { id: "close", label: "Close", description: "Only damages nearby enemies." },
+  { id: "short-range", label: "Short Range", description: "Effects targets that are at a short to medium range." },
+  { id: "mid-range", label: "Mid Range", description: "Effects targets at a mid to long range." },
+  { id: "long-range", label: "Long Range", description: "Efects targets at a distance." },
   { id: "notorious", label: "Notorious", description: "Raises Heat when wielded." },
   { id: "single-use", label: "Single Use", description: "Expended after one use unless recovered or preserved." },
   { id: "durable", label: "Durable", description: "Survives jobs unless destroyed; higher cost." },

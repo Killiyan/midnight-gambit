@@ -44,6 +44,20 @@
       <button class="add-custom-tag"><i class="fa-solid fa-plus"></i> Add Custom Tag</button>
     </div>
 
+    {{#if (eq item.type "gambit")}}
+      <div class="form-group">
+        <label>Gambit Tier</label>
+        <select name="system.tier">
+          <option value="rookie" {{#if (eq system.tier "rookie")}}selected{{/if}}>Rookie</option>
+          <option value="trick" {{#if (eq system.tier "trick")}}selected{{/if}}>Trick Deck</option>
+          <option value="ace" {{#if (eq system.tier "ace")}}selected{{/if}}>Ace in the Sleeve</option>
+          <option value="final" {{#if (eq system.tier "final")}}selected{{/if}}>Final Hand</option>
+        </select>
+      </div>
+    {{/if}}
+
+
+
     {{#if (eq itemType "weapon")}}
       <div class="wrapper">
         <label>Strain Damage</label>

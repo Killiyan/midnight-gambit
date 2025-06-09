@@ -6,7 +6,8 @@
   gap: 0.5em;
 }
 
-.item-sheet {
+.item-sheet,
+.guise-sheet {
   padding: 2.125rem;
 
   .sheet-body {
@@ -23,6 +24,76 @@
         background: $mg-blue-main-2;
         color: $mg-blue-2;
       }
+    }
+  }
+}
+
+.guise-sheet {
+  input {
+    margin: 0;
+  }
+
+  .guise-strain {
+    display: flex;
+    gap: 2.125rem;
+
+    .guise-capacity {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: .5rem;
+    }
+  }
+
+  .guise-consumables {
+    display: flex;
+    gap: 2.125rem;
+
+    .guise-consumable-single {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: .25rem;
+    }
+  }
+
+  .guise-caster {
+    display: flex;
+    gap: .25rem;
+    width: 100%;
+  }
+
+  .attribute-modifiers {
+    label {
+      margin-bottom: .25rem;
+    }
+
+    .grid {
+      display: grid;
+      gap: .75rem;
+      grid-template-columns: 1fr 1fr 1fr;
+
+      .attr-row {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: .5rem;
+      }
+    }
+  }
+
+  .guise-signature {
+    display: flex;
+    flex-direction: column;
+    gap: .75rem;
+  }
+
+  .guise-moves {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+
+    .move-block {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 1rem;
     }
   }
 }

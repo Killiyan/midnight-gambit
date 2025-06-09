@@ -536,21 +536,23 @@
           <h2>Drawn Cards</h2>
 
           <div class="gambit-hand">
-            {{#each actor.system.gambits.drawn}}
-
-              <div class="gambit-card drawn" data-source="drawn" draggable="true" data-card-id="{{this.id}}">
+            {{#each gambitDrawn}}
+              <div class="gambit-card drawn" data-source="drawn" draggable="true" data-item-id="{{_id}}">
 
                 <div class="gambit-title">
-                  {{this.name}}
-                  <button type="button" class="return-to-deck" data-card-id="{{this.id}}" title="Return to Deck">✖️</button>
+                  {{name}}
                 </div>
 
                 <div class="gambit-description">
-                  {{{this.description}}}
+                  {{{system.description}}}
                 </div>
 
+                <div class="status-buttons">
+                  <button type="button" class="return-to-deck" data-item-id="{{_id}}" title="Return to Deck">♻️</button>
+                  <button type="button" class="discard-card" data-item-id="{{_id}}" title="Discard">🗑️</button>
+                  <button type="button" class="remove-from-hand" data-item-id="{{_id}}" title="Remove from Hand">🧹</button>
+                </div>
               </div>
-
             {{/each}}
           </div>
 
@@ -559,20 +561,38 @@
           <h2>Gambit Deck</h2>
 
           <div class="gambit-deck">
-            {{#each actor.system.gambits.deck}}
-              <div class="gambit-card" data-source="deck" draggable="true" data-card-id="{{this.id}}">
-                
-                <div class="gambit-title">{{this.name}}</div>
+            {{#each gambitDeck}}
+              <div class="gambit-card" data-source="deck" draggable="true" data-item-id="{{_id}}">
+
+                <div class="gambit-title">{{name}}</div>
 
                 <div class="gambit-description">
-                  {{{this.description}}}
+                  {{{system.description}}}
                 </div>
 
+                <div class="status-buttons">
+                  <button type="button" class="discard-card" data-item-id="{{_id}}" title="Discard">🗑️</button>
+                  <button type="button" class="remove-from-hand" data-item-id="{{_id}}" title="Remove from Hand">🧹</button>
+                </div>
               </div>
             {{/each}}
           </div>
-        </div>
 
+          <h2>Discard Pile</h2>
+          <div class="gambit-discard">
+            {{#each gambitDiscard}}
+              <div class="gambit-card faded" data-source="discard" draggable="false" data-item-id="{{_id}}">
+                <div class="gambit-title">{{name}}</div>
+                <div class="gambit-description">
+                  {{{system.description}}}
+                </div>
+              </div>
+            {{/each}}
+          </div>
+
+          <button type="button" class="reset-gambit-deck">♻️ Reset Deck</button>
+
+        </div>
       </div>
 
       <!--This is our journal for character information/backstory-->

@@ -6,7 +6,7 @@
 		]
 	},
 	"Item": {
-		"types": ["guise", "weapon", "armor", "misc"],
+		"types": ["guise", "weapon", "armor", "misc", "gambit"],
 		"weapon": {
 			"system": {
 				"description": "",
@@ -35,6 +35,14 @@
 				"strainDamage": 0,
 				"mortalCapacity": 0,
 				"soulCapacity": 0
+			}
+		},
+		"gambit": {
+			"system": {
+				"description": "",
+				"tier": "rookie",
+				"tags": [],
+				"used": false
 			}
 		}
 	},
@@ -85,37 +93,12 @@
 		"riskDice": 5,
 		"riskUsed": 0,
 		"crew": "",
-		"gambitDeck": [],
-		"gambitDraw": [],
 		"gambits": {
-			"deck": [
-				{
-					"id": "g1",
-					"name": "Smoke Bomb",
-					"description": "Disorient your foe and gain +1 to your next finesse or deceive check."
-				},
-				{
-					"id": "g2",
-					"name": "Overclock",
-					"description": "Disorient your foe and gain +1 to your next finesse or deceive check 2"
-				},
-				{
-					"id": "g3",
-					"name": "Flash Step",
-					"description": "Disorient your HOMIE"
-				},
-				{
-					"id": "g4",
-					"name": "Blackout Pulse",
-					"description": "Disorient your foe and gain +1 to your next finesse or deceive check."
-				},
-				{
-					"id": "g5",
-					"name": "Mirrored Edge",
-					"description": "Disorient your foe and gain +1 to your next finesse or deceive check."
-				}
-			],
-			"drawn": []
+			"deck": [],
+			"drawn": [], 
+			"locked": false,
+			"maxDeckSize": 3,
+			"maxDrawSize": 3
 		},
 		"class": "class placeholder",
 		"level": 1,

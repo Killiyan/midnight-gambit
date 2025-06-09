@@ -9,24 +9,38 @@
       <textarea name="system.description" rows="3">{{system.description}}</textarea>
     </div>
 
-    <label>Mortal Strain Cap</label>
-    <input type="number" name="system.mortalCap" value="{{system.mortalCap}}" />
+    <div class="guise-strain">
+      <div class="guise-capacity">
+        <label>Mortal Strain Cap</label>
+        <input type="number" name="system.mortalCap" value="{{system.mortalCap}}" />
+      </div>
 
-    <label>Soul Strain Cap</label>
-    <input type="number" name="system.soulCap" value="{{system.soulCap}}" />
+      <div class="guise-capacity">
+        <label>Soul Strain Cap</label>
+        <input type="number" name="system.soulCap" value="{{system.soulCap}}" />
+      </div>
+    </div>
 
-    <label for="sparkSlots">Spark Slots</label>
-    <input type="number" name="system.sparkSlots" value="{{system.sparkSlots}}" />
+    <div class="guise-consumables">
+      <div class="guise-consumable-single">
+        <label for="sparkSlots">Spark Slots</label>
+        <input type="number" name="system.sparkSlots" value="{{system.sparkSlots}}" />
+      </div>
 
-    <label for="riskDice">Risk Dice</label>
-    <input type="number" name="system.riskDice" value="{{system.riskDice}}" />
+      <div class="guise-consumable-single">
+        <label for="riskDice">Risk Dice</label>
+        <input type="number" name="system.riskDice" value="{{system.riskDice}}" />
+      </div>
+    </div>
 
-    <label for="casterType">Caster Type</label>
-    <select name="system.casterType">
-      <option value="none" {{#if (eq system.casterType "none")}}selected{{/if}}>No Caster</option>
-      <option value="half" {{#if (eq system.casterType "half")}}selected{{/if}}>Half Caster</option>
-      <option value="full" {{#if (eq system.casterType "full")}}selected{{/if}}>Full Caster</option>
-    </select>
+    <div class="guise-caster">
+      <label for="casterType">Caster Type</label>
+      <select name="system.casterType">
+        <option value="none" {{#if (eq system.casterType "none")}}selected{{/if}}>No Caster</option>
+        <option value="half" {{#if (eq system.casterType "half")}}selected{{/if}}>Half Caster</option>
+        <option value="full" {{#if (eq system.casterType "full")}}selected{{/if}}>Full Caster</option>
+      </select>
+    </div>
 
     <div class="attribute-modifiers">
       <label>Attribute Modifiers</label>
@@ -39,35 +53,39 @@
         {{/each}}
       </div>
     </div>
-  </div>
 
-  <!--This is rendering the Guise Basic moves/Signature Perk-->
-  <div class="guise-moves">
+    <!--This is rendering the Guise Basic moves/Signature Perk-->
+    <div class="guise-moves">
 
-    <label>Signature Perk</label>
-    <input type="text" name="system.signaturePerk" value="{{system.signaturePerk}}" />
+      <div class="guise-signature">
+        <label>Signature Perk</label>
+        <input type="text" name="system.signaturePerk" value="{{system.signaturePerk}}" />
 
-    <div class="desription-group">
-      <label for="system.signatureDescription">Signature Description</label>
-      <textarea name="system.signatureDescription" rows="3">{{system.signatureDescription}}</textarea>
-    </div>
-
-
-    {{#each system.moves as |move idx|}}
-      <div class="move-block" data-index="{{idx}}">
-        <label>Move Name</label>
-        <input type="text" class="move-name" value="{{move.name}}" data-index="{{idx}}" />
-
-        <label>Move Description</label>
-        <textarea class="move-description" data-index="{{idx}}">{{move.description}}</textarea>
-
-        <button type="button" class="remove-move" data-index="{{idx}}">Remove</button>
+        <div class="desription-group">
+          <label for="system.signatureDescription">Signature Description</label>
+          <textarea name="system.signatureDescription" rows="3">{{system.signatureDescription}}</textarea>
+        </div>
       </div>
-    {{/each}}
-
-    <button type="button" class="add-move">+ Add Move</button>
 
 
+      <div class="guise-moves">
+        {{#each system.moves as |move idx|}}
+          <div class="move-block" data-index="{{idx}}">
+            <label>Move Name</label>
+            <input type="text" class="move-name" value="{{move.name}}" data-index="{{idx}}" />
+
+            <label>Move Description</label>
+            <textarea class="move-description" data-index="{{idx}}">{{move.description}}</textarea>
+
+            <button type="button" class="remove-move" data-index="{{idx}}">Remove</button>
+          </div>
+        {{/each}}
+
+        <button type="button" class="add-move">+ Add Move</button>
+      </div>
+
+
+    </div>
   </div>
 
 </form>

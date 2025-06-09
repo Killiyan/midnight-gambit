@@ -9,13 +9,21 @@ export class MidnightGambitActorSheet extends ActorSheet {
     });
   }
 
-
     async getData(options) {
       const context = await super.getData(options);
 
       // Make sure the actor is available in the template
       context.actor = this.actor;
       context.system = this.actor.system;
+
+      const deckIds = context.system.gambits.deck ?? [];
+      const drawnIds = context.system.gambits.drawn ?? [];
+      const discardIds = context.system.gambits.discard ?? [];
+
+      context.gambitDeck = deckIds.map(id => this.actor.items.get(id)).filter(Boolean);
+      context.gambitDrawn = drawnIds.map(id => this.actor.items.get(id)).filter(Boolean);
+      context.gambitDiscard = discardIds.map(id => this.actor.items.get(id)).filter(Boolean);
+
 
       context.attributeKeys = [
         "tenacity",
@@ -78,7 +86,6 @@ export class MidnightGambitActorSheet extends ActorSheet {
       return context;
     }
 
-
     /** Binds event listeners after rendering. This is the Event listener for most the system*/
     activateListeners(html) {
       super.activateListeners(html);
@@ -101,6 +108,16 @@ export class MidnightGambitActorSheet extends ActorSheet {
 
         observer.observe(appWindow);
         this._resizeObserver = observer;
+      }
+
+      //Shuffle Function
+      function shuffleArray(array) {
+        const copy = [...array];
+        for (let i = copy.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [copy[i], copy[j]] = [copy[j], copy[i]];
+        }
+        return copy;
       }
 
       /** This looks for strain amount and adds/removes on clicks */
@@ -197,21 +214,70 @@ export class MidnightGambitActorSheet extends ActorSheet {
       }
 
       // Drawing button for Gambits
-      html.find(".draw-gambit").on("click", async (event) => {
-        const deck = this.actor.system.gambits.deck ?? [];
-        const drawn = this.actor.system.gambits.drawn ?? [];
+      html.find(".draw-gambit").on("click", async () => {
+        console.log("DRAW DEBUG:", this.actor.system.gambits);
+        
+        const { deck = [], drawn = [], maxDrawSize = 3, locked = false } = this.actor.system.gambits;
 
-        if (deck.length === 0) return;
+        if (locked || drawn.length >= maxDrawSize || deck.length === 0) {
+          ui.notifications.warn("Cannot draw more cards.");
+          return;
+        }
 
-        const index = Math.floor(Math.random() * deck.length);
-        const [card] = deck.splice(index, 1);
-        drawn.push(card);
+        const drawCount = Math.min(maxDrawSize - drawn.length, deck.length);
+        const shuffled = shuffleArray(deck);
+        const newDrawn = [...drawn, ...shuffled.slice(0, drawCount)];
+        const newDeck = deck.filter(id => !newDrawn.includes(id));
 
         await this.actor.update({
-          "system.gambits.deck": deck,
-          "system.gambits.drawn": drawn
+          "system.gambits.deck": newDeck,
+          "system.gambits.drawn": newDrawn,
+          "system.gambits.locked": true
         });
       });
+
+      //Discard Gambit
+      html.find(".discard-card").on("click", async (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+
+        const itemId = event.currentTarget.dataset.itemId;
+        const parent = event.currentTarget.closest(".gambit-card");
+        const source = parent?.dataset.source;
+
+        if (!itemId || !source) return;
+
+        const drawn = this.actor.system.gambits[source] ?? [];
+        const discard = this.actor.system.gambits.discard ?? [];
+
+        const updatedSource = drawn.filter(id => id !== itemId);
+        const updatedDiscard = [...discard, itemId];
+
+        await this.actor.update({
+          [`system.gambits.${source}`]: updatedSource,
+          "system.gambits.discard": updatedDiscard
+        });
+      });
+
+      //Remove Card from Hand
+      html.find(".remove-from-hand").on("click", async (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+
+        const itemId = event.currentTarget.dataset.itemId;
+        const parent = event.currentTarget.closest(".gambit-card");
+        const source = parent?.dataset.source;
+
+        if (!itemId || !source) return;
+
+        const update = {};
+        const list = this.actor.system.gambits[source] ?? [];
+
+        update[`system.gambits.${source}`] = list.filter(id => id !== itemId);
+
+        await this.actor.update(update);
+      });
+
 
       //Making it so if you click moves in the Character sheet they post to chat!
       html.find(".post-move").on("click", event => {
@@ -253,21 +319,13 @@ export class MidnightGambitActorSheet extends ActorSheet {
 
       // Returning Gambits to Deck when removed
       html.find('.return-to-deck').on('click', async (event) => {
-        const cardId = event.currentTarget.dataset.cardId;
-        if (!cardId) return;
+        const itemId = event.currentTarget.dataset.itemId;
+        if (!itemId) return;
 
-        const deck = this.actor.system.gambits.deck ?? [];
-        const drawn = this.actor.system.gambits.drawn ?? [];
+        const { deck = [], drawn = [] } = this.actor.system.gambits;
 
-        // Find the card in drawn
-        const cardIndex = drawn.findIndex(c => c.id === cardId);
-        if (cardIndex === -1) return;
-
-        const card = drawn[cardIndex];
-
-        const updatedDeck = [...deck, card];
-        const updatedDrawn = [...drawn];
-        updatedDrawn.splice(cardIndex, 1);
+        const updatedDeck = [...deck, itemId];
+        const updatedDrawn = drawn.filter(id => id !== itemId);
 
         await this.actor.update({
           "system.gambits.deck": updatedDeck,
@@ -276,21 +334,26 @@ export class MidnightGambitActorSheet extends ActorSheet {
       });
 
       // Handle dragstart
-      html.find('.gambit-card').on('dragstart', event => {
-        const cardId = event.currentTarget.dataset.cardId;
+      html.find(".gambit-card").on("dragstart", event => {
+        const itemId = event.currentTarget.dataset.itemId;
         const source = event.currentTarget.dataset.source;
-        if (!cardId || !source) return;
-        event.originalEvent.dataTransfer.setData("text/plain", JSON.stringify({ cardId, source }));
+        if (!itemId || !source) return;
+
+        event.originalEvent.dataTransfer.setData(
+          "text/plain",
+          JSON.stringify({ itemId, source })
+        );
       });
+
 
       // Handle drop on deck or drawn
       const handleDrop = (targetArea) => {
         return async (event) => {
           event.preventDefault();
           const data = JSON.parse(event.originalEvent.dataTransfer.getData("text/plain"));
-          const { cardId, source } = data;
+          const { itemId, source } = data;
 
-          if (source === targetArea) return; // no-op
+          if (source === targetArea) return;
 
           const deck = this.actor.system.gambits.deck ?? [];
           const drawn = this.actor.system.gambits.drawn ?? [];
@@ -298,13 +361,12 @@ export class MidnightGambitActorSheet extends ActorSheet {
           let from = source === "deck" ? deck : drawn;
           let to = source === "deck" ? drawn : deck;
 
-          const cardIndex = from.findIndex(c => c.id === cardId);
-          if (cardIndex === -1) return;
+          const index = from.indexOf(itemId);
+          if (index === -1) return;
 
-          const card = from[cardIndex];
           from = [...from];
-          to = [...to, card];
-          from.splice(cardIndex, 1);
+          to = [...to, itemId];
+          from.splice(index, 1);
 
           await this.actor.update({
             "system.gambits.deck": source === "deck" ? from : to,
@@ -863,7 +925,66 @@ export class MidnightGambitActorSheet extends ActorSheet {
 
         ui.notifications.info(`Removed tag '${tagId}' from ${item.name}`);
       });
+      
+      //Gambit Card Drag and Drop
+      html.find(".gambit-card").on("dragstart", event => {
+        const itemId = event.currentTarget.dataset.itemId;
+        const source = event.currentTarget.dataset.source;
+        if (!itemId || !source) return;
 
+        event.originalEvent.dataTransfer.setData(
+          "text/plain",
+          JSON.stringify({ itemId, source })
+        );
+      });
+
+      //Reset Gambit Button - like a long rest but for deck
+      html.find(".reset-gambit-deck").on("click", async () => {
+        const { deck = [], drawn = [], discard = [] } = this.actor.system.gambits;
+
+        // Combine all into one
+        const fullDeck = [...deck, ...drawn, ...discard];
+        const shuffled = shuffleArray(fullDeck); // optional, but nice touch
+
+        await this.actor.update({
+          "system.gambits.deck": shuffled,
+          "system.gambits.drawn": [],
+          "system.gambits.discard": [],
+          "system.gambits.locked": false
+        });
+
+        new Dialog({
+          title: "Reset Gambit Deck",
+          content: `<p>Are you sure you want to reset your Gambit deck?<br>All drawn and discarded cards will be returned to your deck.</p>`,
+          buttons: {
+            yes: {
+              icon: '<i class="fas fa-check"></i>',
+              label: "Reset",
+              callback: async () => {
+                const { deck = [], drawn = [], discard = [] } = actor.system.gambits;
+                const fullDeck = [...deck, ...drawn, ...discard];
+                const shuffled = shuffleArray(fullDeck);
+
+                await actor.update({
+                  "system.gambits.deck": shuffled,
+                  "system.gambits.drawn": [],
+                  "system.gambits.discard": [],
+                  "system.gambits.locked": false
+                });
+
+                ui.notifications.info("Gambit deck has been reset.");
+              }
+            },
+            no: {
+              icon: '<i class="fas fa-times"></i>',
+              label: "Cancel"
+            }
+          },
+          default: "yes"
+        }).render(true);
+
+        ui.notifications.info("Gambit deck reset!");
+      });
       }
 
     //END EVENT LISTENERS
@@ -1005,6 +1126,22 @@ export class MidnightGambitActorSheet extends ActorSheet {
       await this.actor.update({});   // <-- force apply guise bonuses
       ui.notifications.info(`${guise.name} applied as new Guise!`);
       await this.render(true);
+      return [];
+    }
+
+    if (itemData.type === "gambit") {
+      console.log("🎴 Dropped Gambit item onto actor");
+
+      const [gambitItem] = await this.actor.createEmbeddedDocuments("Item", [itemData]);
+
+      const currentDeck = this.actor.system.gambits.deck ?? [];
+
+      if (!currentDeck.includes(gambitItem.id)) {
+        await this.actor.update({
+          "system.gambits.deck": [...currentDeck, gambitItem.id]
+        });
+      }
+
       return [];
     }
 
