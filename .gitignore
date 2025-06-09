@@ -48,3 +48,9 @@ Thumbs.db
 *.mov
 *.wmv
 
+style.css
+style.css.map
+
+# Ignore LevelDB files
+*/*
+!*.db

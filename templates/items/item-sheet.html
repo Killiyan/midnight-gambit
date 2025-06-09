@@ -1,0 +1,88 @@
+<form class="item-sheet" autocomplete="off">
+  <header class="sheet-header">
+    <img class="profile-img" src="{{item.img}}" data-edit="img" title="{{item.name}}" />
+    <h1><input name="name" type="text" value="{{item.name}}" /></h1>
+  </header>
+
+  <section class="sheet-body">
+    <label>Description</label>
+    <textarea name="system.description">{{system.description}}</textarea>
+
+    <div class="wrapper">
+      <label>Tags</label>
+      <div class="tag-selector">
+
+        {{#each tags}}
+          <div class="tag-container">
+            <button
+            type="button"
+            class="tag-pill {{#if (includes ../system.tags this.id)}}selected{{/if}}"
+            data-tag-id="{{this.id}}"
+            title="{{this.description}}"
+            >
+            {{this.label}}
+            </button>
+
+              {{#if this.isCustom}}
+                <button type="button" class="delete-custom-tag" data-tag-id="{{this.id}}" title="Delete custom tag globally">🗑️</button>
+              {{/if}}
+          </div>
+        {{/each}}
+        
+      </div>
+    </div>
+    
+    <div class="wrapper">
+      {{#each item.system.tags}}
+        {{#with (findTag ../tags this) as |tag|}}
+        <span class="item-tag" data-tooltip="{{tag.description}}">{{tag.label}}</span>
+        {{else}}
+        <span class="item-tag">{{this}}</span>
+        {{/with}}
+      {{/each}}
+      
+      <button class="add-custom-tag"><i class="fa-solid fa-plus"></i> Add Custom Tag</button>
+    </div>
+
+    {{#if (eq item.type "gambit")}}
+      <div class="form-group">
+        <label>Gambit Tier</label>
+        <select name="system.tier">
+          <option value="rookie" {{#if (eq system.tier "rookie")}}selected{{/if}}>Rookie</option>
+          <option value="trick" {{#if (eq system.tier "trick")}}selected{{/if}}>Trick Deck</option>
+          <option value="ace" {{#if (eq system.tier "ace")}}selected{{/if}}>Ace in the Sleeve</option>
+          <option value="final" {{#if (eq system.tier "final")}}selected{{/if}}>Final Hand</option>
+        </select>
+      </div>
+    {{/if}}
+
+
+
+    {{#if (eq itemType "weapon")}}
+      <div class="wrapper">
+        <label>Strain Damage</label>
+        <input type="number" name="system.strainDamage" value="{{system.strainDamage}}" min="0" />
+      </div>
+    {{/if}}
+
+    {{#if (eq itemType "armor")}}
+      <div class="wrapper">
+        <label>Mortal Capacity</label>
+        <input type="number" name="system.mortalCapacity" value="{{system.mortalCapacity}}" min="0" />
+        <label>Soul Capacity</label>
+        <input type="number" name="system.soulCapacity" value="{{system.soulCapacity}}" min="0" />
+      </div>
+    {{/if}}
+
+    {{#if (eq itemType "misc")}}
+      <div class="wrapper">
+        <label>Strain Damage</label>
+        <input type="number" name="system.strainDamage" value="{{system.strainDamage}}" min="0" />
+        <label>Mortal Capacity</label>
+        <input type="number" name="system.mortalCapacity" value="{{system.mortalCapacity}}" min="0" />
+        <label>Soul Capacity</label>
+        <input type="number" name="system.soulCapacity" value="{{system.soulCapacity}}" min="0" />
+      </div>
+    {{/if}}
+  </section>
+</form>

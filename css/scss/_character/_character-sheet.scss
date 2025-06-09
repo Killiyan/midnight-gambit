@@ -5,128 +5,942 @@ h1,h2,h3,h4 {
 	font-size: 1rem;
 }
 
-/*Image and Name styling
-==============================================================================*/
-.profile-image {
-  top: 0;
-  right: 0;
-  width: 100%;
-  height: 30rem;
-  z-index: 10;
-}
-
-.profile-image img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  cursor: pointer;
-}
-
-
-/*Strain Styling
+/*Window Styling
 ==============================================================================*/
 
-.strain-track {
-  margin-bottom: 1em;
-}
-.strain-boxes {
-  display: flex;
-  gap: 0.5em;
-}
-.strain-dot {
-  cursor: pointer;
-  font-size: 1.5em;
-  color: gray;
-}
-.strain-dot.filled {
-  color: red;
+.window-app {
+  border: 3px solid $mg-blue-main-2;
+  border-radius: .625rem;
+
+  .window-header {
+    background: $mg-blue-main;
+    color: $mg-ivory;
+    border-radius: .5rem .5rem 0 0;
+    border: 0;
+    padding: 1.125rem;
+    overflow: visible;
+    height: 100%;
+    width: 100%;
+  }
+
+  .window-content {
+    background: $mg-blue-main;
+    color: $mg-blue-2;
+    @include roboto();
+
+  .notes {
+    color: $mg-blue-2;
+  }
+
+    label {
+      color: $mg-ivory;
+      @include oswald();
+      font-size: 1rem;
+      text-transform: uppercase;
+      margin-bottom: .5rem;
+    }
+
+    input,
+    select,
+    textarea {
+      @include mg-border();
+      @include roboto();
+      border-color: $mg-blue-3;
+      border-radius: .5rem;
+      color: $mg-blue-2;
+      transition: color .5s ease, border-color .5s ease, box-shadow 0.5s ease;
+
+      &:hover,
+      &:focus {
+        color: $mg-ivory;
+        border-color: $mg-ivory;
+        box-shadow: 0 0 .5rem $mg-ivory;
+      }
+    }
+
+    option {
+      background-color: $mg-blue-main;
+      @include mg-border();
+    }
+
+    input[type="number"],
+    input[type="text"],
+    input[type="checkbox"],
+    textarea {
+      color: $mg-blue-2;
+      transition: color .5s ease, border-color .5s ease, box-shadow .5s ease;
+
+      &:hover,
+      &:focus {
+        color: $mg-ivory;
+      }
+    }
+
+    input::placeholder {
+       color: $mg-blue-2;
+       transition: color .5s ease;
+    }
+    .dialog-content {
+      gap: 1.125rem;
+
+      input {
+        padding: 1rem;
+        height: auto;
+      }
+      
+      form {
+        display: flex;
+        flex-direction: column;
+        gap: .75rem;
+      }
+    }
+
+    .dialog-buttons {
+      margin-top: 1.125rem;
+    
+      button {
+        background: $mg-blue-3;
+        color: $mg-ivory;
+        @include oswald();
+        font-size: 1rem;
+        text-transform: uppercase;
+        @include mg-border();
+        border-radius: .5rem;
+        transition: background 0.5s ease, color 0.5s ease, box-shadow .5s ease;
+
+        &:hover {
+          background: $mg-blue-1;
+          color: $mg-blue-main-2;
+          box-shadow: 0 0 .5rem $mg-ivory;
+
+          i {
+            color: $mg-blue-main;
+          }
+        }
+
+        &:focus {
+          box-shadow: none;
+        }
+
+          i {
+            color: $mg-ivory;
+            transition: color 0.5s ease;
+          }
+      }
+    }
+  }
+
+  &.minimized {
+    border: 3px solid $mg-blue-main-2;
+    transition: border .2s ease, border-radius .2s ease;
+    border-radius: .5rem;
+  }
+
+  &.sheet .window-content {
+    padding: 0;
+    border-radius: 0 0 .5rem .5rem;
+    background: $mg-blue-main;
+    @include mg-border();
+
+    &::-webkit-scrollbar-thumb {
+      background: $mg-blue-1;
+      border-color: $mg-blue-2;
+    }
+
+    .actor {
+        color:$mg-ivory;
+
+        .character-info {
+          position: relative;
+        }
+
+        .personal-info {
+          position: absolute;
+          top: 1.25rem;
+          left: 2.5%;
+          width: 95%;
+          background: rgba($mg-blue-main, .8);
+          display: flex;
+          padding: 1.125rem;
+          border-radius: .5rem;
+          border: 2px solid $mg-blue-main-2;
+          justify-content: space-between;
+          color: $mg-ivory;
+          z-index: 10;
+
+          h1 {
+            border-bottom: 0;
+            margin: 0;
+
+            input {
+              @include oswald();
+              text-transform: uppercase;
+              letter-spacing: -.03rem;
+              font-size: 1.5rem;
+            }
+          }
+
+          .crew-field input {
+            color: $mg-blue-2;
+            font-size: .875rem;
+            text-transform: uppercase;
+            letter-spacing: -0.0175rem;
+          }
+
+          input {
+            border-bottom: .125rem solid transparent;
+            border-radius: 0;
+            border-top: 0;
+            border-left: 0;
+            border-right: 0;
+            background: none;
+            color: $mg-ivory;
+            padding-bottom: .25rem;
+            transition: border 0.2s ease;
+
+              &:hover,
+              &:focus {
+                border-bottom-color: $mg-ivory;
+              }
+
+            &::placeholder {
+              color: $mg-ivory !important;
+            }
+          }
+
+          .guise-display {
+            display: flex;
+            flex-direction: column;
+
+            .guise-name {
+              @include roboto();
+              font-size: 1.125rem;
+              letter-spacing: -0.0225rem;
+              font-weight: 700;
+              font-style: italic;
+              color: $mg-blue-1;
+
+              .level {
+                font-size: .75rem;
+                color: $mg-blue-2;
+              }
+            }
+          }
+        }
+    }
+  }
 }
 
-/*Risk Styling
+/*Character Sheet Styling
 ==============================================================================*/
 
-.risk-boxes {
-  display: flex;
-  gap: 0.5em;
-}
-.risk-dot {
-  cursor: pointer;
-  font-size: 1.5em;
-  color: gray;
-}
-.risk-dot.filled {
-  color: gold;
+.sheet .actor {
+  .sheet-body {
+    position: relative;
+  }
+
+  //The first tab of the character sheet
+  .tab-content {
+    .over-image {
+      position: absolute;
+      top: 9rem;
+      left: -2px;
+      z-index: 10;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 2rem;
+    }
+
+    .tab {
+      padding: 2.125rem;
+    }
+
+    //Setting consisten styling for the over image toggles
+    .long-rest-button,
+    .flashback-track,
+    .load-toggle {
+      background: $mg-blue-main;
+      border: 2px solid $mg-blue-main-2;
+      display: flex;
+      align-items: center;
+      margin: 0;
+      width: auto;
+      padding: 1.125rem 1.9375rem 1.125rem 1rem;
+      border-radius: 0rem 0.625rem 0.625rem 0rem;
+      gap: 1rem;
+      @include oswald();
+      font-size: 1rem;
+      color: $mg-ivory;
+      text-transform: uppercase;
+
+      label {
+        margin: 0;
+      }
+
+      i {
+        font-size: 1rem;
+        transition: color 0.2s ease;
+        color: $mg-blue-main-2;
+        display: block;
+      }
+    }
+
+    //Differing Flashback slightly
+    .flashback-track {
+      gap: 1.775rem;
+
+      .flashback-dot {
+        font-size: 1.5em;
+        cursor: pointer;
+        color: $mg-blue-main-2;
+        transition: color 0.5s ease, transform .5s ease;
+
+        &:hover {
+          transform: scale(1.2);
+        }
+
+        &.filled  i {
+          color: $mg-blue-3;
+        }
+      }
+    }
+
+    //Specific Load toggling for the spacing and coloring
+    .load-toggle {
+      margin-bottom: 1em;
+
+      .load-options {
+        display: flex;
+        gap: .875rem;
+        
+        .load-icon {
+          cursor: pointer;
+          transform: scale(1);
+          transition: all 0.3s ease;
+          color: $mg-blue-main-2;
+
+          &:hover,
+          &:focus {
+            color: $mg-blue-3;
+          }
+
+          i {
+            color: inherit;
+          }
+
+          &.selected {
+            color: $mg-blue-3;
+          }
+        }
+      }
+    }
+
+    //Attribute styling
+    .attribute-container {
+      display: flex;
+      gap: 2.125rem;
+      justify-content: center;
+      margin-top: -4.5rem;
+      margin-bottom: 2.125rem;
+      position: relative;
+      z-index: 10;
+
+      .attribute-row {
+        display: flex;
+        flex-direction: column;
+        padding: 1.125rem;
+        border-radius: .625rem;
+        background: $mg-blue-main;
+        @include mg-border();
+        padding: 1.125rem;
+        text-align: center;
+        gap: .625rem;
+        width: 100%;
+        
+        label {
+          @include oswald();
+          font-size: 1rem;
+          text-transform: uppercase;
+          color: $mg-ivory;
+        }
+
+        //This specifically targets the + or -
+        .attribute-modifier {
+          display: flex;
+          justify-content: center;
+          padding: 1.125rem;
+          width: 100%;
+          background: $mg-blue-main-2;
+          color: $mg-blue-1;
+          @include oswald();
+          font-size: 1rem;
+          border-radius: .5rem;
+          transition: background .5s ease, color .5s ease;
+
+          &:hover,
+          &:focus {
+            background: $mg-blue-3;
+            color: $mg-ivory;
+          }
+        }
+      }
+    }
+
+    //Combining common header/container styling
+    .strain-container,
+    .spark-container,
+    .skills-header {
+      display: flex;
+      width: 100%;
+      @include mg-border();
+      border-radius: .625rem;
+      margin-bottom: 2.125rem;
+
+      label {
+        margin-bottom: 0;
+        @include oswald();
+        font-size: 1rem;
+      }
+
+      //Combining interior styling of the different elements
+      .strain-track,
+      .capacity-box,
+      .strain-label,
+      .spark-label,
+      .spark-school-selectors,
+      .spark-track,
+      .risk-track,
+      .skills-label {
+        padding: 1.25rem;
+        display: flex;
+        gap: .625rem;
+        align-items: center;
+        border-right: 0.125rem solid $mg-blue-main-2;
+
+        label {
+          color: $mg-blue-2;
+        }
+
+
+        i {
+          font-size: 1rem;
+          color: $mg-blue-main-2;
+        }
+      }
+
+      //Giving Capacity box specific styling to overwrite pesky Foundry shite
+      .capacity-box {
+        display: flex;
+        gap: .625rem;
+        justify-content: center;
+
+        input[type="number"] {
+          border-top: none;
+          border-right: none;
+          border-bottom: 2px solid $mg-blue-3;
+          border-left: none;
+          width: 25%;
+          padding: 0;
+          text-align: center;
+          background: none;
+          border-radius: 0;
+          font-size: 1rem;
+
+          &:hover,
+          &:focus {
+            box-shadow: none;
+          }
+        }
+      }
+
+      //This styles the exact icon of strain
+      .strain-dot {
+        transition: color 0.5s ease, transform .5s ease;
+
+        &:hover {
+          transform: scale(1.2);
+        }
+
+        &.filled i {
+          color: $mg-blue-3;
+        }
+      }
+
+      .soul {
+        border: none;
+        color: $mg-blue-2;
+      }
+
+      //Tarking the Spark items to give them full width getting spacing more consistent
+      .spark-school-selectors,
+      .spark-track {
+        width: 100%;
+
+        label {
+          color: $mg-ivory;
+        }
+      }
+
+      //Styling Spark track more specifically
+      .spark-track {
+        border: none;
+
+        .spark-boxes {
+          display: flex;
+          gap: 2.125rem;
+          align-items: center;
+
+          .box-container {
+            display: flex;
+            gap: .625rem;
+          }
+        }
+
+        .spark-dot {
+          transition: color 0.5s ease, transform .5s ease;
+
+          &:hover {
+            transform: scale(1.2);
+          }
+        }
+
+        .spark-dot.filled i {
+          color: $mg-blue-3;
+        }
+      }
+
+      //Styling Risk Track more specifically
+      .risk-track {
+        width: 100%;
+        display: flex;
+        gap: 1.25rem;
+        border: 0;
+
+        label {
+          color: $mg-ivory;
+        }
+
+        .risk-boxes {
+          display: flex;
+          gap: 1.25rem;
+
+          .risk-dot {
+           transition: color 0.5s ease, transform .5s ease;
+
+            &:hover {
+              transform: scale(1.2);
+            }
+            &.filled i {
+              color: $mg-blue-3;
+            }
+          }
+        }
+      }
+    }
+
+    //Overwriting the common color for label
+    .strain-label {
+      color: $mg-ivory;
+    }
+
+    //Start Skill styling and it's grid
+    .skills-header {
+      margin-bottom: 0;
+      border-radius: .5rem .5rem 0 0;
+    }
+
+    .skill-container {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      padding: 1.25rem;
+      @include mg-border();
+      border-radius: 0 0 .5rem .5rem;
+
+      .skill-row {
+        border-right: 2px solid $mg-blue-main-2;
+        padding: .625rem 0 .625rem 1.25rem;
+        display: flex;
+        align-items: center;
+
+        &:nth-child(5n) {
+          border: none;
+        }
+
+        .skill-name {
+          color: $mg-blue-2;
+          @include roboto();
+          font-size: 1rem;
+          letter-spacing: .01em;
+          text-transform: capitalize;
+        }
+
+        .skill-value {
+          @include oswald();
+          font-size: 1rem;
+          text-transform: uppercase;
+          color: $mg-blue-1;
+          margin-right: .625rem;
+          display: inline-flex;
+          padding: .25rem .5rem;
+          border-radius: .5rem;
+          justify-content: center;
+          text-align: center;
+          background: $mg-blue-main-2;
+          transition: color .5s ease, background .5s ease;
+          min-width: 1.875rem;
+
+          &:hover {
+            color: $mg-ivory;
+            background: $mg-blue-3;
+          }
+        }
+      }
+    }
+  }
+
+  //Start the Moves Tab of the character sheet
+  .tab-moves {
+
+    .signature-perk,
+    .move-block {
+      border-radius: .5rem;
+      @include mg-border();
+      padding: 1.25rem;
+      background: $mg-blue-main;
+
+      h3 {
+        border-bottom: 1px solid $mg-blue-main;
+        padding-bottom: .75rem;
+        font-size: 1.25rem;
+        @include oswald();
+        font-weight: 700;
+        font-style: italic;
+      }
+    }
+
+    .signature-perk {
+      background: $mg-blue-main-2;
+      padding: 0;
+
+      h3 {
+        @include oswald();
+        font-weight: 700;
+        font-style: italic;
+        font-size: 1.25rem;
+        line-height: 1.1;
+        padding:  1.25rem;
+        display: block;
+        background: $mg-blue-3;
+        color: $mg-ivory;
+        border-radius: .5rem .5rem 0 0;
+        transition: color .5s ease, background .5s ease;
+
+        .post-signature {
+          display: flex;
+          gap: .625rem;
+        }
+
+        &:hover {
+          background: $mg-blue-1;
+          color: $mg-blue-main-2;
+
+          i {
+            color: $mg-blue-3;
+          }
+        }
+
+        i {
+          display: block;
+          font-size: 1.25rem;
+          color: $mg-blue-4;
+          transition: color .5s ease;
+        }
+      }
+
+      p {
+        padding: 0 1.25rem;
+        margin: 1.25rem 0;
+        @include roboto();
+        font-size: 1rem;
+        line-height: 1.5;
+      }
+    }
+
+    .basic-moves {
+      h3 {
+        border-bottom: 1px solid $mg-blue-main-2;
+        margin: 2.125rem 0;
+        padding-bottom: .75rem;
+        @include oswald();
+        font-size: 1.25rem;
+      }
+
+      .move-container {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1.25rem;
+
+        .move-block {
+          position: relative;
+          padding: 0;
+
+          .post-move {
+            @include oswald();
+            font-weight: 700;
+            font-style: italic;
+            font-size: 1.25rem;
+            line-height: 1.1;
+            padding:  1.25rem;
+            display: block;
+            background: $mg-blue-3;
+            color: $mg-ivory;
+            border-radius: .5rem .5rem 0 0;
+            display: flex;
+            gap: .625rem;
+            transition: color .5s ease, background .5s ease;
+
+            &:hover {
+              background: $mg-blue-1;
+              color: $mg-blue-main-2;
+
+              i {
+                color: $mg-blue-3;
+              }
+            }
+
+            i {
+              display: block;
+              font-size: 1.25rem;
+              color: $mg-blue-4;
+              transition: color .5s ease;
+            }
+          }
+
+          p {
+            padding: 0 1.25rem;
+            margin: 1.25rem 0;
+            @include roboto();
+            font-size: 1rem;
+            line-height: 1.5;
+          }
+        }
+      }
+    }
+  }
+
+  //Styling the profile image on all tabs
+  .profile-image {
+    top: 0;
+    right: 0;
+    width: 100%;
+    height: 30rem;
+    z-index: 10;
+    position: relative;
+
+      &:before {
+        background:radial-gradient(80.16% 80.16% at 50% 76.69%, rgba(37, 66, 108, 0.00) 41.35%, #25426C 100%), url(<path-to-image>) transparent 50% / cover no-repeat;
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+      }
+
+      img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        cursor: pointer; 
+      }
+  }
+
+  //Styling Name input to get rid of the form styling that makes it look weird
+  .name input{
+
+    &:hover,
+    &:focus {
+      box-shadow: none;
+      border-left: none;
+      border-top: none;
+      border-right: none;
+    }
+  }
+
+  /*Adding Responsive
+ ------------------------------*/
+
+ &.narrow-mode {
+  touch-action: manipulation;
+  overscroll-behavior: none;
+
+  .strain-dot,
+  .risk-dot,
+  .spark-dot,
+  .load-icon,
+  .attribute-modifier,
+  .skill-name {
+    outline: none;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  pointer-events: auto;
+  /* prevent focus */
+  -webkit-user-select: none;
+  user-select: none;
+  }
+
+  .tab-content {
+
+    .attribute-container {
+      flex-wrap: wrap;
+
+      .attribute-row {
+        width: auto;
+        min-width: 6.125rem;
+      }
+    }
+
+    .strain-track,
+    .spark-container {
+      flex-direction: column;
+    }
+
+    .spark-container {
+      .spark-label,
+      .spark-school-selectors {
+        border: none;
+        flex-wrap: wrap;
+      }
+    }
+
+    .risk-track,
+    .risk-boxes,
+    .box-container {
+      flex-wrap: wrap;
+    }
+
+    .capacity-box {
+      align-items: flex-start;
+      flex-wrap: wrap;
+    }
+
+    .skill-container {
+      display: flex;
+      flex-wrap: wrap;
+
+      .skill-row {
+        width: 50%;
+        border: none;
+
+        &:nth-of-type(odd) {
+          border-right: 2px $mg-blue-main-2 solid;
+        }
+      }
+    }
+  }
+ }
 }
 
-/*Flashback and Load Styling
+/*Animating Roll behavior
 ==============================================================================*/
-
-.flashback-track {
-  margin-bottom: 1em;
+@keyframes pop-flash {
+  0%   { transform: scale(1);   opacity: 1; }
+  50%  { transform: scale(1.15); opacity: 1; }
+  100% { transform: scale(1);   opacity: 1; }
 }
 
-.flashback-dot {
-  font-size: 1.5em;
-  cursor: pointer;
-  color: gray;
-  filter: grayscale(100%);
-  transition: filter 0.2s, color 0.2s;
+.flourish-animate {
+  animation: pop-flash 0.5s ease-out;
+  color: $mg-ivory; // or whatever fits your theme
+  font-weight: bold;
+  display: inline-block;
 }
 
-.flashback-dot.filled {
-  color: violet;
-  filter: grayscale(0%);
+.result-label i {
+  &.result-flourish {
+    animation: flourish-pulse 1s ease-in-out;
+  }
+
+  &.result-mixed {
+    animation: shake 0.6s;
+  }
+
+  &.result-fail {
+    animation: fail-grow 0.4s ease-in-out;
+  }
 }
 
-.load-toggle {
-  margin-bottom: 1em;
+@keyframes flourish-pulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.05) rotate(-1deg); }
+  100% { transform: scale(1); }
 }
 
-.load-options {
-  display: flex;
-  gap: 0.5em;
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-6px); }
+  40%, 80% { transform: translateX(6px); }
 }
 
-.load-icon {
-  font-size: 1.5em;
-  cursor: pointer;
-  opacity: 0.4;
-  transition: opacity 0.2s;
+@keyframes fail-grow {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.3); color: #ff4444; }
+  100% { transform: scale(1); }
 }
 
-.load-icon.selected {
-  opacity: 1;
-}
 
 /*Tab Styling
 ==============================================================================*/
 
-.sheet-tabs.floating {
-  position: absolute;
-  right: -47px;
-  top: 80px;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5em;
-  z-index: 100;
-  pointer-events: auto;
+//Removing tabs when you minimize the character sheet
+.sheet.minimized nav.sheet-tabs.floating {
+  opacity: 0;
 }
 
-.sheet-tabs.floating .item {
-  background: #2a2a2a;
-  color: #ccc;
-  padding: 0.5em 1em;
-  border-radius: 0 6px 6px 0;
-  border-left: 3px solid transparent;
-  white-space: nowrap;
-  font-weight: bold;
-  cursor: pointer;
-}
+.sheet nav {
+  &.sheet-tabs.floating {
+    position: absolute;
+    right: -53px;
+    top: 87px;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5em;
+    z-index: 100;
+    pointer-events: auto;
+    border: none;
+    opacity: 1;
 
-.sheet-tabs.floating .item.active {
-  background: #444;
-  color: white;
-  border-left: 3px solid var(--color-text-light-heading, #aaa);
+    .item {
+      background: $mg-blue-main;
+      color: $mg-blue-2;
+      padding: .875rem;
+      border-radius: 0 .625rem .625rem 0;
+      border: 2px solid $mg-blue-main-2;
+      white-space: nowrap;
+      font-weight: bold;
+      cursor: pointer;
+      display: flex;
+      justify-content: center;
+      transition: color .2s ease, border-color .2s ease, background .2s ease;
+
+      &:hover,
+      &:focus {
+        background:$mg-blue-3;
+        border-color: $mg-blue-main-2;
+        color: $mg-ivory;
+        text-shadow: none;
+      }
+
+      &.active {
+        background: $mg-blue-3;
+        border-color: $mg-blue-main-2;
+        color: $mg-ivory;
+      }
+    }
+  }
 }
 
 /*Inventory Styling
@@ -135,87 +949,295 @@ h1,h2,h3,h4 {
 .inventory-tab {
   display: flex;
   flex-direction: column;
-  gap: 1em;
-}
+  gap: 1.875rem;
+  margin-top: -5rem;
+  position: relative;
+  z-index: 10;
 
-.currency-field,
-.search-field {
-  display: flex;
-  align-items: center;
-  gap: 0.5em;
-}
+  .currency-field {
+    display: flex;
+    flex-direction: column;
+    padding: 1.125rem;
+    border-radius: .625rem;
+    background: $mg-blue-main;
+    @include mg-border();
+    padding: 1.125rem;
+    text-align: center;
+    gap: .625rem;
+    max-width: 10rem;
+    
+    label {
+      @include oswald();
+      font-size: 1rem;
+      text-transform: uppercase;
+      color: $mg-ivory;
+    }
 
-.currency-field input,
-.search-field input {
-  width: 150px;
-}
+    input {
+      background: $mg-blue-main-2;
+      border: none;
+      box-shadow: none;
+      @include oswald();
+      font-size: 1rem;
+      text-transform: uppercase;
+      color: $mg-ivory;
+      width: auto;
+      padding: 2.125rem 0;
+    }
+  }
 
-.inventory-section h3 {
-  margin-bottom: 0.25em;
-  color: var(--color-text-light-1);
-}
+  h3 {
+    @include oswald();
+    font-size: 1rem;
+    text-transform: uppercase;
+    color: $mg-ivory;
+    border: none;
+  }
 
-.inventory-header,
-.inventory-list {
-  display: grid;
-  grid-template-columns: 2fr 1fr 1fr 2fr;
-  gap: 0.5em;
-  align-items: center;
-}
+  .inventory-header,
+  .inventory-list {
+    display: grid;
+    gap: 1.5rem;
+    align-items: center;
+  }
 
-.inventory-header {
-  font-weight: bold;
-  padding-bottom: 0.25em;
-  border-bottom: 1px solid #444;
-}
+  .inventory-section {
+    @include mg-border();
+    border-radius: .5rem;
+    //padding: 1.25rem;
 
-.inventory-list {
-  padding: 0.5em 0;
-}
+    .inventory-wrapper {
+      padding: 1.25rem;
+      border-bottom: 1px solid $mg-blue-main-2;
 
-.inventory-item {
-  display: contents;
-}
+      span {
+        color: $mg-blue-2;
+        font-size: .85rem;
+        text-transform: uppercase;
+        @include roboto();
+        font-weight: 700;
+        letter-spacing: .02em;
+      }
+    }
 
-.inventory-item span,
-.inventory-item input[type="text"],
-.inventory-item input[type="number"] {
-  font-size: 0.9em;
-}
+    .inventory-header {
+      border: none;
+    }
 
-.item-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.25em;
+    .inventory-item {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr 1fr 2fr 1fr;
+      gap: 1.5rem;
+      align-items: flex-start;
+      padding: 1.25rem;
+      border-bottom: 1px $mg-blue-main-2 solid;
+
+      &:last-of-type {
+        border: none;
+      }
+
+      input[type="checkbox"] {
+        background: $mg-blue-main-2;
+        @include mg-border();
+        border-radius: .5rem;
+        margin: 0;
+        appearance: unset;
+        position: relative;
+        padding: .75rem;
+        transition: background .5s ease, box-shadow .5s ease, color .5s ease;
+
+        &:after {
+          font-family: "Font Awesome 6 Pro";
+          content: "\f00c";
+          position: absolute;
+          font-size: 1rem;
+          font-weight: 700;
+          color: $mg-blue-4;
+          top: 0.25rem;
+          left: 0.35rem;
+          opacity: 0;
+          transition: opacity .5s ease, color .5s ease;
+        }
+
+        &:checked {
+          background: $mg-blue-1;
+
+          &:after {
+            opacity: 1;
+          }
+        }
+
+        &:hover {
+          background: $mg-blue-3;
+
+          &:checked::after {
+            color: $mg-ivory;
+          }
+        }
+      }
+
+      .item-name {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+
+        .clickable-item {
+          @include roboto();
+          font-size: .75rem;
+          font-weight: 700;
+          color: $mg-blue-2;
+        }
+
+        .post-weapon-tags,
+        .post-armor-tags,
+        .post-misc-tags {
+          width: auto;
+          height: auto;
+          background: none;
+          border: none;
+          padding: 0;
+          display: flex;
+
+          i {
+            color: $mg-ivory;
+            transition: color 0.5s ease, text-shadow 0.5s ease;
+          }
+
+          &:hover {
+            box-shadow: none;
+            
+            i {
+              color: $mg-blue-2;
+              text-shadow: 0 1px $mg-blue-3;
+            }
+          }
+
+          &:focus {
+            box-shadow: none;
+          }
+        }
+      }
+
+      .status-buttons {
+        display: flex;
+
+        button {
+          text-align: center;
+
+          i {
+            margin: 0;
+          }
+        }
+
+        .repair-armor.disabled {
+          background-color: $mg-blue-4;
+          pointer-events: none;
+          border-color: $mg-blue-4;
+
+          &:hover {
+            box-shadow: none;
+          }
+          
+          i {
+            color: $mg-blue-main-2;
+          }
+        } 
+
+        .repair-armor {
+          pointer-events: all;
+        }
+      }
+
+      .item-tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: .5rem;
+        justify-content: flex-start;
+      }
+    }
+
+    &.weapons,
+    &.armor,
+    &.misc {
+      .inventory-header {
+        grid-template-columns: 1fr 1fr 1fr 1fr 3.75fr;
+        align-items: flex-start;
+      }
+
+      .inventory-item {
+        grid-template-columns: 1fr 1fr 1fr 1fr 2fr 1fr;
+
+        .item-capacity {
+          display: flex;
+          flex-direction: column;
+          gap: .5rem;
+
+          .mortal-remain,
+          .soul-remain,
+          .strain-damage {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: $mg-blue-main-2;
+            color: $mg-blue-1;
+            border-radius: .5rem;
+            line-height: 1;
+            padding: .25rem;
+            gap: .5rem;
+            margin: 0;
+
+            .remaining-number {
+              font-weight: 400;
+            }
+          }
+
+          span {
+            @include oswald();
+            font-weight: 700;
+          }
+        }
+      }
+    }
+
+    &.weapons {
+      .inventory-header,
+      .inventory-item {
+        grid-template-columns: 1fr 1fr 1fr 1fr 2fr 1fr;
+      }
+    }
+  }
 }
 
 .item-tag {
-  background: #333;
-  border-radius: 4px;
-  padding: 0 0.5em;
-  font-size: 0.75em;
-  color: #aaa;
+  background: $mg-blue-main-2;
+  @include roboto();
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  font-weight: 700;
+  font-size: .75rem;
+  color: $mg-blue-1;
+  padding: .5rem;
+  border-radius: .5rem;
+}
+
+.chat-tags {
+  display: flex;
+  flex-wrap: wrap;
+  margin-top: .5rem;
+  gap: .5rem;
+
+  .item-tag {
+    width: auto;
+  }
 }
 
 /*Gambit Character Sheet Styling
 ==============================================================================*/
-.gambit-tab {
-  padding: 1em;
-}
 
 .gambit-deck, .gambit-hand {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5em;
-}
-
-.gambit-card {
-  border: 1px solid #666;
-  border-radius: 6px;
-  padding: 0.5em;
-  background: #1a1a1a;
-  color: white;
-  min-width: 120px;
 }
 
 .gambit-title {
@@ -262,16 +1284,168 @@ h1,h2,h3,h4 {
   font-size: 0.85rem;
   color: #ccc;
   margin-top: 0.25rem;
-  white-space: pre-wrap;
 }
 
+.gambit-tab {
+  display: flex;
+  flex-direction: column;
+  padding: 1.125rem;
 
-.spark-dot {
+  .gambit-hand,
+  .gambit-deck,
+  .gambit-discard {
+    min-height: 2rem;
+    background: $mg-blue-main;
+    border-radius: .5rem;
+    @include mg-border();
+    padding: 1.125rem;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2.125rem;
+    margin-bottom: 2.125rem;
+
+    .gambit-card{
+      padding: 1.125rem;
+      background: $mg-blue-main-2;
+      @include mg-border();
+      border-radius: .5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.125rem;
+      transition: transform .5s ease, background .5s ease, color .5s ease, font-size .5s ease, box-shadow .5s ease;
+
+      &:hover {
+        transform: scale(1.05);
+        box-shadow: 0 0 8px rgba(255, 255, 255, 0.3);
+        cursor: grab;
+      }
+
+      &.faded {
+        opacity: .6;
+        background: $mg-blue-main;
+
+        &:hover {
+          transform: none;
+          box-shadow: none;
+          cursor: default;
+        }
+        
+        .gambit-title {
+          font-size: 1rem;
+        }
+
+        .gambit-description {
+          font-size: .75rem;
+        }
+      }
+
+      .gambit-title {
+        @include oswald();
+        font-size: 1.25rem;
+        text-transform: uppercase;
+        font-style: italic;
+        font-weight: 700;
+      }
+
+      .status-buttons {
+        display: flex;
+        gap: .75rem;
+      }
+    }
+  }
+
+  .draw-gambit {
+    margin-bottom: 2.125rem;
+  }
+
+  h2 {
+    border: none;
+  }
+
+}
+
+/*Gambit Hand UI
+==============================================================================*/
+.gambit-hand-ui {
+  position: fixed;
+  bottom: -13%;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  justify-content: center;
+  z-index: 1000;
+  pointer-events: none;
+  transition: bottom .5s ease;
+
+  &:hover {
+    bottom: 0;
+  }
+}
+
+.gambit-hand-card {
+  background-image: url("/systems/midnight-gambit/assets/images/card-background.png");
+  background-size: cover;
+  pointer-events: auto;
+  width: 140px;
+  height: 200px;
+  margin: 0 -40px;
+  border: 2px solid #aaa;
+  border-radius: 12px;
+  transform: rotate(var(--rotate));
+  transition: transform 0.2s, box-shadow 0.2s;
   cursor: pointer;
-  font-size: 1.5em;
-  color: #666;
+  overflow: hidden;
+  z-index: 1;
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+
+  &:after {
+    content: '';
+    background-image: url("/systems/midnight-gambit/assets/images/shimmer.png");
+    background-size: contain;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    mix-blend-mode: overlay;
+    z-index: 1;
+  }
+
+  &:before {
+    content: '';
+    background-image: url("/systems/midnight-gambit/assets/images/shimmer.png");
+    background-size: contain;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 1;
+    mix-blend-mode: multiply;
+    z-index: 2;
+  }
+
+  &:hover {
+    transform: scale(1.1) rotate(var(--rotate));
+    box-shadow: 0 0 20px rgba(255, 255, 255, 0.3);
+    z-index: 100;
+  }
+
+  .gambit-title {
+    padding: 1rem;
+    text-align: center;
+    font-weight: 700;
+    position: relative;
+    text-transform: uppercase;
+    font-style: italic;
+    color: $mg-ivory;
+    text-shadow: 7px 5px 2px $mg-blue-main;
+    filter: drop-shadow(0 0 0.75rem $black);
+    @include oswald();
+    z-index: 3;
+  }
 }
 
-.spark-dot.filled {
-  color: #ffd700; /* gold lightning bolt */
-}

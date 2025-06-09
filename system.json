@@ -2,12 +2,13 @@
   "name": "midnight-gambit",
   "title": "Midnight Gambit",
   "type": "system",
-  "version": "0.0.8",
+  "version": "0.1.7",
   "author": "Vaughn Gallagher / Killiyan",
   "description": "A custom system for high-stakes narrative action.",
   "esmodules": ["midnight-gambit.js"],
   "styles": [
-    "css/style.css"
+    "css/style.css",
+    "https://fonts.googleapis.com/css2?family=Oswald:wght@200..700&family=Roboto:ital,wght@0,100..900;1,100..900&display=swap"
   ],
   "scripts": [
     "https://kit.fontawesome.com/44ed447bce.js"
@@ -21,7 +22,7 @@
     "gridUnits": "ft",
     "primaryTokenAttribute": "strain.mortal",
     "actorTypes": ["character"],
-    "itemTypes": ["guise", "weapon"]
+    "itemTypes": ["guise", "weapon", "armor", "misc"]
   },
   "config": {
     "actorTypes": {
@@ -32,7 +33,34 @@
 
     "itemTypes": {
       "guise": {"label": "Guise"},
-      "weapon": {"label": "Weapon"}
+      "weapon": { "label": "Weapon" },
+      "armor":  { "label": "Armor" },
+      "misc":   { "label": "Misc" }
     }
-  }
+  },
+
+  "packs": [
+    {
+      "name": "items",
+      "label": "Midnight Gambit Items",
+      "system": "midnight-gambit",
+      "path": "./packs/items.db",
+      "type": "Item"
+    },
+    {
+      "name": "guises",
+      "label": "Midnight Gambit Guises",
+      "system": "midnight-gambit",
+      "path": "./packs/guises.db",
+      "type": "Item"
+    },
+    {
+      "name": "gambits",
+      "label": "Midnight Gambit Gambits",
+      "system": "midnight-gambit",
+      "path": "./packs/gambits.db",
+      "type": "Item"
+    }
+  ]
+
 }

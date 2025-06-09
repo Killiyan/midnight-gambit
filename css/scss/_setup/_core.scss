@@ -1,0 +1,262 @@
+@import "variables";
+
+/*Core Styling
+==============================================================================*/
+
+body {
+  background: url("../assets/images/gambit-border.png") repeat;
+  background-size: 100px;
+  background-color: $mg-blue-main;
+}
+
+.tab .header-search {
+  input,
+  input[type="search"] {
+    @include mg-border();
+    @include roboto();
+    border-color: $mg-blue-3;
+    background: $mg-blue-main;
+    border-radius: .5rem;
+    color: $mg-blue-2;
+    transition: color .5s ease, border-color .5s ease, box-shadow 0.5s ease;
+
+    &::placeholder {
+      color: $mg-blue-2;
+      transition: color .5s ease;
+    }
+
+    &:hover,
+    &:focus {
+      color: $mg-ivory;
+      border-color: $mg-ivory;
+      box-shadow: 0 0 .5rem $mg-ivory;
+
+      &::placeholder {
+        color: $mg-ivory;
+      }
+    }
+  }
+}
+
+.tabs {
+  background: $mg-blue-main;
+}
+
+button,
+form button {
+  background: $mg-blue-3;
+  color: $mg-ivory;
+  @include oswald();
+  font-size: 1rem;
+  text-transform: uppercase;
+  @include mg-border();
+  border-radius: .5rem;
+  transition: background 0.5s ease, color 0.5s ease, box-shadow .5s ease;
+
+  i {
+    transition: color .5s ease;
+    color: $mg-blue-4;
+  }
+
+  &:hover {
+    background: $mg-blue-1;
+    color: $mg-blue-main-2;
+    box-shadow: 0 0 .5rem $mg-ivory;
+
+    i {
+      color: $mg-blue-3;
+    }
+  }
+}
+.sidebar-tab {
+  background: $mg-blue-main;
+}
+
+#sidebar {
+  background: $mg-blue-main;
+  @include mg-border();
+  position: relative;
+
+  &:after {
+    content: "";
+    position: absolute;
+    bottom: -0.25rem;
+    right: -1rem;
+    width: 5rem;
+    height: 5rem;
+    background: url(../assets/images/mg-queen.png) repeat;
+    background-size: contain;
+    pointer-events: none;
+    opacity: .7;
+  }
+
+  #chat-log {
+    background-image: url("../assets/images/gambit-border.png");
+    background-size: 20%;
+    background-repeat: repeat-y;
+
+    &::-webkit-scrollbar-thumb {
+      background: $mg-blue-1;
+      border-color: $mg-blue-2;
+    }
+  }
+
+  .chat-message,
+  .message,
+  .whisper {
+    background: rgba($mg-blue-main, .7);
+    background-image: none;
+    @include mg-border();
+    color: $white;
+    padding: 1.125rem;
+    margin-top: 1.25rem;
+    backdrop-filter: blur(3px);
+
+    hr {
+      background: $mg-blue-main-2;
+      border: none;
+      height: 2px;
+      width: 100%;
+      border-radius: .5rem;
+    }
+  }
+
+  .roll-container {
+    padding: 1.25rem;
+    @include mg-border();
+    border-radius: .5rem;
+  }
+
+  .message-content {
+    color: $mg-blue-2;
+    padding-top: 1.125rem;
+
+    h2 {
+      @include oswald();
+      color: $mg-ivory;
+      font-weight: 700;
+      font-style: italic;
+      line-height: 1.1;
+      @include mg-border();
+      padding: .5625rem 1.125rem;
+      border-radius: .5rem;
+      margin-bottom: 1.125rem;
+    }
+
+    .dice-formula,
+    .dice-total {
+      @include mg-border();
+      padding: 1.125rem;
+      border-radius: .5rem;
+      border-color: $mg-blue-main-2;
+      box-shadow: none;
+    }
+
+    .roll-container strong {
+      @include oswald();
+      font-size: 1.125rem;
+      color: $mg-blue-2;
+      font-weight: 700;
+      font-style: italic;
+      display: block;
+
+      .result-label {
+        display: flex;
+        align-items: center;
+        gap: .625rem;
+        margin-top: .625rem;
+
+        strong {
+          color: $mg-ivory;
+        }
+      }
+
+      span {
+        padding-left: 3rem;
+        display: block;
+      }
+
+      i {
+        display: block;
+        color: $mg-blue-4;
+        background: $mg-blue-3;
+        padding: .625rem;
+        border-radius: .5rem;
+      }
+    }
+  }
+
+  .message-sender,
+  .message-metadata,
+  .whisper-to,
+  .nue {
+    color: $mg-ivory;
+  }
+
+  .message-sender {
+    @include oswald();
+    font-weight: 700;
+    font-style: italic;
+    letter-spacing: .02em;
+    text-transform: uppercase;
+    font-weight: 400;
+  }
+
+  .nue {
+    color: $mg-blue-2;
+    opacity: 1;
+    line-height: 1.5;
+    font-size: .8rem;
+    @include roboto();
+  }
+
+  .nue-tab,
+  .nue a {
+    color: $mg-ivory;
+  }
+
+  #chat-form textarea {
+    background-color: rgba($black, 0.5);
+    background-image: none;
+    @include mg-border();
+    color: $mg-ivory;
+    padding: 1.125rem;
+    @include roboto();
+    font-size: .8rem;
+    line-height: 1.5;
+    transition: border 0.2s ease, box-shadow 0.2s ease;
+
+    &:focus,
+    &:hover {
+      border: 1px solid $mg-ivory;
+      box-shadow: 0 0 6px $mg-blue-2;
+    }
+  }
+  
+  a {
+    transition: color 0.2s ease, text-shadow 0.2s ease;
+
+    &:hover,
+    &:focus {
+      color: $mg-blue-2;
+      text-shadow: 0 0 6px $mg-blue-3;
+    }
+  }
+
+  .directory-list {
+    .directory-item {
+      border-top: 1px solid $mg-blue-main-2;
+      border-bottom: none;
+
+      &:first-of-type {
+        border: none;
+      }
+    }
+  }
+
+  .combat-sidebar {
+    .combat-tracker-header {
+      border-bottom: 1px solid $mg-blue-main-2;
+    }
+  }
+}

@@ -13,150 +13,230 @@
 
     <div class="character-info">
       <div class="profile-image">
-        <img src="{{actor.img}}" data-tooltip="Click to Change Profil Image" data-edit="img" title="{{actor.name}}" />
+        <img src="{{actor.img}}" data-tooltip="Click to Change Profile Image" data-edit="img" title="{{actor.name}}" />
       </div>
 
-      <h1>
-        <input type="text" name="name" value="{{actor.name}}" placeholder="Character Name" />
-      </h1>
+      <div class="personal-info">
+        <div class="name">
+          <h1>
+            <input type="text" name="name" value="{{actor.name}}" placeholder="Character Name" />
+          </h1>
 
-      <div class="crew-field">
-        <input type="text" name="system.crew" value="{{actor.system.crew}}" placeholder="Crew/Affiliation Name" />
-      </div>
+          <div class="crew-field">
+            <input type="text" name="system.crew" value="{{actor.system.crew}}" placeholder="Crew/Affiliation Name" />
+          </div>
+        </div>
 
-      <div class="guise-display">
-        <span class="guise-name">
-          {{#if guise}}
-          <span class="guise-name" data-tooltip="{{guise.system.description}}">
-            Lv {{actor.system.level}} {{guise.name}}
+        <div class="guise-display">
+          <span class="guise-name">
+            {{#if guise}}
+            <span class="guise-name" data-tooltip="{{guise.system.description}}">
+              <span class="level">Lv {{actor.system.level}}</span> {{guise.name}}
+            </span>
+            {{else}}
+              No Class Assigned
+            {{/if}}
           </span>
-          {{else}}
-            No Class Assigned
-          {{/if}}
-        </span>
+        </div>
       </div>
-
-
     </div>
 
     <section class="tab-content" data-group="main">
       
       <!--This is our General tab where Image, and general gameplay goes-->
       <div class="tab" data-group="main" data-tab="general" >
-
-        <button type="button" class="long-rest-button"><i class="fas fa-bed"></i> Long Rest</button>
-
+        <div class="over-image">
+          <button type="button" data-tooltip="Recover" class="long-rest-button"><i class="fas fa-bed"></i></button>
 
           <div class="flashback-track">
             <label data-tooltip="Use this to spend a flashback during a job.">FB</label>
             <span class="flashback-dot {{#unless actor.system.flashbackUsed}}filled{{/unless}}" data-action="flashback">
-              🧠
+              <i class="fa-solid fa-clock-rotate-left"></i>
             </span>
           </div>
 
           <div class="load-toggle">
             <label>Load</label>
             <div class="load-options">
-              <span class="load-icon {{#if (eq actor.system.load 'light')}}selected{{/if}}" data-load="light" title="Light Load">🎒</span>
-              <span class="load-icon {{#if (eq actor.system.load 'medium')}}selected{{/if}}" data-load="medium" title="Medium Load">🧳</span>
-              <span class="load-icon {{#if (eq actor.system.load 'heavy')}}selected{{/if}}" data-load="heavy" title="Heavy Load">💼</span>
+              <span class="load-icon {{#if (eq actor.system.load 'light')}}selected{{/if}}" data-load="light" title="Light Load"><i class="fa-solid fa-feather-pointed"></i></span>
+              <span class="load-icon {{#if (eq actor.system.load 'medium')}}selected{{/if}}" data-load="medium" title="Medium Load"><i class="fa-solid fa-scale-balanced"></i></span>
+              <span class="load-icon {{#if (eq actor.system.load 'heavy')}}selected{{/if}}" data-load="heavy" title="Heavy Load"><i class="fa-solid fa-weight-hanging"></i></span>
             </div>
           </div>
-
-          {{#each attributeKeys}}
+        </div>
+        
+        <div class="attribute-container">
+          {{#each attributeKeys as |key|}}
             <div class="attribute-row">
-              <label>{{capitalize this}}</label>
-              <input type="number" name="system.baseAttributes.{{this}}" value="{{lookup ../actor.system.baseAttributes this}}" />
-              <span class="final-attribute">Total: {{lookup ../actor.system.attributes this}}</span>
+              <label>{{key}}</label>
+              <span class="attribute-modifier"
+                    data-tooltip="Click to roll | Right click to edit base Attribute"
+                    data-key="{{key}}"
+                    data-base="{{lookup ../system.baseAttributes key}}">
+                {{#if (gte (lookup ../system.attributes key) 0)}}
+                  +{{lookup ../system.attributes key}}
+                {{else}}
+                  {{lookup ../system.attributes key}}
+                {{/if}}
+              </span>
             </div>
           {{/each}}
+        </div>
+
+        <div class="strain-container">
+
+          <label class="strain-label">Strain</label>
 
           <div class="strain-track" data-strain="mortal">
-            <label>Mortal Strain:</label>
-            <div class="strain-boxes">
-              {{#range 1 5}}
-                <span class="strain-dot {{#if (lte this ../actor.system.strain.mortal)}}filled{{/if}}"
-                      data-value="{{this}}"
-                      data-type="mortal">
-                  ●
-                </span>
-              {{/range}}
-            </div>
+            <label>M</label>
+
+            {{#range 1 5}}
+              <span class="strain-dot {{#if (lte this ../actor.system.strain.mortal)}}filled{{/if}}"
+                    data-value="{{this}}"
+                    data-type="mortal">
+                <i class="fa-solid fa-dagger"></i>
+              </span>
+            {{/range}}
           </div>
 
           <div class="strain-track" data-strain="soul">
-            <label>Soul Strain:</label>
-            <div class="strain-boxes">
-              {{#range 1 5}}
-                <span class="strain-dot {{#if (lte this ../actor.system.strain.soul)}}filled{{/if}}"
-                      data-value="{{this}}"
-                      data-type="soul">
-                  ●
-                </span>
-              {{/range}}
-            </div>
+            <label>S</label>
+
+            {{#range 1 5}}
+              <span class="strain-dot {{#if (lte this ../actor.system.strain.soul)}}filled{{/if}}"
+                    data-value="{{this}}"
+                    data-type="soul">
+                <i class="fa-solid fa-moon-over-sun"></i>
+              </span>
+            {{/range}}
           </div>
 
-          <div class="strain-capacity">
-            <div class="capacity-box">
-              <label data-tooltip="Physical damage affects this pool before your main tracks.">MC</label>
-              <input
-                type="number"
-                name="system.strain.mortal capacity"
-                value="{{lookup actor.system.strain 'mortal capacity'}}"
-                min="0"
-                data-tooltip="Physical damage affects this pool before your main tracks." />
-            </div>
-
-            <div class="capacity-box">
-              <label data-tooltip="Supernatural or emotional damage affects this pool before your main tracks.">SC</label>
-              <input
-                type="number"
-                name="system.strain.soul capacity"
-                value="{{lookup actor.system.strain 'soul capacity'}}"
-                min="0"
-                data-tooltip="Supernatural or emotional damage affects this pool before your main tracks." />
-            </div>
+          <div class="capacity-box">
+            <label data-tooltip="Physical damage affects this pool before your main tracks.">MC</label>
+            <input
+              type="number"
+              name="system.strain.mortal capacity"
+              value="{{lookup actor.system.strain 'mortal capacity'}}"
+              min="0"
+              data-tooltip="Physical damage affects this pool before your main tracks." />
           </div>
 
-          <div class="spark-track" data-resource="spark">
-            <label data-tooltip="Spark slots represent mystical charges or energy. Click to spend or restore.">Spark:</label>
-            <div class="spark-boxes">
-              {{#range 1 actor.system.sparkSlots}}
-                <span class="spark-dot {{#if (sparkShouldFill this ../actor.system.sparkSlots ../actor.system.sparkUsed)}}filled{{/if}}"
-                      data-value="{{this}}">
-                  <i class="fas fa-bolt"></i>
-                </span>
-              {{/range}}
-            </div>
+          <div class="capacity-box soul">
+            <label data-tooltip="Supernatural or emotional damage affects this pool before your main tracks.">SC</label>
+            <input
+              type="number"
+              name="system.strain.soul capacity"
+              value="{{lookup actor.system.strain 'soul capacity'}}"
+              min="0"
+              data-tooltip="Supernatural or emotional damage affects this pool before your main tracks." />
           </div>
+        </div>
 
-          <div class="skills">
-            <h2>Skills</h2>
+        {{#if (or data.isFullCaster data.isHalfCaster)}}
+          <div class="spark-container">
+            <label class="spark-label" data-tooltip="Spark slots represent mystical charges or energy. Click to spend or restore.">Sparks</label>
+
+            {{#if data.isFullCaster}}
+              <div class="spark-school-selectors">
+                <label for="sparkSchool1">Schools</label>
+                <select id="spark-school-1" name="system.sparkSchool1">
+                  <option value="">-- Select --</option>
+                  <option value="veiling" {{#if (eq system.sparkSchool1 "veiling")}}selected{{/if}}>Veiling</option>
+                  <option value="sundering" {{#if (eq system.sparkSchool1 "sundering")}}selected{{/if}}>Sundering</option>
+                  <option value="binding" {{#if (eq system.sparkSchool1 "binding")}}selected{{/if}}>Binding</option>
+                  <option value="drift" {{#if (eq system.sparkSchool1 "drift")}}selected{{/if}}>Drift</option>
+                  <option value="threading" {{#if (eq system.sparkSchool1 "threading")}}selected{{/if}}>Threading</option>
+                  <option value="warding" {{#if (eq system.sparkSchool1 "warding")}}selected{{/if}}>Warding</option>
+                  <option value="shaping" {{#if (eq system.sparkSchool1 "shaping")}}selected{{/if}}>Shaping</option>
+                  <option value="gloom" {{#if (eq system.sparkSchool1 "gloom")}}selected{{/if}}>Gloom</option>
+                  <option value="ember" {{#if (eq system.sparkSchool1 "ember")}}selected{{/if}}>Ember</option>
+                </select>
+
+                <select id="spark-school-2" class="spark-select" name="system.sparkSchool2">
+                  <option value="">-- Select --</option>
+                  <option value="veiling" {{#if (eq system.sparkSchool2 "veiling")}}selected{{/if}}>Veiling</option>
+                  <option value="sundering" {{#if (eq system.sparkSchool2 "sundering")}}selected{{/if}}>Sundering</option>
+                  <option value="binding" {{#if (eq system.sparkSchool2 "binding")}}selected{{/if}}>Binding</option>
+                  <option value="drift" {{#if (eq system.sparkSchool2 "drift")}}selected{{/if}}>Drift</option>
+                  <option value="threading" {{#if (eq system.sparkSchool2 "threading")}}selected{{/if}}>Threading</option>
+                  <option value="warding" {{#if (eq system.sparkSchool2 "warding")}}selected{{/if}}>Warding</option>
+                  <option value="shaping" {{#if (eq system.sparkSchool2 "shaping")}}selected{{/if}}>Shaping</option>
+                  <option value="gloom" {{#if (eq system.sparkSchool2 "gloom")}}selected{{/if}}>Gloom</option>
+                  <option value="ember" {{#if (eq system.sparkSchool2 "ember")}}selected{{/if}}>Ember</option>
+                </select>
+
+              </div>
+
+            {{else if data.isHalfCaster}}
+              <div class="spark-school-selectors">
+                <label for="sparkSchool1">Spark School</label>
+                <select class="spark-select" name="system.sparkSchool1">
+                  <option value="">-- Select --</option>
+                  <option value="veiling" {{#if (eq system.sparkSchool1 "veiling")}}selected{{/if}}>Veiling</option>
+                  <option value="sundering" {{#if (eq system.sparkSchool1 "sundering")}}selected{{/if}}>Sundering</option>
+                  <option value="binding" {{#if (eq system.sparkSchool1 "binding")}}selected{{/if}}>Binding</option>
+                  <option value="drift" {{#if (eq system.sparkSchool1 "drift")}}selected{{/if}}>Drift</option>
+                  <option value="threading" {{#if (eq system.sparkSchool1 "threading")}}selected{{/if}}>Threading</option>
+                  <option value="warding" {{#if (eq system.sparkSchool1 "warding")}}selected{{/if}}>Warding</option>
+                  <option value="shaping" {{#if (eq system.sparkSchool1 "shaping")}}selected{{/if}}>Shaping</option>
+                  <option value="gloom" {{#if (eq system.sparkSchool1 "gloom")}}selected{{/if}}>Gloom</option>
+                  <option value="ember" {{#if (eq system.sparkSchool1 "ember")}}selected{{/if}}>Ember</option>
+                </select>
+              </div>
+            {{/if}}
+
+            {{#if (or data.isFullCaster data.isHalfCaster)}}
+              <div class="spark-track" data-resource="spark">
+                <div class="spark-boxes">
+                  <label>Slots</label>
+                  <div class="box-container">
+                    {{#range 1 actor.system.sparkSlots}}
+                      <span class="spark-dot {{#if (sparkShouldFill this ../actor.system.sparkSlots ../actor.system.sparkUsed)}}filled{{/if}}"
+                            data-value="{{this}}">
+                        <i class="fa-solid fa-dice-d10"></i>
+                      </span>
+                    {{/range}}
+                  </div>
+                </div>
+              </div>
+            {{/if}}
+          </div>
+        {{/if}}
+
+        <div class="skills">
+          <div class="skills-header">
+            <label class="skills-label">Skills</label>
 
             <div class="risk-track" data-resource="risk">
-              <label data-tooltip="Risk Dice represent your luck pool. Click to spend or restore.">Risk Dice:</label>
+              <label data-tooltip="Risk Dice represent your luck pool. Click to spend or restore.">Risk</label>
               <div class="risk-boxes">
                 {{#range 1 actor.system.riskDice}}
                   <span class="risk-dot {{#if (riskShouldFill this ../actor.system.riskDice ../actor.system.riskUsed)}}filled{{/if}}"
                         data-value="{{this}}">
-                    ●
+                    <i class="fa-solid fa-dice"></i>
                   </span>
                 {{/range}}
               </div>
             </div>
+          </div>
 
-          {{#each actor.system.skills}}
-            <div>
-              <label>{{@key}}</label>
-              <input type="number" name="actor.system.skills.{{@key}}" value="{{this}}">
-            </div>
-          {{/each}}
+          <div class="skill-container">
+            {{#each system.skills as |value key|}}
+              <div class="skill-row">
+                <span class="skill-value" data-key="{{key}}" data-base="{{value}}">
+                  {{value}}
+                </span>
+                <span class="skill-name" data-key="{{key}}">
+                  {{key}}
+                </span>
+              </div>
+            {{/each}}
+          </div>
         </div>
       </div>
 
       <!--This is our Moves tab. It shows Signature Perk, and moves on the character sheet-->
-      <div class="tab moves-tab" data-tab="moves">
+      <div class="tab tab-moves" data-tab="moves">
         {{#if guise}}
           <div class="signature-perk">
             <h3>
@@ -170,14 +250,16 @@
 
           <div class="basic-moves">
             <h3>Basic Moves</h3>
-            {{#each guise.system.moves}}
-              <div class="move-block" data-move-index="{{@index}}">
-                <strong class="post-move" data-move-name="{{this.name}}" data-move-description="{{this.description}}">
-                  <i class="fa-solid fa-messages"></i>{{this.name}}
-                </strong>
-                <p>{{this.description}}</p>
-              </div>
-            {{/each}}
+            <div class="move-container">
+              {{#each guise.system.moves}}
+                <div class="move-block" data-move-index="{{@index}}">
+                  <strong class="post-move" data-move-name="{{this.name}}" data-move-description="{{this.description}}">
+                    <i class="fa-solid fa-messages"></i>{{this.name}}
+                  </strong>
+                  <p>{{this.description}}</p>
+                </div>
+              {{/each}}
+            </div>
           </div>
         {{else}}
           <p>No guise assigned. Assign one to gain moves.</p>
@@ -185,132 +267,338 @@
       </div>
 
 
-      <!--This is our Inventory with Lux and Search-->
-      <div class="tab" data-group="main" data-tab="inventory">
+      <!--This is our Inventory with Lux and eventually Search-->
+      <div class="tab tab-inventory" data-group="main" data-tab="inventory">
         <div class="inventory-tab">
 
           <div class="currency-field">
-            <label for="lux">Lux:</label>
+            <label for="lux">Lux</label>
             <input type="number" name="system.currency.lux" value="{{actor.system.currency.lux}}" min="0" />
           </div>
 
+          <!--We will add search back in the future
           <div class="search-field">
             <input type="text" id="item-search" placeholder="Search items..." />
-          </div>
+          </div>-->
 
           <!-- Weapons -->
           <div class="inventory-section weapons">
-            <h3>Weapons</h3>
-            <div class="inventory-header">
-              <span>Name</span>
-              <span>Qty</span>
-              <span>Equipped</span>
-              <span>Tags</span>
+            <div class="inventory-wrapper">
+              <h3>Weapons</h3>
+              <div class="inventory-header">
+                <span>Name</span>
+                <span>DMG</span>
+                <span>Qty</span>
+                <span>Equipped</span>
+                <span>Tags</span>
+              </div>
             </div>
-            <div class="inventory-list weapon-list">
-              {{#each actor.system.inventory.weapons}}
-                <div class="inventory-item">
-                  <span>{{this.name}}</span>
-                  <span>{{this.quantity}}</span>
-                  <span><input type="checkbox" {{#if this.equipped}}checked{{/if}} disabled></span>
-                  <span class="item-tags">
-                    {{#each this.tags}}
-                      <span class="item-tag">{{this}}</span>
-                    {{/each}}
-                  </span>
+
+            <!-- Weapons - Item -->
+            {{#each (filterItems @root.actor.items "weapon") as |item|}}
+              <div class="inventory-item" data-item-id="{{item._id}}">
+                <span class="item-name">
+                  <span class="clickable-item">{{item.name}}</span>
+                  <button class="post-weapon-tags" data-item-id="{{item._id}}" title="Post Weapon Tags to Chat">
+                    <i class="fas fa-tags"></i>
+                  </button>
+                </span>
+
+                {{#if item.system.strainDamage}}
+                  <div class="item-capacity" title="Strain Damage">
+                    <p class="strain-damage">
+                      <span>SD</span> 
+                      <span class="remaining-number">{{item.system.strainDamage}}</span>
+                    </p>
+                  </div>
+                {{/if}}
+
+                <span><input type="number" class="item-quantity" value="{{item.system.quantity}}" min="0" /></span>
+
+                <span><input type="checkbox" class="item-equipped" {{#if item.system.equipped}}checked{{/if}} /></span>
+
+                <span class="item-tags">
+                  {{#each item.system.tags as |tagId|}}
+                    {{#with (lookup ../../CONFIG.MidnightGambit.ITEM_TAGS tagId) as |tag|}}
+                      <div class="item-tag" data-item-id="{{item._id}}" data-tag-id="{{tagId}}" title="Right-click to remove">
+                        <span data-tooltip="{{tag.description}}">{{tag.label}}</span>
+                      </div>
+                    {{else}}
+
+                      <div class="item-tag" data-item-id="{{item._id}}" data-tag-id="{{tagId}}" title="Right-click to remove">
+                        <span>{{tagId}}</span>
+                      </div>
+
+                    {{/with}}
+                  {{/each}}
+                </span>
+
+                <div class="status-buttons">
+
+                  <button class="sync-tags" data-item-id="{{_id}}" title="Sync tags with global list">
+                    <i class="fa-solid fa-arrows-rotate"></i>
+                  </button>
+
+                  <button class="item-delete" data-item-id="{{item._id}}" title="Delete Item">
+                    <i class="fas fa-trash"></i>
+                  </button>
                 </div>
-              {{/each}}
-            </div>
+
+              </div>
+            {{/each}}
           </div>
 
           <!-- Armor -->
           <div class="inventory-section armor">
-            <h3>Armor</h3>
-            <div class="inventory-header">
-              <span>Name</span>
-              <span>Qty</span>
-              <span>Equipped</span>
-              <span>Tags</span>
+
+            <div class="inventory-wrapper">
+
+              <h3>Armor</h3>
+
+              <div class="inventory-header">
+                <span>Name</span>
+                <span>Capacity</span>
+                <span>Qty</span>
+                <span>Equipped</span>
+                <span>Tags</span>
+              </div>
+
             </div>
-            <div class="inventory-list armor-list">
-              {{#each actor.system.inventory.armor}}
-                <div class="inventory-item">
-                  <span>{{this.name}}</span>
-                  <span>{{this.quantity}}</span>
-                  <span><input type="checkbox" {{#if this.equipped}}checked{{/if}} disabled></span>
-                  <span class="item-tags">
-                    {{#each this.tags}}
-                      <span class="item-tag">{{this}}</span>
-                    {{/each}}
-                  </span>
+
+            <!-- Armor - Item -->
+            {{#each (filterItems @root.actor.items "armor") as |item|}}
+              <div class="inventory-item" data-item-id="{{item._id}}">
+                <span class="item-name">
+                  <span class="clickable-item">{{item.name}}</span>
+                  <button class="post-armor-tags" data-item-id="{{item._id}}" title="Post Armor Tags to Chat">
+                    <i class="fas fa-tags"></i>
+                  </button>
+                </span>
+
+                <div class="item-capacity" title="Remaining Strain Capacity">
+                  <p class="mortal-remain"><span>MC</span><span class="remaining-number">{{item.system.remainingCapacity.mortal}}</span></p><p class="soul-remain"><span>SC</span><span class="remaining-number">{{item.system.remainingCapacity.soul}}</span></p>
                 </div>
-              {{/each}}
-            </div>
+
+                <span><input type="number" class="item-quantity" value="{{item.system.quantity}}" min="0" /></span>
+                <span><input type="checkbox" class="item-equipped" {{#if item.system.equipped}}checked{{/if}} /></span>
+                <span class="item-tags">
+                  {{#each item.system.tags as |tagId|}}
+                    {{#with (lookup ../../CONFIG.MidnightGambit.ITEM_TAGS tagId) as |tag|}}
+                      <div class="item-tag" data-item-id="{{item._id}}" data-tag-id="{{tagId}}" title="Right-click to remove">
+                        <span data-tooltip="{{tag.description}}">{{tag.label}}</span>
+                      </div>
+                    {{else}}
+                      <div class="item-tag" data-item-id="{{item._id}}" data-tag-id="{{tagId}}" title="Right-click to remove">
+                        <span>{{tagId}}</span>
+                      </div>
+                    {{/with}}
+                  {{/each}}
+                </span>
+
+                <div class="status-buttons">
+                  {{#if (or item.system.mortalCapacity item.system.soulCapacity)}}
+
+                    {{#if item.system.isFullyRepaired}}
+                      <button class="repair-armor disabled" data-item-id="{{item._id}}" title="Fully Repaired" disabled>
+                        <i class="fa-solid fa-hammer"></i>
+                      </button>
+                    {{else}}
+                      <button class="repair-armor" data-item-id="{{item._id}}" title="Repair Item">
+                        <i class="fa-solid fa-hammer"></i>
+                      </button>
+                    {{/if}}
+                  {{/if}}
+
+                  <button class="sync-tags" data-item-id="{{_id}}" title="Sync tags with global list">
+                    <i class="fa-solid fa-arrows-rotate"></i>
+                  </button>
+
+                  <button class="item-delete" data-item-id="{{item._id}}" title="Delete Item">
+                    <i class="fas fa-trash"></i>
+                  </button>
+                </div>
+
+              </div>
+            {{/each}}
+
           </div>
 
           <!-- Misc -->
           <div class="inventory-section misc">
-            <h3>Misc</h3>
-            <div class="inventory-list misc-list">
-              {{#each actor.system.inventory.misc}}
-                <div class="inventory-item">
-                  <span>{{this.name}}</span>
-                  <span>{{this.quantity}}</span>
-                </div>
-              {{/each}}
+            <div class="inventory-wrapper">
+              <h3>Misc</h3>
+              <div class="inventory-header">
+                <span>Name</span>
+                <span>DMG / Capacity</span>
+                <span>Qty</span>
+                <span>Equipped</span>
+                <span>Tags</span>
+              </div>
             </div>
+
+            <!-- Misc - Item -->
+            {{#each (filterItems @root.actor.items "misc") as |item|}}
+              <div class="inventory-item" data-item-id="{{item._id}}">
+                <span class="item-name">
+                  <span class="clickable-item">{{item.name}}</span>
+
+                  <button class="post-misc-tags" data-item-id="{{item._id}}" title="Post Misc Tags to Chat">
+                    <i class="fas fa-tags"></i>
+                  </button>
+                </span>
+
+                <span class="item-capacity" title="Strain Effects">
+
+                  <p class="strain-damage">
+                    <span>SD</span> 
+                    <span class="remaining-number">
+                      {{#if (ne item.system.strainDamage undefined)}}
+                        {{item.system.strainDamage}}
+                      {{else}} -
+                      {{/if}}
+                    </span>
+                  </p>
+
+                  <p class="mortal-remain">
+                    <span>MC</span>
+                    <span class="remaining-number">
+                      {{#if (ne item.system.remainingCapacity.mortal undefined)}}
+                        {{item.system.remainingCapacity.mortal}}
+                      {{else}} -
+                      {{/if}}
+                    </span>
+                  </p>
+
+                  <p class="soul-remain">
+                    <span>SC</span>
+                    <span class="remaining-number">
+                      {{#if (ne item.system.remainingCapacity.soul undefined)}}
+                        {{item.system.remainingCapacity.soul}}
+                      {{else}} -
+                      {{/if}}
+                    </span>
+                  </p>
+
+                </span>
+
+
+                <span><input type="number" class="item-quantity" value="{{item.system.quantity}}" min="0" /></span>
+                <span><input type="checkbox" class="item-equipped" {{#if item.system.equipped}}checked{{/if}} /></span>
+
+                <span class="item-tags">
+                  {{#each item.system.tags as |tagId|}}
+                    {{#with (lookup ../../CONFIG.MidnightGambit.ITEM_TAGS tagId) as |tag|}}
+                      <div class="item-tag" data-item-id="{{item._id}}" data-tag-id="{{tagId}}" title="Right-click to remove">
+                        <span data-tooltip="{{tag.description}}">{{tag.label}}</span>
+                      </div>
+                    {{else}}
+                      <div class="item-tag" data-item-id="{{item._id}}" data-tag-id="{{tagId}}" title="Right-click to remove">
+                        <span>{{tagId}}</span>
+                      </div>
+                    {{/with}}
+                  {{/each}}
+                </span>
+
+                <div class="status-buttons">
+                  {{#if (or item.system.mortalCapacity item.system.soulCapacity)}}
+
+                    {{#if item.system.isFullyRepaired}}
+                      <button class="repair-armor disabled" data-item-id="{{item._id}}" title="Fully Repaired" disabled>
+                        <i class="fa-solid fa-hammer"></i>
+                      </button>
+                    {{else}}
+                      <button class="repair-armor" data-item-id="{{item._id}}" title="Repair Item">
+                        <i class="fa-solid fa-hammer"></i>
+                      </button>
+                    {{/if}}
+                  {{/if}}
+
+                  <button class="sync-tags" data-item-id="{{_id}}" title="Sync tags with global list">
+                    <i class="fa-solid fa-arrows-rotate"></i>
+                  </button>
+
+                  <button class="item-delete" data-item-id="{{item._id}}" title="Delete Item">
+                    <i class="fas fa-trash"></i>
+                  </button>
+                </div>
+
+              </div>
+            {{/each}}
+
           </div>
         </div>
       </div>
 
       <!--This is our Deck, and currently drawn Gambits-->
-      <div class="tab" data-group="main" data-tab="gambits">
+      <div class="tab tab-gambits" data-group="main" data-tab="gambits">
         <div class="gambit-tab">
 
           <h2>Drawn Cards</h2>
+          <p><strong>Deck Size:</strong> {{gambitDeck.length}} / {{system.gambits.maxDeckSize}}</p>
 
           <div class="gambit-hand">
-            {{#each actor.system.gambits.drawn}}
-
-              <div class="gambit-card drawn" data-source="drawn" draggable="true" data-card-id="{{this.id}}">
+            {{#each gambitDrawn}}
+              <div class="gambit-card drawn" data-source="drawn" draggable="true" data-item-id="{{_id}}">
 
                 <div class="gambit-title">
-                  {{this.name}}
-                  <button type="button" class="return-to-deck" data-card-id="{{this.id}}" title="Return to Deck">✖️</button>
+                  {{name}}
                 </div>
 
                 <div class="gambit-description">
-                  {{{this.description}}}
+                  {{{system.description}}}
                 </div>
 
+                <div class="status-buttons">
+                  <button type="button" class="post-gambit" data-item-id="{{_id}}" title="Post to Chat"><i class="fa-solid fa-comments"></i></button>
+                  <button type="button" class="return-to-deck" data-item-id="{{_id}}" title="Return to Deck"><i class="fa-solid fa-arrows-spin"></i></button>
+                  <button type="button" class="discard-card" data-item-id="{{_id}}" title="Discard"><i class="fa-solid fa-dumpster"></i></button>
+                  <button type="button" class="remove-from-hand" data-item-id="{{_id}}" title="Remove from Hand"><i class="fa-solid fa-handshake-simple-slash"></i></button>
+                </div>
               </div>
-
             {{/each}}
           </div>
 
-          <button type="button" class="draw-gambit">Draw Card</button>
+          <button type="button" class="draw-gambit"><i class="fa-solid fa-cards"></i> Draw Card</button>
 
           <h2>Gambit Deck</h2>
 
           <div class="gambit-deck">
-            {{#each actor.system.gambits.deck}}
-              <div class="gambit-card" data-source="deck" draggable="true" data-card-id="{{this.id}}">
-                
-                <div class="gambit-title">{{this.name}}</div>
+            {{#each gambitDeck}}
+              <div class="gambit-card" data-source="deck" draggable="true" data-item-id="{{_id}}">
+
+                <div class="gambit-title">{{name}}</div>
 
                 <div class="gambit-description">
-                  {{{this.description}}}
+                  {{{system.description}}}
                 </div>
 
+                <div class="status-buttons">
+                  <button type="button" class="discard-card" data-item-id="{{_id}}" title="Discard"><i class="fa-solid fa-dumpster"></i></button>
+                  <button type="button" class="remove-from-hand" data-item-id="{{_id}}" title="Remove from Hand"><i class="fa-solid fa-handshake-simple-slash"></i></button>
+                </div>
               </div>
             {{/each}}
           </div>
-        </div>
 
+          <h2>Discard Pile</h2>
+          <div class="gambit-discard">
+            {{#each gambitDiscard}}
+              <div class="gambit-card faded" data-source="discard" draggable="false" data-item-id="{{_id}}">
+                <div class="gambit-title">{{name}}</div>
+                <div class="gambit-description">
+                  {{{system.description}}}
+                </div>
+              </div>
+            {{/each}}
+          </div>
+
+          <button type="button" class="reset-gambit-deck"><i class="fa-solid fa-arrows-spin"></i> Reset Deck</button>
+
+        </div>
       </div>
 
       <!--This is our journal for character information/backstory-->
-      <div class="tab" data-group="main" data-tab="journal">
+      <div class="tab  tab-journal" data-group="main" data-tab="journal">
         <div class="journal-fields">
           <div class="field-pair">
             <label>Race</label>
@@ -350,7 +638,7 @@
 
       </div>
 
-      <div class="tab" data-group="main" data-tab="settings">
+      <div class="tab tab-settings" data-group="main" data-tab="settings">
         <div class="guise-display">
           <span class="guise-name">
             {{#if guise}}
