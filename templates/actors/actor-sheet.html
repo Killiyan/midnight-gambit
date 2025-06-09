@@ -534,6 +534,7 @@
         <div class="gambit-tab">
 
           <h2>Drawn Cards</h2>
+          <p><strong>Deck Size:</strong> {{gambitDeck.length}} / {{system.gambits.maxDeckSize}}</p>
 
           <div class="gambit-hand">
             {{#each gambitDrawn}}
@@ -548,15 +549,16 @@
                 </div>
 
                 <div class="status-buttons">
-                  <button type="button" class="return-to-deck" data-item-id="{{_id}}" title="Return to Deck">♻️</button>
-                  <button type="button" class="discard-card" data-item-id="{{_id}}" title="Discard">🗑️</button>
-                  <button type="button" class="remove-from-hand" data-item-id="{{_id}}" title="Remove from Hand">🧹</button>
+                  <button type="button" class="post-gambit" data-item-id="{{_id}}" title="Post to Chat"><i class="fa-solid fa-comments"></i></button>
+                  <button type="button" class="return-to-deck" data-item-id="{{_id}}" title="Return to Deck"><i class="fa-solid fa-arrows-spin"></i></button>
+                  <button type="button" class="discard-card" data-item-id="{{_id}}" title="Discard"><i class="fa-solid fa-dumpster"></i></button>
+                  <button type="button" class="remove-from-hand" data-item-id="{{_id}}" title="Remove from Hand"><i class="fa-solid fa-handshake-simple-slash"></i></button>
                 </div>
               </div>
             {{/each}}
           </div>
 
-          <button type="button" class="draw-gambit">Draw Card</button>
+          <button type="button" class="draw-gambit"><i class="fa-solid fa-cards"></i> Draw Card</button>
 
           <h2>Gambit Deck</h2>
 
@@ -571,8 +573,8 @@
                 </div>
 
                 <div class="status-buttons">
-                  <button type="button" class="discard-card" data-item-id="{{_id}}" title="Discard">🗑️</button>
-                  <button type="button" class="remove-from-hand" data-item-id="{{_id}}" title="Remove from Hand">🧹</button>
+                  <button type="button" class="discard-card" data-item-id="{{_id}}" title="Discard"><i class="fa-solid fa-dumpster"></i></button>
+                  <button type="button" class="remove-from-hand" data-item-id="{{_id}}" title="Remove from Hand"><i class="fa-solid fa-handshake-simple-slash"></i></button>
                 </div>
               </div>
             {{/each}}
@@ -590,7 +592,7 @@
             {{/each}}
           </div>
 
-          <button type="button" class="reset-gambit-deck">♻️ Reset Deck</button>
+          <button type="button" class="reset-gambit-deck"><i class="fa-solid fa-arrows-spin"></i> Reset Deck</button>
 
         </div>
       </div>

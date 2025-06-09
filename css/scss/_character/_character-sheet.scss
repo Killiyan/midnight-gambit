@@ -1233,23 +1233,11 @@ h1,h2,h3,h4 {
 
 /*Gambit Character Sheet Styling
 ==============================================================================*/
-.gambit-tab {
-  padding: 1em;
-}
 
 .gambit-deck, .gambit-hand {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5em;
-}
-
-.gambit-card {
-  border: 1px solid #666;
-  border-radius: 6px;
-  padding: 0.5em;
-  background: #1a1a1a;
-  color: white;
-  min-width: 120px;
 }
 
 .gambit-title {
@@ -1296,5 +1284,168 @@ h1,h2,h3,h4 {
   font-size: 0.85rem;
   color: #ccc;
   margin-top: 0.25rem;
-  white-space: pre-wrap;
 }
+
+.gambit-tab {
+  display: flex;
+  flex-direction: column;
+  padding: 1.125rem;
+
+  .gambit-hand,
+  .gambit-deck,
+  .gambit-discard {
+    min-height: 2rem;
+    background: $mg-blue-main;
+    border-radius: .5rem;
+    @include mg-border();
+    padding: 1.125rem;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2.125rem;
+    margin-bottom: 2.125rem;
+
+    .gambit-card{
+      padding: 1.125rem;
+      background: $mg-blue-main-2;
+      @include mg-border();
+      border-radius: .5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.125rem;
+      transition: transform .5s ease, background .5s ease, color .5s ease, font-size .5s ease, box-shadow .5s ease;
+
+      &:hover {
+        transform: scale(1.05);
+        box-shadow: 0 0 8px rgba(255, 255, 255, 0.3);
+        cursor: grab;
+      }
+
+      &.faded {
+        opacity: .6;
+        background: $mg-blue-main;
+
+        &:hover {
+          transform: none;
+          box-shadow: none;
+          cursor: default;
+        }
+        
+        .gambit-title {
+          font-size: 1rem;
+        }
+
+        .gambit-description {
+          font-size: .75rem;
+        }
+      }
+
+      .gambit-title {
+        @include oswald();
+        font-size: 1.25rem;
+        text-transform: uppercase;
+        font-style: italic;
+        font-weight: 700;
+      }
+
+      .status-buttons {
+        display: flex;
+        gap: .75rem;
+      }
+    }
+  }
+
+  .draw-gambit {
+    margin-bottom: 2.125rem;
+  }
+
+  h2 {
+    border: none;
+  }
+
+}
+
+/*Gambit Hand UI
+==============================================================================*/
+.gambit-hand-ui {
+  position: fixed;
+  bottom: -13%;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  justify-content: center;
+  z-index: 1000;
+  pointer-events: none;
+  transition: bottom .5s ease;
+
+  &:hover {
+    bottom: 0;
+  }
+}
+
+.gambit-hand-card {
+  background-image: url("/systems/midnight-gambit/assets/images/card-background.png");
+  background-size: cover;
+  pointer-events: auto;
+  width: 140px;
+  height: 200px;
+  margin: 0 -40px;
+  border: 2px solid #aaa;
+  border-radius: 12px;
+  transform: rotate(var(--rotate));
+  transition: transform 0.2s, box-shadow 0.2s;
+  cursor: pointer;
+  overflow: hidden;
+  z-index: 1;
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+
+  &:after {
+    content: '';
+    background-image: url("/systems/midnight-gambit/assets/images/shimmer.png");
+    background-size: contain;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    mix-blend-mode: overlay;
+    z-index: 1;
+  }
+
+  &:before {
+    content: '';
+    background-image: url("/systems/midnight-gambit/assets/images/shimmer.png");
+    background-size: contain;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 1;
+    mix-blend-mode: multiply;
+    z-index: 2;
+  }
+
+  &:hover {
+    transform: scale(1.1) rotate(var(--rotate));
+    box-shadow: 0 0 20px rgba(255, 255, 255, 0.3);
+    z-index: 100;
+  }
+
+  .gambit-title {
+    padding: 1rem;
+    text-align: center;
+    font-weight: 700;
+    position: relative;
+    text-transform: uppercase;
+    font-style: italic;
+    color: $mg-ivory;
+    text-shadow: 7px 5px 2px $mg-blue-main;
+    filter: drop-shadow(0 0 0.75rem $black);
+    @include oswald();
+    z-index: 3;
+  }
+}
+

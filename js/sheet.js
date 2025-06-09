@@ -19,10 +19,22 @@ export class MidnightGambitActorSheet extends ActorSheet {
       const deckIds = context.system.gambits.deck ?? [];
       const drawnIds = context.system.gambits.drawn ?? [];
       const discardIds = context.system.gambits.discard ?? [];
-
+      
       context.gambitDeck = deckIds.map(id => this.actor.items.get(id)).filter(Boolean);
       context.gambitDrawn = drawnIds.map(id => this.actor.items.get(id)).filter(Boolean);
       context.gambitDiscard = discardIds.map(id => this.actor.items.get(id)).filter(Boolean);
+
+      context.gambitDrawnWithAngle = context.gambitDrawn.map((card, i, arr) => {
+        const total = arr.length;
+        const mid = (total - 1) / 2;
+        const angle = (i - mid) * 10; // spacing angle
+        return { ...card, rotate: angle };
+      });      
+
+      if (!this.actor?.system?.gambits) {
+        console.warn("Missing gambit data on actor.");
+        return super.getData(options);
+      }
 
 
       context.attributeKeys = [
@@ -985,6 +997,64 @@ export class MidnightGambitActorSheet extends ActorSheet {
 
         ui.notifications.info("Gambit deck reset!");
       });
+
+      //Post Gambit into Game chat
+      html.find(".post-gambit").on("click", async (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+
+        const itemId = event.currentTarget.dataset.itemId;
+        const item = this.actor.items.get(itemId);
+        if (!item) return;
+
+        const { name, system } = item;
+        const { description = "", tier = "", tags = [] } = system;
+
+        const tagLabels = (tags || [])
+          .map(t => CONFIG.MidnightGambit.ITEM_TAGS.find(def => def.id === t)?.label || t)
+          .join(", ");
+
+        const html = `
+          <div class="gambit-chat-card">
+            <h2>🎴 ${name}</h2>
+            <p><strong>Tier:</strong> ${tier.charAt(0).toUpperCase() + tier.slice(1)}</p>
+            ${tagLabels ? `<p><strong>Tags:</strong> ${tagLabels}</p>` : ""}
+            <p>${description}</p>
+          </div>
+        `;
+
+        ChatMessage.create({
+          user: game.user.id,
+          speaker: ChatMessage.getSpeaker({ actor: this.actor }),
+          content: html
+        });
+      });
+
+      //Gambit hand at bottom of the screen styling
+      html.find(".gambit-hand-card").on("click", async (event) => {
+        const itemId = event.currentTarget.dataset.itemId;
+        const item = this.actor.items.get(itemId);
+        if (!item) return;
+
+        // 1. Post to chat
+        await ChatMessage.create({
+          user: game.user.id,
+          speaker: ChatMessage.getSpeaker({ actor: this.actor }),
+          content: `<h2>🎴 ${item.name}</h2><p>${item.system.description}</p>`
+        });
+
+        // 2. Remove from drawn, add to discard
+        const { drawn = [], discard = [] } = this.actor.system.gambits;
+
+        const updatedDrawn = drawn.filter(id => id !== itemId);
+        const updatedDiscard = [...discard, itemId];
+
+        await this.actor.update({
+          "system.gambits.drawn": updatedDrawn,
+          "system.gambits.discard": updatedDiscard
+        });
+      });
+
       }
 
     //END EVENT LISTENERS
@@ -1130,11 +1200,16 @@ export class MidnightGambitActorSheet extends ActorSheet {
     }
 
     if (itemData.type === "gambit") {
-      console.log("🎴 Dropped Gambit item onto actor");
-
       const [gambitItem] = await this.actor.createEmbeddedDocuments("Item", [itemData]);
 
       const currentDeck = this.actor.system.gambits.deck ?? [];
+      const level = this.actor.system.level ?? 1;
+      const maxDeck = 3; // TODO: scale later based on level
+
+      if (currentDeck.length >= maxDeck) {
+        ui.notifications.warn(`You can only have ${maxDeck} Gambits in your deck at Level ${level}.`);
+        return []; // prevent adding to deck
+      }
 
       if (!currentDeck.includes(gambitItem.id)) {
         await this.actor.update({
