@@ -4,10 +4,12 @@ Hooks.on("createActor", async (actor) => {
 
   try {
     const response = await fetch("systems/midnight-gambit/template.json");
-    const templateData = await response.json();
+    const tpl = await response.json();
 
-    await actor.update(templateData);
-    console.log("✅ Template applied to new actor");
+    if (tpl?.system) {
+      await actor.update({ system: tpl.system }, { diff: false });
+    }
+    console.log("✅ Applied system template (system only)");
   } catch (err) {
     console.error("❌ Failed to apply template.json:", err);
   }

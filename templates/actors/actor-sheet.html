@@ -87,30 +87,6 @@
 
           <label class="strain-label">Strain</label>
 
-          <div class="strain-track" data-strain="mortal">
-            <label>M</label>
-
-            {{#range 1 5}}
-              <span class="strain-dot {{#if (lte this ../actor.system.strain.mortal)}}filled{{/if}}"
-                    data-value="{{this}}"
-                    data-type="mortal">
-                <i class="fa-solid fa-dagger"></i>
-              </span>
-            {{/range}}
-          </div>
-
-          <div class="strain-track" data-strain="soul">
-            <label>S</label>
-
-            {{#range 1 5}}
-              <span class="strain-dot {{#if (lte this ../actor.system.strain.soul)}}filled{{/if}}"
-                    data-value="{{this}}"
-                    data-type="soul">
-                <i class="fa-solid fa-moon-over-sun"></i>
-              </span>
-            {{/range}}
-          </div>
-
           <div class="capacity-box">
             <label data-tooltip="Physical damage affects this pool before your main tracks.">MC</label>
             <input
@@ -129,6 +105,30 @@
               value="{{lookup actor.system.strain 'soul capacity'}}"
               min="0"
               data-tooltip="Supernatural or emotional damage affects this pool before your main tracks." />
+          </div>
+
+          <div class="strain-track mortal" data-strain="mortal">
+            <label>M</label>
+
+            {{#range 1 5}}
+              <span class="strain-dot {{#if (lte this ../actor.system.strain.mortal)}}filled{{/if}}"
+                    data-value="{{this}}"
+                    data-type="mortal">
+                <i class="fa-solid fa-dagger"></i>
+              </span>
+            {{/range}}
+          </div>
+
+          <div class="strain-track soul" data-strain="soul">
+            <label>S</label>
+
+            {{#range 1 5}}
+              <span class="strain-dot {{#if (lte this ../actor.system.strain.soul)}}filled{{/if}}"
+                    data-value="{{this}}"
+                    data-type="soul">
+                <i class="fa-solid fa-moon-over-sun"></i>
+              </span>
+            {{/range}}
           </div>
         </div>
 
@@ -598,7 +598,7 @@
       </div>
 
       <!--This is our journal for character information/backstory-->
-      <div class="tab  tab-journal" data-group="main" data-tab="journal">
+      <div class="tab  journal-tab" data-group="main" data-tab="journal">
         <div class="journal-fields">
           <div class="field-pair">
             <label>Race</label>
@@ -638,7 +638,7 @@
 
       </div>
 
-      <div class="tab tab-settings" data-group="main" data-tab="settings">
+      <div class="tab settings-tab" data-group="main" data-tab="settings">
         <div class="guise-display">
           <span class="guise-name">
             {{#if guise}}

@@ -467,11 +467,10 @@ h1,h2,h3,h4 {
         }
       }
 
-      .soul {
+      .strain-track.soul {
         border: none;
-        color: $mg-blue-2;
       }
-
+      
       //Tarking the Spark items to give them full width getting spacing more consistent
       .spark-school-selectors,
       .spark-track {
@@ -1386,6 +1385,10 @@ h1,h2,h3,h4 {
 
 /*Journal Character Sheet Styling
 ==============================================================================*/
+
+.journal-tab {
+
+}
 
 .gambit-hand-card {
   background-image: url("/systems/midnight-gambit/assets/images/card-background.png");
