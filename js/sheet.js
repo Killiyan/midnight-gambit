@@ -9,6 +9,7 @@ export class MidnightGambitActorSheet extends ActorSheet {
     });
   }
 
+    //Grabbing all the actor data information to create the initial sheet
     async getData(options) {
       const context = await super.getData(options);
 
@@ -212,22 +213,28 @@ export class MidnightGambitActorSheet extends ActorSheet {
         $clicked.addClass("selected");
       });
 
+      /** This adds a tab section for the character sheet and sets the selectors for said tabs. Also sets the tabs to stay on the active tab after a render */
+      // It also makes the data stored locally not on the system
+      const groupEl = html.find("nav.sheet-tabs")[0];
+      const group = groupEl?.getAttribute("data-group") || "main";
 
-      /** This adds a tab section for the charaacter sheet and sets the selectors for said tabs. Also sets the tabs to stay on the active tab after a render */
-      const currentTab = this.actor.getFlag("midnight-gambit", "activeTab") ?? "general";
+      // Unique key per actor + viewer (and per tab group if you add more later)
+      const TAB_KEY = `mg.tab.${this.actor.id}.${game.user.id}.${group}`;
+      const initialTab = localStorage.getItem(TAB_KEY) || "general";
 
       const tabs = new Tabs({
-        navSelector: ".sheet-tabs",
-        contentSelector: ".tab-content",
-        initial: currentTab
+        navSelector: groupEl ? `nav.sheet-tabs[data-group="${group}"]` : `nav.sheet-tabs`,
+        contentSelector: `.tab-content`,
+        initial: initialTab
       });
       tabs.bind(html[0]);
 
-      // Track tab changes and store to flags
-      html.find(".sheet-tabs .item").on("click", async (event) => {
-        const tab = event.currentTarget.dataset.tab;
-        if (tab) await this.actor.setFlag("midnight-gambit", "activeTab", tab);
-      });
+      // Save selection locally (no actor flags = no sync to other users)
+      html.find(groupEl ? `nav.sheet-tabs[data-group="${group}"]` : `nav.sheet-tabs`)
+        .on("click", "[data-tab]", (ev) => {
+          const tab = ev.currentTarget.dataset.tab;
+          if (tab) localStorage.setItem(TAB_KEY, tab);
+        });
 
 
       // Move floating tab nav outside .window-content so it's not clipped
@@ -556,25 +563,35 @@ export class MidnightGambitActorSheet extends ActorSheet {
         this.render(true);
       });
 
-      //Attribute Roll Logic
+      //Attribute Roll Logic and Base Edit
       html.find(".attribute-modifier").on("contextmenu", async (event) => {
         event.preventDefault();
 
-        const $target = $(event.currentTarget);
-        const attrKey = $target.data("key");
-        const current = Number($target.data("base"));
+        const el  = event.currentTarget;
+        const key = el.dataset.key;
+        const current = Number(el.getAttribute("data-base")) || 0;
 
-        const newValue = await Dialog.prompt({
-          title: `Edit ${attrKey}`,
-          content: `<label>Base ${attrKey}: <input type="number" value="${current}" name="value" /></label>`,
+        const val = await Dialog.prompt({
+          title: `Edit ${key}`,
+          content: `<label>Base ${key}: <input type="number" value="${current}" name="value" /></label>`,
           callback: (html) => html.find('input[name="value"]').val(),
           rejectClose: false,
         });
+        if (val === null) return;
 
-        if (newValue !== null) {
-          await this.actor.update({ [`system.baseAttributes.${attrKey}`]: parseInt(newValue) });
+        const next = Number(val);
+        if (!Number.isFinite(next)) {
+          ui.notifications.warn("Please enter a valid number.");
+          return;
         }
+
+        await this.actor.update({ [`system.baseAttributes.${key}`]: next }, { render: false });
+
+        // Reflect immediately in the open sheet (no re-render)
+        el.setAttribute("data-base", String(next));
+        el.textContent = next >= 0 ? `+${next}` : `${next}`;
       });
+
 
       //Rolling Attributes in chat with the right logic
       html.find(".attribute-modifier").on("click", async (event) => {
@@ -659,23 +676,37 @@ export class MidnightGambitActorSheet extends ActorSheet {
         });
       });
 
+      // Skill base edit (numeric-safe, manual UI refresh)
       html.find(".skill-value").on("contextmenu", async (event) => {
         event.preventDefault();
-        const key = event.currentTarget.dataset.key;
-        const current = parseInt(event.currentTarget.dataset.base) || 0;
 
-        const newValue = await Dialog.prompt({
+        const el   = event.currentTarget;
+        const key  = el.dataset.key;
+        const curr = Number(el.getAttribute("data-base")) || 0;
+
+        const val = await Dialog.prompt({
           title: `Edit Skill: ${key}`,
-          content: `<label>${key}: <input type="number" value="${current}" name="value" /></label>`,
-          callback: html => html.find('input[name="value"]').val(),
+          content: `<label>${key}: <input type="number" value="${curr}" name="value" /></label>`,
+          callback: (html) => html.find('input[name="value"]').val(),
           rejectClose: false,
         });
+        if (val === null) return;
 
-        if (newValue !== null && !isNaN(parseInt(newValue))) {
-          await this.actor.update({ [`system.skills.${key}`]: parseInt(newValue) });
-          this.render(false);
+        const next = Number(val);
+        if (!Number.isFinite(next)) {
+          ui.notifications.warn("Please enter a valid number.");
+          return;
         }
+
+        // Save without rerender (prevents mobile jump)
+        await this.actor.update({ [`system.skills.${key}`]: next }, { render: false });
+
+        // Reflect immediately in the open sheet
+        el.setAttribute("data-base", String(next));
+        el.textContent = String(next);              // or: (next >= 0 ? `+${next}` : `${next}`)
       });
+
+
 
       //Setting values before Foundry Sheet refresh - Fixes Mortal and Soul Capacity
       html.find("input").on("keydown", async (event) => {
@@ -1086,7 +1117,7 @@ export class MidnightGambitActorSheet extends ActorSheet {
     try {
       console.log("🧪 Dropped itemData:", itemData);
 
-      // Use fromUuid if coming from compendium (has UUID)
+      // Use from Uuid if coming from compendium (has UUID)
       if (itemData?.uuid) {
         guise = await fromUuid(itemData.uuid);
         if (!guise) throw new Error("Failed to load item from UUID");

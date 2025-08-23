@@ -4,11 +4,18 @@ export class MidnightGambitActor extends Actor {
     const data = this.system;
 
     // === Initialize attribute and strain structures ===
-    data.baseAttributes ??= {
-      tenacity: 0, finesse: 0, resolve: 0,
-      guile: 0, instinct: 0, presence: 0
-    };
+    const ATTR_KEYS = ["tenacity","finesse","resolve","guile","instinct","presence"];
+
+    // Ensure baseAttributes exists AND each key is a finite number
+    data.baseAttributes ??= {};
+    for (const k of ATTR_KEYS) {
+      const n = Number(data.baseAttributes[k]);
+      data.baseAttributes[k] = Number.isFinite(n) ? n : 0;
+    }
+
+    // Clone AFTER sanitizing
     const base = foundry.utils.deepClone(data.baseAttributes);
+
 
     data.strain ??= { mortal: 0, soul: 0 };
     data.baseStrainCapacity ??= { mortal: 0, soul: 0 };
@@ -43,38 +50,50 @@ export class MidnightGambitActor extends Actor {
     data.riskDiceCapacity = data.baseRiskDice;
     data.sparkUsed ??= 0;
 
-    // === Guise application ===
-    const guiseId = data.guise;
-    if (guiseId) {
-      const guise = this.items.get(guiseId);
-      if (guise?.type === "guise") {
-        const gSys = guise.system;
-        const modifiers = gSys.modifiers || {};
+    // --- Resolve guise whether system.guise is an embedded id OR a UUID ---
+    const ref = data.guise;
+    let guise = null;
 
-        for (const [key, mod] of Object.entries(modifiers)) {
-          if (base[key] != null) {
-            base[key] += mod;
-          }
-        }
+    if (ref) {
+      // 1) Prefer embedded Item id on the actor
+      guise = this.items.get(ref);
 
-        // Apply Guise strain capacity if not manually overridden
-        if (!manual["mortal capacity"]) {
-          data.strain["mortal capacity"] = gSys.mortalCap ?? 0;
-        }
-        if (!manual["soul capacity"]) {
-          data.strain["soul capacity"] = gSys.soulCap ?? 0;
-        }
-
-        // Apply other Guise fields
-        data.baseStrainCapacity = {
-          mortal: gSys.mortalCap ?? 0,
-          soul: gSys.soulCap ?? 0
-        };
-        data.sparkSlots = gSys.sparkSlots ?? 0;
-        data.riskDice = gSys.riskDice ?? 5;
-        data.casterType = gSys.casterType ?? null;
+      // 2) Fallback to UUID (older actors / compendium reference)
+      if (!guise && typeof fromUuidSync === "function") {
+        try { guise = fromUuidSync(ref); } catch (_) {}
       }
     }
+
+    if (guise?.type === "guise") {
+      const gSys = guise.system || {};
+      const modifiers = gSys.modifiers ?? {};
+
+      // Apply modifiers as NUMBERS (avoid string concat/NaN)
+      for (const [key, mod] of Object.entries(modifiers)) {
+        if (base[key] != null) {
+          const m = Number(mod);
+          if (Number.isFinite(m)) base[key] += m;
+        }
+      }
+
+      // Apply Guise strain capacity if not manually overridden
+      if (!manual["mortal capacity"]) {
+        data.strain["mortal capacity"] = gSys.mortalCap ?? 0;
+      }
+      if (!manual["soul capacity"]) {
+        data.strain["soul capacity"] = gSys.soulCap ?? 0;
+      }
+
+      // Apply other Guise fields
+      data.baseStrainCapacity = {
+        mortal: gSys.mortalCap ?? 0,
+        soul:   gSys.soulCap   ?? 0
+      };
+      data.sparkSlots = gSys.sparkSlots ?? 0;
+      data.riskDice   = gSys.riskDice   ?? 5;
+      data.casterType = gSys.casterType ?? null;
+    }
+
 
     // === Clamp attributes ===
     for (const key of Object.keys(base)) {
