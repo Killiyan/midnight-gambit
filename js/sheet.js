@@ -132,25 +132,37 @@ export class MidnightGambitActorSheet extends ActorSheet {
         return copy;
       }
 
-      /** This looks for strain amount and adds/removes on clicks */
+      // This updates the strain amount on click; Also added parameter to suppress re-render on DOM so it won't jump around on click
       html.find(".strain-dot").on("click", async (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+
+        // Kill any active input focus
+        if (document.activeElement) try { document.activeElement.blur(); } catch(_) {}
+
+        // Setting the strain type Mortal/Strain
         const el = event.currentTarget;
-        const strainType = el.dataset.type;
-        const clickedValue = parseInt(el.dataset.value);
+        const strainType   = el.dataset.type;
+        const clickedValue = Number(el.dataset.value);
 
         const actor = this.actor;
         if (!actor) return;
 
+        //Finds the current value and subtracts the differntial
         const currentValue = getProperty(actor.system.strain, strainType);
+        const newValue = Math.max(0, clickedValue === currentValue ? clickedValue - 1 : clickedValue);
 
-        /** I think this guy makes it so that if you click the last track of strain, it removes the damage */
-        const newValue = (clickedValue === currentValue) ? clickedValue - 1 : clickedValue;
+        // 1) Update the doc WITHOUT triggering a render
+        await actor.update({ [`system.strain.${strainType}`]: newValue }, { render: false });
 
-        console.log(`Clicked ${strainType} strain: ${clickedValue} (was ${currentValue}) → ${newValue}`);
-
-        await actor.update({ [`system.strain.${strainType}`]: newValue });
-        this.render(false);
+        // 2) Manually reflect the change in the currently open sheet
+        const $track = html.find(`.strain-track[data-strain="${strainType}"]`);
+        $track.find(".strain-dot").each((_, node) => {
+          const v = Number(node.dataset.value);
+          node.classList.toggle("filled", v <= newValue);
+        });
       });
+
       
       /** This looks for risk dice amount and applies similar click logic */
       html.find(".risk-dot").on("click", async (event) => {
