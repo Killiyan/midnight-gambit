@@ -100,6 +100,7 @@ function renderGambitHand(actor) {
 const MG_NS = "midnight-gambit";
 const FLAG_TOTAL  = "clock.total";
 const FLAG_FILLED = "clock.filled";
+const FLAG_NAME = "clock.name";
 
 // --- Handle (queen) icon ---
 function mgGetHandleUrl() {
@@ -111,12 +112,17 @@ const MG_HANDLE_SIZE = 50;   // px (unscaled)
 let   mgHandleScale  = 1;    // live scale factor for hover/drag
 
 function mgClockGet() {
-  const total  = Number(canvas.scene?.getFlag(MG_NS, FLAG_TOTAL));
-  const filled = Number(canvas.scene?.getFlag(MG_NS, FLAG_FILLED));
-  const t = Number.isFinite(total)  ? Math.max(1, Math.min(200, total))  : 8; // cap 200
+  const sc = canvas.scene;
+  const total  = Number(sc?.getFlag(MG_NS, FLAG_TOTAL));
+  const filled = Number(sc?.getFlag(MG_NS, FLAG_FILLED));
+  const name   = sc?.getFlag(MG_NS, FLAG_NAME) ?? "";
+
+  const t = Number.isFinite(total)  ? Math.max(1, Math.min(200, total)) : 8;
   const f = Number.isFinite(filled) ? Math.max(0, Math.min(t, filled)) : 0;
-  return { total: t, filled: f };
+
+  return { total: t, filled: f, name };
 }
+
 
 async function mgClockSetTotal(n) {
   if (!game.user.isGM || !canvas.scene) return;
@@ -154,6 +160,8 @@ function mgClockEnsureDOM() {
     <div id="mg-clock" class="mg-clock" style="position:fixed; top:12px; right:332px; z-index:50;">
       <div class="mg-clock-inner">
         <div class="mg-clock-grip" title="Drag to move"></div>
+        <input type="text" class="mg-clock-name" maxlength="60"
+        placeholder="Clock" title="Clock name (GM only)" />
         <span class="mg-clock-badge"></span>
         <div class="mg-clock-visual">
           <svg class="mg-clock-svg" viewBox="0 0 120 120" width="120" height="120" aria-hidden="true" style="width:120px;height:120px;">
@@ -165,7 +173,7 @@ function mgClockEnsureDOM() {
         </div>
         <div class="mg-clock-controls">
           <button type="button" class="mg-clock-dec" title="Decrease (Shift: -2)">−</button>
-          <input type="number" class="mg-clock-total" min="1" max="100" step="1" title="Segments" inputmode="numeric" />
+          <input type="number" class="mg-clock-total" min="1" max="200" step="1" title="Segments" inputmode="numeric" />
           <button type="button" class="mg-clock-inc" title="Increase (Shift: +2)">+</button>
         </div>
       </div>
@@ -285,21 +293,34 @@ function mgClockRender() {
   mgClockDrawSegments($wrap);
   mgClockApplyCollapsed($wrap);
 
-  const $controls = $wrap.find(".mg-clock-controls");
-
-  if (game.user.isGM) {
-    $wrap.removeClass("readonly");
-    $controls.prop("disabled", false)
-             .find("button, .mg-clock-total").prop("disabled", false);
-    $controls.toggle(true).attr("aria-hidden", "false");
-  } else {
-    $wrap.addClass("readonly");
-    $controls.prop("disabled", true)
-             .find("button, .mg-clock-total").prop("disabled", true);
-    $controls.toggle(false).attr("aria-hidden", "true");
+  const { name } = mgClockGet();
+  const nameInput = $wrap.find(".mg-clock-name")[0];
+  if (nameInput) {
+    nameInput.value = name || "";
+    nameInput.placeholder = name ? name : "Clock";
+    if (game.user.isGM) {
+      nameInput.readOnly = false;
+      nameInput.classList.remove("readonly");
+    } else {
+      nameInput.readOnly = true;                 // players see but can't edit
+      nameInput.classList.add("readonly");
+    }
   }
+    // Hide/disable controls for players; show for GM
+    const $controls = $wrap.find(".mg-clock-controls");
 
-  mgClockBindHandlers(); // (re)bind
+    if (game.user.isGM) {
+      $wrap.removeClass("readonly");
+      $controls.toggle(true).attr("aria-hidden", "false");
+      $controls.find("button, .mg-clock-total").prop("disabled", false);
+    } else {
+      $wrap.addClass("readonly");
+      $controls.toggle(false).attr("aria-hidden", "true");
+      $controls.find("button, .mg-clock-total").prop("disabled", true);
+    }
+
+
+  mgClockBindHandlers();
 }
 
 /* Creating a scrub element of the MG Logo
@@ -572,6 +593,22 @@ function mgClockBindHandlers() {
     await mgClockSaveCollapsed(nowCollapsed);
     mgClockApplyCollapsed($wrap); // refresh title/badge
   });
+
+  /* Name input for GM only on Clocks
+  ----------------------------------------------------------------------*/
+  $wrap.on("keydown.mgclock", ".mg-clock-name", (ev) => {
+    if (!game.user.isGM) return;
+    if (ev.key === "Enter") {
+      ev.preventDefault();
+      ev.currentTarget.blur();
+    }
+  });
+
+  $wrap.on("change.mgclock blur.mgclock", ".mg-clock-name", async (ev) => {
+    if (!game.user.isGM) return;
+    const val = String(ev.currentTarget.value ?? "").trim().slice(0, 60);
+    await canvas.scene?.setFlag(MG_NS, FLAG_NAME, val);
+  });
 }
 
 /* Editable UI element for the Clock
@@ -654,16 +691,26 @@ Hooks.on("canvasReady", () => {
 // Live updates for everyone when flags change
 Hooks.on("updateScene", (scene, data) => {
   if (scene.id !== canvas.scene?.id) return;
-  const pathBase = `flags.${MG_NS}.clock`;
+  const base = `flags.${MG_NS}.clock`;
   const changed =
-    foundry.utils.hasProperty(data, `${pathBase}.total`) ||
-    foundry.utils.hasProperty(data, `${pathBase}.filled`);
+    foundry.utils.hasProperty(data, `${base}.total`)     ||
+    foundry.utils.hasProperty(data, `${base}.filled`)    ||
+    foundry.utils.hasProperty(data, `${base}.name`);     // ← add this
+
   if (!changed) return;
 
-  // Update current DOM (no rebind necessary)
   const $wrap = mgClockEnsureDOM();
   mgClockDrawSegments($wrap);
+
+  // reflect name instantly if it changed
+  const nameInput = $wrap.find(".mg-clock-name")[0];
+  if (nameInput) {
+    const newName = scene.getFlag(MG_NS, FLAG_NAME) ?? "";
+    nameInput.value = newName || "";
+    nameInput.placeholder = newName ? newName : "Clock";
+  }
 });
+
 
 
 
