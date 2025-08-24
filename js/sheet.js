@@ -246,8 +246,6 @@ export class MidnightGambitActorSheet extends ActorSheet {
 
       // Drawing button for Gambits
       html.find(".draw-gambit").on("click", async () => {
-        console.log("DRAW DEBUG:", this.actor.system.gambits);
-        
         const { deck = [], drawn = [], maxDrawSize = 3, locked = false } = this.actor.system.gambits;
 
         if (locked || drawn.length >= maxDrawSize || deck.length === 0) {
@@ -257,8 +255,10 @@ export class MidnightGambitActorSheet extends ActorSheet {
 
         const drawCount = Math.min(maxDrawSize - drawn.length, deck.length);
         const shuffled = shuffleArray(deck);
-        const newDrawn = [...drawn, ...shuffled.slice(0, drawCount)];
-        const newDeck = deck.filter(id => !newDrawn.includes(id));
+
+        const drawnNow = shuffled.slice(0, drawCount);
+        const newDrawn = [...drawn, ...drawnNow];
+        const newDeck  = deck.filter(id => !drawnNow.includes(id));
 
         await this.actor.update({
           "system.gambits.deck": newDeck,
@@ -266,6 +266,7 @@ export class MidnightGambitActorSheet extends ActorSheet {
           "system.gambits.locked": true
         });
       });
+
 
       //Discard Gambit
       html.find(".discard-card").on("click", async (event) => {
@@ -994,52 +995,48 @@ export class MidnightGambitActorSheet extends ActorSheet {
       });
 
       //Reset Gambit Button - like a long rest but for deck
-      html.find(".reset-gambit-deck").on("click", async () => {
-        const { deck = [], drawn = [], discard = [] } = this.actor.system.gambits;
+      html.find(".reset-gambit-deck").on("click", async (ev) => {
+        ev.preventDefault();
+        ev.stopPropagation();
 
-        // Combine all into one
-        const fullDeck = [...deck, ...drawn, ...discard];
-        const shuffled = shuffleArray(fullDeck); // optional, but nice touch
+        // Avoid double-fires while dialog is open
+        const btn = ev.currentTarget;
+        btn.disabled = true;
 
-        await this.actor.update({
-          "system.gambits.deck": shuffled,
-          "system.gambits.drawn": [],
-          "system.gambits.discard": [],
-          "system.gambits.locked": false
-        });
+        try {
+          const ok = await Dialog.confirm({
+            title: "Reset Gambit Deck?",
+            content: `<p>This returns all drawn and discarded Gambits to your Deck and clears your hand.</p>`,
+            yes: () => true,
+            no: () => false,
+            defaultYes: false
+          });
 
-        new Dialog({
-          title: "Reset Gambit Deck",
-          content: `<p>Are you sure you want to reset your Gambit deck?<br>All drawn and discarded cards will be returned to your deck.</p>`,
-          buttons: {
-            yes: {
-              icon: '<i class="fas fa-check"></i>',
-              label: "Reset",
-              callback: async () => {
-                const { deck = [], drawn = [], discard = [] } = actor.system.gambits;
-                const fullDeck = [...deck, ...drawn, ...discard];
-                const shuffled = shuffleArray(fullDeck);
+          if (!ok) return; // user cancelled — do nothing
 
-                await actor.update({
-                  "system.gambits.deck": shuffled,
-                  "system.gambits.drawn": [],
-                  "system.gambits.discard": [],
-                  "system.gambits.locked": false
-                });
+          const g = this.actor.system.gambits ?? {};
+          const deck    = Array.isArray(g.deck)    ? g.deck    : [];
+          const drawn   = Array.isArray(g.drawn)   ? g.drawn   : [];
+          const discard = Array.isArray(g.discard) ? g.discard : [];
 
-                ui.notifications.info("Gambit deck has been reset.");
-              }
-            },
-            no: {
-              icon: '<i class="fas fa-times"></i>',
-              label: "Cancel"
-            }
-          },
-          default: "yes"
-        }).render(true);
+          // Put everything back into deck (dedup), clear piles
+          const newDeck = Array.from(new Set([...deck, ...drawn, ...discard]));
 
-        ui.notifications.info("Gambit deck reset!");
+          await this.actor.update({
+            "system.gambits.deck": newDeck,
+            "system.gambits.drawn": [],
+            "system.gambits.discard": [],
+            "system.gambits.locked": false
+          });
+
+          // Optional: notify and soft re-render
+          ui.notifications.info("Gambit deck reset.");
+          this.render(false);
+        } finally {
+          btn.disabled = false;
+        }
       });
+
 
       //Post Gambit into Game chat
       html.find(".post-gambit").on("click", async (event) => {
@@ -1103,7 +1100,8 @@ export class MidnightGambitActorSheet extends ActorSheet {
     //END EVENT LISTENERS
     //---------------------------------------------------------------------------------------------------------------------------
 
-  //Drag and Drop guise action
+  /* Drag and Drop Guise
+  ==============================================================================*/
   async _onDropItemCreate(itemData) {
     if (itemData.type === "guise") {
     console.log("✅ Dropped a guise item on actor");
@@ -1141,14 +1139,13 @@ export class MidnightGambitActorSheet extends ActorSheet {
     const [embedded] = await this.actor.createEmbeddedDocuments("Item", [guise.toObject()]);
     await this.actor.update({ "system.guise": embedded.id });
 
-
-
     if (!guise || guise.type !== "guise") {
       ui.notifications.error("Dropped item is not a valid Guise.");
       return [];
     }
 
-
+      /* Guise Caster Type
+      ----------------------------------------------------------------------*/
       const casterType = guise.system?.casterType ?? null;
       let sparkSchool1 = "";
       let sparkSchool2 = "";
@@ -1200,6 +1197,8 @@ export class MidnightGambitActorSheet extends ActorSheet {
           form.appendChild(select2);
         }
 
+        /* Choose Spark Schools prompt
+        ----------------------------------------------------------------------*/
         await Dialog.prompt({
           title: "Choose Spark School(s)",
           content: form.outerHTML,
@@ -1242,6 +1241,9 @@ export class MidnightGambitActorSheet extends ActorSheet {
       return [];
     }
 
+    /* Gambit Item creation and limits
+    ----------------------------------------------------------------------*/
+    
     if (itemData.type === "gambit") {
       const [gambitItem] = await this.actor.createEmbeddedDocuments("Item", [itemData]);
 

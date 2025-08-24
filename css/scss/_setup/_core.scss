@@ -1,5 +1,3 @@
-@import "variables";
-
 /*Core Styling
 ==============================================================================*/
 
@@ -7,6 +5,29 @@ body {
   background: url("../assets/images/gambit-border.png") repeat;
   background-size: 100px;
   background-color: $mg-blue-main;
+}
+
+input[type="text"], input[type="number"], input[type="password"], input[type="date"], input[type="time"], input[type="search"] {
+  background-color: rgba($black, 0.5);
+  background-image: none;
+  @include mg-border();
+  color: $mg-ivory;
+  padding: 1.125rem;
+  @include roboto();
+  font-size: .8rem;
+  line-height: 1.5;
+  transition: color .5s ease, border-color .5s ease, box-shadow .5s ease, background .5s ease;
+
+  &::placeholder {
+    color: rgba($white, .7);
+  }
+
+  &:hover,
+  &:focus {
+    background: $mg-blue-3;
+    box-shadow: 0 0 .5rem $mg-ivory;
+    color: $white
+  }
 }
 
 .tab .header-search {
@@ -58,7 +79,8 @@ form button {
     color: $mg-blue-4;
   }
 
-  &:hover {
+  &:hover,
+  &:focus {
     background: $mg-blue-1;
     color: $mg-blue-main-2;
     box-shadow: 0 0 .5rem $mg-ivory;

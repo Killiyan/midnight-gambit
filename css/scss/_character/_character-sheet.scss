@@ -67,8 +67,15 @@ h1,h2,h3,h4 {
     input[type="text"],
     input[type="checkbox"],
     textarea {
+      background-color: rgba($black, 0.5);
+      background-image: none;
+      @include mg-border();
       color: $mg-blue-2;
-      transition: color .5s ease, border-color .5s ease, box-shadow .5s ease;
+      padding: 1.125rem;
+      @include roboto();
+      font-size: .8rem;
+      line-height: 1.5;
+      transition: color .5s ease, border-color .5s ease, box-shadow .5s ease, background .2s ease;
 
       &:hover,
       &:focus {
@@ -470,7 +477,7 @@ h1,h2,h3,h4 {
       .strain-track.soul {
         border: none;
       }
-      
+
       //Tarking the Spark items to give them full width getting spacing more consistent
       .spark-school-selectors,
       .spark-track {
@@ -1038,7 +1045,7 @@ h1,h2,h3,h4 {
       }
 
       input[type="checkbox"] {
-        background: $mg-blue-main-2;
+        background: rgba($black, 0.5);
         @include mg-border();
         border-radius: .5rem;
         margin: 0;
@@ -1054,7 +1061,7 @@ h1,h2,h3,h4 {
           font-size: 1rem;
           font-weight: 700;
           color: $mg-blue-4;
-          top: 0.25rem;
+          top: 0.05rem;
           left: 0.35rem;
           opacity: 0;
           transition: opacity .5s ease, color .5s ease;
@@ -1388,6 +1395,11 @@ h1,h2,h3,h4 {
 
 .journal-tab {
 
+  .journal-fields {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: .5rem;
+  }
 }
 
 .gambit-hand-card {
