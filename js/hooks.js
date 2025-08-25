@@ -145,7 +145,8 @@ function mgClockGetById(id) {
   const total  = Number.isFinite(+c.total)  ? Math.max(1, Math.min(200, +c.total)) : 8;
   const filled = Number.isFinite(+c.filled) ? Math.max(0, Math.min(total, +c.filled)) : 0;
   const name   = (c.name ?? "").toString();
-  return { id, name, total, filled };
+  const gmOnly = !!c.gmOnly; // NEW
+  return { id, name, total, filled, gmOnly };
 }
 
 // Scene flag updaters
@@ -173,7 +174,7 @@ async function mgClockDeleteById(id) {
 async function mgClockCreate(initial = {}) {
   if (!game.user.isGM || !canvas.scene) return null;
   const id = mgNewId();
-  const def = { name: "Clock", total: 8, filled: 0, ...initial };
+  const def = { name: "Clock", total: 8, filled: 0, gmOnly: false, ...initial };
   await canvas.scene.setFlag(MG_NS, `${FLAG_CLOCKS}.${id}`, def);
   return id;
 }
@@ -363,9 +364,12 @@ function mgEnsureClockDOM(id) {
             <button type="button" class="mg-clock-inc"  title="Increase (Shift: +2)">+</button>
           </div>
           <div class="add-remove">
-            <button type="button" class="mg-clock-add"  title="Add Clock" data-tooltip="Add Clock"><i class="fa-solid fa-square-plus"></i></button>
+            <button type="button" class="mg-clock-vis" title="Public — click to hide from Players" data-tooltip="Toggle Visibility">
+              <i class="fa-solid fa-eye"></i>
+            </button>
             <button type="button" class="mg-clock-close" title="Remove Clock" data-tooltip="Remove Clock"><i class="fa-solid fa-trash"></i></button>
           </div>
+
         </div>
       </div>
     </div>
@@ -559,6 +563,13 @@ function mgBindClock($wrap, id) {
     await mgClockSetById(id, { name });
   });
 
+  // Visibility toggle (GM only)
+  $wrap.on("click.mgclock", ".mg-clock-vis", async () => {
+    if (!game.user.isGM) return;
+    const { gmOnly } = mgClockGetById(id);
+    await mgClockSetById(id, { gmOnly: !gmOnly });
+  });
+
   // Controls (GM only)
   $wrap.on("click.mgclock", ".mg-clock-inc", async (ev) => {
     if (!game.user.isGM) return;
@@ -708,13 +719,6 @@ $wrap.on("pointerup.mgclock pointercancel.mgclock", ".mg-clock-grip", async (ev)
     mgApplyCollapsed($wrap);
   });
 
-
-  // Add & Remove (GM only)
-  $wrap.on("click.mgclock", ".mg-clock-add", async () => {
-    if (!game.user.isGM) return;
-    const newId = await mgClockCreate({});
-    if (newId) mgRenderAllClocks();
-  });
   $wrap.on("click.mgclock", ".mg-clock-close", async () => {
     if (!game.user.isGM) return;
     const ok = await Dialog.confirm({ title: "Remove Clock?", content: "<p>This will remove this clock from the scene.</p>" });
@@ -724,21 +728,91 @@ $wrap.on("pointerup.mgclock pointercancel.mgclock", ".mg-clock-grip", async (ev)
   });
 }
 
+/* Force players to render newly made clock
+----------------------------------------------------------------------*/
+function mgRenderOneClock(id) {
+  // Respect visibility for players
+  const c = mgClockGetById(id);
+  if (!c) return;
+
+  if (!game.user.isGM && c.gmOnly) {
+    $(`#mg-clock-${id}`).remove();
+    return;
+  }
+
+  const $wrap = mgEnsureClockDOM(id);
+  mgApplyPos($wrap);
+
+  // Set name + control perms like in mgRenderAllClocks
+  const nameInput = $wrap.find(".mg-clock-name")[0];
+  if (nameInput) {
+    nameInput.value = c.name || "";
+    nameInput.placeholder = c.name || "Clock";
+    if (game.user.isGM) { nameInput.readOnly = false; nameInput.classList.remove("readonly"); }
+    else { nameInput.readOnly = true; nameInput.classList.add("readonly"); }
+  }
+
+  const $controls = $wrap.find(".mg-clock-controls");
+  if (game.user.isGM) {
+    $wrap.removeClass("readonly");
+    $controls.toggle(true).attr("aria-hidden","false");
+  } else {
+    $wrap.addClass("readonly");
+    $controls.toggle(false).attr("aria-hidden","true");
+  }
+
+  // Update visibility toggle (if you added the eye button)
+  const visBtn = $wrap.find(".mg-clock-vis")[0];
+  if (visBtn) {
+    const i = visBtn.querySelector("i");
+    visBtn.title = c.gmOnly ? "Hidden (GM Only) — click to make Public" : "Public — click to hide from Players";
+    if (i) i.className = c.gmOnly ? "fa-solid fa-eye-slash" : "fa-solid fa-eye";
+    visBtn.setAttribute("aria-pressed", c.gmOnly ? "true" : "false");
+  }
+
+  mgDrawClock($wrap, id);
+  mgBindClock($wrap, id);
+}
+
+/* Force Foundry to remove a clock from players UI if DM deletes
+----------------------------------------------------------------------*/
+function mgPruneClockDOM() {
+  const all = mgClocksGetAll();
+  const allowed = new Set(
+    Object.keys(all).filter(id => game.user.isGM || !all[id]?.gmOnly)
+  );
+  document.querySelectorAll(".mg-clock").forEach(el => {
+    const cid = el.getAttribute("data-clock-id");
+    if (cid && !allowed.has(cid)) el.remove();
+  });
+}
+
+
+
 /* Attaching clock to the scene and saving position
 ----------------------------------------------------------------------*/
 async function mgRenderAllClocks() {
   const all = mgClocksGetAll();
-  const ids = Object.keys(all);
-  console.debug("MG RenderAllClocks start:", { ids, all });
+  const ids = Object.keys(all).filter(id => game.user.isGM || !all[id]?.gmOnly);
 
-  // Clear + re-apply each time (position is per-user)
+  // Remove any clocks this user shouldn’t see
+  const allowed = new Set(ids);
+  document.querySelectorAll(".mg-clock").forEach(el => {
+    const cid = el.getAttribute("data-clock-id");
+    if (cid && !allowed.has(cid)) el.remove();
+  });
+
+  for (const id of ids) mgRenderOneClock(id);
+
+  console.debug("MG RenderAllClocks start:", { ids });
+
   for (const id of ids) {
     const $wrap = mgEnsureClockDOM(id);
     mgApplyPos($wrap);
 
-    const { name } = mgClockGetById(id);
+    const { name, gmOnly } = mgClockGetById(id);
 
-    // GM-only controls visibility, name permissions…
+    // Name field perms
     const nameInput = $wrap.find(".mg-clock-name")[0];
     if (nameInput) {
       nameInput.value = name || "";
@@ -747,14 +821,30 @@ async function mgRenderAllClocks() {
       else { nameInput.readOnly = true; nameInput.classList.add("readonly"); }
     }
 
+    // Controls perms
     const $controls = $wrap.find(".mg-clock-controls");
-    if (game.user.isGM) { $wrap.removeClass("readonly"); $controls.toggle(true).attr("aria-hidden","false"); }
-    else { $wrap.addClass("readonly"); $controls.toggle(false).attr("aria-hidden","true"); }
+    if (game.user.isGM) {
+      $wrap.removeClass("readonly");
+      $controls.toggle(true).attr("aria-hidden","false");
+    } else {
+      $wrap.addClass("readonly");
+      $controls.toggle(false).attr("aria-hidden","true");
+    }
+
+    // Update visibility toggle icon state (if present)
+    const btn = $wrap.find(".mg-clock-vis")[0];
+    if (btn) {
+      const i = btn.querySelector("i");
+      btn.title = gmOnly ? "Hidden (GM Only) — click to make Public" : "Public — click to hide from Players";
+      if (i) i.className = gmOnly ? "fa-solid fa-eye-slash" : "fa-solid fa-eye";
+      btn.setAttribute("aria-pressed", gmOnly ? "true" : "false");
+    }
 
     mgDrawClock($wrap, id);
     mgBindClock($wrap, id);
   }
 }
+
 
 /* Hooking clocks into scene
 ----------------------------------------------------------------------*/
@@ -769,28 +859,99 @@ Hooks.on("canvasReady", async () => {
   await mgRenderAllClocks();       // render only what this scene has
 });
 
-
 Hooks.on("updateScene", (scene, data) => {
   if (scene.id !== canvas.scene?.id) return;
 
-  const delta = foundry.utils.getProperty(data, `flags.${MG_NS}.clocks`);
-  if (!delta) return;
+  const flagsNS = data.flags?.[MG_NS];
+  if (!flagsNS) return;
 
-  // Iterate only changed ids (keys present in the delta)
-  for (const id of Object.keys(delta)) {
-    // If this clock was removed
-    const patch = delta[id];
-    if (patch === null || patch === undefined) {
-      $(`#mg-clock-${id}`).remove();
-      continue;
+  // === 1) Adds/changes under flags.<ns>.clocks (normal updates)
+  const deltaClocks = flagsNS[FLAG_CLOCKS];
+  if (deltaClocks && typeof deltaClocks === "object") {
+    for (const k of Object.keys(deltaClocks)) {
+      const patch = deltaClocks[k];
+
+      // a) Nested deletion: flags.<ns>.clocks["-=" + id] = null
+      if (k.startsWith("-=")) {
+        const id = k.slice(2);   // strip "-="
+        $(`#mg-clock-${id}`).remove();
+        continue;
+      }
+
+      // b) Explicit null inside map: flags.<ns>.clocks[id] = null
+      if (patch === null || patch === undefined) {
+        $(`#mg-clock-${k}`).remove();
+        continue;
+      }
+
+      // c) New or updated → render/bind for THIS user
+      mgRenderOneClock(k);
     }
-
-    // Ensure DOM and redraw this clock only
-    const $wrap = mgEnsureClockDOM(id);
-    mgApplyPos($wrap);           // keep position honored
-    mgDrawClock($wrap, id);      // redraw segments/count/handle
   }
+
+  // === 2) Top-level deletion: flags.<ns>["-=clocks.<id>"] = null
+  for (const k of Object.keys(flagsNS)) {
+    if (k.startsWith(`-=${FLAG_CLOCKS}.`)) {
+      const id = k.slice((`-=${FLAG_CLOCKS}.`).length);
+      $(`#mg-clock-${id}`).remove();
+    }
+  }
+
+  // === 3) Final safety sweep: remove anything this user shouldn't see
+  mgPruneClockDOM();
 });
+
+
+
+
+/* On Clock creation, adding an option for Hidden/Public
+----------------------------------------------------------------------*/
+async function mgOpenCreateClockDialog() {
+  if (!game.user.isGM) return null;
+
+  const content = `
+  <form class="mg-create-clock">
+    <div class="form-group">
+      <label>Name</label>
+      <input type="text" name="name" placeholder="Clock" />
+    </div>
+
+    <div class="form-group">
+      <label>Segments</label>
+      <input type="number" name="total" min="1" max="200" step="1" value="8"/>
+    </div>
+
+    <fieldset class="form-group">
+      <legend>Visibility</legend>
+      <label style="display:flex;gap:.5rem;align-items:center;">
+        <input type="radio" name="vis" value="public" checked />
+        <i class="fa-solid fa-eye"></i> Public
+      </label>
+      <label style="display:flex;gap:.5rem;align-items:center;">
+        <input type="radio" name="vis" value="hidden" />
+        <i class="fa-solid fa-eye-slash"></i> GM Only
+      </label>
+    </fieldset>
+  </form>`;
+
+  // Returns the object we build in callback, or null if canceled
+  return await Dialog.prompt({
+    title: "Create Clock",
+    content,
+    label: "Create",
+    callback: html => {
+      const form = html[0].querySelector("form");
+      if (!form) return null;
+      const fd = new FormData(form);
+      const name = (fd.get("name") || "Clock").toString().trim().slice(0, 60);
+      const total = Math.max(1, Math.min(200, Number(fd.get("total")) || 8));
+      const gmOnly = fd.get("vis") === "hidden";
+      return { name, total, filled: 0, gmOnly };
+    },
+    rejectClose: false // Esc/close returns null
+  });
+}
+
 
 /* Sidebar Clock addition
 ----------------------------------------------------------------------*/
@@ -808,8 +969,10 @@ Hooks.on("getSceneControlButtons", (controls) => {
       icon: "fas fa-clock",
       button: true,
       onClick: async () => {
-        const id = await mgClockCreate({});   // create empty clock on this scene
-        if (id) mgRenderAllClocks();          // render it for everyone
+        const opts = await mgOpenCreateClockDialog();
+        if (!opts) return;                                // canceled
+        const id = await mgClockCreate(opts);             // creates with gmOnly choice
+        if (id) mgRenderAllClocks();                      // renders for GM; stays hidden for players if gmOnly
       }
     },
     {
