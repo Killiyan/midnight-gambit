@@ -340,7 +340,7 @@ function mgEnsureClockDOM(id) {
   $wrap = $(`
     <div id="mg-clock-${id}" class="mg-clock" data-clock-id="${id}">
       <div class="mg-clock-inner">
-        <div class="mg-clock-grip" title="Drag to move"></div>
+        <div class="mg-clock-grip" title="Drag to move, Double click to collapse/expand"></div>
 
         <input type="text" class="mg-clock-name" maxlength="60"
                placeholder="Clock" title="Clock name (GM only)" />
@@ -398,18 +398,34 @@ function mgEndAngleForIndex(i, total) {
   return start + arcSpan;
 }
 
+/* Handle of Queen for DM scrub
+----------------------------------------------------------------------*/
 function mgPlaceHandle($wrap, id, angleDeg) {
   const svg = $wrap.find(".mg-clock-svg")[0];
   const NS  = "http://www.w3.org/2000/svg";
   const cx = 60, cy = 60, r = 44;
+
+  // Compute the end point on the ring
   const rad = angleDeg * Math.PI / 180;
   const x = cx + r * Math.cos(rad);
   const y = cy + r * Math.sin(rad);
 
-  let g = svg.querySelector("g.mg-handle");
-  if (!g) {
-    g = document.createElementNS(NS, "g");
-    g.setAttribute("class", "mg-handle");
+  // Nested groups:
+  // <g class="mg-handle-pos" transform="translate(x,y)">
+  //   <g class="mg-handle-scale" style="transform: scale(s)">
+  //     <image x="-size/2" y="-size/2" width=size height=size />
+  //   </g>
+  // </g>
+  let posG   = svg.querySelector("g.mg-handle-pos");
+  let scaleG = svg.querySelector("g.mg-handle-scale");
+
+  if (!posG) {
+    posG = document.createElementNS(NS, "g");
+    posG.setAttribute("class", "mg-handle-pos");
+
+    scaleG = document.createElementNS(NS, "g");
+    scaleG.setAttribute("class", "mg-handle-scale");
+
     const img = document.createElementNS(NS, "image");
     img.setAttribute("class", "mg-handle-img");
     const url = mgGetHandleUrl();
@@ -418,15 +434,26 @@ function mgPlaceHandle($wrap, id, angleDeg) {
     img.setAttribute("width", String(MG_HANDLE_SIZE));
     img.setAttribute("height", String(MG_HANDLE_SIZE));
     img.setAttribute("preserveAspectRatio", "xMidYMid meet");
-    g.appendChild(img);
-    svg.appendChild(g);
+
+    // ⬇️ Anchor the image so its CENTER is at the group's (0,0)
+    img.setAttribute("x", String(-MG_HANDLE_SIZE / 2));
+    img.setAttribute("y", String(-MG_HANDLE_SIZE / 2));
+
+    scaleG.appendChild(img);
+    posG.appendChild(scaleG);
+    svg.appendChild(posG);
+  } else {
+    scaleG = posG.querySelector("g.mg-handle-scale");
   }
-  const s  = mgHandleScaleMap[id] ?? 1;
-  const tx = x - (MG_HANDLE_SIZE * s) / 2;
-  const ty = y - (MG_HANDLE_SIZE * s) / 2;
-  g.setAttribute("transform", `translate(${tx},${ty}) scale(${s})`);
-  svg.appendChild(g); // keep on top
+
+  // Position: translate to the exact (x,y) — no scale compensation here
+  posG.setAttribute("transform", `translate(${x},${y})`);
+
+  // Scale: via CSS transform on the inner group → smooth transition
+  const s = mgHandleScaleMap[id] ?? 1;
+  scaleG.style.transform = `scale(${s})`;
 }
+
 
 function mgUpdateHandleToFilled($wrap, id) {
   const { total, filled } = mgClockGetById(id);
@@ -506,6 +533,15 @@ function mgDrawClock($wrap, id) {
   console.debug("MG Clock draw(id):", { id, total, filled, nodes: segsG.childNodes.length });
 }
 
+/* Scrub Helper
+----------------------------------------------------------------------*/
+function mgUpdateHandleScale($wrap, id) {
+  const svg    = $wrap.find(".mg-clock-svg")[0];
+  const scaleG = svg?.querySelector("g.mg-handle-scale");
+  const s = mgHandleScaleMap[id] ?? 1;
+  if (scaleG) scaleG.style.transform = `scale(${s})`;
+}
+
 
 /* Click rules for the input and toggles, also adding a scrub element at the end of the stroke
 ----------------------------------------------------------------------*/
@@ -562,6 +598,7 @@ function mgBindClock($wrap, id) {
 
     // scale knob a bit
     mgHandleScaleMap[id] = 1.18; mgUpdateHandleToFilled($wrap, id);
+    mgUpdateHandleScale($wrap, id);
 
     // IMPORTANT: capture the pointer so we keep move/up events
     try { (ev.target instanceof Element) && ev.target.setPointerCapture?.(ev.pointerId); } catch (_) {}
@@ -589,6 +626,7 @@ function mgBindClock($wrap, id) {
     try { (ev.target instanceof Element) && ev.target.releasePointerCapture?.(ev.pointerId); } catch (_) {}
 
     mgHandleScaleMap[id] = 1.0; mgUpdateHandleToFilled($wrap, id);
+    mgUpdateHandleScale($wrap, id);
 
     // One network write at the end → everyone else updates
     await mgClockSetById(id, { filled: lastFilled });
@@ -598,10 +636,12 @@ function mgBindClock($wrap, id) {
   $wrap.on("pointerover.mgclock", ".mg-clock-visual, .mg-clock-visual *", () => {
     if (!game.user.isGM || scrubbing) return;
     mgHandleScaleMap[id] = 1.08; mgUpdateHandleToFilled($wrap, id);
+    if (!scrubbing) { mgHandleScaleMap[id] = 1.08; mgUpdateHandleScale($wrap, id); }
   });
   $wrap.on("pointerout.mgclock", ".mg-clock-visual, .mg-clock-visual *", () => {
     if (!game.user.isGM || scrubbing) return;
     mgHandleScaleMap[id] = 1.0; mgUpdateHandleToFilled($wrap, id);
+    if (!scrubbing) { mgHandleScaleMap[id] = 1.0; mgUpdateHandleScale($wrap, id); }
   });
 
 
@@ -649,14 +689,25 @@ $wrap.on("pointerup.mgclock pointercancel.mgclock", ".mg-clock-grip", async (ev)
 
 
   // Double-click collapse/expand (per-user)
-  $wrap.on("dblclick.mgclock", ".mg-clock-inner", async (ev) => {
+  // Swallow accidental double-clicks on UI so they don't collapse
+  $wrap.on("dblclick.mgclock", ".mg-clock-controls, .mg-clock-visual, .mg-clock-name", (ev) => {
     ev.preventDefault();
-    const ui = mgUiLoad(id) ?? {};
+    ev.stopPropagation();
+  });
+
+  // Collapse/expand ONLY via the grip (per-user)
+  $wrap.on("dblclick.mgclock", ".mg-clock-grip", async (ev) => {
+    ev.preventDefault();
+    ev.stopPropagation();
+
+    const ui   = mgUiLoad(id) ?? {};
     const next = !ui.collapsed;
+
     $wrap.toggleClass("mg-collapsed", next);
     await mgUiSave(id, { collapsed: next });
     mgApplyCollapsed($wrap);
   });
+
 
   // Add & Remove (GM only)
   $wrap.on("click.mgclock", ".mg-clock-add", async () => {
