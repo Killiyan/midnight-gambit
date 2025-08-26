@@ -101,6 +101,15 @@ const MG_NS = "midnight-gambit";
 const FLAG_TOTAL  = "clock.total";
 const FLAG_FILLED = "clock.filled";
 const FLAG_NAME = "clock.name";
+const MG_CLOCK_SFX = "systems/midnight-gambit/assets/sounds/gambit-clock.ogg";
+// Setting timing for the comet sweep
+const MG_SWEEP_PERIOD_MS = 1300;
+// Pause at the end of each comet loop (ms)
+const MG_SWEEP_PAUSE_MS = 200;
+// Force comet direction (true = clockwise, false = counter-clockwise)
+const MG_SWEEP_CLOCKWISE = true
+// Start fading at 9 o’clock (last 50% of the sweep)
+const MG_SWEEP_FADE_START_RATIO = 0.5; // 0.5 of the travel -> 270°
 
 // --- Handle (queen) icon ---
 function mgGetHandleUrl() {
@@ -162,7 +171,7 @@ async function mgClockResetToById(id, n) {
   n = Math.max(1, Math.min(200, Number(n) || 1));
   const key = `${FLAG_CLOCKS}.${id}`;
   const curr = mgClockGetById(id);
-  await canvas.scene.setFlag(MG_NS, key, { ...curr, total: n, filled: n });
+  await canvas.scene.setFlag(MG_NS, key, { ...curr, total: n, filled: 0 });
 }
 
 async function mgClockDeleteById(id) {
@@ -181,29 +190,470 @@ async function mgClockCreate(initial = {}) {
 
 /* Local updater to support Scrub
 ----------------------------------------------------------------------*/
-function mgLocalSetFilled($wrap, id, n) {
+function mgLocalSetFilled($wrap, id, n /* filled */) {
   const { total } = mgClockGetById(id);
-  n = Math.max(0, Math.min(total, n));
 
-  // Update segments without redrawing the whole SVG
+  // clamp filled and compute remaining
+  const filled = Math.max(0, Math.min(total, n));
+  const remaining = mgRemaining(total, filled);
+
+  // Mark first `remaining` segments as ON; rest OFF (used)
   const segs = $wrap.find("path.seg");
   for (let i = 0; i < segs.length; i++) {
     const p = segs[i];
-    if (i < n) { p.classList.add("on"); p.classList.remove("off"); p.removeAttribute("opacity"); }
-    else { p.classList.add("off"); p.classList.remove("on"); p.setAttribute("opacity","0.6"); }
+    if (i < remaining) { p.classList.add("on");  p.classList.remove("off"); p.removeAttribute("opacity"); }
+    else               { p.classList.add("off"); p.classList.remove("on");  p.setAttribute("opacity","0.6"); }
   }
 
-  // Update center/badge
+  // Update the numeric readout to remaining/total
   const cnt   = $wrap.find(".mg-clock-count")[0];
   const badge = $wrap.find(".mg-clock-badge")[0];
-  if (cnt)   cnt.innerHTML   = `<span class="clock-major">${n}</span><span class="clock-small">/${total}</span>`;
-  if (badge) badge.innerHTML = `<span class="clock-major">${n}</span><span class="clock-small">/${total}</span>`;
+  if (cnt)   cnt.innerHTML   = `<span class="clock-major">${remaining}</span><span class="clock-small">/${total}</span>`;
+  if (badge) badge.innerHTML = `<span class="clock-major">${remaining}</span><span class="clock-small">/${total}</span>`;
 
-  // Move handle to the new end
-  const angle = (n > 0) ? mgEndAngleForIndex(n - 1, total) : -90;
+  // Handle sits at the end of the remaining arc
+  const angle = (remaining > 0) ? mgEndAngleForIndex(remaining - 1, total) : -90;
   mgPlaceHandle($wrap, id, angle);
+
+  // Recolor stage (Blue / Yellow / Red) based on what's left
+  mgApplySegColors($wrap, id);
+  mgUpdateRings($wrap, id);
 }
 
+
+function mgRemaining(total, filled) {
+  return Math.max(0, total - Math.max(0, Math.min(total, filled)));
+}
+
+/* Remaining segments mask helper
+----------------------------------------------------------------------*/
+function mgEnsureRemainingMask(svg, id, total, filled, cx, cy, r, sw, hideSliceDeg = 0) {
+  const NS = "http://www.w3.org/2000/svg";
+  const maskId = `mg-rem-mask-${id}`;
+
+  // ensure <defs>
+  let defs = svg.querySelector("defs.mg-glows");
+  if (!defs) {
+    defs = document.createElementNS(NS, "defs");
+    defs.setAttribute("class", "mg-glows");
+    svg.prepend(defs);
+  }
+
+  // create or find mask
+  let mask = svg.querySelector(`#${maskId}`);
+  if (!mask) {
+    mask = document.createElementNS(NS, "mask");
+    mask.setAttribute("id", maskId);
+    defs.appendChild(mask);
+  }
+
+  // clear previous
+  while (mask.firstChild) mask.removeChild(mask.firstChild);
+
+  // base: everything hidden
+  const vb = (svg.getAttribute("viewBox") || "0 0 120 120").split(/\s+/).map(Number);
+  const base = document.createElementNS(NS, "rect");
+  base.setAttribute("x", "0"); base.setAttribute("y", "0");
+  base.setAttribute("width", String(vb[2] || 120));
+  base.setAttribute("height", String(vb[3] || 120));
+  base.setAttribute("fill", "black");
+  mask.appendChild(base);
+
+  const remaining = Math.max(0, total - filled);
+  const revealStroke = Math.max(sw * 1.15, sw + 1); // a touch wider to avoid seams
+
+  // helper to arc path between degrees
+  const toXY = (deg) => {
+    const rad = (deg * Math.PI) / 180;
+    return [cx + r * Math.cos(rad), cy + r * Math.sin(rad)];
+  };
+
+  if (remaining <= 0) return maskId;
+
+  if (remaining === total) {
+    // Reveal full circle
+    const c = document.createElementNS(NS, "circle");
+    c.setAttribute("cx", cx); c.setAttribute("cy", cy); c.setAttribute("r", r);
+    c.setAttribute("fill", "none");
+    c.setAttribute("stroke", "white");
+    c.setAttribute("stroke-width", revealStroke);
+    c.setAttribute("stroke-linecap", "round");
+    mask.appendChild(c);
+
+    // Optional: hide a tiny slice *after* 12 o’clock so the comet looks like it stops at noon
+    if (hideSliceDeg > 0) {
+      // Noon in our coord system is -90°
+      const startDeg = -90;                       // 12 o'clock
+      const endDeg   = startDeg + hideSliceDeg;   // small slice past noon (CW)
+      const [x1, y1] = toXY(startDeg);
+      const [x2, y2] = toXY(endDeg);
+      const largeArc = hideSliceDeg > 180 ? 1 : 0;
+
+      const p = document.createElementNS(NS, "path");
+      p.setAttribute("d", `M ${x1.toFixed(3)} ${y1.toFixed(3)} A ${r} ${r} 0 ${largeArc} 1 ${x2.toFixed(3)} ${y2.toFixed(3)}`);
+      p.setAttribute("fill", "none");
+      p.setAttribute("stroke", "black");                   // black = hide
+      p.setAttribute("stroke-width", revealStroke + 2);    // ensure we fully clip the head
+      p.setAttribute("stroke-linecap", "butt");
+      mask.appendChild(p);
+    }
+
+    return maskId;
+  }
+
+  // Partial arc (gap-aware): reveal only the remaining span
+  const segSpan = 360 / total;
+  const gapDeg  = Math.min(6, segSpan * 0.25);
+  const startDeg = -90 + (gapDeg / 2);                         // top, after gap
+  const endDeg   = mgEndAngleForIndex(remaining - 1, total);   // handle end
+  const arcDelta = ((endDeg - startDeg) + 360) % 360;
+  const largeArc = arcDelta > 180 ? 1 : 0;
+
+  const [x1, y1] = toXY(startDeg);
+  const [x2, y2] = toXY(endDeg);
+
+  const p = document.createElementNS(NS, "path");
+  p.setAttribute("d", `M ${x1.toFixed(3)} ${y1.toFixed(3)} A ${r} ${r} 0 ${largeArc} 1 ${x2.toFixed(3)} ${y2.toFixed(3)}`);
+  p.setAttribute("fill", "none");
+  p.setAttribute("stroke", "white");
+  p.setAttribute("stroke-width", revealStroke);
+  p.setAttribute("stroke-linecap", "round");
+  mask.appendChild(p);
+
+  return maskId;
+}
+
+/* Adding a glowing depending on how much of the clock is left
+----------------------------------------------------------------------*/
+function mgColorStage(total, filled) {
+  const remaining = Math.max(0, total - Math.max(0, Math.min(total, filled)));
+  const remainingRatio = remaining / Math.max(1, total);
+  if (remainingRatio <= 0.25) return { stroke: "hsl(0,100%,60%)" };    // red
+  if (remainingRatio <= 0.50) return { stroke: "hsl(45,100%,60%)" };   // yellow
+  return { stroke: "hsl(200,90%,60%)" };                               // MG blue
+}
+
+function mgEnsureGlowDefs(svg) {
+  const NS = "http://www.w3.org/2000/svg";
+  let defs = svg.querySelector("defs.mg-glows");
+  if (!defs) {
+    defs = document.createElementNS(NS, "defs");
+    defs.setAttribute("class", "mg-glows");
+    svg.prepend(defs);
+  }
+
+  // Soft glow (slightly stronger than before)
+  if (!svg.querySelector("#mg-glow")) {
+    const f = document.createElementNS(NS, "filter");
+    f.setAttribute("id", "mg-glow");
+    f.setAttribute("x", "-45%");
+    f.setAttribute("y", "-45%");
+    f.setAttribute("width", "190%");
+    f.setAttribute("height", "190%");
+    const blur = document.createElementNS(NS, "feGaussianBlur");
+    blur.setAttribute("in", "SourceGraphic");
+    blur.setAttribute("stdDeviation", "3.25");
+    blur.setAttribute("result", "blur");
+    const merge = document.createElementNS(NS, "feMerge");
+    const m1 = document.createElementNS(NS, "feMergeNode"); m1.setAttribute("in", "blur");
+    const m2 = document.createElementNS(NS, "feMergeNode"); m2.setAttribute("in", "SourceGraphic");
+    merge.appendChild(m1); merge.appendChild(m2);
+    f.appendChild(blur); f.appendChild(merge);
+    defs.appendChild(f);
+  }
+
+  // Stronger halo for the comet head
+  if (!svg.querySelector("#mg-glow-strong")) {
+    const f2 = document.createElementNS(NS, "filter");
+    f2.setAttribute("id", "mg-glow-strong");
+    f2.setAttribute("x", "-60%");
+    f2.setAttribute("y", "-60%");
+    f2.setAttribute("width", "220%");
+    f2.setAttribute("height", "220%");
+    const blur2 = document.createElementNS(NS, "feGaussianBlur");
+    blur2.setAttribute("in", "SourceGraphic");
+    blur2.setAttribute("stdDeviation", "5");
+    blur2.setAttribute("result", "blur");
+    const merge2 = document.createElementNS(NS, "feMerge");
+    const mm1 = document.createElementNS(NS, "feMergeNode"); mm1.setAttribute("in", "blur");
+    const mm2 = document.createElementNS(NS, "feMergeNode"); mm2.setAttribute("in", "SourceGraphic");
+    merge2.appendChild(mm1); merge2.appendChild(mm2);
+    f2.appendChild(blur2); f2.appendChild(merge2);
+    defs.appendChild(f2);
+  }
+
+  // Soft, directional-ish blur for the tail (subtle)
+  if (!svg.querySelector("#mg-tail-blur")) {
+    const f = document.createElementNS("http://www.w3.org/2000/svg", "filter");
+    f.setAttribute("id", "mg-tail-blur");
+    f.setAttribute("x", "-40%");
+    f.setAttribute("y", "-40%");
+    f.setAttribute("width", "180%");
+    f.setAttribute("height", "180%");
+    const blur = document.createElementNS("http://www.w3.org/2000/svg", "feGaussianBlur");
+    blur.setAttribute("in", "SourceGraphic");
+    blur.setAttribute("stdDeviation", "2");          // tweak: 1.5–3 looks good
+    blur.setAttribute("result", "b");
+    const merge = document.createElementNS("http://www.w3.org/2000/svg", "feMerge");
+    const m1 = document.createElementNS("http://www.w3.org/2000/svg", "feMergeNode"); m1.setAttribute("in", "b");
+    const m2 = document.createElementNS("http://www.w3.org/2000/svg", "feMergeNode"); m2.setAttribute("in", "SourceGraphic");
+    merge.appendChild(m1); merge.appendChild(m2);
+    f.appendChild(blur); f.appendChild(merge);
+    svg.querySelector("defs.mg-glows").appendChild(f);
+  }
+}
+
+// Lighten an `hsl(...)` string so the head can look "white-hot"
+function mgHotColor(hslStr) {
+  const m = /hsl\((\d+)\s*,\s*([\d.]+)%\s*,\s*([\d.]+)%\s*\)/i.exec(hslStr);
+  if (!m) return hslStr;
+  let h = +m[1], s = +m[2], l = +m[3];
+  // push toward a bright, slightly desaturated core
+  s = Math.max(55, Math.min(85, s - 10));
+  l = Math.min(95, l + 18);
+  return `hsl(${h}, ${s}%, ${l}%)`;
+}
+
+
+
+/* Single glow underlay for partial or full
+----------------------------------------------------------------------*/
+function mgUpdateGlowArc($wrap, id) {
+  const { total, filled } = mgClockGetById(id);
+  const remaining = Math.max(0, total - filled);
+
+  const svg = $wrap.find(".mg-clock-svg")[0];
+  if (!svg) return;
+  mgEnsureGlowDefs(svg);
+
+  // remove old comet bits (keep defs/masks)
+  svg.querySelectorAll(
+    ".glow-arc,.glow-full," +
+    ".glow-comet,.glow-comet-tail," +
+    ".glow-comet-full,.glow-comet-tail-full," +
+    ".glow-comet-head-halo,.glow-comet-tail-bright"
+  ).forEach(n => { try { n.remove(); } catch(_){} });
+
+  const bg  = svg.querySelector(".bg-ring");
+  const vb  = (svg.getAttribute("viewBox") || "0 0 120 120").split(/\s+/).map(Number);
+  const cx  = vb[2] / 2, cy = vb[3] / 2;
+  const r   = bg ? parseFloat(bg.getAttribute("r")) : 44;
+  const sw  = parseFloat(svg.querySelector("path.seg")?.getAttribute("stroke-width") || bg?.getAttribute("stroke-width") || 8);
+
+  if (remaining <= 0) { mgEnsureHandleOnTop($wrap); return; }
+
+  const { stroke } = mgColorStage(total, filled);
+  const headColor = mgHotColor(stroke); // brighter head
+  const tailColor = stroke;             // base ring color
+
+  // Mask so comet only shows over the remaining arc
+  // (no extra noon slice needed since we hard-start at 12)
+  const maskId = mgEnsureRemainingMask(svg, id, total, filled, cx, cy, r, sw, 0);
+
+  // Build a full-circle PATH that STARTS AT 12 O'CLOCK and goes clockwise:
+  // M (top) -> A to bottom (cw) -> A back to top (cw)
+  const dFull = `M ${cx} ${cy - r} A ${r} ${r} 0 1 1 ${cx} ${cy + r} A ${r} ${r} 0 1 1 ${cx} ${cy - r}`;
+
+  // HEAD (round cap, subtle blur) — on the path
+  const head = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  head.setAttribute("class", "glow-comet");
+  head.setAttribute("fill", "none");
+  head.setAttribute("stroke-linecap", "round");
+  head.setAttribute("pointer-events", "none");
+  head.setAttribute("filter", "url(#mg-glow)");
+  head.setAttribute("d", dFull);
+  head.setAttribute("stroke", headColor); head.style.stroke = headColor;
+  const swHead = sw * 1.05;
+  head.setAttribute("stroke-width", swHead);
+  head.setAttribute("mask", `url(#${maskId})`);
+  svg.appendChild(head);
+
+  // TAIL (butt cap so it fades smoothly) — on the same path
+  const tail = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  tail.setAttribute("class", "glow-comet-tail");
+  tail.setAttribute("fill", "none");
+  tail.setAttribute("stroke-linecap", "butt");
+  tail.setAttribute("pointer-events", "none");
+  tail.setAttribute("filter", "url(#mg-tail-blur)");
+  tail.setAttribute("d", dFull);
+  tail.setAttribute("stroke", tailColor); tail.style.stroke = tailColor;
+  const swTail = sw * 0.70;
+  tail.setAttribute("stroke-width", swTail);
+  tail.setAttribute("stroke-opacity", "0.38");
+  tail.setAttribute("mask", `url(#${maskId})`);
+  svg.appendChild(tail);
+
+  // Path length (now exact for THIS path)
+  const L    = head.getTotalLength();
+  const dash = Math.max(6, L * 0.16);
+
+  // Because the path starts at 12, "phase" 0 == noon. Easy.
+  const phaseHead = 0; // pause exactly at 12
+  const SIGN = (typeof MG_SWEEP_CLOCKWISE !== "undefined" && MG_SWEEP_CLOCKWISE) ? 1 : -1;
+  const phaseTail = phaseHead + SIGN * (dash * 0.70); // tail trails behind
+
+  // Animate (mgStartSweep compensates round caps for head)
+  mgStartSweep(head, L, {
+    dashPx:   dash,
+    capPx:    swHead / 2,
+    periodMs: MG_SWEEP_PERIOD_MS,
+    pauseMs:  MG_SWEEP_PAUSE_MS,
+    offsetPx: phaseHead,
+    fadeStartRatio: MG_SWEEP_FADE_START_RATIO
+  });
+
+  mgStartSweep(tail, L, {
+    dashPx:   dash,
+    capPx:    0,                  // butt cap
+    periodMs: MG_SWEEP_PERIOD_MS,
+    pauseMs:  MG_SWEEP_PAUSE_MS,
+    offsetPx: phaseTail,
+    fadeStartRatio: MG_SWEEP_FADE_START_RATIO
+  });
+
+  mgEnsureHandleOnTop($wrap);
+}
+
+/* Glowing comet around the circle
+----------------------------------------------------------------------*/
+function mgStopSweep(el) {
+  try { el?._mgAnim?.cancel(); } catch (_) {}
+  if (!el) return;
+  el.style.removeProperty("stroke-dasharray");
+  el.style.removeProperty("stroke-dashoffset");
+}
+
+function mgApplySegColors($wrap, id) {
+  const { total, filled } = mgClockGetById(id);
+  const { stroke } = mgColorStage(total, filled);
+
+  // Remaining = ON (colored)
+  $wrap.find("path.seg.on").each((_i, p) => {
+    p.setAttribute("stroke", stroke);
+    p.style.stroke = stroke;             // override any CSS
+    p.removeAttribute("opacity");
+    p.removeAttribute("filter");
+  });
+
+  // Used = OFF (muted)
+  $wrap.find("path.seg.off").each((_i, p) => {
+    p.setAttribute("stroke", "hsl(0,0%,35%)");
+    p.style.stroke = "hsl(0,0%,35%)";    // override any CSS
+    p.setAttribute("opacity", "0.6");
+    p.removeAttribute("filter");
+  });
+}
+
+// Animate one dash fully across the path, then pause with the HEAD at the end.
+function mgStartSweep(el, length, opts = {}) {
+  if (!el) return;
+
+  const period   = opts.periodMs ?? MG_SWEEP_PERIOD_MS ?? 1000;
+  const pauseMs  = Math.max(0, opts.pauseMs ?? MG_SWEEP_PAUSE_MS ?? 0);
+  const travelMs = Math.max(1, period - pauseMs);
+  const fracMove = Math.max(0.001, Math.min(0.999, travelMs / period)); // movement portion
+
+  const dashPx = Math.max(6, Math.min(42, opts.dashPx ?? (length * 0.18)));
+  const gapPx  = Math.max(1, length - dashPx);
+  const phase  = opts.offsetPx ?? 0;
+  const cap    = Math.max(0, opts.capPx ?? 0);   // ≈ strokeWidth/2 for round caps
+
+  // CCW baseline with cap compensation: head-front at start/end
+  const startCCW = (-cap) + phase;
+  const endCCW   = (length - dashPx - cap) + phase;
+
+  // For CW we want to PAUSE with head-front exactly at `phase` → add the cap back
+  const from = (typeof MG_SWEEP_CLOCKWISE !== "undefined" && MG_SWEEP_CLOCKWISE) ? endCCW : startCCW;
+  const to   = (typeof MG_SWEEP_CLOCKWISE !== "undefined" && MG_SWEEP_CLOCKWISE) ? (startCCW + cap) : endCCW;
+
+  // Fade timing: begin fade during the last quarter of the TRAVEL portion (9→12 o’clock)
+  const ratio = Math.max(0, Math.min(1, opts.fadeStartRatio ?? 1)); // default = fade at end
+  const fadeStart = Math.min(fracMove - 0.001, fracMove * ratio);   // in [0..fracMove)
+
+  // Dashoffset at fade-start (linear along the travel)
+  const t = fadeStart / fracMove;
+  const offAtFade = (isFinite(t) ? (from + (to - from) * t) : from);
+
+  el.style.strokeLinecap    = "round";
+  el.style.strokeDasharray  = `${dashPx.toFixed(1)} ${gapPx.toFixed(1)}`;
+  el.style.strokeDashoffset = String(from);
+
+  try { el._mgAnim?.cancel(); } catch (_) {}
+  el._mgAnim = el.animate(
+    [
+      { strokeDashoffset: from,      opacity: 1 },                    // start visible
+      { strokeDashoffset: offAtFade, opacity: 1, offset: fadeStart }, // still visible up to 9 o'clock
+      { strokeDashoffset: to,        opacity: 0, offset: fracMove },  // fully faded at 12 o'clock
+      { strokeDashoffset: to,        opacity: 0 }                     // stay hidden during pause
+    ],
+    { duration: period, iterations: Infinity, easing: "linear" }
+  );
+}
+
+
+
+/* Segment Smoother
+----------------------------------------------------------------------*/
+function mgUpdateRings($wrap, id) {
+  const { total, filled } = mgClockGetById(id);
+  const remaining = Math.max(0, total - filled);
+
+  const svg = $wrap.find(".mg-clock-svg")[0];
+  if (!svg) return;
+
+  const bg = svg.querySelector(".bg-ring");
+  const segsG = svg.querySelector(".segs");
+
+  // smooth band for full state
+  let fullRing = svg.querySelector(".full-ring");
+  if (!fullRing) {
+    fullRing = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+    fullRing.setAttribute("class", "full-ring");
+    fullRing.setAttribute("fill", "none");
+    fullRing.setAttribute("stroke-linecap", "round");
+    fullRing.setAttribute("display", "none");
+    fullRing.setAttribute("pointer-events", "none");
+    svg.appendChild(fullRing);
+  }
+
+  const vb = (svg.getAttribute("viewBox") || "0 0 120 120").split(/\s+/).map(Number);
+  const cx = vb[2] / 2, cy = vb[3] / 2;
+  const r  = bg ? parseFloat(bg.getAttribute("r")) : 44;
+  const sw = parseFloat(svg.querySelector("path.seg")?.getAttribute("stroke-width") || bg?.getAttribute("stroke-width") || 8);
+
+  fullRing.setAttribute("cx", cx);
+  fullRing.setAttribute("cy", cy);
+  fullRing.setAttribute("r",  r);
+  fullRing.setAttribute("stroke-width", sw);
+
+  const { stroke } = mgColorStage(total, filled);
+  fullRing.setAttribute("stroke", stroke);
+  fullRing.style.stroke = stroke;
+
+  if (remaining === total) {
+    if (segsG) segsG.setAttribute("display", "none");
+    if (bg)    bg.setAttribute("opacity", "0");
+    fullRing.removeAttribute("display");
+  } else {
+    if (segsG) segsG.removeAttribute("display");
+    if (bg)    bg.setAttribute("opacity", "1");
+    fullRing.setAttribute("display", "none");
+  }
+
+  // always update glow (partial or full)
+  mgUpdateGlowArc($wrap, id);
+
+  // keep the Queen handle above the band/glow
+  mgEnsureHandleOnTop($wrap);
+}
+
+/* Keep Handle on top
+----------------------------------------------------------------------*/
+function mgEnsureHandleOnTop($wrap) {
+  const svg  = $wrap.find(".mg-clock-svg")[0];
+  const posG = svg?.querySelector("g.mg-handle-pos");
+  if (posG) svg.appendChild(posG); // re-append = bring to front in SVG z-order
+}
 
 /* Per-user UI prefs for each clock
 ----------------------------------------------------------------------*/
@@ -385,6 +835,30 @@ function mgEnsureClockDOM(id) {
     if (w.length) mgApplyPos(w);
   }, { passive: true });
 
+  const center = $wrap.find(".mg-clock-center")[0];
+  if (center) {
+    center.style.background = "transparent";
+    center.style.boxShadow = "none";
+    center.style.border = "0";
+    center.style.pointerEvents = "none";
+  }
+  const count = $wrap.find(".mg-clock-count")[0];
+  if (count) {
+    count.style.background = "transparent";
+    count.style.boxShadow = "none";
+    count.style.border = "0";
+  }
+  const badge = $wrap.find(".mg-clock-badge")[0];
+  if (badge) {
+    badge.style.background = "transparent";
+    badge.style.boxShadow = "none";
+    badge.style.border = "0";
+  }
+  const vis = $wrap.find(".mg-clock-visual")[0];
+  if (vis) {
+    vis.style.overflow = "visible";   // let glow show fully
+    vis.style.background = "transparent";
+  }
   return $wrap;
 }
 
@@ -439,7 +913,7 @@ function mgPlaceHandle($wrap, id, angleDeg) {
     img.setAttribute("height", String(MG_HANDLE_SIZE));
     img.setAttribute("preserveAspectRatio", "xMidYMid meet");
 
-    // ⬇️ Anchor the image so its CENTER is at the group's (0,0)
+    // Anchor the image so its CENTER is at the group's (0,0)
     img.setAttribute("x", String(-MG_HANDLE_SIZE / 2));
     img.setAttribute("y", String(-MG_HANDLE_SIZE / 2));
 
@@ -456,13 +930,16 @@ function mgPlaceHandle($wrap, id, angleDeg) {
   // Scale: via CSS transform on the inner group → smooth transition
   const s = mgHandleScaleMap[id] ?? 1;
   scaleG.style.transform = `scale(${s})`;
+
+  mgEnsureHandleOnTop($wrap);
 }
 
 
 function mgUpdateHandleToFilled($wrap, id) {
   const { total, filled } = mgClockGetById(id);
-  const idx = Math.max(0, Math.min(total - 1, Math.max(0, filled) - 1));
-  const angle = (filled > 0) ? mgEndAngleForIndex(idx, total) : -90;
+  const remaining = mgRemaining(total, filled);
+  const idx = Math.max(0, Math.min(total - 1, remaining - 1));
+  const angle = (remaining > 0) ? mgEndAngleForIndex(idx, total) : -90;
   mgPlaceHandle($wrap, id, angle);
 }
 
@@ -480,60 +957,62 @@ function mgDrawClock($wrap, id) {
   const { total, filled } = mgClockGetById(id);
   const svg = $wrap.find(".mg-clock-svg")[0];
   const segsG = $wrap.find(".segs")[0];
+
+  // clear segs group
   while (segsG?.firstChild) segsG.removeChild(segsG.firstChild);
+
+  // ensure glow defs
+  mgEnsureGlowDefs(svg);
 
   const NS = "http://www.w3.org/2000/svg";
   const cx = 60, cy = 60, r = 44;
   const stroke = (total <= 32) ? 12 : (total <= 64) ? 10 : (total <= 96) ? 8 : 6;
+
   const segSpan = 360 / total;
   const gapDeg  = Math.min(6, segSpan * 0.25);
   const arcSpan = Math.max(0, segSpan - gapDeg);
 
-  // background ring
-  const bg = document.createElementNS(NS, "circle");
-  bg.setAttribute("cx", cx); bg.setAttribute("cy", cy); bg.setAttribute("r", r);
-  bg.setAttribute("fill", "none"); bg.setAttribute("stroke", "rgba(255,255,255,0.15)");
+  // background ring: reuse if present, else create
+  let bg = svg.querySelector(".bg-ring");
+  if (!bg) {
+    bg = document.createElementNS(NS, "circle");
+    bg.setAttribute("class", "bg-ring");
+    svg.insertBefore(bg, segsG);
+  }
+  bg.setAttribute("cx", cx);
+  bg.setAttribute("cy", cy);
+  bg.setAttribute("r",  r);
+  bg.setAttribute("fill", "none");
+  bg.setAttribute("stroke", "rgba(255,255,255,0.15)");
   bg.setAttribute("stroke-width", stroke);
-  svg.insertBefore(bg, segsG);
 
   const toXY = (deg) => {
     const rad = (deg * Math.PI) / 180;
     return [cx + r * Math.cos(rad), cy + r * Math.sin(rad)];
   };
 
+  // build segments (neutral; we'll flip to "remaining" after)
   for (let i = 0; i < total; i++) {
     const start = -90 + i * segSpan + (gapDeg / 2);
     const end   = start + arcSpan;
     const [x1, y1] = toXY(start);
     const [x2, y2] = toXY(end);
     const largeArc = arcSpan > 180 ? 1 : 0;
-    const d = `M ${x1.toFixed(3)} ${y1.toFixed(3)} A ${r} ${r} 0 ${largeArc} 1 ${x2.toFixed(3)} ${y2.toFixed(3)}`;
 
-    const on = i < filled;
     const p = document.createElementNS(NS, "path");
-    p.setAttribute("class", `seg ${on ? "on" : "off"}`);
-    p.setAttribute("d", d);
+    p.setAttribute("d", `M ${x1.toFixed(3)} ${y1.toFixed(3)} A ${r} ${r} 0 ${largeArc} 1 ${x2.toFixed(3)} ${y2.toFixed(3)}`);
+    p.setAttribute("fill", "none");
     p.setAttribute("stroke-width", stroke);
     p.setAttribute("stroke-linecap", "round");
-    p.setAttribute("fill", "none");
-    p.setAttribute("data-index", String(i));
-    p.setAttribute("stroke", on ? "hsl(200,90%,60%)" : "hsl(0,0%,35%)");
-    if (!on) p.setAttribute("opacity", "0.6");
+    p.setAttribute("class", "seg off");
+    p.setAttribute("stroke", "hsl(0,0%,35%)");
+    p.setAttribute("opacity", "0.6");
     segsG.appendChild(p);
   }
 
-  // BIG number + small "/total"
-  const major = filled; // or: Math.max(0, total - filled) for "turns left"
-  const cnt = $wrap.find(".mg-clock-count")[0];
-  if (cnt) cnt.innerHTML = `<span class="clock-major">${major}</span><span class="clock-small">/${total}</span>`;
-  const badge = $wrap.find(".mg-clock-badge")[0];
-  if (badge) badge.innerHTML = `<span class="clock-major">${major}</span><span class="clock-small">/${total}</span>`;
+  // IMPORTANT: render as remaining/total (marks 'on' segs, count, handle)
+  mgLocalSetFilled($wrap, id, filled);
 
-  // keep total input empty with placeholder as hint
-  const totalInput = $wrap.find(".mg-clock-total")[0];
-  if (totalInput) { totalInput.value = ""; totalInput.setAttribute("placeholder", String(total)); }
-
-  mgUpdateHandleToFilled($wrap, id);
   console.debug("MG Clock draw(id):", { id, total, filled, nodes: segsG.childNodes.length });
 }
 
@@ -545,7 +1024,6 @@ function mgUpdateHandleScale($wrap, id) {
   const s = mgHandleScaleMap[id] ?? 1;
   if (scaleG) scaleG.style.transform = `scale(${s})`;
 }
-
 
 /* Click rules for the input and toggles, also adding a scrub element at the end of the stroke
 ----------------------------------------------------------------------*/
@@ -566,22 +1044,34 @@ function mgBindClock($wrap, id) {
   // Visibility toggle (GM only)
   $wrap.on("click.mgclock", ".mg-clock-vis", async () => {
     if (!game.user.isGM) return;
+
     const { gmOnly } = mgClockGetById(id);
+    const becomingPublic = gmOnly === true;
+
     await mgClockSetById(id, { gmOnly: !gmOnly });
+
+    // If we just flipped from Hidden → Public, play the sting for everyone
+    if (becomingPublic) {
+      AudioHelper.play(
+        { src: MG_CLOCK_SFX, volume: 0.6, autoplay: true, loop: false },
+        true // broadcast
+      );
+    }
   });
+
 
   // Controls (GM only)
   $wrap.on("click.mgclock", ".mg-clock-inc", async (ev) => {
     if (!game.user.isGM) return;
     const step = ev.shiftKey ? 2 : 1;
-    const { filled, total } = mgClockGetById(id);
-    await mgClockSetById(id, { filled: Math.min(total, filled + step) });
+    const { filled } = mgClockGetById(id);
+    await mgClockSetById(id, { filled: Math.max(0, filled - step) });
   });
   $wrap.on("click.mgclock", ".mg-clock-dec", async (ev) => {
     if (!game.user.isGM) return;
     const step = ev.shiftKey ? 2 : 1;
-    const { filled } = mgClockGetById(id);
-    await mgClockSetById(id, { filled: Math.max(0, filled - step) });
+    const { filled, total } = mgClockGetById(id);
+    await mgClockSetById(id, { filled: Math.min(total, filled + step) })
   });
 
   // N/N overwrite (GM only)
@@ -616,7 +1106,8 @@ function mgBindClock($wrap, id) {
 
     const idx = mgIdxFromEvent($wrap, ev, id);
     lastIdx = idx;
-    lastFilled = idx + 1;
+    const { total } = mgClockGetById(id);
+    lastFilled = Math.max(0, total - (idx + 1));
     mgLocalSetFilled($wrap, id, lastFilled); // instant local feedback
   });
 
@@ -625,7 +1116,8 @@ function mgBindClock($wrap, id) {
     const idx = mgIdxFromEvent($wrap, ev, id);
     if (idx !== lastIdx) {
       lastIdx = idx;
-      lastFilled = idx + 1;
+      const { total } = mgClockGetById(id);
+      lastFilled = Math.max(0, total - (idx + 1));
       mgLocalSetFilled($wrap, id, lastFilled); // keep it buttery
     }
   });
@@ -972,7 +1464,17 @@ Hooks.on("getSceneControlButtons", (controls) => {
         const opts = await mgOpenCreateClockDialog();
         if (!opts) return;                                // canceled
         const id = await mgClockCreate(opts);             // creates with gmOnly choice
-        if (id) mgRenderAllClocks();                      // renders for GM; stays hidden for players if gmOnly
+        if (id) {
+          mgRenderAllClocks();
+
+          // If it was created as Public, play the ominous sting for everyone
+          if (!opts.gmOnly) {
+            AudioHelper.play(
+              { src: MG_CLOCK_SFX, volume: 0.8, autoplay: true, loop: false },
+              true // broadcast to all clients
+            );
+          }
+        }
       }
     },
     {
