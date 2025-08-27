@@ -108,6 +108,9 @@ const MG_SWEEP_CLOCKWISE = true
 // Fade from ~8:30–9 o’clock toward noon, and finish before noon
 const MG_SWEEP_FADE_START_RATIO = 0.70; // begin fade at 70% of the travel (~252°)
 const MG_SWEEP_FADE_END_RATIO   = 0.95; // fully faded by 92% of travel (~331°)
+// Visual thickness (relative to ring stroke width)
+const MG_COMET_HEAD_SCALE       = 1.05; // head = sw * 1.05 (round cap)
+const MG_COMET_TAIL_SCALE       = 0.70; // tail = sw * 0.70 (butt cap, blurred)
 
 // --- Handle (queen) icon ---
 function mgGetHandleUrl() {
