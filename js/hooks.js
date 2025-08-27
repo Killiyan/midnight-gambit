@@ -94,6 +94,49 @@ function renderGambitHand(actor) {
   document.body.appendChild(handHtml);
 }
 
+/* MG Chat Hook
+==============================================================================================================================================*/
+
+Hooks.once("init", () => {
+  game.settings.register("midnight-gambit", "chatPortraitSource", {
+    name: "Chat Portrait Source",
+    hint: "Which image to show next to chat messages.",
+    scope: "world",
+    config: true,
+    type: String,
+    choices: {
+      token: "Token image (if present)",
+      actor: "Actor image",
+      user: "User avatar"
+    },
+    default: "token"
+  });
+
+  game.settings.register("midnight-gambit", "chatPortraitSize", {
+    name: "Chat Portrait Size (px)",
+    hint: "Square size of the portrait next to chat messages.",
+    scope: "world",
+    config: true,
+    type: Number,
+    default: 38,
+    range: { min: 24, max: 96, step: 2 }
+  });
+
+  game.settings.register("midnight-gambit", "chatPortraitShape", {
+    name: "Chat Portrait Shape",
+    hint: "How the portrait should be masked.",
+    scope: "world",
+    config: true,
+    type: String,
+    choices: {
+      circle: "Circle",
+      rounded: "Rounded square",
+      square: "Square"
+    },
+    default: "circle"
+  });
+});
+
 /* MG Clock functions - renders for all but only GM can edit
 ==============================================================================================================================================*/
 
@@ -1448,4 +1491,71 @@ Hooks.on("getSceneControlButtons", (controls) => {
       }
     }
   );
+});
+
+/* Portrait Injection
+----------------------------------------------------------------------*/
+
+Hooks.on("renderChatMessage", (message, html) => {
+  try {
+    // Guard: avoid double-injection
+    if (html[0]?.classList?.contains("mg-chat")) return;
+
+    // Settings (already registered in your file)
+    const source = game.settings.get("midnight-gambit", "chatPortraitSource"); // "token" | "actor" | "user"
+    const size   = Number(game.settings.get("midnight-gambit", "chatPortraitSize")) || 38;
+    const shape  = game.settings.get("midnight-gambit", "chatPortraitShape");   // "circle" | "rounded" | "square"
+
+    // Resolve an image without touching your message content
+    const speaker = message.speaker ?? {};
+    let img = null;
+
+    // Try token texture if requested/available
+    if (!img && (source === "token" || source === "actor")) {
+      const tokId = speaker.token;
+      const live  = tokId ? canvas?.tokens?.get(tokId) : null;
+      const scTok = tokId ? canvas?.scene?.tokens?.get?.(tokId) : null;
+      const tokDoc = live?.document || scTok;
+      img = tokDoc?.texture?.src ?? null;
+    }
+
+    // Try actor image
+    if (!img && (source === "actor" || source === "token")) {
+      const actorId = speaker.actor;
+      const actor   = actorId ? game.actors.get(actorId) : null;
+      img = actor?.img ?? null;
+    }
+
+    // Fallback to user avatar
+    if (!img) {
+      const user = game.users.get(message.user?.id);
+      img = (source === "user" ? (user?.avatar ?? null) : (user?.avatar ?? null));
+    }
+
+    // If no image, do nothing
+    if (!img) return;
+
+    // Mark root for CSS and insert avatar right inside the message root
+    html.addClass("mg-chat");
+
+    const $avatar = $(`
+      <div class="mg-chat-avatar-wrap">
+        <img class="mg-chat-avatar" src="${img}" alt="" loading="lazy"/>
+      </div>
+    `);
+
+    // Inline size/shape so changes reflect immediately
+    const br = shape === "circle" ? "9999px" : shape === "rounded" ? "10px" : "0";
+    $avatar.find("img").addClass("mg-chat-avatar-img");
+
+
+    // Insert avatar at the very top of the message node; do NOT wrap/move your content
+    html.prepend($avatar);
+
+    // Add a class to header/content so CSS can place them next to the avatar without reparenting
+    html.find(".message-header, .message-content").addClass("mg-chat-body");
+
+  } catch (err) {
+    console.error("Midnight Gambit | Chat portrait injection error:", err);
+  }
 });
