@@ -198,6 +198,60 @@ form button {
         object-fit: cover;
       }
     }
+
+    .clock-label {
+      text-align: center;
+
+      .title {
+        margin-left: -1.5rem;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 0.25rem;
+
+        i {
+          color: $mg-blue-4;
+        }
+      }
+      
+      .mg-clock-name {
+        @include oswald();
+        font-size: 1.25rem;
+        text-transform: uppercase;
+        font-style: italic;
+        font-weight: 700;
+        color: $mg-blue-1;
+      }
+    }
+
+    .mg-clock-count {
+      font-weight: 700;
+      opacity: 0.9;
+      @include oswald();
+      font-size: 1.5rem;
+      letter-spacing: .05em;
+      display: flex;
+      flex-direction: column;
+      text-align: center;
+      line-height: 1;
+      gap: .25rem;
+      padding: .5rem;
+      margin-top: .5rem;
+      @include mg-border();
+      border-radius: .625rem;
+      background: rgba($black, .1);
+      color: $mg-blue-1;
+      display: flex;
+
+      .clock-small {
+        font-size: .75rem;
+        color: $mg-blue-2;
+        letter-spacing: .25em;
+        display: flex;
+        flex-direction: column;
+        gap: .5rem;
+      }
+    }
   }
 
   .roll-container {
@@ -220,6 +274,17 @@ form button {
       padding: .5625rem 1.125rem;
       border-radius: .5rem;
       margin-bottom: 1.125rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+
+      i {
+        display: block;
+        color: $mg-blue-4;
+        background: $mg-blue-3;
+        padding: .625rem;
+        border-radius: .5rem;
+      }
     }
 
     .dice-formula,
@@ -390,7 +455,7 @@ form button {
     background-image: none;
     @include mg-border();
     color: $white;
-    padding: 1.125rem;
+    padding: 1.125rem 1.125rem 1.125rem 4.5rem;
     margin-top: 1.25rem;
     backdrop-filter: blur(3px);
 
@@ -400,6 +465,104 @@ form button {
       height: 2px;
       width: 100%;
       border-radius: .5rem;
+    }
+
+    .mg-chat-avatar-wrap {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 3.5rem;
+      height: 100%;
+      max-height: 12rem;
+      z-index: 1;
+
+      &:before {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        content: '';
+        width: 100%;
+        height: 100%;
+        mix-blend-mode: hard-light;
+        opacity: .2;
+        background: $mg-blue-main;
+        z-index: 2;
+      }      
+
+      &:after {
+        z-index: 3;
+        content: '';
+        height: 40%;
+        width: 100%;
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        background: linear-gradient(180deg,rgba(26, 46, 76, 0) 0%, rgba(26, 46, 76, 1) 82%);
+      }
+      
+      .mg-chat-avatar {
+        width: 100%;
+        height: 100%;
+        border-radius: 0;
+        border: none;
+        display: block;
+        object-fit: cover;
+      }
+    }
+
+    .clock-label {
+      text-align: center;
+
+      .title {
+        margin-left: -1.5rem;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 0.25rem;
+
+        i {
+          color: $mg-blue-4;
+        }
+      }
+      
+      .mg-clock-name {
+        @include oswald();
+        font-size: 1.25rem;
+        text-transform: uppercase;
+        font-style: italic;
+        font-weight: 700;
+        color: $mg-blue-1;
+      }
+    }
+
+    .mg-clock-count {
+      font-weight: 700;
+      opacity: 0.9;
+      @include oswald();
+      font-size: 1.5rem;
+      letter-spacing: .05em;
+      display: flex;
+      flex-direction: column;
+      text-align: center;
+      line-height: 1;
+      gap: .25rem;
+      padding: .5rem;
+      margin-top: .5rem;
+      @include mg-border();
+      border-radius: .625rem;
+      background: rgba($black, .1);
+      color: $mg-blue-1;
+      display: flex;
+
+      .clock-small {
+        font-size: .75rem;
+        color: $mg-blue-2;
+        letter-spacing: .25em;
+        display: flex;
+        flex-direction: column;
+        gap: .5rem;
+        color: $mg-blue-2;
+      }
     }
   }
 
@@ -423,6 +586,17 @@ form button {
       padding: .5625rem 1.125rem;
       border-radius: .5rem;
       margin-bottom: 1.125rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+
+      i {
+        display: block;
+        color: $mg-blue-4;
+        background: $mg-blue-3;
+        padding: .625rem;
+        border-radius: .5rem;
+      }
     }
 
     .dice-formula,

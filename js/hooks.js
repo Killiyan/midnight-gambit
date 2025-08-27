@@ -423,6 +423,38 @@ function mgHotColor(hslStr) {
   return `hsl(${h}, ${s}%, ${l}%)`;
 }
 
+// Post a chat line when the clock ticks down (remaining decreased)
+async function mgAnnounceClockTickDown(name, remaining, total, gmOnly) {
+  const title = name ? `<strong>${name}</strong>` : "The clock";
+  const content = `
+    <div class="mg-clock-chat">
+      <div class="clock-label">
+        <span class="title"><i class="fa-solid fa-clock"></i> <span class="mg-clock-name">${title}</span></span>
+        <p>ticks down…</p>
+      </div>
+      <div class="mg-clock-count">
+        <span class="clock-major">
+          ${remaining}
+        </span>
+        <span class="clock-small">
+          /${total} <span>turns left.</span>
+        </span>
+      </div>
+    </div>
+  `;
+  const data = {
+    user: game.user.id,
+    speaker: ChatMessage.getSpeaker(),
+    content
+  };
+  // If GM-only clock, whisper to GMs; otherwise, broadcast
+  if (gmOnly) {
+    data.whisper = game.users.filter(u => u.isGM).map(u => u.id);
+  }
+  try { await ChatMessage.create(data); } catch (_) {}
+}
+
+
 /* Single glow underlay for partial or full
 ----------------------------------------------------------------------*/
 function mgUpdateGlowArc($wrap, id) {
@@ -1078,8 +1110,12 @@ function mgBindClock($wrap, id) {
   $wrap.on("click.mgclock", ".mg-clock-dec", async (ev) => {
     if (!game.user.isGM) return;
     const step = ev.shiftKey ? 2 : 1;
-    const { filled, total } = mgClockGetById(id);
-    await mgClockSetById(id, { filled: Math.min(total, filled + step) })
+    const { filled, total, name, gmOnly } = mgClockGetById(id);
+    const nf = Math.min(total, filled + step);   // spending = increase 'filled'
+    if (nf === filled) return;
+    await mgClockSetById(id, { filled: nf });
+    const remaining = Math.max(0, total - nf);
+    mgAnnounceClockTickDown(name, remaining, total, gmOnly);
   });
 
   // N/N overwrite (GM only)
@@ -1098,12 +1134,13 @@ function mgBindClock($wrap, id) {
   $wrap.on("wheel.mgclock", ".mg-clock-total", (ev) => { ev.currentTarget.blur(); });
 
   // === Scrub (GM only) — capture pointer, update locally, save on release ===
-  let scrubbing = false, lastIdx = null, lastFilled = 0;
+  let scrubbing = false, lastIdx = null, lastFilled = 0, startFilled = 0;
 
   $wrap.on("pointerdown.mgclock", ".mg-clock-visual, .mg-clock-visual *", (ev) => {
     if (!game.user.isGM) return;
     ev.preventDefault();
     scrubbing = true; lastIdx = null;
+    startFilled = mgClockGetById(id).filled;  // remember where we started
 
     // scale knob a bit
     mgHandleScaleMap[id] = 1.18; mgUpdateHandleToFilled($wrap, id);
@@ -1141,6 +1178,13 @@ function mgBindClock($wrap, id) {
 
     // One network write at the end → everyone else updates
     await mgClockSetById(id, { filled: lastFilled });
+    try {
+      if (lastFilled > startFilled) {
+        const { total, name, gmOnly } = mgClockGetById(id); // total/name/vis are stable
+        const remaining = Math.max(0, total - lastFilled);
+        mgAnnounceClockTickDown(name, remaining, total, gmOnly);
+      }
+    } catch (_) {}
   });
 
   // Subtle hover scale (unchanged)

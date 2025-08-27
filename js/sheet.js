@@ -318,7 +318,7 @@ export class MidnightGambitActorSheet extends ActorSheet {
 
         const chatContent = `
           <div class="chat-move">
-            <h2>${name}</h2>
+            <h2><i class="fa-solid fa-hand-fist"></i> ${name}</h2>
             <p>${description}</p>
           </div>
         `;
@@ -337,7 +337,7 @@ export class MidnightGambitActorSheet extends ActorSheet {
 
         const chatContent = `
           <div class="chat-move">
-            <h2>Signature Perk: ${name}</h2>
+            <h2><i class="fa-solid fa-diamond"></i> Signature Perk: ${name}</h2>
             <p>${description}</p>
           </div>
         `;
@@ -906,7 +906,7 @@ export class MidnightGambitActorSheet extends ActorSheet {
 
         const content = `
           <div class="chat-item">
-            <h2>${name}</h2>
+            <h2><i class="fa-solid fa-shield"></i> ${name}</h2>
             ${system.description ? `<p><em>${system.description}</em></p>` : ""}
             ${extraInfo}
             ${tagData ? `<strong>Tags:</strong><div class="chat-tags">${tagData}</div>` : ""}
