@@ -98,9 +98,6 @@ function renderGambitHand(actor) {
 ==============================================================================================================================================*/
 
 const MG_NS = "midnight-gambit";
-const FLAG_TOTAL  = "clock.total";
-const FLAG_FILLED = "clock.filled";
-const FLAG_NAME = "clock.name";
 const MG_CLOCK_SFX = "systems/midnight-gambit/assets/sounds/gambit-clock.ogg";
 // Setting timing for the comet sweep
 const MG_SWEEP_PERIOD_MS = 1300;
@@ -108,8 +105,9 @@ const MG_SWEEP_PERIOD_MS = 1300;
 const MG_SWEEP_PAUSE_MS = 200;
 // Force comet direction (true = clockwise, false = counter-clockwise)
 const MG_SWEEP_CLOCKWISE = true
-// Start fading at 9 o’clock (last 50% of the sweep)
-const MG_SWEEP_FADE_START_RATIO = 0.5; // 0.5 of the travel -> 270°
+// Fade from ~8:30–9 o’clock toward noon, and finish before noon
+const MG_SWEEP_FADE_START_RATIO = 0.70; // begin fade at 70% of the travel (~252°)
+const MG_SWEEP_FADE_END_RATIO   = 0.95; // fully faded by 92% of travel (~331°)
 
 // --- Handle (queen) icon ---
 function mgGetHandleUrl() {
@@ -118,20 +116,6 @@ function mgGetHandleUrl() {
 }
 
 const MG_HANDLE_SIZE = 50;   // px (unscaled)
-let   mgHandleScale  = 1;    // live scale factor for hover/drag
-
-function mgClockGet() {
-  const sc = canvas.scene;
-  const total  = Number(sc?.getFlag(MG_NS, FLAG_TOTAL));
-  const filled = Number(sc?.getFlag(MG_NS, FLAG_FILLED));
-  const name   = sc?.getFlag(MG_NS, FLAG_NAME) ?? "";
-
-  const t = Number.isFinite(total)  ? Math.max(1, Math.min(200, total)) : 8;
-  const f = Number.isFinite(filled) ? Math.max(0, Math.min(t, filled)) : 0;
-
-  return { total: t, filled: f, name };
-}
-
 
 /* Multi-clock scene + per-user UI flags
 ----------------------------------------------------------------------*/
@@ -219,7 +203,6 @@ function mgLocalSetFilled($wrap, id, n /* filled */) {
   mgApplySegColors($wrap, id);
   mgUpdateRings($wrap, id);
 }
-
 
 function mgRemaining(total, filled) {
   return Math.max(0, total - Math.max(0, Math.min(total, filled)));
@@ -342,7 +325,7 @@ function mgEnsureGlowDefs(svg) {
     svg.prepend(defs);
   }
 
-  // Soft glow (slightly stronger than before)
+  // Soft glow used by the head and segments
   if (!svg.querySelector("#mg-glow")) {
     const f = document.createElementNS(NS, "filter");
     f.setAttribute("id", "mg-glow");
@@ -362,44 +345,24 @@ function mgEnsureGlowDefs(svg) {
     defs.appendChild(f);
   }
 
-  // Stronger halo for the comet head
-  if (!svg.querySelector("#mg-glow-strong")) {
-    const f2 = document.createElementNS(NS, "filter");
-    f2.setAttribute("id", "mg-glow-strong");
-    f2.setAttribute("x", "-60%");
-    f2.setAttribute("y", "-60%");
-    f2.setAttribute("width", "220%");
-    f2.setAttribute("height", "220%");
-    const blur2 = document.createElementNS(NS, "feGaussianBlur");
-    blur2.setAttribute("in", "SourceGraphic");
-    blur2.setAttribute("stdDeviation", "5");
-    blur2.setAttribute("result", "blur");
-    const merge2 = document.createElementNS(NS, "feMerge");
-    const mm1 = document.createElementNS(NS, "feMergeNode"); mm1.setAttribute("in", "blur");
-    const mm2 = document.createElementNS(NS, "feMergeNode"); mm2.setAttribute("in", "SourceGraphic");
-    merge2.appendChild(mm1); merge2.appendChild(mm2);
-    f2.appendChild(blur2); f2.appendChild(merge2);
-    defs.appendChild(f2);
-  }
-
-  // Soft, directional-ish blur for the tail (subtle)
+  // Soft feather for the tail
   if (!svg.querySelector("#mg-tail-blur")) {
-    const f = document.createElementNS("http://www.w3.org/2000/svg", "filter");
+    const f = document.createElementNS(NS, "filter");
     f.setAttribute("id", "mg-tail-blur");
     f.setAttribute("x", "-40%");
     f.setAttribute("y", "-40%");
     f.setAttribute("width", "180%");
     f.setAttribute("height", "180%");
-    const blur = document.createElementNS("http://www.w3.org/2000/svg", "feGaussianBlur");
+    const blur = document.createElementNS(NS, "feGaussianBlur");
     blur.setAttribute("in", "SourceGraphic");
-    blur.setAttribute("stdDeviation", "2");          // tweak: 1.5–3 looks good
+    blur.setAttribute("stdDeviation", "2");
     blur.setAttribute("result", "b");
-    const merge = document.createElementNS("http://www.w3.org/2000/svg", "feMerge");
-    const m1 = document.createElementNS("http://www.w3.org/2000/svg", "feMergeNode"); m1.setAttribute("in", "b");
-    const m2 = document.createElementNS("http://www.w3.org/2000/svg", "feMergeNode"); m2.setAttribute("in", "SourceGraphic");
+    const merge = document.createElementNS(NS, "feMerge");
+    const m1 = document.createElementNS(NS, "feMergeNode"); m1.setAttribute("in", "b");
+    const m2 = document.createElementNS(NS, "feMergeNode"); m2.setAttribute("in", "SourceGraphic");
     merge.appendChild(m1); merge.appendChild(m2);
     f.appendChild(blur); f.appendChild(merge);
-    svg.querySelector("defs.mg-glows").appendChild(f);
+    defs.appendChild(f);
   }
 }
 
@@ -413,8 +376,6 @@ function mgHotColor(hslStr) {
   l = Math.min(95, l + 18);
   return `hsl(${h}, ${s}%, ${l}%)`;
 }
-
-
 
 /* Single glow underlay for partial or full
 ----------------------------------------------------------------------*/
@@ -499,7 +460,8 @@ function mgUpdateGlowArc($wrap, id) {
     periodMs: MG_SWEEP_PERIOD_MS,
     pauseMs:  MG_SWEEP_PAUSE_MS,
     offsetPx: phaseHead,
-    fadeStartRatio: MG_SWEEP_FADE_START_RATIO
+    fadeStartRatio: MG_SWEEP_FADE_START_RATIO,
+    fadeEndRatio:   MG_SWEEP_FADE_END_RATIO
   });
 
   mgStartSweep(tail, L, {
@@ -508,19 +470,11 @@ function mgUpdateGlowArc($wrap, id) {
     periodMs: MG_SWEEP_PERIOD_MS,
     pauseMs:  MG_SWEEP_PAUSE_MS,
     offsetPx: phaseTail,
-    fadeStartRatio: MG_SWEEP_FADE_START_RATIO
+    fadeStartRatio: MG_SWEEP_FADE_START_RATIO,
+    fadeEndRatio:   MG_SWEEP_FADE_END_RATIO
   });
 
   mgEnsureHandleOnTop($wrap);
-}
-
-/* Glowing comet around the circle
-----------------------------------------------------------------------*/
-function mgStopSweep(el) {
-  try { el?._mgAnim?.cancel(); } catch (_) {}
-  if (!el) return;
-  el.style.removeProperty("stroke-dasharray");
-  el.style.removeProperty("stroke-dashoffset");
 }
 
 function mgApplySegColors($wrap, id) {
@@ -551,28 +505,39 @@ function mgStartSweep(el, length, opts = {}) {
   const period   = opts.periodMs ?? MG_SWEEP_PERIOD_MS ?? 1000;
   const pauseMs  = Math.max(0, opts.pauseMs ?? MG_SWEEP_PAUSE_MS ?? 0);
   const travelMs = Math.max(1, period - pauseMs);
-  const fracMove = Math.max(0.001, Math.min(0.999, travelMs / period)); // movement portion
+  const fracMove = Math.max(0.001, Math.min(0.999, travelMs / period)); // move portion
 
   const dashPx = Math.max(6, Math.min(42, opts.dashPx ?? (length * 0.18)));
-  const gapPx  = Math.max(1, length - dashPx);
-  const phase  = opts.offsetPx ?? 0;
-  const cap    = Math.max(0, opts.capPx ?? 0);   // ≈ strokeWidth/2 for round caps
+  const gapPx  = Math.max(1, length - dashPx);        // single dash
+  const phase  = opts.offsetPx ?? 0;                  // where "12 o'clock" is on this path
+  const cap    = Math.max(0, opts.capPx ?? 0);        // front-cap compensation for round caps
 
-  // CCW baseline with cap compensation: head-front at start/end
-  const startCCW = (-cap) + phase;
-  const endCCW   = (length - dashPx - cap) + phase;
+  // ---- Start/end offsets ----
+  // CCW baseline (for reference):
+  const ccwFrom = (-cap) + phase;                     // head-front at phase (start)
+  const ccwTo   = (length - dashPx - cap) + phase;    // head-front one loop ahead
 
-  // For CW we want to PAUSE with head-front exactly at `phase` → add the cap back
-  const from = (typeof MG_SWEEP_CLOCKWISE !== "undefined" && MG_SWEEP_CLOCKWISE) ? endCCW : startCCW;
-  const to   = (typeof MG_SWEEP_CLOCKWISE !== "undefined" && MG_SWEEP_CLOCKWISE) ? (startCCW + cap) : endCCW;
+  const cwFrom = phase;                               // head-front at 12
+  const cwTo   = phase - (length - dashPx);           // wrap around once
 
-  // Fade timing: begin fade during the last quarter of the TRAVEL portion (9→12 o’clock)
-  const ratio = Math.max(0, Math.min(1, opts.fadeStartRatio ?? 1)); // default = fade at end
-  const fadeStart = Math.min(fracMove - 0.001, fracMove * ratio);   // in [0..fracMove)
+  const useCW = (typeof MG_SWEEP_CLOCKWISE !== "undefined" && MG_SWEEP_CLOCKWISE);
+  const from  = useCW ? cwFrom : ccwFrom;
+  const to    = useCW ? cwTo   : ccwTo;
 
-  // Dashoffset at fade-start (linear along the travel)
-  const t = fadeStart / fracMove;
-  const offAtFade = (isFinite(t) ? (from + (to - from) * t) : from);
+  // ---- Fade window (ends BEFORE travel finishes) ----
+  const rs = Math.max(0, Math.min(1, opts.fadeStartRatio ?? (typeof MG_SWEEP_FADE_START_RATIO !== "undefined" ? MG_SWEEP_FADE_START_RATIO : 0.70)));
+  const reDefault = (typeof MG_SWEEP_FADE_END_RATIO !== "undefined") ? MG_SWEEP_FADE_END_RATIO : 0.92;
+  let re  = Math.max(0, Math.min(1, opts.fadeEndRatio ?? reDefault));
+  if (re <= rs + 0.02) re = Math.min(0.995, rs + 0.05); // ensure non-zero fade span
+
+  const fadeStart = Math.min(fracMove - 0.02, fracMove * rs); // time to begin fading
+  const fadeEnd   = Math.min(fracMove - 0.001, fracMove * re);// fully faded before end
+
+  // Interpolate offsets at fadeStart/End
+  const tS = fadeStart / fracMove;
+  const tE = fadeEnd   / fracMove;
+  const offS = from + (to - from) * tS;
+  const offE = from + (to - from) * tE;
 
   el.style.strokeLinecap    = "round";
   el.style.strokeDasharray  = `${dashPx.toFixed(1)} ${gapPx.toFixed(1)}`;
@@ -581,16 +546,41 @@ function mgStartSweep(el, length, opts = {}) {
   try { el._mgAnim?.cancel(); } catch (_) {}
   el._mgAnim = el.animate(
     [
-      { strokeDashoffset: from,      opacity: 1 },                    // start visible
-      { strokeDashoffset: offAtFade, opacity: 1, offset: fadeStart }, // still visible up to 9 o'clock
-      { strokeDashoffset: to,        opacity: 0, offset: fracMove },  // fully faded at 12 o'clock
-      { strokeDashoffset: to,        opacity: 0 }                     // stay hidden during pause
+      { strokeDashoffset: from, opacity: 1 },                 // full bright at 12 o'clock
+      { strokeDashoffset: offS, opacity: 1, offset: fadeStart }, // visible until ~9 o'clock
+      { strokeDashoffset: offE, opacity: 0, offset: fadeEnd },   // faded out before 12
+      { strokeDashoffset: to,   opacity: 0, offset: fracMove },  // remain hidden through end
+      { strokeDashoffset: to,   opacity: 0 }                     // hidden during pause
     ],
     { duration: period, iterations: Infinity, easing: "linear" }
   );
 }
 
+// Play the same sting when the clock first enters the "red" (<=25% remaining) stage.
+// - Only the GM triggers the sound to avoid duplicates.
+// - Broadcast to everyone if the clock is Public; play local-only if GM-only.
+function mgMaybePlayRedSfx($wrap, id, total, filled) {
+  const root = $wrap[0];
+  if (!root) return;
 
+  const remaining = Math.max(0, total - Math.max(0, Math.min(total, filled)));
+  const isRedNow  = (remaining / Math.max(1, total)) <= 0.25;
+
+  const wasRed = root.dataset.mgRedStage === "1";
+  root.dataset.mgRedStage = isRedNow ? "1" : "0";
+
+  // Fire only on the transition into red
+  if (!wasRed && isRedNow) {
+    if (game.user.isGM) {
+      const c = mgClockGetById(id) || {};
+      const broadcast = !c.gmOnly; // Public → everyone hears; GM-only → just GM
+      AudioHelper.play(
+        { src: MG_CLOCK_SFX, volume: 0.8, autoplay: true, loop: false },
+        broadcast
+      );
+    }
+  }
+}
 
 /* Segment Smoother
 ----------------------------------------------------------------------*/
@@ -639,6 +629,11 @@ function mgUpdateRings($wrap, id) {
     if (bg)    bg.setAttribute("opacity", "1");
     fullRing.setAttribute("display", "none");
   }
+
+  // always update glow (partial or full)
+  mgMaybePlayRedSfx($wrap, id, total, filled);   // <-- add this line
+  mgUpdateGlowArc($wrap, id);
+
 
   // always update glow (partial or full)
   mgUpdateGlowArc($wrap, id);
@@ -710,7 +705,6 @@ function mgApplyPos($wrap) {
   el.style.right = "";
 }
 
-
 /* Collapse support like Foundry Default
 ----------------------------------------------------------------------*/
 function mgApplyCollapsed($wrap) {
@@ -752,34 +746,6 @@ async function mgMigrateSingleClockToList() {
   await sc.unsetFlag(MG_NS, "clock.filled").catch(()=>{});
   await sc.unsetFlag(MG_NS, "clock.name").catch(()=>{});
 }
-
-
-
-async function mgClockSetTotal(n) {
-  if (!game.user.isGM || !canvas.scene) return;
-  const t = Math.max(1, Math.min(200, Number(n) || 1));
-  const { filled } = mgClockGet();
-  const f = Math.min(filled, t);
-  await canvas.scene.setFlag(MG_NS, FLAG_TOTAL, t);
-  if (f !== filled) await canvas.scene.setFlag(MG_NS, FLAG_FILLED, f);
-}
-
-// NEW: set total AND filled = n in one go (overwrite)
-async function mgClockResetTo(n) {
-  if (!game.user.isGM || !canvas.scene) return;
-  const t = Math.max(1, Math.min(200, Number(n) || 1));
-  // Two setFlag calls are fine; Foundry will broadcast once per change
-  await canvas.scene.setFlag(MG_NS, FLAG_TOTAL, t);
-  await canvas.scene.setFlag(MG_NS, FLAG_FILLED, t);
-}
-
-async function mgClockSetFilled(n) {
-  if (!game.user.isGM || !canvas.scene) return;
-  const { total } = mgClockGet();
-  const f = Math.max(0, Math.min(total, Number(n) || 0));
-  await canvas.scene.setFlag(MG_NS, FLAG_FILLED, f);
-}
-
 
 /* Setting the Clock Dom
 ----------------------------------------------------------------------*/
@@ -861,7 +827,6 @@ function mgEnsureClockDOM(id) {
   }
   return $wrap;
 }
-
 
 /* Clock Segment Creation
 ----------------------------------------------------------------------*/
@@ -1012,8 +977,6 @@ function mgDrawClock($wrap, id) {
 
   // IMPORTANT: render as remaining/total (marks 'on' segs, count, handle)
   mgLocalSetFilled($wrap, id, filled);
-
-  console.debug("MG Clock draw(id):", { id, total, filled, nodes: segsG.childNodes.length });
 }
 
 /* Scrub Helper
@@ -1058,7 +1021,6 @@ function mgBindClock($wrap, id) {
       );
     }
   });
-
 
   // Controls (GM only)
   $wrap.on("click.mgclock", ".mg-clock-inc", async (ev) => {
@@ -1147,11 +1109,10 @@ function mgBindClock($wrap, id) {
     if (!scrubbing) { mgHandleScaleMap[id] = 1.0; mgUpdateHandleScale($wrap, id); }
   });
 
-
   /* Editable UI element for the Clock
   ----------------------------------------------------------------------*/
-// === Drag the widget by the grip (per-user, with pointer capture) ===
-let moving = false, off = {dx:0, dy:0};
+  // === Drag the widget by the grip (per-user, with pointer capture) ===
+  let moving = false, off = {dx:0, dy:0};
 
 $wrap.on("pointerdown.mgclock", ".mg-clock-grip", (ev) => {
   ev.preventDefault();
@@ -1189,7 +1150,6 @@ $wrap.on("pointerup.mgclock pointercancel.mgclock", ".mg-clock-grip", async (ev)
   const r = $wrap[0].getBoundingClientRect();
   await mgUiSave(id, { x: Math.round(r.left), y: Math.round(r.top) });
 });
-
 
   // Double-click collapse/expand (per-user)
   // Swallow accidental double-clicks on UI so they don't collapse
@@ -1279,8 +1239,6 @@ function mgPruneClockDOM() {
   });
 }
 
-
-
 /* Attaching clock to the scene and saving position
 ----------------------------------------------------------------------*/
 async function mgRenderAllClocks() {
@@ -1295,8 +1253,6 @@ async function mgRenderAllClocks() {
   });
 
   for (const id of ids) mgRenderOneClock(id);
-
-  console.debug("MG RenderAllClocks start:", { ids });
 
   for (const id of ids) {
     const $wrap = mgEnsureClockDOM(id);
@@ -1336,7 +1292,6 @@ async function mgRenderAllClocks() {
     mgBindClock($wrap, id);
   }
 }
-
 
 /* Hooking clocks into scene
 ----------------------------------------------------------------------*/
@@ -1393,9 +1348,6 @@ Hooks.on("updateScene", (scene, data) => {
   mgPruneClockDOM();
 });
 
-
-
-
 /* On Clock creation, adding an option for Hidden/Public
 ----------------------------------------------------------------------*/
 async function mgOpenCreateClockDialog() {
@@ -1443,7 +1395,6 @@ async function mgOpenCreateClockDialog() {
     rejectClose: false // Esc/close returns null
   });
 }
-
 
 /* Sidebar Clock addition
 ----------------------------------------------------------------------*/
@@ -1495,4 +1446,3 @@ Hooks.on("getSceneControlButtons", (controls) => {
     }
   );
 });
-
