@@ -6,7 +6,7 @@
 		]
 	},
 	"Item": {
-		"types": ["guise", "weapon", "armor", "misc", "gambit"],
+		"types": ["guise", "weapon", "armor", "misc", "gambit", "move"],
 		"weapon": {
 			"system": {
 				"description": "",
@@ -44,6 +44,10 @@
 				"tags": [],
 				"used": false
 			}
+		},
+		"move": {
+			"description": "",
+			"tags": []
 		}
 	},
 

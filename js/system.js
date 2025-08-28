@@ -44,13 +44,14 @@ Hooks.once("init", async () => {
   });
 
   try {
-    const { ITEM_TAGS } = await import("../config.js");
+    const { ITEM_TAGS, LEVEL_TABLE } = await import("../config.js");
     CONFIG.MidnightGambit ??= {};
     const customTags = game.settings.get("midnight-gambit", "customTags") || [];
     CONFIG.MidnightGambit.ITEM_TAGS = [...ITEM_TAGS, ...customTags];
+    CONFIG.MidnightGambit.LEVELS = LEVEL_TABLE;
 
-    console.log("✅ ITEM_TAGS loaded into CONFIG at init");
+    console.log("✅ ITEM_TAGS & LEVEL_TABLE loaded into CONFIG at init");
   } catch (e) {
-    console.error("❌ Failed to load ITEM_TAGS in init:", e);
+    console.error("❌ Failed to load config data in init:", e);
   }
 });

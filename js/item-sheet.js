@@ -136,7 +136,7 @@ export class MidnightGambitItemSheet extends ItemSheet {
 		ui.notifications.warn(`Tag "${newTag.label}" already exists.`);
 	}
 
-	// ✅ Add tag to the item
+	// Add tag to the item
 	const currentTags = [...(this.item.system.tags || [])];
 	if (!currentTags.includes(newTag.id)) {
 		currentTags.push(newTag.id);
@@ -235,6 +235,11 @@ export class MidnightGambitItemSheet extends ItemSheet {
 	this.render();
 	});
 
+	}
+	
+	get template() {
+		const path = "systems/midnight-gambit/templates/items";
+		return `${path}/${this.item.type}-sheet.html`;
 	}
 
 }

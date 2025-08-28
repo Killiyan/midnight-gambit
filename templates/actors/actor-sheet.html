@@ -264,6 +264,23 @@
         {{else}}
           <p>No guise assigned. Assign one to gain moves.</p>
         {{/if}}
+
+        <div class="moves-section">
+          <h2>Learned Moves</h2>
+          <div class="moves-grid">
+            {{#each actor.items as |item|}}
+              {{#if (eq item.type "move")}}
+              <div class="move-card" data-item-id="{{item._id}}">
+                <header class="move-header">
+                  <span class="move-name">{{item.name}}</span>
+                  <button type="button" class="delete-move" title="Remove Move"><i class="fas fa-times"></i></button>
+                </header>
+                <div class="move-desc">{{item.system.description}}</div>
+              </div>
+              {{/if}}
+            {{/each}}
+          </div>
+        </div>
       </div>
 
 
@@ -639,6 +656,14 @@
       </div>
 
       <div class="tab settings-tab" data-group="main" data-tab="settings">
+        <div class="level-controls">
+          <button type="button" class="mg-level-up {{#unless canLevelUp}}disabled{{/unless}}">
+            <i class="fa-solid fa-angles-up"></i> Level Up
+          </button>
+          <button type="button" class="mg-undo-level {{#unless canLevelDown}}disabled{{/unless}}">
+            <i class="fa-solid fa-rotate-left"></i> Undo
+          </button>
+        </div>
         <div class="guise-display">
           <span class="guise-name">
             {{#if guise}}
@@ -649,6 +674,7 @@
           </span>
         </div>
       </div>
+
 
     </section>
   </div>

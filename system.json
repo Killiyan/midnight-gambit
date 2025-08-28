@@ -37,7 +37,8 @@
       "guise": { "label": "Guise" },
       "weapon": { "label": "Weapon" },
       "armor": { "label": "Armor" },
-      "misc": { "label": "Misc" }
+      "misc": { "label": "Misc" },
+      "move": { "label": "Move" }
     }
   },
   "packs": [
@@ -60,6 +61,13 @@
       "label": "Midnight Gambit Gambits",
       "system": "midnight-gambit",
       "path": "./packs/gambits.db",
+      "type": "Item"
+    },
+    {
+      "name": "moves",
+      "label": "Midnight Gambit Moves",
+      "system": "midnight-gambit",
+      "path": "./packs/moves.db",
       "type": "Item"
     }
   ]

@@ -37,7 +37,6 @@ export class MidnightGambitActorSheet extends ActorSheet {
         return super.getData(options);
       }
 
-
       context.attributeKeys = [
         "tenacity",
         "finesse",
@@ -46,6 +45,7 @@ export class MidnightGambitActorSheet extends ActorSheet {
         "instinct",
         "presence"
       ];
+      
 
       context.CONFIG = CONFIG;
 
@@ -93,6 +93,27 @@ export class MidnightGambitActorSheet extends ActorSheet {
           (!sc || item.system.remainingCapacity.soul === sc);
       }
 
+      /* Level up / Undo context
+      ----------------------------------------------------------------------*/
+      const level = this.actor.system.level ?? 1;
+      const levels = CONFIG.MidnightGambit?.LEVELS ?? {};
+      const maxLevel = Math.max(...Object.keys(levels).map(n => Number(n) || 0), 1);
+
+      context.canLevelUp = level < maxLevel;
+      context.canLevelDown = level > 1;
+
+      // Pending counters to drive banner/wizard
+      const state = await this.actor.getFlag("midnight-gambit", "state");
+      const p = state?.pending || {};
+      context.pending = {
+        attributes: Number(p.attributes || 0),
+        skills: Number(p.skills || 0),
+        moves: Number(p.moves || 0),
+        sparkSlots: Number(p.sparkSlots || 0),
+        signaturePerk: Number(p.signaturePerk || 0),
+        finalHandDiscoverable: Number(p.finalHandDiscoverable || 0)
+      };
+      context.hasPending = Object.values(context.pending).some(n => Number(n) > 0);
 
       context.data = context;  // <- this makes all context vars available to the template root
       context.tags = CONFIG.MidnightGambit?.ITEM_TAGS ?? [];
@@ -163,7 +184,6 @@ export class MidnightGambitActorSheet extends ActorSheet {
           node.classList.toggle("filled", v <= newValue);
         });
       });
-
       
       /** This looks for risk dice amount and applies similar click logic */
       html.find(".risk-dot").on("click", async (event) => {
@@ -523,7 +543,6 @@ export class MidnightGambitActorSheet extends ActorSheet {
         }
       };
 
-
       //Capacity Boxes add on Click, and remove on Shift click
       html.find(".capacity-box input").on("click", async (event) => {
         const input = event.currentTarget;
@@ -769,16 +788,6 @@ export class MidnightGambitActorSheet extends ActorSheet {
             "system.strain.manualOverride.mortal capacity": true,
             "system.strain.manualOverride.soul capacity": true
           });
-          await item.update({ "system.capacityApplied": true });
-        }
-
-        if (equipped && !capacityApplied) {
-          await this.actor.update({
-            "system.strain.mortal capacity": currentMC + mortalCapacity,
-            "system.strain.soul capacity": currentSC + soulCapacity,
-            "system.strain.manualOverride.mortal capacity": true,
-            "system.strain.manualOverride.soul capacity": true
-          });
 
           await item.update({
             "system.capacityApplied": true,
@@ -981,18 +990,6 @@ export class MidnightGambitActorSheet extends ActorSheet {
 
         ui.notifications.info(`Removed tag '${tagId}' from ${item.name}`);
       });
-      
-      //Gambit Card Drag and Drop
-      html.find(".gambit-card").on("dragstart", event => {
-        const itemId = event.currentTarget.dataset.itemId;
-        const source = event.currentTarget.dataset.source;
-        if (!itemId || !source) return;
-
-        event.originalEvent.dataTransfer.setData(
-          "text/plain",
-          JSON.stringify({ itemId, source })
-        );
-      });
 
       //Reset Gambit Button - like a long rest but for deck
       html.find(".reset-gambit-deck").on("click", async (ev) => {
@@ -1056,7 +1053,7 @@ export class MidnightGambitActorSheet extends ActorSheet {
 
         const html = `
           <div class="gambit-chat-card">
-            <h2>🎴 ${name}</h2>
+            <h2><i class="fa-solid fa-cards"></i> ${name}</h2>
             <p><strong>Tier:</strong> ${tier.charAt(0).toUpperCase() + tier.slice(1)}</p>
             ${tagLabels ? `<p><strong>Tags:</strong> ${tagLabels}</p>` : ""}
             <p>${description}</p>
@@ -1080,7 +1077,7 @@ export class MidnightGambitActorSheet extends ActorSheet {
         await ChatMessage.create({
           user: game.user.id,
           speaker: ChatMessage.getSpeaker({ actor: this.actor }),
-          content: `<h2>🎴 ${item.name}</h2><p>${item.system.description}</p>`
+          content: `<h2><i class="fa-solid fa-cards"></i> ${item.name}</h2><p>${item.system.description}</p>`
         });
 
         // 2. Remove from drawn, add to discard
@@ -1095,10 +1092,253 @@ export class MidnightGambitActorSheet extends ActorSheet {
         });
       });
 
+      /* SETTINGS TAB: Level Up / Undo
+      ----------------------------------------------------------------------*/
+      {
+        const actor = this.actor;
+
+        // Guard: if methods are missing, don’t attach handlers (prevents cryptic errors)
+        const hasLevelUp = typeof actor?.mgLevelUp === "function";
+        const hasUndo    = typeof actor?.mgUndoLastLevel === "function";
+        if (!hasLevelUp || !hasUndo) {
+          console.warn("MG | Level methods missing on actor. Did actor.js load?", { hasLevelUp, hasUndo });
+        }
+
+        // Ensure we don’t double-bind if the sheet re-renders
+        html.find(".mg-level-up").off("click.mg");
+        html.find(".mg-undo-level").off("click.mg");
+
+        html.find(".mg-level-up").on("click.mg", async (ev) => {
+          ev.preventDefault();
+          if (!hasLevelUp) return ui.notifications.warn("Level Up not available (actor missing mgLevelUp).");
+          try {
+            await actor.mgLevelUp({ guided: false });
+            this._openLevelWizard(); // pop the stepper after the level-up
+          } catch (err) {
+            console.error("MG | Level Up error:", err);
+            ui.notifications.error("Level Up failed. See console for details.");
+          }
+        });
+
+        html.find(".mg-undo-level").on("click.mg", async (ev) => {
+          ev.preventDefault();
+          if (!hasUndo) return ui.notifications.warn("Undo not available (actor missing mgUndoLastLevel).");
+          try {
+            await actor.mgUndoLastLevel();
+          } catch (err) {
+            console.error("MG | Undo Level error:", err);
+            ui.notifications.error("Undo failed. See console for details.");
+          }
+        });
       }
+
+      /* Reading if the level is minimum or maximum and disabling buttons if so
+      ----------------------------------------------------------------------*/
+      (async () => {
+        try {
+          const lvl = Number(this.actor.system?.level) || 1;
+          const levels = CONFIG.MidnightGambit?.LEVELS ?? {};
+          const maxLvl = Math.max(...Object.keys(levels).map(n => Number(n) || 0), 1);
+
+          const state = await this.actor.getFlag("midnight-gambit", "state");
+          const hasHistory = Array.isArray(state?.levelHistory) && state.levelHistory.length > 0;
+
+          const $up   = html.find(".mg-level-up");
+          const $undo = html.find(".mg-undo-level");
+
+          const upDisabled = lvl >= maxLvl;
+          const undoDisabled = false; // set to !hasHistory if you want hard-disable
+
+          $up
+            .prop("disabled", upDisabled)
+            .toggleClass("disabled", upDisabled)
+            .attr("title", upDisabled ? "Already at max level" : "Level Up");
+
+          // If you prefer Undo to look disabled when nothing to undo, uncomment:
+          // $undo
+          //   .prop("disabled", undoDisabled)
+          //   .toggleClass("disabled", undoDisabled)
+          //   .attr("title", undoDisabled ? "Nothing to undo" : "Undo Last Level");
+        } catch (e) {
+          console.warn("MG | Could not update Level Up / Undo button state:", e);
+        }
+
+        /* Show "Unspent Level Rewards" banner in Settings tab
+        ----------------------------------------------------------------------*/
+        {
+          const state = await this.actor.getFlag("midnight-gambit", "state");
+          const p = state?.pending || {};
+          const hasPending = Object.values(p).some(n => Number(n) > 0);
+
+          if (hasPending) {
+            const settingsTab = html.find('.tab.settings-tab[data-tab="settings"]');
+            if (settingsTab.length) {
+              // Avoid duplicates on re-render
+              settingsTab.find(".mg-pending-banner").remove();
+              settingsTab.append(`
+                <div class="mg-pending-banner">
+                  <i class="fa-solid fa-wand-magic-sparkles"></i>
+                  Unspent Level Rewards
+                  <button type="button" class="mg-open-level-wizard">Review & Spend</button>
+                </div>
+              `);
+            }
+
+            // open wizard
+            html.find(".mg-open-level-wizard").off("click.mg").on("click.mg", (e) => {
+              e.preventDefault();
+              this._openLevelWizard();
+            });
+          }
+        }
+      })();
+
+      // Post move to chat on header click
+      html.find(".move-card .move-name").click(ev => {
+        const li = $(ev.currentTarget).closest(".move-card");
+        const item = this.actor.items.get(li.data("itemId"));
+        item?.toChat();
+      });
+
+      // Delete move
+      html.find(".delete-move").click(ev => {
+        ev.preventDefault();
+        const li = $(ev.currentTarget).closest(".move-card");
+        const itemId = li.data("itemId");
+        this.actor.deleteEmbeddedDocuments("Item", [itemId]);
+      });
+    }
 
     //END EVENT LISTENERS
     //---------------------------------------------------------------------------------------------------------------------------
+
+
+  /* Level Wizard
+  ==============================================================================*/
+  async _openLevelWizard() {
+    const actor = this.actor;
+
+    const fmt = (p) => [
+      p.attributes ? `${p.attributes} Attribute` : null,
+      p.skills ? `${p.skills} Skill` : null,
+      p.moves ? `${p.moves} Move` : null,
+      p.sparkSlots ? `${p.sparkSlots} Spark Slot` : null,
+      p.signaturePerk ? `Signature Perk` : null,
+      p.finalHandDiscoverable ? `Final Hands discoverable` : null
+    ].filter(Boolean).join(", ");
+
+    const readPending = async () => {
+      const s = await actor.getFlag("midnight-gambit","state");
+      const p = s?.pending || {};
+      return {
+        attributes: Number(p.attributes||0),
+        skills: Number(p.skills||0),
+        moves: Number(p.moves||0),
+        sparkSlots: Number(p.sparkSlots||0),
+        signaturePerk: Number(p.signaturePerk||0),
+        finalHandDiscoverable: Number(p.finalHandDiscoverable||0)
+      };
+    };
+
+    // 1) Summary
+    let pending = await readPending();
+    if (!Object.values(pending).some(n => n>0)) {
+      ui.notifications.info("No unspent level rewards.");
+      return;
+    }
+
+    await Dialog.wait({
+      title: "Level Up Rewards",
+      content: `<p>You have gained: <strong>${fmt(pending)}</strong>.</p><p>Let’s apply them now. You can close any step to finish later.</p>`,
+      buttons: { ok: { icon: "fa-solid fa-check", label: "Continue" } }
+    });
+
+    // 2) Spend Attribute Points
+    while ((pending = await readPending()).attributes > 0) {
+      const keys = ["tenacity","finesse","resolve","guile","instinct","presence"];
+      const options = keys.map(k => `<option value="${k}">${k.toUpperCase()}</option>`).join("");
+      const content = `
+        <p>Spend 1 <strong>Attribute</strong> point:</p>
+        <select name="attrKey">${options}</select>
+      `;
+      const chosen = await Dialog.prompt({
+        title: "Spend Attribute",
+        content,
+        callback: (html) => html.find('select[name="attrKey"]').val(),
+        rejectClose: true
+      });
+      if (!chosen) break; // user closed → leave as pending
+      try { await actor.mgSpendPending("attribute", { key: chosen }); } catch (e) { ui.notifications.error(e.message); break; }
+    }
+
+    // 3) Spend Skill Points
+    while ((pending = await readPending()).skills > 0) {
+      const skills = Object.keys(actor.system?.skills || {}).sort();
+      const options = skills.map(k => `<option value="${k}">${k}</option>`).join("");
+      const content = `
+        <p>Spend 1 <strong>Skill</strong> point:</p>
+        <select name="skillKey">${options}</select>
+      `;
+      const chosen = await Dialog.prompt({
+        title: "Spend Skill",
+        content,
+        callback: (html) => html.find('select[name="skillKey"]').val(),
+        rejectClose: true
+      });
+      if (!chosen) break;
+      try { await actor.mgSpendPending("skill", { key: chosen }); } catch (e) { ui.notifications.error(e.message); break; }
+    }
+
+    // 4) Apply Spark Slots (casters only — they’re the only ones who got these pending)
+    while ((pending = await readPending()).sparkSlots > 0) {
+      const ok = await Dialog.confirm({
+        title: "Add Spark Slot?",
+        content: `<p>Add <strong>+1 Spark Slot</strong> to your pool now?</p>`,
+        yes: () => true, no: () => false, defaultYes: true
+      });
+      if (!ok) break; // leave pending if they want to do later
+      try { await actor.mgSpendPending("spark"); } catch (e) { ui.notifications.error(e.message); break; }
+    }
+
+    // 5) Signature Perk / Final Hand acknowledgements (real pickers later)
+    if ((pending = await readPending()).signaturePerk > 0) {
+      const ok = await Dialog.confirm({
+        title: "Signature Perk",
+        content: `<p>You unlocked a <strong>Signature Perk</strong>. For now, we’ll mark it as acknowledged; a proper picker is coming.</p>`,
+        yes: () => true, no: () => false, defaultYes: true
+      });
+      if (ok) { try { await actor.mgSpendPending("ack-signature"); } catch (e) {} }
+    }
+
+    if ((pending = await readPending()).finalHandDiscoverable > 0) {
+      const ok = await Dialog.confirm({
+        title: "Final Hand",
+        content: `<p><strong>Final Hands</strong> are now discoverable. Mark this as acknowledged?</p>`,
+        yes: () => true, no: () => false, defaultYes: true
+      });
+      if (ok) { try { await actor.mgSpendPending("ack-finalhand"); } catch (e) {} }
+    }
+
+    // 6) Moves (we’ll do a picker later — for now just nudge them)
+    if ((pending = await readPending()).moves > 0) {
+      await Dialog.wait({
+        title: "Choose New Move",
+        content: `<p>You have <strong>${pending.moves}</strong> unspent move(s). Head to your Moves area and add one; the pending counter will remain until you finalize. (A proper picker is coming.)</p>`,
+        buttons: { ok: { label: "Okay" } }
+      });
+    }
+
+    // 7) Done
+    pending = await readPending();
+    if (Object.values(pending).some(n => n>0)) {
+      ui.notifications.info("Some rewards remain unspent — you can finish later from the Settings tab banner.");
+    } else {
+      ui.notifications.info("Level rewards applied. Nice!");
+    }
+
+    // Soft re-render to refresh banner/buttons
+    this.render(false);
+  }
 
   /* Drag and Drop Guise
   ==============================================================================*/
@@ -1269,4 +1509,30 @@ export class MidnightGambitActorSheet extends ActorSheet {
   }
   //END DRAG AND DROP
   //---------------------------------------------------------------------------------------------------------------------------
+
+  /* Adding a Level button to sheet that levels up, and back down the character if needed
+  ----------------------------------------------------------------------*/
+  _getHeaderButtons() {
+    const buttons = super._getHeaderButtons?.() ?? [];
+    console.log("header buttons!");
+
+    if (this.actor?.isOwner) {
+      buttons.unshift({
+        label: "Undo Level",
+        class: "mg-undo-level",
+        icon: "fa-solid fa-rotate-left",
+        onclick: () => this.actor.mgUndoLastLevel()
+      });
+
+      buttons.unshift({
+        label: "Level Up",
+        class: "mg-level-up",
+        icon: "fa-solid fa-angles-up",
+        onclick: () => this.actor.mgLevelUp({ guided: false })
+      });
+    }
+
+    return buttons;
+  }
+
 }

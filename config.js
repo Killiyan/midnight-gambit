@@ -27,3 +27,81 @@ export const ITEM_TAGS = [
   { id: "licensed", label: "Licensed", description: "Required permits, registrations, or cover identities to use." },
   { id: "illegal", label: "Illegal", description: "Possession iteself causes heat in certain areas." },
 ];
+
+/* Level Up Table
+==============================================================================================================================================*/
+export const LEVEL_TABLE = {
+  1: {
+    caps: { drawPool: 3, equipMax: 3, tier: "rookie-only" },
+    unlocks: { trickDeck: false, aceInSleeve: false, signaturePerk: false, finalHand: false, allTiers: false, dualClass: false },
+    grants: { attributePoints: 0, skillPoints: 1, moves: 1, sparkSlots: 0 },
+    notes: "Choose your Guise, +1 Skill Point, +1 Move."
+  },
+  2: {
+    caps: { drawPool: 4, equipMax: 3, tier: "rookie" },
+    unlocks: { trickDeck: false, aceInSleeve: false, signaturePerk: false, finalHand: false, allTiers: false, dualClass: false },
+    grants: { attributePoints: 1, skillPoints: 1, moves: 1, sparkSlots: 1 }, // sparkSlots applied only if caster
+    notes: "+1 Attribute, +1 Skill, +1 Move, +1 Spark Slot (casters)."
+  },
+  3: {
+    caps: { drawPool: 4, equipMax: 3, tier: "trick-deck-unlocked" },
+    unlocks: { trickDeck: true, aceInSleeve: false, signaturePerk: false, finalHand: false, allTiers: false, dualClass: false },
+    grants: { attributePoints: 0, skillPoints: 1, moves: 1, sparkSlots: 0 },
+    notes: "May begin crafting Trick Decks. +1 Skill, +1 Move."
+  },
+  4: {
+    caps: { drawPool: 4, equipMax: 3, tier: "trick-deck" },
+    unlocks: { trickDeck: true, aceInSleeve: false, signaturePerk: false, finalHand: false, allTiers: false, dualClass: false },
+    grants: { attributePoints: 1, skillPoints: 1, moves: 1, sparkSlots: 1 },
+    notes: "+1 Attribute, +1 Skill, +1 Move, +1 Spark Slot (casters)."
+  },
+  5: {
+    caps: { drawPool: 5, equipMax: 3, tier: "trick-deck" },
+    unlocks: { trickDeck: true, aceInSleeve: false, signaturePerk: false, finalHand: false, allTiers: false, dualClass: false },
+    grants: { attributePoints: 0, skillPoints: 1, moves: 1, sparkSlots: 0 },
+    notes: "+1 Skill, +1 Move."
+  },
+  6: {
+    caps: { drawPool: 5, equipMax: 4, tier: "ace-in-the-sleeve-unlocked" },
+    unlocks: { trickDeck: true, aceInSleeve: true, signaturePerk: false, finalHand: false, allTiers: false, dualClass: true },
+    grants: { attributePoints: 1, skillPoints: 1, moves: 1, sparkSlots: 1 },
+    notes: "Dual Class unlocked. +1 Attribute, +1 Skill, +1 Move, +1 Spark Slot (casters)."
+  },
+  7: {
+    caps: { drawPool: 5, equipMax: 4, tier: "ace" },
+    unlocks: { trickDeck: true, aceInSleeve: true, signaturePerk: true, finalHand: false, allTiers: false, dualClass: true },
+    grants: { attributePoints: 0, skillPoints: 1, moves: 1, sparkSlots: 0, signaturePerk: 1 },
+    notes: "Signature Perk. +1 Skill, +1 Move."
+  },
+  8: {
+    caps: { drawPool: 6, equipMax: 4, tier: "ace" },
+    unlocks: { trickDeck: true, aceInSleeve: true, signaturePerk: true, finalHand: false, allTiers: false, dualClass: true },
+    grants: { attributePoints: 1, skillPoints: 1, moves: 1, sparkSlots: 1 },
+    notes: "+1 Attribute, +1 Skill, +1 Move, +1 Spark Slot (casters)."
+  },
+  9: {
+    caps: { drawPool: 7, equipMax: 4, tier: "ace" },
+    unlocks: { trickDeck: true, aceInSleeve: true, signaturePerk: true, finalHand: false, allTiers: false, dualClass: true },
+    grants: { attributePoints: 0, skillPoints: 1, moves: 1, sparkSlots: 0 },
+    notes: "+1 Skill, +1 Move."
+  },
+  10: {
+    caps: { drawPool: 8, equipMax: 5, tier: "final-hand-unlocked" },
+    unlocks: { trickDeck: true, aceInSleeve: true, signaturePerk: true, finalHand: true, allTiers: false, dualClass: true },
+    grants: { attributePoints: 1, skillPoints: 1, moves: 1, sparkSlots: 1, finalHandDiscoverable: 1 },
+    notes: "Final Hands can be discovered. +1 Attribute, +1 Skill, +1 Move, +1 Spark Slot (casters)."
+  },
+  11: {
+    caps: { drawPool: 8, equipMax: 5, tier: "all-tiers" },
+    unlocks: { trickDeck: true, aceInSleeve: true, signaturePerk: true, finalHand: true, allTiers: true, dualClass: true },
+    grants: { attributePoints: 0, skillPoints: 1, moves: 1, sparkSlots: 0 },
+    notes: "+1 Skill, +1 Move."
+  },
+  12: {
+    caps: { drawPool: 8, equipMax: 5, tier: "all-tiers" },
+    unlocks: { trickDeck: true, aceInSleeve: true, signaturePerk: true, finalHand: true, allTiers: true, dualClass: true },
+    grants: { attributePoints: 1, skillPoints: 1, moves: 1, sparkSlots: 1 },
+    notes: "+1 Attribute, +1 Skill, +1 Move, +1 Spark Slot (casters)."
+  }
+};
+
