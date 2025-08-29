@@ -575,11 +575,23 @@ h1,h2,h3,h4 {
         }
 
         .skill-name {
-          color: $mg-blue-2;
+          color: $mg-blue-1;
           @include roboto();
           font-size: 1rem;
           letter-spacing: .01em;
           text-transform: capitalize;
+          display: flex;
+          flex-direction: column;
+
+          .skill-key {
+            font-weight: 700;
+          }
+
+          .skill-attr {
+            font-size: .75rem;
+            text-transform: uppercase;
+            color: $mg-blue-2;
+          }
         }
 
         .skill-value {

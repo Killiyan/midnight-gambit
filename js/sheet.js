@@ -46,6 +46,16 @@ export class MidnightGambitActorSheet extends ActorSheet {
         "presence"
       ];
       
+      // Show which Attribute powers each skill in the UI (shorthand, lower-case)
+      context.skillAttrShort = {
+        brawl: "ten", endure: "ten", athletics: "ten",
+        aim: "fin", stealth: "fin", sleight: "fin",
+        will: "res", grit: "res",
+        lore: "gui", investigate: "gui", deceive: "gui", spark: "gui",
+        survey: "ins", hunt: "ins", nature: "ins",
+        command: "pre", charm: "pre", perform: "pre"
+      };
+
 
       context.CONFIG = CONFIG;
 

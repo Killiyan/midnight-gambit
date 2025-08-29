@@ -226,8 +226,10 @@
                 <span class="skill-value" data-key="{{key}}" data-base="{{value}}">
                   {{value}}
                 </span>
+
                 <span class="skill-name" data-key="{{key}}">
-                  {{key}}
+                  <span class="skill-key">{{key}}</span>
+                  <span class="skill-attr">({{lookup ../skillAttrShort key}})</span>
                 </span>
               </div>
             {{/each}}
