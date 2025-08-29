@@ -5,8 +5,10 @@
   </header>
 
   <section class="sheet-body">
-    <label>Description</label>
-    <textarea name="system.description">{{system.description}}</textarea>
+    <div class="item-description">
+      <label>Description</label>
+      <textarea name="system.description">{{system.description}}</textarea>
+    </div>
 
     <div class="wrapper">
       <label>Tags</label>
@@ -84,5 +86,6 @@
         <input type="number" name="system.soulCapacity" value="{{system.soulCapacity}}" min="0" />
       </div>
     {{/if}}
+
   </section>
 </form>

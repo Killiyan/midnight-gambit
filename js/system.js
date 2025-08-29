@@ -34,7 +34,7 @@ Hooks.once("init", async () => {
   // Register Item Sheets
   Items.unregisterSheet("core", ItemSheet);
   Items.registerSheet("midnight-gambit", MidnightGambitItemSheet, {
-    types: ["weapon", "armor", "misc", "gambit"],
+    types: ["weapon", "armor", "misc", "gambit", "move"],
     makeDefault: true
   });
 

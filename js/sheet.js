@@ -668,6 +668,15 @@ export class MidnightGambitActorSheet extends ActorSheet {
         command: "presence", charm: "presence", perform: "presence"
       };
 
+      const skillAttributeDisplay = {
+        brawl: "Ten", endure: "Ten", athletics: "Ten",
+        aim: "Fin", stealth: "Fin", sleight: "Fin",
+        will: "Res", grit: "Res",
+        lore: "Gui", investigate: "Gui", deceive: "Gui", spark: "Gui",
+        survey: "Ins", hunt: "Ins", nature: "Ins",
+        command: "Pre", charm: "Pre", perform: "Pre"
+      };
+
       html.find(".skill-name, .skill-value").on("click", async (event) => {
         const skillKey = event.currentTarget.dataset.key;
         const skillMod = this.actor.system.skills?.[skillKey] ?? 0;
