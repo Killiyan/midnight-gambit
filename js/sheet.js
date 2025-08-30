@@ -103,6 +103,15 @@ export class MidnightGambitActorSheet extends ActorSheet {
           (!sc || item.system.remainingCapacity.soul === sc);
       }
 
+      /* Split moves into Basic (from Guise or not-learned) vs Learned
+      ----------------------------------------------------------------------*/
+      const allMoves = this.actor.items.filter(i => i.type === "move");
+      context.basicMoves   = allMoves.filter(m => !m.system?.learned);
+      context.learnedMoves = allMoves.filter(m =>  m.system?.learned);
+
+
+
+
       /* Level up / Undo context
       ----------------------------------------------------------------------*/
       const level = this.actor.system.level ?? 1;
@@ -1219,6 +1228,44 @@ export class MidnightGambitActorSheet extends ActorSheet {
         item?.toChat();
       });
 
+      // --- Drag & Drop Reordering for Learned Moves ---
+      const $moveList = html.find("[data-move-list]");
+      let dragSrcEl = null;
+
+      $moveList.on("dragstart", ".move-block", ev => {
+        dragSrcEl = ev.currentTarget;
+        ev.originalEvent.dataTransfer.effectAllowed = "move";
+        ev.originalEvent.dataTransfer.setData("text/plain", dragSrcEl.dataset.itemId);
+        $(dragSrcEl).addClass("dragging");
+      });
+
+      $moveList.on("dragover", ".move-block", ev => {
+        ev.preventDefault();
+        ev.originalEvent.dataTransfer.dropEffect = "move";
+        const $target = $(ev.currentTarget);
+        if ($target[0] !== dragSrcEl) {
+          const bounding = $target[0].getBoundingClientRect();
+          const offset = ev.originalEvent.clientY - bounding.top;
+          const mid = bounding.height / 2;
+          if (offset > mid) $target.after(dragSrcEl);
+          else $target.before(dragSrcEl);
+        }
+      });
+
+      $moveList.on("drop", async ev => {
+        ev.preventDefault();
+        $(dragSrcEl).removeClass("dragging");
+
+        // Save new order into actor.flags
+        const orderedIds = $moveList.find(".move-block").map((_, el) => el.dataset.itemId).get();
+        await this.actor.setFlag("midnight-gambit", "moveOrder", orderedIds);
+      });
+
+      $moveList.on("dragend", ".move-block", () => {
+        $(".move-block.dragging").removeClass("dragging");
+      });
+
+
       // Delete move
       html.find(".delete-move").click(ev => {
         ev.preventDefault();
@@ -1226,6 +1273,129 @@ export class MidnightGambitActorSheet extends ActorSheet {
         const itemId = li.data("itemId");
         this.actor.deleteEmbeddedDocuments("Item", [itemId]);
       });
+
+        /* Learned Moves drop zone hover
+        ----------------------------------------------------------------------*/
+      {
+        const $zone = html.find(".moves-section");
+        if ($zone.length) {
+          $zone.on("dragenter dragover", (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            $zone.addClass("drag-hover");
+          });
+          $zone.on("dragleave", (e) => {
+            if (!$zone[0].contains(e.relatedTarget)) {
+              $zone.removeClass("drag-hover");
+            }
+          });
+          $zone.on("drop", async (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            $zone.removeClass("drag-hover");
+            // Forward to Foundry’s drop handling → calls our _onDropItemCreate above
+            return this._onDrop(e.originalEvent);
+          });
+        }
+      }
+
+      /* Learned Moves: drag-to-reorder
+      ----------------------------------------------------------------------*/
+      {
+        const grid = html.find('[data-learned-grid]');
+        if (grid.length) {
+          let dragId = null;
+
+          // start: pick up a move
+          grid.on('dragstart', '.move-card', (ev) => {
+            const el = ev.currentTarget;
+            dragId = el.dataset.itemId;
+            ev.originalEvent.dataTransfer.setData('text/plain', JSON.stringify({ type: 'move-reorder', itemId: dragId }));
+            // a tiny ghost helps Chrome
+            ev.originalEvent.dataTransfer.effectAllowed = 'move';
+          });
+
+          // allow dropping on cards + grid
+          grid.on('dragover', '.move-card, [data-learned-grid]', (ev) => {
+            ev.preventDefault();
+            ev.originalEvent.dataTransfer.dropEffect = 'move';
+          });
+
+          // drop on another card (insert before/after based on cursor position)
+          grid.on('drop', '.move-card', async (ev) => {
+            ev.preventDefault();
+            if (!dragId) return;
+
+            const targetEl = ev.currentTarget;
+            const targetId = targetEl.dataset.itemId;
+            if (!targetId || targetId === dragId) return;
+
+            // Decide before/after by mouse position
+            const rect = targetEl.getBoundingClientRect();
+            const midY = rect.top + rect.height / 2;
+            const sortBefore = ev.originalEvent.clientY < midY; // true = before, false = after
+
+            const dragged = this.actor.items.get(dragId);
+            const target  = this.actor.items.get(targetId);
+            if (!dragged || !target) return;
+
+            // Only reorder among learned moves
+            const siblings = this.actor.items
+              .filter(i => i.type === "move" && i.id !== dragged.id)
+              .sort((a, b) => (a.sort - b.sort));
+
+            try {
+              // Foundry helper to compute a stable integer 'sort'
+              const result = SortingHelpers.performIntegerSort(dragged, {
+                target,
+                siblings,
+                sortBefore
+              });
+              await dragged.update(result.update);
+              // Soft refresh so order updates without jumping tabs
+              this.render(false);
+            } catch (e) {
+              console.error("Move reorder failed:", e);
+            } finally {
+              dragId = null;
+            }
+          });
+
+          // drop on empty space inside grid → move to end
+          grid.on('drop', '[data-learned-grid]', async (ev) => {
+            // If the actual drop target was a card, that handler has already run
+            if (ev.target.closest('.move-card')) return;
+
+            ev.preventDefault();
+            if (!dragId) return;
+
+            const dragged = this.actor.items.get(dragId);
+            if (!dragged) return;
+
+            const siblings = this.actor.items
+              .filter(i => i.type === "move" && i.id !== dragged.id)
+              .sort((a, b) => (a.sort - b.sort));
+
+            // choose last as target, and place after it
+            const last = siblings[siblings.length - 1];
+            try {
+              const result = SortingHelpers.performIntegerSort(dragged, {
+                target: last,
+                siblings,
+                sortBefore: false
+              });
+              await dragged.update(result.update);
+              this.render(false);
+            } catch (e) {
+              console.error("Move reorder to end failed:", e);
+            } finally {
+              dragId = null;
+            }
+          });
+        }
+      }
+
+
     }
 
     //END EVENT LISTENERS
@@ -1359,7 +1529,7 @@ export class MidnightGambitActorSheet extends ActorSheet {
     this.render(false);
   }
 
-  /* Drag and Drop Guise
+  /* Drag and Drop onto Character Sheet
   ==============================================================================*/
   async _onDropItemCreate(itemData) {
     if (itemData.type === "guise") {
@@ -1524,34 +1694,71 @@ export class MidnightGambitActorSheet extends ActorSheet {
       return [];
     }
 
+    /* Learned Move drop-on-actor
+    ---------------------------------------------------------------------*/
+    if (itemData.type === "move") {
+      console.log("✅ Dropped a MOVE on actor");
+
+      // 1) Hydrate move data whether from compendium UUID or raw data
+      let moveDoc;
+      try {
+        if (itemData?.uuid) {
+          // From compendium or world via UUID
+          const src = await fromUuid(itemData.uuid);
+          if (!src) throw new Error("Could not resolve dropped Move via UUID");
+          moveDoc = src.toObject();
+        } else {
+          // From world item or drag payload
+          const data = itemData.system?.system ? itemData.system : itemData;
+          if (!data?.name || !data?.type) throw new Error("Dropped Move missing fields");
+          moveDoc = data;
+        }
+      } catch (err) {
+        console.error("Failed to read dropped Move:", err);
+        ui.notifications.error("Could not read the dropped Move.");
+        return [];
+      }
+
+      // 2) De-dupe prevention: by core sourceId OR by name (case-insensitive)
+      //    (protects against adding the exact same move twice)
+      const existing = this.actor.items.find(i =>
+        i.type === "move" && (
+          (i.flags?.core?.sourceId && i.flags.core.sourceId === moveDoc.flags?.core?.sourceId) ||
+          (i.name?.toLowerCase?.() === moveDoc.name?.toLowerCase?.())
+        )
+      );
+      if (existing) {
+        ui.notifications.warn(`${moveDoc.name} is already on ${this.actor.name}.`);
+        return [];
+      }
+
+      // 3) Mark as LEARNED so the sheet can sort it into the right area
+      moveDoc.system = moveDoc.system || {};
+      moveDoc.system.learned = true;
+
+      // 4) Create on actor
+      const [embedded] = await this.actor.createEmbeddedDocuments("Item", [moveDoc]);
+
+      // 5) If you are using pending "move" picks on level-up, we can try to consume one
+      //    Safely attempt; if your actor doesn't support it yet, we just ignore.
+      try {
+        if (typeof this.actor.mgSpendPending === "function") {
+          await this.actor.mgSpendPending("move", { itemId: embedded.id });
+        }
+      } catch (e) {
+        // Non-fatal — you can wire mgSpendPending("move") later in actor.js
+        console.warn("mgSpendPending(move) not applied:", e);
+      }
+
+      // 6) Nice feedback + refresh
+      ui.notifications.info(`Learned Move added: ${embedded.name}`);
+      this.render(false);
+      return [];
+    }
+
     return super._onDropItemCreate(itemData);
   }
   //END DRAG AND DROP
   //---------------------------------------------------------------------------------------------------------------------------
-
-  /* Adding a Level button to sheet that levels up, and back down the character if needed
-  ----------------------------------------------------------------------*/
-  _getHeaderButtons() {
-    const buttons = super._getHeaderButtons?.() ?? [];
-    console.log("header buttons!");
-
-    if (this.actor?.isOwner) {
-      buttons.unshift({
-        label: "Undo Level",
-        class: "mg-undo-level",
-        icon: "fa-solid fa-rotate-left",
-        onclick: () => this.actor.mgUndoLastLevel()
-      });
-
-      buttons.unshift({
-        label: "Level Up",
-        class: "mg-level-up",
-        icon: "fa-solid fa-angles-up",
-        onclick: () => this.actor.mgLevelUp({ guided: false })
-      });
-    }
-
-    return buttons;
-  }
 
 }

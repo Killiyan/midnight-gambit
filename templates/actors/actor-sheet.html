@@ -267,24 +267,35 @@
           <p>No guise assigned. Assign one to gain moves.</p>
         {{/if}}
 
-        <div class="moves-section">
-          <h2>Learned Moves</h2>
-          <div class="moves-grid">
-            {{#each actor.items as |item|}}
-              {{#if (eq item.type "move")}}
-              <div class="move-card" data-item-id="{{item._id}}">
-                <header class="move-header">
-                  <span class="move-name">{{item.name}}</span>
-                  <button type="button" class="delete-move" title="Remove Move"><i class="fas fa-times"></i></button>
-                </header>
-                <div class="move-desc">{{item.system.description}}</div>
+      <div class="moves-section">
+        <h3>Learned Moves</h3>
+        <div class="moves-grid" data-move-list>
+          {{#each actor.items as |item|}}
+            {{#if (eq item.type "move")}}
+            <div class="move-block" data-item-id="{{item._id}}" draggable="true">
+              <header class="move-header">
+                <span
+                  class="move-name post-move"
+                  data-move-name="{{item.name}}"
+                  data-move-description="{{item.system.description}}"
+                >
+                  <i class="fa-solid fa-messages"></i>
+                  {{item.name}}
+                </span>
+              </header>
+              <div class="moves-wrapper">
+                <div class="move-desc">{{{item.system.description}}}</div>
+                <button type="button" class="delete-move" title="Remove Move">
+                  <i class="fas fa-times"></i>
+                </button>
               </div>
-              {{/if}}
-            {{/each}}
-          </div>
+            </div>
+            {{/if}}
+          {{/each}}
         </div>
       </div>
 
+      </div>
 
       <!--This is our Inventory with Lux and eventually Search-->
       <div class="tab tab-inventory" data-group="main" data-tab="inventory">
@@ -552,8 +563,8 @@
       <div class="tab tab-gambits" data-group="main" data-tab="gambits">
         <div class="gambit-tab">
 
-          <h2>Drawn Cards</h2>
-          <p><strong>Deck Size:</strong> {{gambitDeck.length}} / {{system.gambits.maxDeckSize}}</p>
+          <h2>Hand</h2>
+          <p><strong>Hand Size:</strong> {{gambitDeck.length}} / {{system.gambits.maxDeckSize}}</p>
 
           <div class="gambit-hand">
             {{#each gambitDrawn}}
@@ -568,10 +579,8 @@
                 </div>
 
                 <div class="status-buttons">
-                  <button type="button" class="post-gambit" data-item-id="{{_id}}" title="Post to Chat"><i class="fa-solid fa-comments"></i></button>
-                  <button type="button" class="return-to-deck" data-item-id="{{_id}}" title="Return to Deck"><i class="fa-solid fa-arrows-spin"></i></button>
-                  <button type="button" class="discard-card" data-item-id="{{_id}}" title="Discard"><i class="fa-solid fa-dumpster"></i></button>
-                  <button type="button" class="remove-from-hand" data-item-id="{{_id}}" title="Remove from Hand"><i class="fa-solid fa-handshake-simple-slash"></i></button>
+                  <button type="button" class="post-gambit" data-item-id="{{_id}}" title="Post to Chat"><i class="fa-solid fa-play"></i></button>
+                  <button type="button" class="return-to-deck" data-item-id="{{_id}}" title="Return to Deck"><i class="fa-solid fa-rotate-left"></i></i></button>
                 </div>
               </div>
             {{/each}}
@@ -592,8 +601,8 @@
                 </div>
 
                 <div class="status-buttons">
-                  <button type="button" class="discard-card" data-item-id="{{_id}}" title="Discard"><i class="fa-solid fa-dumpster"></i></button>
-                  <button type="button" class="remove-from-hand" data-item-id="{{_id}}" title="Remove from Hand"><i class="fa-solid fa-handshake-simple-slash"></i></button>
+                  <button type="button" class="discard-card" data-item-id="{{_id}}" title="Discard"><i class="fa-solid fa-recycle"></i></button>
+                  <button type="button" class="remove-from-hand" data-item-id="{{_id}}" title="Remove from Deck"><i class="fa-solid fa-delete-left"></i></button>
                 </div>
               </div>
             {{/each}}

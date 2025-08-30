@@ -559,20 +559,16 @@ h1,h2,h3,h4 {
 
     .skill-container {
       display: grid;
-      grid-template-columns: repeat(5, 1fr);
+      grid-template-columns: repeat(4, 1fr);
       padding: 1.25rem;
       @include mg-border();
       border-radius: 0 0 .5rem .5rem;
 
       .skill-row {
-        border-right: 2px solid $mg-blue-main-2;
-        padding: .625rem 0 .625rem 1.25rem;
+        border-bottom: 2px solid $mg-blue-main-2;
+        padding: 1.25rem 0 1.25rem 1.25rem;
         display: flex;
         align-items: center;
-
-        &:nth-child(5n) {
-          border: none;
-        }
 
         .skill-name {
           color: $mg-blue-1;
@@ -686,7 +682,8 @@ h1,h2,h3,h4 {
       }
     }
 
-    .basic-moves {
+    .basic-moves,
+    .moves-section {
       h3 {
         border-bottom: 1px solid $mg-blue-main-2;
         margin: 2.125rem 0;
@@ -695,53 +692,85 @@ h1,h2,h3,h4 {
         font-size: 1.25rem;
       }
 
-      .move-container {
+      .move-container,
+      .moves-grid {
         display: grid;
         grid-template-columns: repeat(2, 1fr);
         gap: 1.25rem;
+      }
 
-        .move-block {
-          position: relative;
-          padding: 0;
+      .move-block {
+        position: relative;
+        padding: 0;
 
-          .post-move {
-            @include oswald();
-            font-weight: 700;
-            font-style: italic;
-            font-size: 1.25rem;
-            line-height: 1.1;
-            padding:  1.25rem;
-            display: block;
-            background: $mg-blue-3;
-            color: $mg-ivory;
-            border-radius: .5rem .5rem 0 0;
-            display: flex;
-            gap: .625rem;
-            transition: color .5s ease, background .5s ease;
+        .post-move {
+          @include oswald();
+          font-weight: 700;
+          font-style: italic;
+          font-size: 1.25rem;
+          line-height: 1.1;
+          padding:  1.25rem;
+          display: block;
+          background: $mg-blue-3;
+          color: $mg-ivory;
+          border-radius: .5rem .5rem 0 0;
+          display: flex;
+          gap: .625rem;
+          transition: color .5s ease, background .5s ease;
 
-            &:hover {
-              background: $mg-blue-1;
-              color: $mg-blue-main-2;
-
-              i {
-                color: $mg-blue-3;
-              }
-            }
+          &:hover {
+            background: $mg-blue-1;
+            color: $mg-blue-main-2;
 
             i {
-              display: block;
-              font-size: 1.25rem;
-              color: $mg-blue-4;
-              transition: color .5s ease;
+              color: $mg-blue-3;
             }
           }
 
-          p {
-            padding: 0 1.25rem;
-            margin: 1.25rem 0;
-            @include roboto();
-            font-size: 1rem;
-            line-height: 1.5;
+          i {
+            display: block;
+            font-size: 1.25rem;
+            color: $mg-blue-4;
+            transition: color .5s ease;
+          }
+        }
+
+        p {
+          padding: 0 1.25rem;
+          margin: 1.25rem 0;
+          @include roboto();
+          font-size: 1rem;
+          line-height: 1.5;
+        }
+      }
+
+      .moves-grid {
+        grid-template-columns: 1fr 1fr 1fr;
+
+        .post-move {
+          background: $mg-blue-main-2;
+          color: $mg-blue-2;
+        }
+
+        .move-block {
+          background: rgba(0,0,0,.15);
+
+          .move-desc {
+            line-height: 1.8;
+          }
+        }
+
+        .moves-wrapper {
+          display: flex;
+          padding: 1.25rem 1.25rem 3.25rem 1.25rem;
+
+          button {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            margin: 0;
+            border-radius: 0 0 .5rem .5rem;
+            background: $mg-blue-main-2;
           }
         }
       }
@@ -1372,6 +1401,10 @@ h1,h2,h3,h4 {
       .status-buttons {
         display: flex;
         gap: .75rem;
+
+        .remove-from-hand {
+          background: rgba(0,0,0, .15);
+        }
       }
     }
   }
@@ -1382,6 +1415,15 @@ h1,h2,h3,h4 {
 
   h2 {
     border: none;
+    border-bottom: 1px solid $mg-blue-main-2;
+    margin: 2.125rem 0;
+    padding-bottom: .75rem;
+    @include oswald();
+    font-size: 1.25rem;
+
+    &:first-of-type {
+      margin-top: 0;
+    }
   }
 
 }
@@ -1496,4 +1538,10 @@ h1,h2,h3,h4 {
       color: $mg-blue-main-2;
     }
   }
+}
+
+.moves-section.drag-hover {
+  outline: 2px dashed rgba(255,255,255,0.25);
+  outline-offset: 4px;
+  background: rgba(255,255,255,0.05);
 }
