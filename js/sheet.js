@@ -20,6 +20,21 @@ export class MidnightGambitActorSheet extends ActorSheet {
       const deckIds = context.system.gambits.deck ?? [];
       const drawnIds = context.system.gambits.drawn ?? [];
       const discardIds = context.system.gambits.discard ?? [];
+
+      // === Guise presence drives Level UI ===
+      // "hasActiveGuise" is true if the actor has an applied guise id on system,
+      // or at least one Guise item owned (pick whichever you really use).
+      const hasSystemGuise =
+        Boolean(getProperty(this.actor, "system.guise")) ||
+        Boolean(getProperty(this.actor, "system.guiseId")) ||
+        Boolean(getProperty(this.actor, "system.guise.active"));
+
+      const hasItemGuise = Array.isArray(this.actor.items)
+        ? this.actor.items.some(i => i.type === "guise")
+        : false;
+
+      context.hasActiveGuise = hasSystemGuise || hasItemGuise;
+
       
       
       context.gambitDeck = deckIds.map(id => this.actor.items.get(id)).filter(Boolean);
@@ -109,9 +124,6 @@ export class MidnightGambitActorSheet extends ActorSheet {
       const allMoves = this.actor.items.filter(i => i.type === "move");
       context.basicMoves   = allMoves.filter(m => !m.system?.learned);
       context.learnedMoves = allMoves.filter(m =>  m.system?.learned);
-
-
-
 
       /* Level up / Undo context
       ----------------------------------------------------------------------*/
@@ -384,6 +396,7 @@ export class MidnightGambitActorSheet extends ActorSheet {
         update[`system.gambits.${source}`] = list.filter(id => id !== itemId);
 
         await this.actor.update(update);
+        this.render(false);
       });
 
 
@@ -824,6 +837,7 @@ export class MidnightGambitActorSheet extends ActorSheet {
           }
 
           await this.actor.update(updates);
+          this.render(false);
           input.blur();
         }
       });
@@ -1086,7 +1100,6 @@ export class MidnightGambitActorSheet extends ActorSheet {
           const ok = await Dialog.wait({
             title: "Reset Gambit Deck?",
             content: `
-              <h2>Reset Gambit Deck?</h2>
               <p>This returns all drawn and discarded Gambits to your Deck and clears your hand.</p>
             `,
             buttons: {
@@ -1442,9 +1455,11 @@ export class MidnightGambitActorSheet extends ActorSheet {
         // And hide any lone level buttons if they exist outside the wrapper
         this.element.find(".mg-open-level-wizard, .mg-leveler, .mg-level-btn").toggle(hasGuise);
       }
+
+      this._mgRefreshGuiseVisibility(html);
+
     }
     
-
   //END EVENT LISTENERS
   //---------------------------------------------------------------------------------------------------------------------------
 
@@ -1487,7 +1502,7 @@ export class MidnightGambitActorSheet extends ActorSheet {
   async _mgPrompt({ title, bodyHtml, okText = "Save", okIcon = "fa-check", cancelText = "Cancel", cancelIcon = "fa-circle-xmark", getValue }) {
     const result = await Dialog.wait({
       title,                                    // plain title
-      content: `<h2>${title}</h2>${bodyHtml}`,  // visual H2 in content
+      content: `<h2 class="modal-headline">${title}</h2>${bodyHtml}`,  // visual H2 in content
       buttons: {
         ok: { label: this._mgBtn(okText, okIcon), callback: html => getValue($(html)) },
         cancel: { label: this._mgBtn(cancelText, cancelIcon), callback: () => null }
@@ -1642,7 +1657,7 @@ export class MidnightGambitActorSheet extends ActorSheet {
       const ok = await Dialog.wait({
         title: "Signature Perk",
         content: `
-          <p>You unlocked a <strong>Signature Perk</strong>. For now, we’ll mark it as acknowledged; a proper picker is coming.</p>
+          <p>You unlocked a <strong>Signature Perk</strong>.</p>
         `,
         buttons: {
           yes: { label: this._mgBtn("Acknowledge", "fa-check-double"), callback: () => true },
@@ -1674,7 +1689,7 @@ export class MidnightGambitActorSheet extends ActorSheet {
       await Dialog.wait({
         title: "Choose New Move",
         content: `
-          <p>You have <strong>${pending.moves}</strong> unspent move(s). Head to your Moves area and add one; the pending counter will remain until you finalize. (A proper picker is coming.)</p>
+          <p>You have <strong>${pending.moves}</strong> unspent move(s). Head to your Moves area and add one; the pending counter will remain until you finalize.</p>
         `,
         buttons: {
           ok: { label: this._mgBtn("Okay", "fa-thumbs-up") }
@@ -2118,6 +2133,22 @@ export class MidnightGambitActorSheet extends ActorSheet {
     Hooks.on("deleteItem", this._mgMoveDeleteHook);
   }
 
+  _mgRefreshGuiseVisibility(html = this.element) {
+  const hasSystemGuise =
+    Boolean(getProperty(this.actor, "system.guise")) ||
+    Boolean(getProperty(this.actor, "system.guiseId")) ||
+    Boolean(getProperty(this.actor, "system.guise.active"));
+
+  const hasItemGuise = Array.isArray(this.actor.items)
+    ? this.actor.items.some(i => i.type === "guise")
+    : false;
+
+  const hasGuise = hasSystemGuise || hasItemGuise;
+
+  const $root = html instanceof jQuery ? html : $(html);
+  $root.find("[data-requires-guise]").toggle(hasGuise);
+  $root.find("[data-hides-with-guise]").toggle(!hasGuise);
+}  
 
   // Cleanup our temporary hooks when the sheet closes
   async close(options) {
@@ -2129,6 +2160,5 @@ export class MidnightGambitActorSheet extends ActorSheet {
     } catch (_) {}
     return super.close(options);
   }
-
 }
 

@@ -1721,3 +1721,10 @@ h1,h2,h3,h4 {
 }
 
 .mg-drag-hide { display: none !important; }
+
+.modal-headline {
+  border-bottom: 1px solid $mg-blue-main-2;
+  padding-bottom: .75rem;
+  @include oswald();
+  font-size: 1.25rem;
+}

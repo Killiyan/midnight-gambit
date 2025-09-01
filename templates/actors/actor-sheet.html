@@ -683,7 +683,7 @@
       </div>
 
       <div class="tab settings-tab" data-group="main" data-tab="settings">
-        {{#if hasGuise}}
+        {{#if hasActiveGuise}}
           <div class="level-controls">
             <button type="button" class="mg-level-up {{#unless canLevelUp}}disabled{{/unless}}">
               <i class="fa-solid fa-angles-up"></i> Level Up
@@ -692,6 +692,11 @@
               <i class="fa-solid fa-rotate-left"></i> Undo Level
             </button>
           </div>
+        {{else}}
+          <section class="level-controls disabled">
+            <!-- Optional: show a soft nudge -->
+            <div class="mg-muted">Drop a Guise onto your sheet to enable leveling.</div>
+          </section>
         {{/if}}
         <div class="guise-display">
           <span class="guise-name">

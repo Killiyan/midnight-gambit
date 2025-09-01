@@ -1639,6 +1639,10 @@ async function mgConsumePending(actor, type, count = 1) {
  * When an Item is created, if it is a Move on an Actor sheet, consume one "moves" pending reward.
  * This covers: drag from compendium, drag from sidebar, "Create Item" on the sheet, etc.
  */
+
+/* When an Item is created, if it is a Move on an Actor sheet, consume one "moves" pending reward.
+This covers: drag from compendium, drag from sidebar, "Create Item" on the sheet, etc.
+------------------------------------------------------------------*/
 Hooks.on("createItem", async (item, options, userId) => {
   try {
     // Only handle events initiated by this user
@@ -1658,10 +1662,9 @@ Hooks.on("createItem", async (item, options, userId) => {
   }
 });
 
-/**
- * Safety-net: if flags.midnight-gambit.state changes (e.g., from other code),
- * re-render actor sheets so the leveler/flash UI reflects the new totals.
- */
+/* Safety-net: if flags.midnight-gambit.state changes (e.g., from other code),
+re-render actor sheets so the leveler/flash UI reflects the new totals.
+------------------------------------------------------------------*/
 Hooks.on("updateActor", (actor, changes) => {
   const mgFlagsChanged =
     changes?.flags?.["midnight-gambit"]?.state !== undefined ||
@@ -1673,4 +1676,26 @@ Hooks.on("updateActor", (actor, changes) => {
     }
   }
 });
+
+
+/* Check if a guise has been added to the sheet, and then apply level up section
+------------------------------------------------------------------*/
+Hooks.on("updateActor", (actor, diff, _opts, _id) => {
+  // Find this actor's rendered sheet (if open)
+  const app = Object.values(ui.windows).find(
+    w => w.object?.id === actor.id && typeof w._mgRefreshGuiseVisibility === "function"
+  );
+  if (!app) return;
+
+  // Only react when Guise likely changed (be generous to be safe)
+  const guiseTouched =
+    hasProperty(diff, "system.guise") ||
+    hasProperty(diff, "system.guiseId") ||
+    hasProperty(diff, "system.guise.active") ||
+    Array.isArray(diff.items) ||
+    hasProperty(diff, "items");
+
+  if (guiseTouched) app._mgRefreshGuiseVisibility(app.element);
+});
+
 
