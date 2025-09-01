@@ -16,10 +16,11 @@ export class MidnightGambitActorSheet extends ActorSheet {
       // Make sure the actor is available in the template
       context.actor = this.actor;
       context.system = this.actor.system;
-
+      
       const deckIds = context.system.gambits.deck ?? [];
       const drawnIds = context.system.gambits.drawn ?? [];
       const discardIds = context.system.gambits.discard ?? [];
+      
       
       context.gambitDeck = deckIds.map(id => this.actor.items.get(id)).filter(Boolean);
       context.gambitDrawn = drawnIds.map(id => this.actor.items.get(id)).filter(Boolean);
@@ -137,15 +138,6 @@ export class MidnightGambitActorSheet extends ActorSheet {
       context.data = context;  // <- this makes all context vars available to the template root
       context.tags = CONFIG.MidnightGambit?.ITEM_TAGS ?? [];
       return context;
-    }
-
-    async close(options) {
-      try {
-        if (this._onCreateItemMove) Hooks.off("createItem", this._onCreateItemMove);
-        if (this._resizeObserver) { this._resizeObserver.disconnect(); this._resizeObserver = null; }
-      } finally {
-        return super.close(options);
-      }
     }
 
     /** Binds event listeners after rendering. This is the Event listener for most the system*/
@@ -284,14 +276,49 @@ export class MidnightGambitActorSheet extends ActorSheet {
           if (tab) localStorage.setItem(TAB_KEY, tab);
         });
 
+        // Move floating tab nav outside .window-content so it's not clipped
+        const nav = html.find(".sheet-tabs.floating");
+        const app = html.closest(".window-app");
+        if (nav.length && app.length) {
+          app.append(nav);
 
-      // Move floating tab nav outside .window-content so it's not clipped
-      const nav = html.find(".sheet-tabs.floating");
-      const app = html.closest(".window-app");
-      if (nav.length && app.length) {
-        app.append(nav);
-      }
-      
+          // --- Settings tab glow + count badge (nav lives in .window-app now) ---
+          const appRoot = app; // jQuery of .window-app
+
+          const refreshSettingsGlow = async () => {
+            const state = (await this.actor.getFlag("midnight-gambit", "state")) ?? {};
+            const p = state.pending ?? {};
+            const total = Object.values(p).reduce((a, n) => a + (Number(n) || 0), 0);
+            const hasPending = total > 0;
+
+            const navBtn = appRoot.find('nav.sheet-tabs [data-tab="settings"]');
+            if (!navBtn.length) return;
+
+            navBtn.toggleClass("mg-pending-glow", hasPending);
+            navBtn.find(".mg-pending-badge").remove();
+            if (hasPending) {
+              navBtn.append(`<span class="mg-pending-badge" aria-hidden="true">${total}</span>`);
+            }
+          };
+
+          // Run once when the sheet renders (no await here)
+          refreshSettingsGlow().catch(err => console.warn("MG glow init failed:", err));
+
+          // Re-run when this actor's flags change (pending updates)
+          this._onActorUpdatePending = async (doc, changes) => {
+            if (doc.id !== this.actor.id) return;
+
+            // Be lenient: if any midnight-gambit flags changed, refresh
+            const mgFlagsChanged =
+              foundry.utils.getProperty(changes, "flags.midnight-gambit") !== undefined ||
+              foundry.utils.getProperty(changes, "flags['midnight-gambit']") !== undefined ||
+              foundry.utils.getProperty(changes, "flags") !== undefined;
+
+            if (mgFlagsChanged) await refreshSettingsGlow();
+          };
+
+          Hooks.on("updateActor", this._onActorUpdatePending);
+        }
 
       // Drawing button for Gambits
       html.find(".draw-gambit").on("click", async () => {
@@ -1312,9 +1339,11 @@ export class MidnightGambitActorSheet extends ActorSheet {
             // Always clear any old banner
             settingsTab.find(".mg-pending-banner").remove();
 
-            if (hasPending) {
+            // ✅ Only show if there are pending rewards AND a guise is attached
+            const hasGuise = !!this.actor.system.guise;
+            if (hasPending && hasGuise) {
               settingsTab.append(`
-                <div class="mg-pending-banner">
+                <div class="mg-pending-banner mg-pending-glow">
                   <h2><i class="fa-solid fa-wand-magic-sparkles"></i> Unspent Level Rewards</h2>
                   <button type="button" class="mg-open-level-wizard">Review & Spend <i class="fa-solid fa-arrow-right"></i></button>
                 </div>
@@ -1330,34 +1359,6 @@ export class MidnightGambitActorSheet extends ActorSheet {
         }
       })();
 
-      /* Auto-consume pending "Move" when a Learned move gets added later
-      ----------------------------------------------------------------------*/
-      this._onCreateItemMove = async (item, opts, userId) => {
-        try {
-          // Only react to this actor, and only to moves
-          if (item?.type !== "move" || item?.parent?.id !== this.actor.id) return;
-
-          // Consider it a "learned" acquisition if either flag is set or absent (default true for your flow)
-          const learned = item.system?.learned ?? true;
-          if (!learned) return;
-
-          // Prefer your actor-side API if present; fallback to a raw flag decrement
-          if (typeof this.actor.mgSpendPending === "function") {
-            await this.actor.mgSpendPending("move", { itemId: item.id });
-          } else {
-            await this._mgConsumePendingRaw("moves", 1);
-          }
-
-          // Soft refresh UI so the banner + glow update
-          this.render(false);
-        } catch (e) {
-          console.warn("MG | auto-consume pending(move) failed:", e);
-        }
-      };
-
-      Hooks.on("createItem", this._onCreateItemMove);
-
-
       // Post move to chat on header click
       html.find(".move-card .move-name").click(ev => {
         const li = $(ev.currentTarget).closest(".move-card");
@@ -1365,54 +1366,9 @@ export class MidnightGambitActorSheet extends ActorSheet {
         item?.toChat();
       });
 
-      // --- Drag & Drop Reordering for Learned Moves ---
-      const $moveList = html.find("[data-move-list]");
-      let dragSrcEl = null;
 
-      $moveList.on("dragstart", ".move-block", ev => {
-        dragSrcEl = ev.currentTarget;
-        ev.originalEvent.dataTransfer.effectAllowed = "move";
-        ev.originalEvent.dataTransfer.setData("text/plain", dragSrcEl.dataset.itemId);
-        $(dragSrcEl).addClass("dragging");
-      });
-
-      $moveList.on("dragover", ".move-block", ev => {
-        ev.preventDefault();
-        ev.originalEvent.dataTransfer.dropEffect = "move";
-        const $target = $(ev.currentTarget);
-        if ($target[0] !== dragSrcEl) {
-          const bounding = $target[0].getBoundingClientRect();
-          const offset = ev.originalEvent.clientY - bounding.top;
-          const mid = bounding.height / 2;
-          if (offset > mid) $target.after(dragSrcEl);
-          else $target.before(dragSrcEl);
-        }
-      });
-
-      $moveList.on("drop", async ev => {
-        ev.preventDefault();
-        $(dragSrcEl).removeClass("dragging");
-
-        // Save new order into actor.flags
-        const orderedIds = $moveList.find(".move-block").map((_, el) => el.dataset.itemId).get();
-        await this.actor.setFlag("midnight-gambit", "moveOrder", orderedIds);
-      });
-
-      $moveList.on("dragend", ".move-block", () => {
-        $(".move-block.dragging").removeClass("dragging");
-      });
-
-
-      // Delete move
-      html.find(".delete-move").click(ev => {
-        ev.preventDefault();
-        const li = $(ev.currentTarget).closest(".move-card");
-        const itemId = li.data("itemId");
-        this.actor.deleteEmbeddedDocuments("Item", [itemId]);
-      });
-
-        /* Learned Moves drop zone hover
-        ----------------------------------------------------------------------*/
+      /* Learned Moves drop zone hover
+      ----------------------------------------------------------------------*/
       {
         const $zone = html.find(".moves-section");
         if ($zone.length) {
@@ -1436,104 +1392,58 @@ export class MidnightGambitActorSheet extends ActorSheet {
         }
       }
 
-      /* Learned Moves: drag-to-reorder
+      /* Auto-spend pending Move when one is added
       ----------------------------------------------------------------------*/
-      {
-        const grid = html.find('[data-learned-grid]');
-        if (grid.length) {
-          let dragId = null;
+      Hooks.on("createItem", async (item, options, userId) => {
+        try {
+          const actor = item?.parent;
+          if (!(actor instanceof Actor)) return;
+          if (item.type !== "move") return;
 
-          // start: pick up a move
-          grid.on('dragstart', '.move-card', (ev) => {
-            const el = ev.currentTarget;
-            dragId = el.dataset.itemId;
-            ev.originalEvent.dataTransfer.setData('text/plain', JSON.stringify({ type: 'move-reorder', itemId: dragId }));
-            // a tiny ghost helps Chrome
-            ev.originalEvent.dataTransfer.effectAllowed = 'move';
-          });
+          // Only if there are pending moves
+          const state = (await actor.getFlag("midnight-gambit", "state")) ?? {};
+          const pendingMoves = Number(state?.pending?.moves ?? 0);
+          if (pendingMoves <= 0) return;
 
-          // allow dropping on cards + grid
-          grid.on('dragover', '.move-card, [data-learned-grid]', (ev) => {
-            ev.preventDefault();
-            ev.originalEvent.dataTransfer.dropEffect = 'move';
-          });
+          // Make sure the move is flagged as learned
+          if (!item.system?.learned) {
+            await item.update({ "system.learned": true });
+          }
 
-          // drop on another card (insert before/after based on cursor position)
-          grid.on('drop', '.move-card', async (ev) => {
-            ev.preventDefault();
-            if (!dragId) return;
+          // Spend one pending move
+          if (typeof actor.mgSpendPending === "function") {
+            await actor.mgSpendPending("move", { itemId: item.id });
+          } else {
+            // fallback raw decrement
+            const p = { ...(state.pending ?? {}) };
+            p.moves = Math.max(0, p.moves - 1);
+            await actor.setFlag("midnight-gambit", "state", { ...state, pending: p });
+          }
 
-            const targetEl = ev.currentTarget;
-            const targetId = targetEl.dataset.itemId;
-            if (!targetId || targetId === dragId) return;
-
-            // Decide before/after by mouse position
-            const rect = targetEl.getBoundingClientRect();
-            const midY = rect.top + rect.height / 2;
-            const sortBefore = ev.originalEvent.clientY < midY; // true = before, false = after
-
-            const dragged = this.actor.items.get(dragId);
-            const target  = this.actor.items.get(targetId);
-            if (!dragged || !target) return;
-
-            // Only reorder among learned moves
-            const siblings = this.actor.items
-              .filter(i => i.type === "move" && i.id !== dragged.id)
-              .sort((a, b) => (a.sort - b.sort));
-
-            try {
-              // Foundry helper to compute a stable integer 'sort'
-              const result = SortingHelpers.performIntegerSort(dragged, {
-                target,
-                siblings,
-                sortBefore
-              });
-              await dragged.update(result.update);
-              // Soft refresh so order updates without jumping tabs
-              this.render(false);
-            } catch (e) {
-              console.error("Move reorder failed:", e);
-            } finally {
-              dragId = null;
-            }
-          });
-
-          // drop on empty space inside grid → move to end
-          grid.on('drop', '[data-learned-grid]', async (ev) => {
-            // If the actual drop target was a card, that handler has already run
-            if (ev.target.closest('.move-card')) return;
-
-            ev.preventDefault();
-            if (!dragId) return;
-
-            const dragged = this.actor.items.get(dragId);
-            if (!dragged) return;
-
-            const siblings = this.actor.items
-              .filter(i => i.type === "move" && i.id !== dragged.id)
-              .sort((a, b) => (a.sort - b.sort));
-
-            // choose last as target, and place after it
-            const last = siblings[siblings.length - 1];
-            try {
-              const result = SortingHelpers.performIntegerSort(dragged, {
-                target: last,
-                siblings,
-                sortBefore: false
-              });
-              await dragged.update(result.update);
-              this.render(false);
-            } catch (e) {
-              console.error("Move reorder to end failed:", e);
-            } finally {
-              dragId = null;
-            }
-          });
+          // Soft refresh the actor’s sheet(s)
+          for (const appId of Object.keys(actor.apps ?? {})) {
+            actor.apps[appId]?.render(false);
+          }
+        } catch (err) {
+          console.warn("MG | auto-spend move failed:", err);
         }
+      });
+
+      this._mgBindMoveGrid(html);
+
+      // Defensive: hide Level controls if no Guise (in case template guard is missing)
+      {
+        const guiseId   = this.actor?.system?.guise;
+        const hasGuise  = !!(guiseId && game.items.get(guiseId));
+        // Prefer a single wrapper if you have it:
+        const $block = this.element.find(".mg-level-controls");
+        if ($block.length) $block.toggle(hasGuise);
+
+        // And hide any lone level buttons if they exist outside the wrapper
+        this.element.find(".mg-open-level-wizard, .mg-leveler, .mg-level-btn").toggle(hasGuise);
       }
-
-
     }
+    
 
   //END EVENT LISTENERS
   //---------------------------------------------------------------------------------------------------------------------------
@@ -1599,6 +1509,20 @@ export class MidnightGambitActorSheet extends ActorSheet {
     return true;
   }
 
+  /* Detect multiple moves added
+  ----------------------------------------------------------------------*/
+  async mgSpendPending(kind, data = {}) {
+    const map = { move: "moves", attribute: "attributes", skill: "skills" };
+    const key = map[kind] ?? kind;
+    const state = (await this.getFlag("midnight-gambit", "state")) ?? {};
+    const p = { ...(state.pending ?? {}) };
+    const cur = Number(p[key] ?? 0);
+    if (!cur) return false;
+
+    p[key] = Math.max(0, cur - 1);
+    await this.setFlag("midnight-gambit", "state", { ...state, pending: p });
+    return true;
+  }
 
     /* Level up function guiding players through their levels
   ----------------------------------------------------------------------*/
@@ -1638,7 +1562,6 @@ export class MidnightGambitActorSheet extends ActorSheet {
     await Dialog.wait({
       title: "Level Up Rewards",   // plain string only
       content: `
-        <h2>Level Up Rewards</h2>
         <p>You have gained: <strong>${fmt(pending)}</strong>.</p>
         <p>Let’s apply them now. You can close any step to finish later.</p>
       `,
@@ -1702,7 +1625,6 @@ export class MidnightGambitActorSheet extends ActorSheet {
       const ok = await Dialog.wait({
         title: "Add Spark Slot?",
         content: `
-          <h2>Add Spark Slot?</h2>
           <p>Add <strong>+1 Spark Slot</strong> to your pool now?</p>
         `,
         buttons: {
@@ -1720,7 +1642,6 @@ export class MidnightGambitActorSheet extends ActorSheet {
       const ok = await Dialog.wait({
         title: "Signature Perk",
         content: `
-          <h2>Signature Perk</h2>
           <p>You unlocked a <strong>Signature Perk</strong>. For now, we’ll mark it as acknowledged; a proper picker is coming.</p>
         `,
         buttons: {
@@ -1737,7 +1658,6 @@ export class MidnightGambitActorSheet extends ActorSheet {
       const ok = await Dialog.wait({
         title: "Final Hand",
         content: `
-          <h2>Final Hand</h2>
           <p><strong>Final Hands</strong> are now discoverable. Mark this as acknowledged?</p>
         `,
         buttons: {
@@ -1754,7 +1674,6 @@ export class MidnightGambitActorSheet extends ActorSheet {
       await Dialog.wait({
         title: "Choose New Move",
         content: `
-          <h2>Choose New Move</h2>
           <p>You have <strong>${pending.moves}</strong> unspent move(s). Head to your Moves area and add one; the pending counter will remain until you finalize. (A proper picker is coming.)</p>
         `,
         buttons: {
@@ -1877,7 +1796,6 @@ export class MidnightGambitActorSheet extends ActorSheet {
         await Dialog.wait({
           title: "Choose Spark School(s)",
           content: `
-            <h2>Choose Spark School(s)</h2>
             ${form.outerHTML}
           `,
           buttons: {
@@ -2000,7 +1918,194 @@ export class MidnightGambitActorSheet extends ActorSheet {
 
     return super._onDropItemCreate(itemData);
   }
+
   //END DRAG AND DROP
   //---------------------------------------------------------------------------------------------------------------------------
 
+  /* Move order helpers (class-safe)
+  ---------------------------------------------------------------------*/
+  async _mgGetMoveOrder() {
+    const state = await this.actor.getFlag("midnight-gambit", "moveOrder");
+    return Array.isArray(state) ? state : [];
+  }
+
+  async _mgSetMoveOrder(orderIds) {
+    const existing = new Set(this.actor.items.filter(i => i.type === "move").map(i => i.id));
+    const clean = orderIds.filter(id => existing.has(id));
+    await this.actor.setFlag("midnight-gambit", "moveOrder", clean);
+    return clean;
+  }
+
+  async _mgSaveMoveOrderFromDom($grid) {
+    const ids = $grid.find(".move-block").map((_i, el) => el.dataset.itemId).get();
+    await this._mgSetMoveOrder(ids);
+  }
+
+  async _mgApplyMoveOrderToDom($grid) {
+    const order = await this._mgGetMoveOrder();
+    if (!order.length) return;
+    const byId = {};
+    $grid.find(".move-block").each((_i, el) => { byId[el.dataset.itemId] = el; });
+
+    for (const id of order) if (byId[id]) $grid.append(byId[id]);
+    $grid.find(".move-block").each((_i, el) => {
+      if (!order.includes(el.dataset.itemId)) $grid.append(el);
+    });
+  }
+
+  // Bind delete + drag reorder on the Moves grid
+  _mgBindMoveGrid(html) {
+    const $root = html instanceof jQuery ? html : $(html);
+    const $grid = $root.find(".moves-grid");
+    if (!$grid.length) return;
+
+    // DELETE: remove the embedded move + clean order flag
+    $grid.off("click.mgMovesDel").on("click.mgMovesDel", ".delete-move", async (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+
+      // Robustly locate the card + id, even if click hits the <i> icon
+      const btn  = ev.currentTarget;
+      const card = btn.closest(".move-block");
+      const itemId =
+        card?.dataset?.itemId ||
+        btn.getAttribute("data-item-id") ||
+        btn.closest("[data-item-id]")?.getAttribute("data-item-id");
+
+      if (!itemId) {
+        console.warn("MG | delete-move: no data-item-id on ancestor .move-block");
+        ui.notifications?.warn?.("Could not determine which Move to delete.");
+        return;
+      }
+
+      const item = this.actor.items.get(itemId);
+      if (!item) {
+        console.warn("MG | delete-move: actor has no item with id", itemId);
+        ui.notifications?.warn?.("That Move was not found on this character.");
+        return;
+      }
+
+      // Local HTML escaper (avoid foundry.utils.escapeHTML which may not exist)
+      const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+      })[c]);
+
+      const ok = await Dialog.confirm({
+        title: "Remove Move?",
+        content: `<p>This will remove <strong>${esc(item.name)}</strong> from this character.</p>`
+      });
+      if (!ok) return;
+
+      try {
+        // Delete the embedded document (v11 API)
+        await this.actor.deleteEmbeddedDocuments("Item", [itemId], { renderSheet: false });
+
+        // Drop the id from the saved order (if present)
+        const order = await this._mgGetMoveOrder();
+        if (order.includes(itemId)) {
+          await this._mgSetMoveOrder(order.filter(id => id !== itemId));
+        }
+
+        // Optimistic DOM removal (sheet will also rerender shortly)
+        card.remove();
+      } catch (err) {
+        console.error("MG | Failed to delete Move:", err);
+        ui.notifications?.error?.("Failed to delete that Move. See console for details.");
+      }
+    });
+
+    // DRAG: enable native drag to reorder and persist
+    $grid.find(".move-block").attr("draggable", "true");
+    let dragId = null;
+
+    $grid.on("dragstart.mgMoves", ".move-block", (ev) => {
+      const el = ev.currentTarget;
+      dragId = el.dataset.itemId || null;
+      try { ev.originalEvent?.dataTransfer?.setData("text/plain", dragId ?? ""); } catch(_) {}
+      el.classList.add("dragging");
+    });
+
+    $grid.on("dragend.mgMoves", ".move-block", (ev) => {
+      ev.currentTarget.classList.remove("dragging");
+      dragId = null;
+      $grid.find(".drop-above, .drop-below").removeClass("drop-above drop-below");
+    });
+
+    const cardFromEvent = (ev) => {
+      const tgt = ev.target.closest?.(".move-block");
+      return tgt && $grid[0].contains(tgt) ? tgt : null;
+    };
+
+    $grid.on("dragover.mgMoves", ".move-block", (ev) => {
+      ev.preventDefault();
+      const card = cardFromEvent(ev);
+      if (!card || !dragId) return;
+      const r = card.getBoundingClientRect();
+      const midY = r.top + r.height / 2;
+      $grid.find(".drop-above, .drop-below").removeClass("drop-above drop-below");
+      if (ev.originalEvent.clientY < midY) card.classList.add("drop-above");
+      else card.classList.add("drop-below");
+    });
+
+    $grid.on("dragleave.mgMoves", ".move-block", () => {
+      $grid.find(".drop-above, .drop-below").removeClass("drop-above drop-below");
+    });
+
+    $grid.on("drop.mgMoves", ".move-block", async (ev) => {
+      ev.preventDefault();
+      const target = cardFromEvent(ev);
+      $grid.find(".drop-above, .drop-below").removeClass("drop-above drop-below");
+      if (!dragId || !target) return;
+
+      const dragEl = $grid.find(`.move-block[data-item-id="${dragId}"]`)[0];
+      if (!dragEl || dragEl === target) return;
+
+      const r = target.getBoundingClientRect();
+      const before = ev.originalEvent.clientY < r.top + r.height / 2;
+      if (before) target.parentNode.insertBefore(dragEl, target);
+      else target.parentNode.insertBefore(dragEl, target.nextSibling);
+
+      await this._mgSaveMoveOrderFromDom($grid);
+    });
+
+    // Apply saved order once on render
+    this._mgApplyMoveOrderToDom($grid);
+
+    // Track new/deleted moves while this sheet is open to keep order in sync
+    this._mgMoveCreateHook = async (item, _opts, _userId) => {
+      if (item?.parent !== this.actor || item.type !== "move") return;
+      // Wait one tick for the new card to render, then persist order (append if new)
+      setTimeout(async () => {
+        const $grid2 = this.element.find(".moves-grid");
+        if (!$grid2.length) return;
+        const order = await this._mgGetMoveOrder();
+        if (!order.includes(item.id)) {
+          const ids = $grid2.find(".move-block").map((_i, el) => el.dataset.itemId).get();
+          await this._mgSetMoveOrder(ids);
+        }
+      }, 0);
+    };
+
+    this._mgMoveDeleteHook = async (item, _opts, _userId) => {
+      if (item?.parent !== this.actor || item.type !== "move") return;
+      const order = await this._mgGetMoveOrder();
+      if (order.includes(item.id)) await this._mgSetMoveOrder(order.filter(id => id !== item.id));
+    };
+
+    Hooks.on("createItem", this._mgMoveCreateHook);
+    Hooks.on("deleteItem", this._mgMoveDeleteHook);
+  }
+
+  // Cleanup our temporary hooks when the sheet closes
+  async close(options) {
+    try {
+      if (this._mgMoveCreateHook) Hooks.off("createItem", this._mgMoveCreateHook);
+      if (this._mgMoveDeleteHook) Hooks.off("deleteItem", this._mgMoveDeleteHook);
+      this._mgMoveCreateHook = null;
+      this._mgMoveDeleteHook = null;
+    } catch (_) {}
+    return super.close(options);
+  }
+
 }
+

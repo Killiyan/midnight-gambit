@@ -1603,3 +1603,74 @@ Hooks.on("renderChatMessage", (message, html) => {
     console.error("Midnight Gambit | Chat portrait injection error:", err);
   }
 });
+
+/* Move Learn Spenders Global
+------------------------------------------------------------------*/
+async function mgConsumePending(actor, type, count = 1) {
+  try {
+    const ns = "midnight-gambit";
+    const state = (await actor.getFlag(ns, "state")) ?? {};
+    const pending = state.pending ?? {};
+
+    const current = Number(pending[type] ?? 0);
+    if (!current || current <= 0) return false; // nothing to consume
+
+    pending[type] = Math.max(0, current - count);
+    state.pending = pending;
+
+    await actor.setFlag(ns, "state", state);
+
+    // Re-render any open sheets for this actor so UI (glow/pulse) clears.
+    for (const app of Object.values(actor.apps ?? {})) {
+      if (app.render) app.render(false);
+    }
+
+    // Optional: small toast for feedback
+    // ui.notifications?.info?.(`Learned a Move. Unspent Move rewards: ${pending[type]}.`);
+
+    return true;
+  } catch (err) {
+    console.error("MG consume pending failed:", err);
+    return false;
+  }
+}
+
+/**
+ * When an Item is created, if it is a Move on an Actor sheet, consume one "moves" pending reward.
+ * This covers: drag from compendium, drag from sidebar, "Create Item" on the sheet, etc.
+ */
+Hooks.on("createItem", async (item, options, userId) => {
+  try {
+    // Only handle events initiated by this user
+    if (game.userId !== userId) return;
+
+    // We only care about embedded items created on an Actor
+    const actor = item?.parent;
+    if (!actor || actor.documentName !== "Actor") return;
+
+    // Only when the item is a Move
+    if (item.type !== "move") return;
+
+    // Consume one pending move (if any)
+    await mgConsumePending(actor, "moves", 1);
+  } catch (err) {
+    console.error("MG createItem hook error:", err);
+  }
+});
+
+/**
+ * Safety-net: if flags.midnight-gambit.state changes (e.g., from other code),
+ * re-render actor sheets so the leveler/flash UI reflects the new totals.
+ */
+Hooks.on("updateActor", (actor, changes) => {
+  const mgFlagsChanged =
+    changes?.flags?.["midnight-gambit"]?.state !== undefined ||
+    changes?.flags?.["midnight-gambit"]?.pending !== undefined;
+
+  if (mgFlagsChanged) {
+    for (const app of Object.values(actor.apps ?? {})) {
+      if (app.render) app.render(false);
+    }
+  }
+});
+

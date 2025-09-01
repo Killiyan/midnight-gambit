@@ -1687,7 +1687,7 @@ h1,h2,h3,h4 {
 .dialog .dialog-buttons button i.fa-solid { margin-left: 0.4em; }
 
 /* Settings tab glow */
-nav.sheet-tabs .mg-pending-glow {
+.mg-pending-glow {
   position: relative;
   animation: mgGlow 1.5s ease-in-out infinite;
   box-shadow: 0 0 0.6rem rgba(255, 183, 0, 0.85), inset 0 0 0.2rem rgba(255, 183, 0, 0.6);
@@ -1695,13 +1695,16 @@ nav.sheet-tabs .mg-pending-glow {
 }
 
 @keyframes mgGlow {
-  0%, 100% { box-shadow: 0 0 0.2rem rgba(255,183,0,.6), inset 0 0 0.15rem rgba(255,183,0,.4); }
-  50%      { box-shadow: 0 0 0.9rem rgba(255,183,0,.95), inset 0 0 0.25rem rgba(255,183,0,.7); }
+  0%, 100% { box-shadow: 0 0 0.2rem rgba($mg-blue-1, .6), inset 0 0 0.15rem rgba($mg-blue-1, .4); }
+  50%      { box-shadow: 0 0 0.9rem rgba($mg-blue-1, .95), inset 0 0 0.25rem rgba($mg-blue-1, .7); }
 }
 
 /* Tiny count badge on the tab */
 nav.sheet-tabs .mg-pending-badge {
   display: inline-block;
+  position: absolute;
+  right: -0.5rem;
+  top: -0.5rem;
   margin-left: 0.35rem;
   min-width: 1.1rem;
   padding: 0 0.35rem;
@@ -1709,8 +1712,8 @@ nav.sheet-tabs .mg-pending-badge {
   line-height: 1.1rem;
   text-align: center;
   border-radius: 0.6rem;
-  background: #ffb700;
-  color: #1b1b1b;
+  background: $mg-blue-1;
+  color: $mg-blue-main-2;
   font-weight: 700;
 }
 
