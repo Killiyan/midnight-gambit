@@ -1953,18 +1953,27 @@ export class MidnightGambitActorSheet extends ActorSheet {
     });
   }
 
-  // Bind delete + drag reorder on the Moves grid
+  // Bind delete + drag reorder on the Moves grid (with live preview slot)
   _mgBindMoveGrid(html) {
     const $root = html instanceof jQuery ? html : $(html);
     const $grid = $root.find(".moves-grid");
     if (!$grid.length) return;
 
-    // DELETE: remove the embedded move + clean order flag
+    // Ensure each card is draggable
+    $grid.find(".move-block").attr("draggable", "true");
+
+    // A single placeholder used during drag to show the drop slot
+    let dragId = null;
+    let dragEl = null;
+    let placeholder = document.createElement("div");
+    placeholder.className = "move-block mg-drop-placeholder";
+    placeholder.setAttribute("aria-hidden", "true");
+
+    // --- DELETE handler (unchanged; keep your working delete logic) ---
     $grid.off("click.mgMovesDel").on("click.mgMovesDel", ".delete-move", async (ev) => {
       ev.preventDefault();
       ev.stopPropagation();
 
-      // Robustly locate the card + id, even if click hits the <i> icon
       const btn  = ev.currentTarget;
       const card = btn.closest(".move-block");
       const itemId =
@@ -1973,23 +1982,17 @@ export class MidnightGambitActorSheet extends ActorSheet {
         btn.closest("[data-item-id]")?.getAttribute("data-item-id");
 
       if (!itemId) {
-        console.warn("MG | delete-move: no data-item-id on ancestor .move-block");
         ui.notifications?.warn?.("Could not determine which Move to delete.");
         return;
       }
 
       const item = this.actor.items.get(itemId);
       if (!item) {
-        console.warn("MG | delete-move: actor has no item with id", itemId);
         ui.notifications?.warn?.("That Move was not found on this character.");
         return;
       }
 
-      // Local HTML escaper (avoid foundry.utils.escapeHTML which may not exist)
-      const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({
-        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
-      })[c]);
-
+      const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
       const ok = await Dialog.confirm({
         title: "Remove Move?",
         content: `<p>This will remove <strong>${esc(item.name)}</strong> from this character.</p>`
@@ -1997,16 +2000,13 @@ export class MidnightGambitActorSheet extends ActorSheet {
       if (!ok) return;
 
       try {
-        // Delete the embedded document (v11 API)
         await this.actor.deleteEmbeddedDocuments("Item", [itemId], { renderSheet: false });
-
-        // Drop the id from the saved order (if present)
-        const order = await this._mgGetMoveOrder();
+        // drop from saved order flag if present
+        const order = (await this.actor.getFlag("midnight-gambit", "moveOrder")) ?? [];
         if (order.includes(itemId)) {
-          await this._mgSetMoveOrder(order.filter(id => id !== itemId));
+          await this.actor.setFlag("midnight-gambit", "moveOrder", order.filter(id => id !== itemId));
         }
-
-        // Optimistic DOM removal (sheet will also rerender shortly)
+        // optimistic DOM removal
         card.remove();
       } catch (err) {
         console.error("MG | Failed to delete Move:", err);
@@ -2014,87 +2014,110 @@ export class MidnightGambitActorSheet extends ActorSheet {
       }
     });
 
-    // DRAG: enable native drag to reorder and persist
-    $grid.find(".move-block").attr("draggable", "true");
-    let dragId = null;
+    // --- DRAG logic with live preview slot ---
+    function clearPreview() {
+      if (placeholder?.parentNode) placeholder.parentNode.removeChild(placeholder);
+      $grid.find(".move-block.drop-above, .move-block.drop-below, .move-block.dragging").removeClass("drop-above drop-below dragging");
+    }
 
     $grid.on("dragstart.mgMoves", ".move-block", (ev) => {
-      const el = ev.currentTarget;
-      dragId = el.dataset.itemId || null;
-      try { ev.originalEvent?.dataTransfer?.setData("text/plain", dragId ?? ""); } catch(_) {}
-      el.classList.add("dragging");
+      dragEl = ev.currentTarget;
+      dragId = dragEl.dataset.itemId || null;
+
+      // Size the placeholder to the dragged card (height + margin)
+      const rect = dragEl.getBoundingClientRect();
+      placeholder.style.height = `${rect.height}px`;
+
+      ev.originalEvent?.dataTransfer?.setData("text/plain", dragId ?? "");
+      ev.originalEvent?.dataTransfer?.setDragImage?.(dragEl, rect.width / 2, rect.height / 2);
+      dragEl.classList.add("dragging");
     });
 
-    $grid.on("dragend.mgMoves", ".move-block", (ev) => {
-      ev.currentTarget.classList.remove("dragging");
+    $grid.on("dragend.mgMoves", ".move-block", () => {
+      clearPreview();
       dragId = null;
-      $grid.find(".drop-above, .drop-below").removeClass("drop-above drop-below");
+      dragEl = null;
     });
 
-    const cardFromEvent = (ev) => {
-      const tgt = ev.target.closest?.(".move-block");
-      return tgt && $grid[0].contains(tgt) ? tgt : null;
-    };
-
-    $grid.on("dragover.mgMoves", ".move-block", (ev) => {
+    // Show preview: hovered card’s slot becomes the drop slot (take that spot)
+    $grid.off("dragover.mgMoves", ".move-block").on("dragover.mgMoves", ".move-block", (ev) => {
+      if (!dragId) return;
       ev.preventDefault();
-      const card = cardFromEvent(ev);
-      if (!card || !dragId) return;
-      const r = card.getBoundingClientRect();
-      const midY = r.top + r.height / 2;
-      $grid.find(".drop-above, .drop-below").removeClass("drop-above drop-below");
-      if (ev.originalEvent.clientY < midY) card.classList.add("drop-above");
-      else card.classList.add("drop-below");
+
+      const target = ev.currentTarget;
+      if (target === dragEl) return;
+
+      // Clean any old preview styling and ensure single placeholder
+      $grid.find(".move-block.drop-above, .move-block.drop-below").removeClass("drop-above drop-below");
+      if (placeholder.parentNode && placeholder.parentNode !== target.parentNode) {
+        placeholder.parentNode.removeChild(placeholder);
+      }
+
+      // Always claim the hovered card’s slot → insert placeholder BEFORE it
+      if (placeholder.nextSibling !== target) {
+        target.parentNode.insertBefore(placeholder, target);
+      }
     });
 
-    $grid.on("dragleave.mgMoves", ".move-block", () => {
-      $grid.find(".drop-above, .drop-below").removeClass("drop-above drop-below");
-    });
 
-    $grid.on("drop.mgMoves", ".move-block", async (ev) => {
+    // Allow dropping into empty space in the grid → move to end
+    $grid.on("dragover.mgMoves", (ev) => {
+      // only if we're over the grid but not over a specific card
+      if (!dragId) return;
+      if (ev.target.closest(".move-block")) return; // handled by the other handler
       ev.preventDefault();
-      const target = cardFromEvent(ev);
-      $grid.find(".drop-above, .drop-below").removeClass("drop-above drop-below");
-      if (!dragId || !target) return;
 
-      const dragEl = $grid.find(`.move-block[data-item-id="${dragId}"]`)[0];
-      if (!dragEl || dragEl === target) return;
-
-      const r = target.getBoundingClientRect();
-      const before = ev.originalEvent.clientY < r.top + r.height / 2;
-      if (before) target.parentNode.insertBefore(dragEl, target);
-      else target.parentNode.insertBefore(dragEl, target.nextSibling);
-
-      await this._mgSaveMoveOrderFromDom($grid);
+      // If there’s no placeholder yet, append to the end
+      if (!placeholder.parentNode || placeholder.parentNode !== $grid[0]) {
+        clearPreview();
+        $grid[0].appendChild(placeholder);
+      }
     });
 
-    // Apply saved order once on render
+    // Drop: move the dragged element where the placeholder sits, then persist
+    $grid.on("drop.mgMoves", async (ev) => {
+      if (!dragId || !dragEl) return;
+      ev.preventDefault();
+
+      // If no placeholder (edge case), do nothing
+      if (!placeholder.parentNode) return;
+
+      // Move the card to the placeholder position
+      placeholder.parentNode.insertBefore(dragEl, placeholder);
+      clearPreview();
+
+      // Persist order flag
+      const ids = $grid.find(".move-block").map((_i, el) => el.dataset.itemId).get();
+      await this.actor.setFlag("midnight-gambit", "moveOrder", ids);
+    });
+
+    // Re-apply saved order once on render
     this._mgApplyMoveOrderToDom($grid);
 
-    // Track new/deleted moves while this sheet is open to keep order in sync
-    this._mgMoveCreateHook = async (item, _opts, _userId) => {
+    // Track Move create/delete while this sheet is open
+    this._mgMoveCreateHook = async (item) => {
       if (item?.parent !== this.actor || item.type !== "move") return;
-      // Wait one tick for the new card to render, then persist order (append if new)
       setTimeout(async () => {
         const $grid2 = this.element.find(".moves-grid");
         if (!$grid2.length) return;
-        const order = await this._mgGetMoveOrder();
+        const order = (await this.actor.getFlag("midnight-gambit", "moveOrder")) ?? [];
         if (!order.includes(item.id)) {
           const ids = $grid2.find(".move-block").map((_i, el) => el.dataset.itemId).get();
-          await this._mgSetMoveOrder(ids);
+          await this.actor.setFlag("midnight-gambit", "moveOrder", ids);
         }
       }, 0);
     };
-
-    this._mgMoveDeleteHook = async (item, _opts, _userId) => {
+    this._mgMoveDeleteHook = async (item) => {
       if (item?.parent !== this.actor || item.type !== "move") return;
-      const order = await this._mgGetMoveOrder();
-      if (order.includes(item.id)) await this._mgSetMoveOrder(order.filter(id => id !== item.id));
+      const order = (await this.actor.getFlag("midnight-gambit", "moveOrder")) ?? [];
+      if (order.includes(item.id)) {
+        await this.actor.setFlag("midnight-gambit", "moveOrder", order.filter(id => id !== item.id));
+      }
     };
-
     Hooks.on("createItem", this._mgMoveCreateHook);
     Hooks.on("deleteItem", this._mgMoveDeleteHook);
   }
+
 
   // Cleanup our temporary hooks when the sheet closes
   async close(options) {

@@ -5,6 +5,10 @@ h1,h2,h3,h4 {
 	font-size: 1rem;
 }
 
+.sheet {
+  min-width: 25rem;
+}
+
 .sheet-body {
   h2 {
     padding-bottom: .75rem;
@@ -1699,8 +1703,7 @@ h1,h2,h3,h4 {
   50%      { box-shadow: 0 0 0.9rem rgba($mg-blue-1, .95), inset 0 0 0.25rem rgba($mg-blue-1, .7); }
 }
 
-/* Tiny count badge on the tab */
-nav.sheet-tabs .mg-pending-badge {
+.mg-pending-badge {
   display: inline-block;
   position: absolute;
   right: -0.5rem;
@@ -1717,4 +1720,4 @@ nav.sheet-tabs .mg-pending-badge {
   font-weight: 700;
 }
 
-
+.mg-drag-hide { display: none !important; }
