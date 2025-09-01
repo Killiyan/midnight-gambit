@@ -1,0 +1,35 @@
+<section class="mg-initiative-root">
+  <header class="mg-bar-header">
+    <div class="mg-left">
+      <label>Crew</label>
+      <select class="mg-crew-select">
+        <option value="">— Select —</option>
+        {{#each crews as |c|}}
+          <option value="{{c.uuid}}" {{#if (eq ../activeCrewUuid c.uuid)}}selected{{/if}}>{{c.name}}</option>
+        {{/each}}
+      </select>
+    </div>
+
+    <div class="mg-actions">
+      <button type="button" class="mg-advance" title="End Turn (move first to end)">
+        <i class="fa-solid fa-forward-step"></i> End Turn
+      </button>
+    </div>
+  </header>
+
+  {{#if hasCrew}}
+    <div class="mg-strip">
+      {{#each members as |m idx|}}
+        <div class="mg-slot {{#if (eq ../activeUuid m.uuid)}}is-active{{/if}}" data-uuid="{{m.uuid}}">
+			<div class="mg-name" title="{{m.name}}">{{m.name}}</div>
+			
+			<div class="mg-art">
+			<img src="{{m.img}}" alt="{{m.name}}" />
+			</div>
+        </div>
+      {{/each}}
+    </div>
+  {{else}}
+    <div class="mg-empty">Pick a Crew to show initiative.</div>
+  {{/if}}
+</section>

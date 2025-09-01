@@ -1,0 +1,112 @@
+<form class="mg-crew-sheet sheet actor flexcol" autocomplete="off">
+
+	<nav class="sheet-tabs tabs">
+		<a class="item" data-tab="party"><i class="fa-solid fa-users"></i> Party</a>
+		<a class="item" data-tab="initiative"><i class="fa-solid fa-list-ol"></i> Initiative</a>
+	</nav>
+
+	<!-- Splash banner: party portraits -->
+	<header class="mg-crew-header">
+		<!-- Crew Title / Name -->
+		<div class="mg-crew-title">
+			{{#if canEdit}}
+			<input type="text"
+					name="name"
+					value="{{actor.name}}"
+					class="mg-crew-name"
+					placeholder="Crew Name" />
+			{{else}}
+			<h1 class="mg-crew-name-display">{{actor.name}}</h1>
+			{{/if}}
+			
+			{{#if canEdit}}
+			<button type="button" class="mg-use-initiative" title="Use this Crew for Initiative Bar">
+				<i class="fa-solid fa-link"></i> Link to Initiative Bar
+			</button>
+			{{/if}}
+		</div>
+
+		<div class="mg-splash-strip">
+		{{#each splashImages as |img|}}
+			<img class="mg-splash-portrait" src="{{img}}" alt="" />
+		{{/each}}
+		</div>
+	</header>
+
+	<section class="sheet-body">
+		<!-- PARTY TAB -->
+		<div class="tab" data-tab="party">
+		<div class="mg-party-drop-hint">
+			{{#if canEdit}}
+			Drag characters from the Actors directory onto this sheet to add them to the party.
+			{{else}}
+			You can view the party. Owners can edit.
+			{{/if}}
+		</div>
+
+		<div class="mg-party-grid">
+			{{#each partyMembers as |m|}}
+			<article class="mg-member-card" data-uuid="{{m.uuid}}">
+				<div class="mg-member-portrait">
+				<img src="{{m.img}}" alt="{{m.name}}" />
+				</div>
+				<div class="mg-member-info">
+					<div class="mg-member-name">{{m.name}}</div>
+					<div class="mg-member-meta">
+						<span class="mg-member-class">{{m.className}}</span>
+						<span class="mg-member-level">Lv {{m.levelText}}</span>
+						{{#if m.missing}}<span class="mg-member-missing">(Missing)</span>{{/if}}
+					</div>
+				</div>
+
+				<div class="mg-member-actions">
+
+					<button type="button" class="mg-open-member" title="Open Character Sheet" aria-label="Open Character Sheet">
+						<i class="fa-solid fa-address-card"></i>
+					</button>
+
+					{{#if ../canEdit}}
+					<button type="button" class="mg-remove-member" title="Remove from Party">
+						<i class="fas fa-times"></i>
+					</button>
+					{{/if}}
+				</div>
+			</article>
+			{{/each}}
+		</div>
+		</div>
+
+		<!-- INITIATIVE TAB -->
+		<div class="tab" data-tab="initiative">
+		<div class="mg-initiative-note">
+			{{#if canEdit}}
+			Reorder by dragging a card. This order is used for turn flow.
+			{{else}}
+			View-only initiative. Owners can reorder.
+			{{/if}}
+		</div>
+
+		<div class="mg-initiative-list">
+			{{#each initiativeMembers as |m|}}
+			<article class="mg-init-card" data-uuid="{{m.uuid}}">
+				<div class="mg-init-portrait">
+				<img src="{{m.img}}" alt="{{m.name}}" />
+				</div>
+				<div class="mg-init-main">
+				<div class="mg-init-name">{{m.name}}</div>
+				<div class="mg-init-meta">
+					<span class="mg-init-class">{{m.className}}</span>
+					<span class="mg-dot">&middot;</span>
+					<span class="mg-init-level">Lv {{m.levelText}}</span>
+					{{#if m.missing}}<span class="mg-init-missing">(Missing)</span>{{/if}}
+				</div>
+				</div>
+				<div class="mg-init-grip" aria-hidden="true">
+				<i class="fa-solid fa-grip-lines"></i>
+				</div>
+			</article>
+			{{/each}}
+		</div>
+		</div>
+	</section>
+</form>

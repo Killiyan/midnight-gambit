@@ -1,0 +1,202 @@
+/* Crew Style sheet
+==============================================================================================================================================*/
+.crew-sheet {
+
+	.mg-crew-sheet {
+
+		.mg-crew-header {
+			top: 0;
+			right: 0;
+			width: 100%;
+			z-index: 10;
+			position: relative;
+
+			&:before {
+				background:radial-gradient(80.16% 80.16% at 50% 76.69%, rgba(37, 66, 108, 0.00) 41.35%, #25426C 100%), url(<path-to-image>) transparent 50% / cover no-repeat;
+				content: '';
+				position: absolute;
+				top: 0;
+				left: 0;
+				width: 100%;
+				height: 100%;
+				pointer-events: none;
+			}
+
+			.mg-crew-title {
+				position: absolute;
+				top: 1.25rem;
+				left: 2.5%;
+				width: 95%;
+				background: rgba($mg-blue-main, .8);
+				display: flex;
+				padding: 1.125rem;
+				border-radius: .5rem;
+				border: 2px solid $mg-blue-main-2;
+				justify-content: space-between;
+				color: $mg-ivory;
+				z-index: 10;
+			}
+
+			.mg-splash-strip {
+				display: flex;
+				height: 30rem;
+
+				.mg-splash-portrait {
+					flex: 1 0 0;
+					min-width: 0;
+					height: 100%;
+					object-fit: cover;
+					display: block;
+					border: none;
+				}
+			}
+		}
+
+		.tab {
+		padding: 2.125rem;
+		}
+
+		.mg-party-grid,
+		.mg-initiative-list {
+			display: flex;
+			flex-direction: column;
+			padding: 2.125rem 0;
+			gap: .5rem;
+
+			.mg-member-card,
+			.mg-init-card {
+				display: flex;
+				position: relative;
+				background: $mg-blue-main-2;
+				border: 2px solid $mg-blue-4;
+				border-radius: .5rem;
+				padding: 2.125rem;
+				overflow: hidden;
+
+				.mg-member-portrait,
+				.mg-init-portrait {
+					position: absolute;
+					top: 0;
+					left: 0;
+					width: 25%;
+					height: 100%;
+
+					&:before {
+						position: absolute;
+						top: 0;
+						bottom: 0;
+						content: '';
+						width: 100%;
+						height: 100%;
+						mix-blend-mode: color;
+						opacity: .75;
+						background: $mg-blue-main;
+						z-index: 2;
+					}      
+
+					&:after {
+						z-index: 3;
+						content: '';
+						height: 100%;
+						width: 20%;
+						position: absolute;
+						bottom: 0;
+						right: 0;
+						background: linear-gradient(90deg,rgba(26, 46, 76, 0) 0%, rgba(26, 46, 76, 0.49) 50%, rgba(26, 46, 76, 1) 92%);
+					}
+
+					img {
+						width: 100%;
+						height: 100%;
+						object-fit: cover;
+						object-position: top;
+					}
+				}
+				
+				.mg-member-info,
+				.mg-init-main {
+					width: 100%;
+					padding-left: 25%;
+
+					.mg-member-name,
+					.mg-init-name {
+						@include oswald();
+						text-transform: uppercase;
+						font-style: italic;
+						font-weight: 700;
+						letter-spacing: -0.03rem;
+						font-size: 1.5rem;
+					}
+
+					.mg-member-meta,
+					.mg-init-meta {
+						@include roboto();
+						font-size: 1.125rem;
+						letter-spacing: -0.0225rem;
+						font-weight: 700;
+						font-style: italic;
+						color: $mg-blue-1;
+
+						.mg-member-level,
+						.mg-init-level {
+							font-size: .75rem;
+							color: $mg-blue-2;
+						}
+					}
+				}
+
+				.mg-init-grip {
+					width: 2rem;
+					height: 2rem;
+					display: flex;
+					justify-content: center;
+					align-items: center;
+					background: rgba(0,0,0,.15);
+					cursor: grab;
+					@include mg-border();
+					border-radius: .5rem;
+					transition: background .5s ease;
+
+					&:hover,
+					&:focus {
+						background: $mg-blue-3;
+						color: $mg-blue-4;
+
+						i {
+							color: $mg-blue-4;
+						}
+					}
+
+					i {
+						color: $mg-blue-3;
+						transition: color .5s ease;
+					}
+				}
+
+				.mg-member-actions {
+					width: 25%;
+					display: flex;
+					gap: .5rem;
+
+					i {
+						margin: 0;
+					}
+
+					.mg-remove-member {
+						background: rgba(0,0,0,.15);
+
+						i {
+							color: $mg-blue-3;
+						}
+					}
+
+					button {
+						display: flex;
+						justify-content: center;
+						align-items: center;
+					}
+				}
+			}
+		}
+	}
+}
