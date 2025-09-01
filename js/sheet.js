@@ -1352,7 +1352,7 @@ export class MidnightGambitActorSheet extends ActorSheet {
             // Always clear any old banner
             settingsTab.find(".mg-pending-banner").remove();
 
-            // ✅ Only show if there are pending rewards AND a guise is attached
+            // Only show if there are pending rewards AND a guise is attached
             const hasGuise = !!this.actor.system.guise;
             if (hasPending && hasGuise) {
               settingsTab.append(`

@@ -4,6 +4,8 @@ import { MidnightGambitItem } from "./item.js";
 import { GuiseSheet } from "./guise-sheet.js";
 import { MidnightGambitActorSheet } from "./sheet.js";
 import { MidnightGambitItemSheet } from "./item-sheet.js";
+import { MidnightGambitCrewSheet } from "./crew-sheet.js";
+
 
 
 // Initializing my custom actor and pointing to its HTML structure
@@ -41,6 +43,11 @@ Hooks.once("init", async () => {
   Items.registerSheet("midnight-gambit", GuiseSheet, {
     types: ["guise"],
     makeDefault: false
+  });
+
+  Actors.registerSheet("midnight-gambit", MidnightGambitCrewSheet, {
+    types: ["crew"],
+    makeDefault: true
   });
 
   try {

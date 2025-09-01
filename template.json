@@ -1,10 +1,26 @@
 {
 	"Actor": {
-		"types": [
-			"character",
-			"npc"
-		]
+	"types": [
+		"character",
+		"npc",
+		"crew"
+	],
+
+	"crew": {
+		"type": "crew",
+		"name": "New Crew",
+		"system": {
+		"party": {
+			"members": [],
+			"cache": {}
+		},
+		"initiative": {
+			"order": []
+		}
+		}
+	}
 	},
+
 	"Item": {
 		"types": ["guise", "weapon", "armor", "misc", "gambit", "move"],
 		"weapon": {

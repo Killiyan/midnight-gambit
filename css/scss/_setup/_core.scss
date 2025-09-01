@@ -718,3 +718,18 @@ form button,
     }
   }
 }
+
+::-webkit-scrollbar-thumb,
+::-webkit-scrollbar {
+  background: $mg-blue-1 !important;
+  border-color: $mg-blue-2 !important;
+  scrollbar-color: $mg-blue-1 !important;
+}
+
+:root {
+  /* tweak these to your palette */
+  --mg-scroll-thumb: $mg-blue-1; /* blue */
+  --mg-scroll-thumb-hover: $mg-blue-1;
+  --mg-scroll-track: $mg-blue-4;
+  scrollbar-color: $mg-blue-1 $mg-blue-4;
+}
