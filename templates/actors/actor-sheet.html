@@ -3,8 +3,8 @@
   <nav class="sheet-tabs floating" data-group="main">
     <a class="item" data-tab="general"><i class="fas fa-user"></i></a>
     <a class="item" data-tab="moves"><i class="fa-solid fa-dagger"></i></a>
-    <a class="item" data-tab="inventory"><i class="fa-solid fa-treasure-chest"></i></a>
     <a class="item" data-tab="gambits"><i class="fa-solid fa-cards"></i></a>
+    <a class="item" data-tab="inventory"><i class="fa-solid fa-treasure-chest"></i></a>
     <a class="item" data-tab="journal"><i class="fa-solid fa-book-open-cover"></i></a>
     <a class="item" data-tab="settings"><i class="fa-solid fa-gears"></i></a>
   </nav>
@@ -297,6 +297,88 @@
 
       </div>
 
+      <!--This is our Deck, and currently drawn Gambits-->
+      <div class="tab tab-gambits" data-group="main" data-tab="gambits">
+        <div class="gambit-tab">
+
+          <div class="gambit-settings">
+            <button type="button" class="draw-gambit"><i class="fa-solid fa-cards"></i> Draw Card</button>
+            <button type="button" class="reset-gambit-deck"><i class="fa-solid fa-arrows-spin"></i> Reset Deck</button>
+          </div>
+          <p><strong>Hand Size:</strong> {{gambitDeck.length}} / {{system.gambits.maxDeckSize}}</p>
+
+          <div class="gambit-hand">
+            <h2 class="gambit-banner">Hand</h2>
+            {{#each gambitDrawn}}
+              <div class="gambit-card drawn" data-source="drawn" draggable="true" data-item-id="{{_id}}">
+
+                <div class="gambit-title">
+                  <button type="button" class="post-gambit" data-item-id="{{_id}}" title="Post to Chat">
+                    <i class="fa-solid fa-message"></i>
+                    {{name}}
+                  </button>
+                </div>
+
+                <div class="gambit-wrapper">
+                  <div class="gambit-description">
+                    {{{system.description}}}
+                  </div>
+
+                  <div class="status-buttons">
+                    <button type="button" class="play-gambit" data-item-id="{{_id}}" title="Play Gambit">
+                      <i class="fa-solid fa-play"></i>
+                    </button>
+                    <button type="button" class="return-to-deck" data-item-id="{{_id}}" title="Return to Deck">
+                      <i class="fa-solid fa-rotate-left"></i>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            {{/each}}
+          </div>
+
+          <div class="gambit-deck">
+            <h2 class="gambit-banner">Deck</h2>
+
+            {{#each gambitDeck}}
+              <div class="gambit-card" data-source="deck" draggable="true" data-item-id="{{_id}}">
+
+                <div class="gambit-title">
+                  <button type="button" class="post-gambit" data-item-id="{{_id}}" title="Post to Chat">
+                    <i class="fa-solid fa-message"></i>
+                    {{name}}
+                  </button>
+                </div>
+
+
+                <div class="gambit-wrapper">
+                  <div class="gambit-description">
+                    {{{system.description}}}
+                  </div>
+
+                  <div class="status-buttons">
+                    <button type="button" class="discard-card" data-item-id="{{_id}}" title="Discard"><i class="fa-solid fa-recycle"></i></button>
+                    <button type="button" class="remove-from-hand" data-item-id="{{_id}}" title="Remove from Deck"><i class="fa-solid fa-delete-left"></i></button>
+                  </div>
+                </div>
+              </div>
+            {{/each}}
+          </div>
+
+          <div class="gambit-discard">
+            <h2 class="gambit-banner">Discard</h2>
+            {{#each gambitDiscard}}
+              <div class="gambit-card faded" data-source="discard" draggable="false" data-item-id="{{_id}}">
+                <div class="gambit-title">{{name}}</div>
+                <div class="gambit-description">
+                  {{{system.description}}}
+                </div>
+              </div>
+            {{/each}}
+          </div>
+        </div>
+      </div>
+
       <!--This is our Inventory with Lux and eventually Search-->
       <div class="tab tab-inventory" data-group="main" data-tab="inventory">
         <div class="inventory-tab">
@@ -559,72 +641,6 @@
         </div>
       </div>
 
-      <!--This is our Deck, and currently drawn Gambits-->
-      <div class="tab tab-gambits" data-group="main" data-tab="gambits">
-        <div class="gambit-tab">
-
-          <h2>Hand</h2>
-          <p><strong>Hand Size:</strong> {{gambitDeck.length}} / {{system.gambits.maxDeckSize}}</p>
-
-          <div class="gambit-hand">
-            {{#each gambitDrawn}}
-              <div class="gambit-card drawn" data-source="drawn" draggable="true" data-item-id="{{_id}}">
-
-                <div class="gambit-title">
-                  {{name}}
-                </div>
-
-                <div class="gambit-description">
-                  {{{system.description}}}
-                </div>
-
-                <div class="status-buttons">
-                  <button type="button" class="post-gambit" data-item-id="{{_id}}" title="Post to Chat"><i class="fa-solid fa-play"></i></button>
-                  <button type="button" class="return-to-deck" data-item-id="{{_id}}" title="Return to Deck"><i class="fa-solid fa-rotate-left"></i></i></button>
-                </div>
-              </div>
-            {{/each}}
-          </div>
-
-          <button type="button" class="draw-gambit"><i class="fa-solid fa-cards"></i> Draw Card</button>
-
-          <h2>Gambit Deck</h2>
-
-          <div class="gambit-deck">
-            {{#each gambitDeck}}
-              <div class="gambit-card" data-source="deck" draggable="true" data-item-id="{{_id}}">
-
-                <div class="gambit-title">{{name}}</div>
-
-                <div class="gambit-description">
-                  {{{system.description}}}
-                </div>
-
-                <div class="status-buttons">
-                  <button type="button" class="discard-card" data-item-id="{{_id}}" title="Discard"><i class="fa-solid fa-recycle"></i></button>
-                  <button type="button" class="remove-from-hand" data-item-id="{{_id}}" title="Remove from Deck"><i class="fa-solid fa-delete-left"></i></button>
-                </div>
-              </div>
-            {{/each}}
-          </div>
-
-          <h2>Discard Pile</h2>
-          <div class="gambit-discard">
-            {{#each gambitDiscard}}
-              <div class="gambit-card faded" data-source="discard" draggable="false" data-item-id="{{_id}}">
-                <div class="gambit-title">{{name}}</div>
-                <div class="gambit-description">
-                  {{{system.description}}}
-                </div>
-              </div>
-            {{/each}}
-          </div>
-
-          <button type="button" class="reset-gambit-deck"><i class="fa-solid fa-arrows-spin"></i> Reset Deck</button>
-
-        </div>
-      </div>
-
       <!--This is our journal for character information/backstory-->
       <div class="tab  journal-tab" data-group="main" data-tab="journal">
         <div class="journal-fields">
@@ -672,7 +688,7 @@
             <i class="fa-solid fa-angles-up"></i> Level Up
           </button>
           <button type="button" class="mg-undo-level {{#unless canLevelDown}}disabled{{/unless}}">
-            <i class="fa-solid fa-rotate-left"></i> Undo
+            <i class="fa-solid fa-rotate-left"></i> Undo Level
           </button>
         </div>
         <div class="guise-display">

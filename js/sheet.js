@@ -139,6 +139,15 @@ export class MidnightGambitActorSheet extends ActorSheet {
       return context;
     }
 
+    async close(options) {
+      try {
+        if (this._onCreateItemMove) Hooks.off("createItem", this._onCreateItemMove);
+        if (this._resizeObserver) { this._resizeObserver.disconnect(); this._resizeObserver = null; }
+      } finally {
+        return super.close(options);
+      }
+    }
+
     /** Binds event listeners after rendering. This is the Event listener for most the system*/
     activateListeners(html) {
       super.activateListeners(html);
@@ -282,6 +291,7 @@ export class MidnightGambitActorSheet extends ActorSheet {
       if (nav.length && app.length) {
         app.append(nav);
       }
+      
 
       // Drawing button for Gambits
       html.find(".draw-gambit").on("click", async () => {
@@ -588,12 +598,16 @@ export class MidnightGambitActorSheet extends ActorSheet {
       html.find(".remove-guise").on("click", async (event) => {
         event.preventDefault();
 
-        const confirmed = await Dialog.confirm({
+        const confirmed = await Dialog.wait({
           title: "Remove Guise?",
-          content: "<p>Are you sure you want to unassign this Guise? This will keep all your current values.</p>",
-          yes: () => true,
-          no: () => false,
-          defaultYes: false
+          content: `
+            <p>Are you sure you want to unassign this Guise? This will keep all your current values.</p>
+          `,
+          buttons: {
+            yes: { label: this._mgBtn("Remove", "fa-trash-arrow-up"), callback: () => true },
+            no: { label: this._mgBtn("Cancel", "fa-circle-xmark"), callback: () => false }
+          },
+          default: "no"
         });
 
         if (!confirmed) return;
@@ -610,12 +624,16 @@ export class MidnightGambitActorSheet extends ActorSheet {
         const key = el.dataset.key;
         const current = Number(el.getAttribute("data-base")) || 0;
 
-        const val = await Dialog.prompt({
+        const val = await this._mgPrompt({
           title: `Edit ${key}`,
-          content: `<label>Base ${key}: <input type="number" value="${current}" name="value" /></label>`,
-          callback: (html) => html.find('input[name="value"]').val(),
-          rejectClose: false,
+          bodyHtml: `<label>Base ${key}: <input type="number" value="${current}" name="value" /></label>`,
+          okText: "Save",
+          okIcon: "fa-floppy-disk",
+          cancelText: "Cancel",
+          cancelIcon: "fa-circle-xmark",
+          getValue: (html) => html.find('input[name="value"]').val()
         });
+
         if (val === null) return;
 
         const next = Number(val);
@@ -732,12 +750,16 @@ export class MidnightGambitActorSheet extends ActorSheet {
         const key  = el.dataset.key;
         const curr = Number(el.getAttribute("data-base")) || 0;
 
-        const val = await Dialog.prompt({
+        const val = await this._mgPrompt({
           title: `Edit Skill: ${key}`,
-          content: `<label>${key}: <input type="number" value="${curr}" name="value" /></label>`,
-          callback: (html) => html.find('input[name="value"]').val(),
-          rejectClose: false,
+          bodyHtml: `<label>${key}: <input type="number" value="${curr}" name="value" /></label>`,
+          okText: "Save",
+          okIcon: "fa-floppy-disk",
+          cancelText: "Cancel",
+          cancelIcon: "fa-circle-xmark",
+          getValue: (html) => html.find('input[name="value"]').val()
         });
+
         if (val === null) return;
 
         const next = Number(val);
@@ -866,12 +888,17 @@ export class MidnightGambitActorSheet extends ActorSheet {
         const item = this.actor.items.get(itemId);
         if (!item) return;
 
-        const confirmed = await Dialog.confirm({
+        const confirmed = await Dialog.wait({
           title: `Delete ${item.name}?`,
-          content: `<p>Are you sure you want to permanently delete <strong>${item.name}</strong> from your inventory?</p>`,
-          yes: () => true,
-          no: () => false,
-          defaultYes: false
+          content: `
+            <h2>Delete ${item.name}?</h2>
+            <p>Are you sure you want to permanently delete <strong>${item.name}</strong> from your inventory?</p>
+          `,
+          buttons: {
+            yes: { label: this._mgBtn("Delete", "fa-trash"), callback: () => true },
+            no:  { label: this._mgBtn("Cancel", "fa-circle-xmark"), callback: () => false }
+          },
+          default: "no"
         });
 
         if (confirmed) {
@@ -1029,12 +1056,17 @@ export class MidnightGambitActorSheet extends ActorSheet {
         btn.disabled = true;
 
         try {
-          const ok = await Dialog.confirm({
+          const ok = await Dialog.wait({
             title: "Reset Gambit Deck?",
-            content: `<p>This returns all drawn and discarded Gambits to your Deck and clears your hand.</p>`,
-            yes: () => true,
-            no: () => false,
-            defaultYes: false
+            content: `
+              <h2>Reset Gambit Deck?</h2>
+              <p>This returns all drawn and discarded Gambits to your Deck and clears your hand.</p>
+            `,
+            buttons: {
+              yes: { label: this._mgBtn("Reset", "fa-arrows-rotate"), callback: () => true },
+              no:  { label: this._mgBtn("Cancel", "fa-circle-xmark"), callback: () => false }
+            },
+            default: "yes"
           });
 
           if (!ok) return; // user cancelled — do nothing
@@ -1062,8 +1094,7 @@ export class MidnightGambitActorSheet extends ActorSheet {
         }
       });
 
-
-      //Post Gambit into Game chat
+      // Post Gambit into Game chat
       html.find(".post-gambit").on("click", async (event) => {
         event.preventDefault();
         event.stopPropagation();
@@ -1072,28 +1103,89 @@ export class MidnightGambitActorSheet extends ActorSheet {
         const item = this.actor.items.get(itemId);
         if (!item) return;
 
-        const { name, system } = item;
-        const { description = "", tier = "", tags = [] } = system;
+        await this._mgPostGambitToChat(item);
+      });
 
-        const tagLabels = (tags || [])
-          .map(t => CONFIG.MidnightGambit.ITEM_TAGS.find(def => def.id === t)?.label || t)
-          .join(", ");
+      // Play Gambit (post + discard)
+      html.find(".play-gambit").on("click", async (event) => {
+        event.preventDefault();
+        event.stopPropagation();
 
-        const html = `
-          <div class="gambit-chat-card">
-            <h2><i class="fa-solid fa-cards"></i> ${name}</h2>
-            <p><strong>Tier:</strong> ${tier.charAt(0).toUpperCase() + tier.slice(1)}</p>
-            ${tagLabels ? `<p><strong>Tags:</strong> ${tagLabels}</p>` : ""}
-            <p>${description}</p>
+        const itemId = event.currentTarget.dataset.itemId;
+        const item = this.actor.items.get(itemId);
+        if (!item) return;
+
+        await this._mgPostGambitToChat(item);
+
+        // Discard after playing
+        const { drawn = [], discard = [] } = this.actor.system.gambits;
+        const updatedDrawn = drawn.filter(id => id !== itemId);
+        const updatedDiscard = [...discard, itemId];
+
+        await this.actor.update({
+          "system.gambits.drawn": updatedDrawn,
+          "system.gambits.discard": updatedDiscard
+        });
+      });
+
+      /** Utility: render a clean chat card for a Gambit item */
+      async function postGambitToChat(actor, itemId) {
+        const item = actor.items.get(itemId);
+        if (!item) throw new Error(`No item ${itemId} on actor ${actor.name}`);
+
+        // Local HTML escaper (Foundry-safe across versions)
+        const escapeHtml = (str) =>
+          String(str)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+
+        const content = `
+          <div class="mg-chat-card gambit-card">
+            <header class="mg-card-header">
+              <h3 class="mg-card-title"><i class="fa-solid fa-cards"></i> ${escapeHtml(item.name)}</h3>
+            </header>
+            <section class="mg-card-body">
+              ${item.system?.description ?? ""}
+            </section>
           </div>
         `;
 
-        ChatMessage.create({
-          user: game.user.id,
-          speaker: ChatMessage.getSpeaker({ actor: this.actor }),
-          content: html
+        return ChatMessage.create({
+          speaker: ChatMessage.getSpeaker({ actor }),
+          content,
+          type: CONST.CHAT_MESSAGE_TYPES.OTHER
         });
-      });
+      }
+
+      /** Fallback discard helper (only used if no .discard-card button found) */
+      async function discardGambitById(actor, itemId) {
+        // Many systems keep piles in flags or system data. If you already have a
+        // dedicated discard function, use that instead of this placeholder.
+
+        // Example approach if you store drawn/deck/discard arrays on actor.system.gambits:
+        const sys = actor.system;
+        const drawn = Array.isArray(sys.gambits?.drawn) ? [...sys.gambits.drawn] : [];
+        const discard = Array.isArray(sys.gambits?.discard) ? [...sys.gambits.discard] : [];
+
+        const idx = drawn.findIndex(g => g._id === itemId || g.id === itemId || g === itemId);
+        if (idx !== -1) {
+          const card = drawn.splice(idx, 1)[0];
+          discard.push(card);
+          await actor.update({
+            "system.gambits.drawn": drawn,
+            "system.gambits.discard": discard
+          });
+        } else {
+          // If your hand stores just IDs and not full objects, adjust accordingly:
+          // 1) remove the id from drawn
+          // 2) push the id into discard
+          console.warn(`[MG] discardGambitById: card not found in drawn for ${itemId}`);
+        }
+      }
+
 
       //Gambit hand at bottom of the screen styling
       html.find(".gambit-hand-card").on("click", async (event) => {
@@ -1198,28 +1290,73 @@ export class MidnightGambitActorSheet extends ActorSheet {
           const p = state?.pending || {};
           const hasPending = Object.values(p).some(n => Number(n) > 0);
 
-          if (hasPending) {
-            const settingsTab = html.find('.tab.settings-tab[data-tab="settings"]');
-            if (settingsTab.length) {
-              // Avoid duplicates on re-render
-              settingsTab.find(".mg-pending-banner").remove();
+          // 1) Glow + tiny badge on the Settings tab button (always update)
+          const navBtn = html.find('nav.sheet-tabs [data-tab="settings"]');
+          if (navBtn.length) {
+            // Remove any previous badge
+            navBtn.find(".mg-pending-badge").remove();
+
+            // Toggle the glow
+            navBtn.toggleClass("mg-pending-glow", hasPending);
+
+            // Add a small badge with the total pending, if any
+            if (hasPending) {
+              const totalPending = Object.values(p).reduce((a, n) => a + (Number(n) || 0), 0);
+              navBtn.append(`<span class="mg-pending-badge" aria-hidden="true">${totalPending}</span>`);
+            }
+          }
+
+          // 2) Banner inside the Settings tab content (create or remove)
+          const settingsTab = html.find('.tab.settings-tab[data-tab="settings"]');
+          if (settingsTab.length) {
+            // Always clear any old banner
+            settingsTab.find(".mg-pending-banner").remove();
+
+            if (hasPending) {
               settingsTab.append(`
                 <div class="mg-pending-banner">
-                  <i class="fa-solid fa-wand-magic-sparkles"></i>
-                  Unspent Level Rewards
-                  <button type="button" class="mg-open-level-wizard">Review & Spend</button>
+                  <h2><i class="fa-solid fa-wand-magic-sparkles"></i> Unspent Level Rewards</h2>
+                  <button type="button" class="mg-open-level-wizard">Review & Spend <i class="fa-solid fa-arrow-right"></i></button>
                 </div>
               `);
             }
-
-            // open wizard
-            html.find(".mg-open-level-wizard").off("click.mg").on("click.mg", (e) => {
-              e.preventDefault();
-              this._openLevelWizard();
-            });
           }
+
+          // 3) Wire up the button if present
+          html.find(".mg-open-level-wizard").off("click.mg").on("click.mg", (e) => {
+            e.preventDefault();
+            this._openLevelWizard();
+          });
         }
       })();
+
+      /* Auto-consume pending "Move" when a Learned move gets added later
+      ----------------------------------------------------------------------*/
+      this._onCreateItemMove = async (item, opts, userId) => {
+        try {
+          // Only react to this actor, and only to moves
+          if (item?.type !== "move" || item?.parent?.id !== this.actor.id) return;
+
+          // Consider it a "learned" acquisition if either flag is set or absent (default true for your flow)
+          const learned = item.system?.learned ?? true;
+          if (!learned) return;
+
+          // Prefer your actor-side API if present; fallback to a raw flag decrement
+          if (typeof this.actor.mgSpendPending === "function") {
+            await this.actor.mgSpendPending("move", { itemId: item.id });
+          } else {
+            await this._mgConsumePendingRaw("moves", 1);
+          }
+
+          // Soft refresh UI so the banner + glow update
+          this.render(false);
+        } catch (e) {
+          console.warn("MG | auto-consume pending(move) failed:", e);
+        }
+      };
+
+      Hooks.on("createItem", this._onCreateItemMove);
+
 
       // Post move to chat on header click
       html.find(".move-card .move-name").click(ev => {
@@ -1398,12 +1535,74 @@ export class MidnightGambitActorSheet extends ActorSheet {
 
     }
 
-    //END EVENT LISTENERS
-    //---------------------------------------------------------------------------------------------------------------------------
+  //END EVENT LISTENERS
+  //---------------------------------------------------------------------------------------------------------------------------
 
+  /* Post a Gambit card to chat with full styled HTML
+  ----------------------------------------------------------------------*/
+  async _mgPostGambitToChat(item) {
+    const { name, system } = item;
+    const { description = "", tier = "", tags = [] } = system;
+
+    const tagLabels = (tags || [])
+      .map(t => CONFIG.MidnightGambit.ITEM_TAGS.find(def => def.id === t)?.label || t)
+      .join(", ");
+
+    const html = `
+      <div class="gambit-chat-card">
+        <h2><i class="fa-solid fa-cards"></i> ${name}</h2>
+        <p><strong>Tier:</strong> ${tier.charAt(0).toUpperCase() + tier.slice(1)}</p>
+        ${tagLabels ? `<p><strong>Tags:</strong> ${tagLabels}</p>` : ""}
+        <p>${description}</p>
+      </div>
+    `;
+
+    await ChatMessage.create({
+      user: game.user.id,
+      speaker: ChatMessage.getSpeaker({ actor: this.actor }),
+      content: html
+    });
+  }
 
   /* Level Wizard
   ==============================================================================*/
+
+  /* Putting icons next to buttons on all sections
+  ----------------------------------------------------------------------*/  
+  _mgBtn(text, faRight = "fa-arrow-right") {
+    return `${text} <i class="fa-solid ${faRight}"></i>`;
+  }
+
+  /** Generic prompt with <h2> title in body and right-justified icon labels */
+  async _mgPrompt({ title, bodyHtml, okText = "Save", okIcon = "fa-check", cancelText = "Cancel", cancelIcon = "fa-circle-xmark", getValue }) {
+    const result = await Dialog.wait({
+      title,                                    // plain title
+      content: `<h2>${title}</h2>${bodyHtml}`,  // visual H2 in content
+      buttons: {
+        ok: { label: this._mgBtn(okText, okIcon), callback: html => getValue($(html)) },
+        cancel: { label: this._mgBtn(cancelText, cancelIcon), callback: () => null }
+      },
+      default: "ok"
+    });
+    return result;
+  }
+
+  /* Decrement a pending counter on the actor flag (fallback if mgSpendPending is absent)
+  ----------------------------------------------------------------------*/
+  async _mgConsumePendingRaw(kind = "moves", amt = 1) {
+    const state = await this.actor.getFlag("midnight-gambit", "state") ?? {};
+    const p = { ...(state.pending ?? {}) };
+    const cur = Number(p[kind] ?? 0);
+    if (cur <= 0) return false; // nothing to do
+    p[kind] = Math.max(0, cur - amt);
+    await this.actor.setFlag("midnight-gambit", "state", { ...state, pending: p });
+    return true;
+  }
+
+
+    /* Level up function guiding players through their levels
+  ----------------------------------------------------------------------*/
+
   async _openLevelWizard() {
     const actor = this.actor;
 
@@ -1437,9 +1636,17 @@ export class MidnightGambitActorSheet extends ActorSheet {
     }
 
     await Dialog.wait({
-      title: "Level Up Rewards",
-      content: `<p>You have gained: <strong>${fmt(pending)}</strong>.</p><p>Let’s apply them now. You can close any step to finish later.</p>`,
-      buttons: { ok: { icon: "fa-solid fa-check", label: "Continue" } }
+      title: "Level Up Rewards",   // plain string only
+      content: `
+        <h2>Level Up Rewards</h2>
+        <p>You have gained: <strong>${fmt(pending)}</strong>.</p>
+        <p>Let’s apply them now. You can close any step to finish later.</p>
+      `,
+      buttons: {
+        ok: {
+          label: `Continue <i class="fa-solid fa-arrow-right"></i>`
+        }
+      }
     });
 
     // 2) Spend Attribute Points
@@ -1450,11 +1657,17 @@ export class MidnightGambitActorSheet extends ActorSheet {
         <p>Spend 1 <strong>Attribute</strong> point:</p>
         <select name="attrKey">${options}</select>
       `;
-      const chosen = await Dialog.prompt({
+      const chosen = await this._mgPrompt({
         title: "Spend Attribute",
-        content,
-        callback: (html) => html.find('select[name="attrKey"]').val(),
-        rejectClose: true
+        bodyHtml: `
+          <p>Spend 1 <strong>Attribute</strong> point:</p>
+          <select name="attrKey">${options}</select>
+        `,
+        okText: "Apply",
+        okIcon: "fa-check",
+        cancelText: "Later",
+        cancelIcon: "fa-clock",
+        getValue: (html) => html.find('select[name="attrKey"]').val()
       });
       if (!chosen) break; // user closed → leave as pending
       try { await actor.mgSpendPending("attribute", { key: chosen }); } catch (e) { ui.notifications.error(e.message); break; }
@@ -1468,11 +1681,17 @@ export class MidnightGambitActorSheet extends ActorSheet {
         <p>Spend 1 <strong>Skill</strong> point:</p>
         <select name="skillKey">${options}</select>
       `;
-      const chosen = await Dialog.prompt({
+      const chosen = await this._mgPrompt({
         title: "Spend Skill",
-        content,
-        callback: (html) => html.find('select[name="skillKey"]').val(),
-        rejectClose: true
+        bodyHtml: `
+          <p>Spend 1 <strong>Skill</strong> point:</p>
+          <select name="skillKey">${options}</select>
+        `,
+        okText: "Apply",
+        okIcon: "fa-check",
+        cancelText: "Later",
+        cancelIcon: "fa-clock",
+        getValue: (html) => html.find('select[name="skillKey"]').val()
       });
       if (!chosen) break;
       try { await actor.mgSpendPending("skill", { key: chosen }); } catch (e) { ui.notifications.error(e.message); break; }
@@ -1480,10 +1699,17 @@ export class MidnightGambitActorSheet extends ActorSheet {
 
     // 4) Apply Spark Slots (casters only — they’re the only ones who got these pending)
     while ((pending = await readPending()).sparkSlots > 0) {
-      const ok = await Dialog.confirm({
+      const ok = await Dialog.wait({
         title: "Add Spark Slot?",
-        content: `<p>Add <strong>+1 Spark Slot</strong> to your pool now?</p>`,
-        yes: () => true, no: () => false, defaultYes: true
+        content: `
+          <h2>Add Spark Slot?</h2>
+          <p>Add <strong>+1 Spark Slot</strong> to your pool now?</p>
+        `,
+        buttons: {
+          yes: { label: this._mgBtn("Add", "fa-plus"), callback: () => true },
+          no:  { label: this._mgBtn("Later", "fa-clock"), callback: () => false }
+        },
+        default: "yes"
       });
       if (!ok) break; // leave pending if they want to do later
       try { await actor.mgSpendPending("spark"); } catch (e) { ui.notifications.error(e.message); break; }
@@ -1491,19 +1717,34 @@ export class MidnightGambitActorSheet extends ActorSheet {
 
     // 5) Signature Perk / Final Hand acknowledgements (real pickers later)
     if ((pending = await readPending()).signaturePerk > 0) {
-      const ok = await Dialog.confirm({
+      const ok = await Dialog.wait({
         title: "Signature Perk",
-        content: `<p>You unlocked a <strong>Signature Perk</strong>. For now, we’ll mark it as acknowledged; a proper picker is coming.</p>`,
-        yes: () => true, no: () => false, defaultYes: true
+        content: `
+          <h2>Signature Perk</h2>
+          <p>You unlocked a <strong>Signature Perk</strong>. For now, we’ll mark it as acknowledged; a proper picker is coming.</p>
+        `,
+        buttons: {
+          yes: { label: this._mgBtn("Acknowledge", "fa-check-double"), callback: () => true },
+          no:  { label: this._mgBtn("Later", "fa-clock"), callback: () => false }
+        },
+        default: "yes"
       });
+
       if (ok) { try { await actor.mgSpendPending("ack-signature"); } catch (e) {} }
     }
 
     if ((pending = await readPending()).finalHandDiscoverable > 0) {
-      const ok = await Dialog.confirm({
+      const ok = await Dialog.wait({
         title: "Final Hand",
-        content: `<p><strong>Final Hands</strong> are now discoverable. Mark this as acknowledged?</p>`,
-        yes: () => true, no: () => false, defaultYes: true
+        content: `
+          <h2>Final Hand</h2>
+          <p><strong>Final Hands</strong> are now discoverable. Mark this as acknowledged?</p>
+        `,
+        buttons: {
+          yes: { label: this._mgBtn("Acknowledge", "fa-check-double"), callback: () => true },
+          no:  { label: this._mgBtn("Later", "fa-clock"), callback: () => false }
+        },
+        default: "yes"
       });
       if (ok) { try { await actor.mgSpendPending("ack-finalhand"); } catch (e) {} }
     }
@@ -1512,8 +1753,13 @@ export class MidnightGambitActorSheet extends ActorSheet {
     if ((pending = await readPending()).moves > 0) {
       await Dialog.wait({
         title: "Choose New Move",
-        content: `<p>You have <strong>${pending.moves}</strong> unspent move(s). Head to your Moves area and add one; the pending counter will remain until you finalize. (A proper picker is coming.)</p>`,
-        buttons: { ok: { label: "Okay" } }
+        content: `
+          <h2>Choose New Move</h2>
+          <p>You have <strong>${pending.moves}</strong> unspent move(s). Head to your Moves area and add one; the pending counter will remain until you finalize. (A proper picker is coming.)</p>
+        `,
+        buttons: {
+          ok: { label: this._mgBtn("Okay", "fa-thumbs-up") }
+        }
       });
     }
 
@@ -1628,18 +1874,26 @@ export class MidnightGambitActorSheet extends ActorSheet {
 
         /* Choose Spark Schools prompt
         ----------------------------------------------------------------------*/
-        await Dialog.prompt({
+        await Dialog.wait({
           title: "Choose Spark School(s)",
-          content: form.outerHTML,
-          callback: () => {
-            const selected1 = document.querySelector('[name="sparkSchool1"]')?.value || "";
-            sparkSchool1 = selected1;
+          content: `
+            <h2>Choose Spark School(s)</h2>
+            ${form.outerHTML}
+          `,
+          buttons: {
+            ok: { label: this._mgBtn("Confirm", "fa-check"), callback: () => {
+              const selected1 = document.querySelector('[name="sparkSchool1"]')?.value || "";
+              sparkSchool1 = selected1;
 
-            if (["full", "caster"].includes(casterType)) {
-              const selected2 = document.querySelector('[name="sparkSchool2"]')?.value || "";
-              sparkSchool2 = selected2;
-            }
+              if (["full", "caster"].includes(casterType)) {
+                const selected2 = document.querySelector('[name="sparkSchool2"]')?.value || "";
+                sparkSchool2 = selected2;
+              }
+              return true;
+            }},
+            cancel: { label: this._mgBtn("Cancel", "fa-circle-xmark"), callback: () => false }
           },
+          default: "ok",
           render: (html) => {
             if (["full", "caster"].includes(casterType)) {
               const select1El = html[0].querySelector('[name="sparkSchool1"]');
@@ -1652,8 +1906,7 @@ export class MidnightGambitActorSheet extends ActorSheet {
                 });
               });
             }
-          },
-          rejectClose: false
+          }
         });
       }
 
@@ -1739,18 +1992,7 @@ export class MidnightGambitActorSheet extends ActorSheet {
       // 4) Create on actor
       const [embedded] = await this.actor.createEmbeddedDocuments("Item", [moveDoc]);
 
-      // 5) If you are using pending "move" picks on level-up, we can try to consume one
-      //    Safely attempt; if your actor doesn't support it yet, we just ignore.
-      try {
-        if (typeof this.actor.mgSpendPending === "function") {
-          await this.actor.mgSpendPending("move", { itemId: embedded.id });
-        }
-      } catch (e) {
-        // Non-fatal — you can wire mgSpendPending("move") later in actor.js
-        console.warn("mgSpendPending(move) not applied:", e);
-      }
-
-      // 6) Nice feedback + refresh
+      // 5) Nice feedback + refresh
       ui.notifications.info(`Learned Move added: ${embedded.name}`);
       this.render(false);
       return [];

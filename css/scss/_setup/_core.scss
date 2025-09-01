@@ -64,7 +64,8 @@ input[type="text"], input[type="number"], input[type="password"], input[type="da
 }
 
 button,
-form button {
+form button,
+.dialog-button {
   background: $mg-blue-3;
   color: $mg-ivory;
   @include oswald();
@@ -269,7 +270,8 @@ form button {
       color: $mg-ivory;
       font-weight: 700;
       font-style: italic;
-      line-height: 1.1;
+      font-size: 1rem;
+      line-height: 1.3;
       @include mg-border();
       padding: .5625rem 1.125rem;
       border-radius: .5rem;
@@ -284,6 +286,7 @@ form button {
         background: $mg-blue-3;
         padding: .625rem;
         border-radius: .5rem;
+        align-self: flex-start;
       }
     }
 
@@ -343,7 +346,6 @@ form button {
     font-style: italic;
     letter-spacing: .02em;
     text-transform: uppercase;
-    font-weight: 400;
   }
 
   .nue {

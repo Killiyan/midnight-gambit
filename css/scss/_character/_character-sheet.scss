@@ -5,6 +5,15 @@ h1,h2,h3,h4 {
 	font-size: 1rem;
 }
 
+.sheet-body {
+  h2 {
+    padding-bottom: .75rem;
+    @include oswald();
+    font-size: 1.25rem;
+    font-style: italic;
+  }
+}
+
 /*Window Styling
 ==============================================================================*/
 
@@ -28,9 +37,9 @@ h1,h2,h3,h4 {
     color: $mg-blue-2;
     @include roboto();
 
-  .notes {
-    color: $mg-blue-2;
-  }
+    .notes {
+      color: $mg-blue-2;
+    }
 
     label {
       color: $mg-ivory;
@@ -89,6 +98,14 @@ h1,h2,h3,h4 {
        color: $mg-blue-2;
        transition: color .5s ease;
     }
+  }
+
+  &.dialog {
+
+    .window-content {
+      padding: 0 1.125rem 1.125rem 1.125rem;
+    }
+
     .dialog-content {
       gap: 1.125rem;
 
@@ -117,24 +134,16 @@ h1,h2,h3,h4 {
         border-radius: .5rem;
         transition: background 0.5s ease, color 0.5s ease, box-shadow .5s ease;
 
-        &:hover {
+        &:hover,
+        &:focus {
           background: $mg-blue-1;
           color: $mg-blue-main-2;
           box-shadow: 0 0 .5rem $mg-ivory;
 
           i {
-            color: $mg-blue-main;
+            color: $mg-blue-3;
           }
         }
-
-        &:focus {
-          box-shadow: none;
-        }
-
-          i {
-            color: $mg-ivory;
-            transition: color 0.5s ease;
-          }
       }
     }
   }
@@ -565,10 +574,14 @@ h1,h2,h3,h4 {
       border-radius: 0 0 .5rem .5rem;
 
       .skill-row {
-        border-bottom: 2px solid $mg-blue-main-2;
+        border-bottom: 1px solid $mg-blue-main-2;
         padding: 1.25rem 0 1.25rem 1.25rem;
         display: flex;
         align-items: center;
+
+        &:nth-last-of-type(-n+2) {
+          border: none;
+        }
 
         .skill-name {
           color: $mg-blue-1;
@@ -578,6 +591,32 @@ h1,h2,h3,h4 {
           text-transform: capitalize;
           display: flex;
           flex-direction: column;
+          width: auto;
+          transition: color .5s ease;
+          position: relative;
+
+          &:hover,
+          &:focus {
+            color: rgba($mg-blue-1, .65);
+
+            &:after {
+              right: -1.5rem;
+              opacity: 1;
+            }
+          }
+
+          &:after {
+            font-family: "Font Awesome 6 Pro";
+            content: '\f522';
+            color: rgba($mg-blue-1, .65);
+            position: absolute;
+            right: 0;
+            top: 0;
+            opacity: 0;
+            transition: right .5s ease, opacity .5s ease;
+            width: auto;
+            height: auto;
+          }
 
           .skill-key {
             font-weight: 700;
@@ -640,6 +679,7 @@ h1,h2,h3,h4 {
 
       h3 {
         @include oswald();
+        text-transform: uppercase;
         font-weight: 700;
         font-style: italic;
         font-size: 1.25rem;
@@ -654,6 +694,7 @@ h1,h2,h3,h4 {
         .post-signature {
           display: flex;
           gap: .625rem;
+          align-items: center;
         }
 
         &:hover {
@@ -705,6 +746,7 @@ h1,h2,h3,h4 {
 
         .post-move {
           @include oswald();
+          text-transform: uppercase;
           font-weight: 700;
           font-style: italic;
           font-size: 1.25rem;
@@ -715,6 +757,7 @@ h1,h2,h3,h4 {
           color: $mg-ivory;
           border-radius: .5rem .5rem 0 0;
           display: flex;
+          align-items: center;
           gap: .625rem;
           transition: color .5s ease, background .5s ease;
 
@@ -754,6 +797,7 @@ h1,h2,h3,h4 {
 
         .move-block {
           background: rgba(0,0,0,.15);
+          overflow: hidden;
 
           .move-desc {
             line-height: 1.8;
@@ -771,6 +815,19 @@ h1,h2,h3,h4 {
             margin: 0;
             border-radius: 0 0 .5rem .5rem;
             background: $mg-blue-main-2;
+
+            i {
+              color: $mg-blue-2;
+            }
+
+            &:hover,
+            &:focus {
+              background: $mg-blue-1;
+
+              i {
+                color: $mg-blue-main-2;
+              }
+            }
           }
         }
       }
@@ -1307,34 +1364,35 @@ h1,h2,h3,h4 {
 .gambit-hand,
 .gambit-deck {
   border: 2px dashed transparent;
+  outline: 2px dashed transparent;
+  outline-offset: -4px;
+  transition: all 0.5s ease;
 }
 
 .gambit-hand.drag-over,
 .gambit-deck.drag-over {
   border-color: #aaa;
-  background-color: rgba(255, 255, 255, 0.05);
+  background-color: rgba(0, 0, 0, 0.05);
 }
 
 .gambit-deck.drag-hover,
 .gambit-hand.drag-hover {
-  outline: 2px dashed var(--color-border-highlight, #fffa);
-  outline-offset: -4px;
-  background-color: rgba(255, 255, 255, 0.05);
-  box-shadow: 0 0 12px rgba(255, 255, 255, 0.2);
-  transition: all 0.2s ease;
+  outline: 2px dashed $mg-blue-1;
+  background-color: rgba(0, 0, 0, 0.05);
+  box-shadow: 0 0 12px $mg-blue-1;
 }
 
 .gambit-card:hover {
   transform: scale(1.05);
-  box-shadow: 0 0 8px rgba(255, 255, 255, 0.3);
-  transition: all 0.2s ease;
+  box-shadow: 0 8px $mg-blue-1;
   cursor: grab;
 }
 
 .gambit-description {
-  font-size: 0.85rem;
-  color: #ccc;
+  font-size: 1rem;
+  color: $mg-ivory;
   margin-top: 0.25rem;
+  line-height: 1.5;
 }
 
 .gambit-tab {
@@ -1345,25 +1403,34 @@ h1,h2,h3,h4 {
   .gambit-hand,
   .gambit-deck,
   .gambit-discard {
-    min-height: 2rem;
+    position: relative;
+    min-height: 17rem;
     background: $mg-blue-main;
     border-radius: .5rem;
     @include mg-border();
-    padding: 1.125rem;
+    padding: 2.125rem 2.125rem 2.125rem 5.125rem;
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 2.125rem;
     margin-bottom: 2.125rem;
+    overflow: hidden;
 
     .gambit-card{
-      padding: 1.125rem;
-      background: $mg-blue-main-2;
+      background: rgba(0,0,0,.15);
       @include mg-border();
       border-radius: .5rem;
       display: flex;
       flex-direction: column;
-      gap: 1.125rem;
       transition: transform .5s ease, background .5s ease, color .5s ease, font-size .5s ease, box-shadow .5s ease;
+
+      .gambit-wrapper {
+        padding: 1.125rem 3rem;
+        display: flex;
+        flex-direction: column;
+        gap: 2.125rem;
+        height: 100%;
+        justify-content: space-between;
+      }
 
       &:hover {
         transform: scale(1.05);
@@ -1374,6 +1441,7 @@ h1,h2,h3,h4 {
       &.faded {
         opacity: .6;
         background: $mg-blue-main;
+        padding: 1.125rem;
 
         &:hover {
           transform: none;
@@ -1390,40 +1458,81 @@ h1,h2,h3,h4 {
         }
       }
 
-      .gambit-title {
-        @include oswald();
-        font-size: 1.25rem;
-        text-transform: uppercase;
-        font-style: italic;
-        font-weight: 700;
+      .gambit-title button {
+          @include oswald();
+          font-weight: 700;
+          font-style: italic;
+          font-size: 1.25rem;
+          line-height: 1.1;
+          padding:  1.25rem;
+          border-radius: .5rem .5rem 0 0;
+          display: flex;
+          gap: .625rem;
+          transition: color .5s ease, background .5s ease;
+          border: none;
+          margin: 0;
+          background: $mg-blue-main-2;
+          color: $mg-blue-2;
+
+          &:hover,
+          &:focus {
+            background: $mg-blue-1;
+            color: $mg-blue-main;
+          }
       }
 
       .status-buttons {
         display: flex;
         gap: .75rem;
 
+        button {
+          border: none;
+        }
+
         .remove-from-hand {
           background: rgba(0,0,0, .15);
+
+          i {
+            color: $mg-blue-3;
+          }
         }
       }
     }
   }
 
-  .draw-gambit {
-    margin-bottom: 2.125rem;
-  }
-
-  h2 {
+  .gambit-banner {
+    font-style: normal;
+    writing-mode: vertical-lr;
+    text-orientation: upright;
+    letter-spacing: -.2em;
+    position: absolute;
+    height: 100%;
+    width: 3rem;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    background: $mg-blue-main-2;
     border: none;
-    border-bottom: 1px solid $mg-blue-main-2;
-    margin: 2.125rem 0;
-    padding-bottom: .75rem;
     @include oswald();
     font-size: 1.25rem;
+    color: $mg-ivory;
+    text-transform: uppercase;
+    padding: 2.125rem 0;
+    font-weight: 700;
+  }
 
-    &:first-of-type {
-      margin-top: 0;
-    }
+  .gambit-settings {
+    display: flex;
+    gap: 2.125rem;
+    justify-content: center;
+    margin-top: -4.5rem;
+    margin-bottom: 2.125rem;
+    position: relative;
+    z-index: 10;
+    padding: 2rem 1rem;
+    background-color: $mg-blue-main;
+    @include mg-border();
+    border-radius: .625rem;
   }
 
 }
@@ -1530,12 +1639,41 @@ h1,h2,h3,h4 {
 
 .settings-tab {
   .level-controls {
+    display: flex;
+    gap: 2.125rem;
+    justify-content: center;
+    margin-top: -4.5rem;
+    margin-bottom: 2.125rem;
+    position: relative;
+    z-index: 10;
+    padding: 2rem 1rem;
+    background-color: $mg-blue-main;
+    @include mg-border();
+    border-radius: .625rem;
 
     button.disabled {
       background-color: $mg-blue-4;
       pointer-events: none;
       border-color: $mg-blue-4;
       color: $mg-blue-main-2;
+    }
+  }
+
+  .mg-pending-banner {
+    background-color: $mg-blue-main;
+    @include mg-border();
+    border-radius: .625rem;
+    position: absolute;
+    top: 26%;
+    left: 36%;
+    z-index: 10;
+    padding: 2rem 1rem;
+
+    h2 {
+      border-bottom: 1px solid $mg-blue-main-2;
+      padding-bottom: .75rem;
+      @include oswald();
+      font-size: 1.25rem;
     }
   }
 }
@@ -1545,3 +1683,35 @@ h1,h2,h3,h4 {
   outline-offset: 4px;
   background: rgba(255,255,255,0.05);
 }
+
+.dialog .dialog-buttons button i.fa-solid { margin-left: 0.4em; }
+
+/* Settings tab glow */
+nav.sheet-tabs .mg-pending-glow {
+  position: relative;
+  animation: mgGlow 1.5s ease-in-out infinite;
+  box-shadow: 0 0 0.6rem rgba(255, 183, 0, 0.85), inset 0 0 0.2rem rgba(255, 183, 0, 0.6);
+  border-radius: 0.4rem;
+}
+
+@keyframes mgGlow {
+  0%, 100% { box-shadow: 0 0 0.2rem rgba(255,183,0,.6), inset 0 0 0.15rem rgba(255,183,0,.4); }
+  50%      { box-shadow: 0 0 0.9rem rgba(255,183,0,.95), inset 0 0 0.25rem rgba(255,183,0,.7); }
+}
+
+/* Tiny count badge on the tab */
+nav.sheet-tabs .mg-pending-badge {
+  display: inline-block;
+  margin-left: 0.35rem;
+  min-width: 1.1rem;
+  padding: 0 0.35rem;
+  font-size: 0.75rem;
+  line-height: 1.1rem;
+  text-align: center;
+  border-radius: 0.6rem;
+  background: #ffb700;
+  color: #1b1b1b;
+  font-weight: 700;
+}
+
+
