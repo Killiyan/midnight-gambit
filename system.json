@@ -7,7 +7,7 @@
   "description": "A custom system for high-stakes narrative action.",
   "esmodules": ["midnight-gambit.js"],
   "manifest": "https://raw.githubusercontent.com/Killiyan/midnight-gambit/main/system.json",
-  "download": "https://github.com/Killiyan/midnight-gambit/releases/download/v1.0.5/midnight-gambit.zip",
+  "download": "https://github.com/Killiyan/midnight-gambit/releases/download/v1.0.6/midnight-gambit.zip",
   "url": "https://github.com/Killiyan/midnight-gambit/",
   "styles": [
     "css/style.css",
