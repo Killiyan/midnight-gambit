@@ -19,27 +19,75 @@ export class MGInitiativeBar extends Application {
   }
 
   /** Public helpers */
-  showBar() { this.render(true); this._ensureAttached(); }
+  // We do NOT use Application's render/template; we mount our own DOM.
+  showBar() { this._ensureAttached(); }
   hideBar() { this._detach(); }
   toggleBar() { (this._attached ? this.hideBar() : this.showBar()); }
+
+  // (Optional safety) NOP out Application.render so nothing upstream tries to template-render us.
+  async render() { return this; }
+
 
   /** Internal state */
   _attached = false;
   _drag = { active: false, dx: 0, dy: 0 };
 
+  // Null-safe: find the current Crew actor
+  _resolveCrewActor() {
+    let crew = null;
+
+    // Preferred: world setting by Actor ID
+    try {
+      const id = game.settings.get("midnight-gambit", "crewActorId");
+      if (id) crew = game.actors.get(id) || null;
+    } catch (_) {}
+
+    // Legacy: world setting by Actor UUID string (e.g., "Actor.ABC123")
+    if (!crew) {
+      let legacy = null;
+      try { legacy = game.settings.get("midnight-gambit", "activeCrewUuid"); } catch (_) {}
+      if (typeof legacy === "string" && legacy.indexOf("Actor.") === 0) {
+        const id = legacy.split(".")[1];
+        crew = game.actors.get(id) || null;
+      }
+    }
+
+    // Fallback: any crew actor (if you only ever have one, this covers it)
+    if (!crew) {
+      crew = game.actors.find(a => a.type === "crew") || null;
+    }
+    return crew;
+  }
+
   /** Try Crew flag first, else fallback to player characters */
   getOrderActorIds() {
-    // Expect a Crew Actor id in a system setting, then a flag array for order
-    const crewId = game.settings.get("midnight-gambit", "crewActorId") || null;
-    const crew   = crewId ? game.actors.get(crewId) : null;
-    const fromFlag = crew?.getFlag("midnight-gambit", "initiativeOrder");
-    if (Array.isArray(fromFlag) && fromFlag.length) return fromFlag.filter(id => game.actors.get(id));
+    // 1) Resolve Crew actor
+    const crew = this._resolveCrewActor();
 
-    // Fallback: all player-controlled character actors (owned or playerOwner)
+    // 2) Prefer Crew flag: array of Actor IDs
+    const fromFlag = crew?.getFlag("midnight-gambit", "initiativeOrder");
+    if (Array.isArray(fromFlag) && fromFlag.length) {
+      return fromFlag.filter(id => !!game.actors.get(id));
+    }
+
+    // 3) Fallback: Crew system initiative (UUIDs) -> Actor IDs
+    const uuids = crew?.system?.initiative?.order ?? [];
+    if (Array.isArray(uuids) && uuids.length) {
+      const ids = uuids
+        .map(u => (typeof u === "string" && u.indexOf("Actor.") === 0) ? u.split(".")[1] : null)
+        .filter(id => id && game.actors.get(id));
+      if (ids.length) return ids;
+    }
+
+    // 4) Final fallback: owned player characters
     return game.actors
-      .filter(a => a.type === "character" && (a.isOwner || Object.values(a.ownership || {}).some(x => x >= CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER)))
+      .filter(a =>
+        a.type === "character" &&
+        (a.isOwner || Object.values(a.ownership || {}).some(x => x >= CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER))
+      )
       .map(a => a.id);
   }
+
 
   /** Build minimal HTML (no template needed) */
   _buildHTML() {
@@ -56,12 +104,21 @@ export class MGInitiativeBar extends Application {
       <div class="mg-ini-header" data-drag-handle>
         <span class="mg-ini-title"><i class="fa-solid fa-flag-checkered"></i> Initiative</span>
         <div class="mg-ini-actions">
-          <button class="mg-ini-btn mg-ini-reset" title="Reset to start"><i class="fa-solid fa-rotate-left"></i></button>
-          <button class="mg-ini-btn mg-ini-close" title="Close"><i class="fa-solid fa-xmark"></i></button>
+          <button type="button" class="mg-ini-btn mg-ini-next" title="End Turn (advance)">
+            <i class="fa-solid fa-forward-step"></i>
+          </button>
+          <button type="button" class="mg-ini-btn mg-ini-reset" title="Reset to start">
+            <i class="fa-solid fa-rotate-left"></i>
+          </button>
+          <button type="button" class="mg-ini-btn mg-ini-close" title="Close">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
         </div>
       </div>
       <div class="mg-ini-row" aria-live="polite"></div>
     `;
+    
+
 
     const row = wrap.querySelector(".mg-ini-row");
     ids.forEach((id) => {
@@ -70,57 +127,122 @@ export class MGInitiativeBar extends Application {
       const isActive = id === activeId;
 
       const el = document.createElement("button");
+      el.type = "button";
       el.className = "mg-ini-slot" + (isActive ? " is-active" : "");
       el.dataset.actorId = id;
       el.title = `${actor.name} — End Turn`;
       el.innerHTML = `
         <div class="mg-ini-portrait" style="background-image:url('${actor.img}');"></div>
         <span class="mg-ini-name">${actor.name}</span>
-        <span class="mg-ini-badge" aria-hidden="true">End</span>
       `;
       row.appendChild(el);
     });
 
-    // Drag move
-    wrap.querySelector("[data-drag-handle]").addEventListener("pointerdown", (ev) => this._onDragStart(ev, wrap));
-    // Close / Reset
-    wrap.querySelector(".mg-ini-close").addEventListener("click", () => this.hideBar());
-    wrap.querySelector(".mg-ini-reset").addEventListener("click", () => this._resetOrder());
-    // End Turn clicks
-    row.addEventListener("click", (ev) => {
-      const slot = ev.target.closest(".mg-ini-slot");
-      if (slot) this._endTurn(slot);
+    wrap.querySelector(".mg-ini-next").addEventListener("click", () => {
+      const first = wrap.querySelector(".mg-ini-slot");
+      if (!first) {
+        ui.notifications?.warn("No actors in Initiative to advance.");
+        return;
+      }
+      this._endTurn();
     });
+
+    // Drag move
+    wrap.querySelector("[data-drag-handle]").addEventListener("pointerdown", (ev) => {
+      if (ev.button !== 0) return; // only left-click
+      // If the pointerdown is on any interactive control, don't start a drag
+      if (ev.target.closest(".mg-ini-actions, .mg-ini-btn, button, a, input, select, textarea")) return;
+      this._onDragStart(ev, wrap);
+    });
+
 
     return wrap;
   }
+
+  /** Bind all UI events via delegation on the root node */
+  _bindRootEvents() {
+    if (!this._root) return;
+
+    // Stop clicks inside from bubbling to the canvas
+    this._root.addEventListener("click", (ev) => ev.stopPropagation());
+    this._root.addEventListener("contextmenu", (ev) => ev.stopPropagation());
+
+    // Header buttons (close / reset / next)
+    this._root.addEventListener("click", (ev) => {
+      const close = ev.target.closest(".mg-ini-close");
+      if (close) { ev.preventDefault(); this.hideBar(); return; }
+
+      const reset = ev.target.closest(".mg-ini-reset");
+      if (reset) { ev.preventDefault(); this._resetOrder(); return; }
+
+      const next = ev.target.closest(".mg-ini-next");
+      if (next) {
+        ev.preventDefault();
+        const first = this._root.querySelector(".mg-ini-slot");
+        if (!first) { ui.notifications?.warn("No actors in Initiative to advance."); return; }
+        this._endTurn();
+        return;
+      }
+    });
+
+    // Click a portrait -> select token (does NOT end turn)
+    this._root.addEventListener("click", (ev) => {
+      const slot = ev.target.closest(".mg-ini-slot");
+      if (!slot) return;
+      const actor = game.actors.get(slot.dataset.actorId);
+      const token = canvas.tokens.placeables.find(t => t.actor?.id === actor?.id);
+      if (token) token.control({ releaseOthers: true });
+    });
+  }
+
 
   /** Active is simply the first element in the order array */
   _getActiveId(ids) { return ids[0] || null; }
 
   /** Animate current to end */
-  async _endTurn(slot) {
-    // Only allow if clicked active or GM; clicking non-active still advances (keeps table fast)
-    const row = this._root.querySelector(".mg-ini-row");
+  async _endTurn() {
+    const row = this._root?.querySelector(".mg-ini-row");
     if (!row) return;
 
-    slot.classList.add("is-leaving");
-    // Wait for CSS transition to complete
-    const done = new Promise((res) => slot.addEventListener("transitionend", res, { once: true }));
-    // Kick the transition
-    requestAnimationFrame(() => slot.style.transform = "translateX(32px) scale(0.9)");
-    await done.catch(() => {});
+    const slot = row.querySelector(".mg-ini-slot");
+    if (!slot) return;
 
-    // Move to end
-    slot.classList.remove("is-active", "is-leaving");
-    slot.style.transform = "";
+    // 1) LEAVE: slide down & fade
+    slot.classList.add("is-leaving");
+    await this._afterTransition(slot).catch(() => {});
+
+    // 2) Move to end
+    slot.classList.remove("is-leaving");
     row.appendChild(slot);
 
-    // Update Crew flag order if available
-    this._persistCurrentOrder();
-    // Re-mark first as active
+    // 3) ENTER: spawn at slight offset above, then settle
+    slot.classList.add("is-entering");
+    slot.style.transform = "translateY(-18px)";
+    slot.style.opacity = "0";
+    // next frame → animate in
+    requestAnimationFrame(() => {
+      slot.style.transform = "translateY(0)";
+      slot.style.opacity = "1";
+    });
+    await this._afterTransition(slot).catch(() => {});
+    slot.classList.remove("is-entering");
+    slot.style.transform = "";
+    slot.style.opacity = "";
+
+    // Persist & mark first
+    await this._persistCurrentOrder();
     this._markActiveFirst();
   }
+
+  // Small helper to await the end of the CSS transition
+  _afterTransition(el) {
+    return new Promise((res) => {
+      const onEnd = () => { el.removeEventListener("transitionend", onEnd); res(); };
+      el.addEventListener("transitionend", onEnd, { once: true });
+      // Safety timer in case transition doesn't fire
+      setTimeout(res, 300);
+    });
+}
 
   _markActiveFirst() {
     const slots = [...this._root.querySelectorAll(".mg-ini-slot")];
@@ -155,6 +277,7 @@ export class MGInitiativeBar extends Application {
     this._attached = true;
     this._placeDefault();
     this._wireLiveRefresh();
+    this._bindRootEvents();
   }
 
   _detach() {
@@ -237,14 +360,9 @@ Hooks.once("ready", () => {
   const css = document.createElement("style");
   css.textContent = `
   .mg-initiative {
-    position: absolute; z-index: 75;
-    min-width: 420px; max-width: 80vw;
-    background: var(--mg-panel-bg, rgba(10,12,16,.75));
-    backdrop-filter: blur(6px);
-    border: 1px solid var(--mg-panel-br, rgba(255,255,255,.08));
-    border-radius: 16px; box-shadow: 0 10px 24px rgba(0,0,0,.35);
-    padding: 10px 10px 12px;
-    user-select: none;
+    position: fixed;
+    z-index: 32;
+    pointer-events: auto;
   }
   .mg-ini-header {
     display:flex; align-items:center; justify-content:space-between;
@@ -263,15 +381,16 @@ Hooks.once("ready", () => {
     background: rgba(255,255,255,.04);
     border: 1px solid rgba(255,255,255,.08);
     border-radius: 12px; padding: 6px 10px;
-    transition: transform .35s ease, opacity .35s ease, box-shadow .2s ease;
+    transition: transform .25s ease, opacity .25s ease, box-shadow .2s ease;
     will-change: transform, opacity;
-    cursor: pointer;
+    cursor: default; /* portraits no longer advance turns */
   }
   .mg-ini-slot.is-active {
     box-shadow: 0 0 0 2px var(--mg-blue, #57A2FF) inset, 0 0 18px rgba(87,162,255,.25);
   }
-  .mg-ini-slot:is(:hover,:focus) { transform: translateY(-2px); }
-  .mg-ini-slot.is-leaving { opacity: .4; }
+  .mg-ini-slot.is-leaving { transform: translateY(18px); opacity: 0; }
+  .mg-ini-slot.is-entering { /* initial inline styles set in JS; class is just a hook if you want extra styling */ }
+
   .mg-ini-portrait {
     width: 36px; height: 36px; border-radius: 999px; background-size: cover; background-position: center;
     border: 1px solid rgba(255,255,255,.15); box-shadow: 0 2px 6px rgba(0,0,0,.35) inset;

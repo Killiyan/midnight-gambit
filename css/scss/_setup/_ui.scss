@@ -315,14 +315,6 @@
 	}
 }
 
-/* MG: hide core Combat UI when setting is enabled — CSS fallback */
-body.system-midnight-gambit[data-hide-core-combat="true"] {
-  .sidebar-tabs .item[data-tab="combat"],
-  .sidebar .tab[data-tab="combat"] {
-    display: none !important;
-  }
-}
-
 /* existing (you likely already have this; keep it) */
 .mg-initiative-root .mg-slot.mg-slide-out {
   transition: transform .35s ease, opacity .35s ease;
@@ -339,6 +331,17 @@ body.system-midnight-gambit[data-hide-core-combat="true"] {
   animation: mg-slide-in .35s ease;
 }
 
+.mg-initiative {
+	background: rgba($mg-blue-4, .45);
+	@include mg-border();
+	border-radius: .625rem;
+	backdrop-filter: blur(4px);
+	box-shadow: 0 2px 12px rgba(0,0,0,0.25);
+}
+
+
+/* Sidebar Styling
+----------------------------------------------------------------------*/
 .system-midnight-gambit #controls {
 	.scene-control,
 	.sub-controls .control-tool {
