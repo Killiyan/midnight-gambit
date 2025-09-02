@@ -288,6 +288,7 @@ form button,
       display: flex;
       align-items: center;
       gap: 0.5rem;
+      text-transform: uppercase;
 
       i {
         display: block;
@@ -310,7 +311,7 @@ form button,
 
     .roll-container strong {
       @include oswald();
-      font-size: 1.125rem;
+      font-size: 1rem;
       color: $mg-blue-2;
       font-weight: 700;
       font-style: italic;
@@ -321,6 +322,7 @@ form button,
         align-items: center;
         gap: .625rem;
         margin-top: .625rem;
+        text-transform: uppercase;
 
         strong {
           color: $mg-ivory;
@@ -601,6 +603,7 @@ form button,
       display: flex;
       align-items: center;
       gap: 0.5rem;
+      text-transform: uppercase;
 
       i {
         display: block;
@@ -622,7 +625,7 @@ form button,
 
     .roll-container strong {
       @include oswald();
-      font-size: 1.125rem;
+      font-size: 1rem;
       color: $mg-blue-2;
       font-weight: 700;
       font-style: italic;
@@ -633,6 +636,7 @@ form button,
         align-items: center;
         gap: .625rem;
         margin-top: .625rem;
+        text-transform: uppercase;
 
         strong {
           color: $mg-ivory;

@@ -155,8 +155,17 @@ export class MidnightGambitActorSheet extends ActorSheet {
     /** Binds event listeners after rendering. This is the Event listener for most the system*/
     activateListeners(html) {
       super.activateListeners(html);
-      // --- Permission-gated tabs: non-owners only see the first tab ---
-      this._mgRestrictTabsForNonOwners(html);
+
+      // Owner / GM? Full interactivity. Otherwise: view-only and bail out.
+      const isOwner = this.actor?.testUserPermission?.(game.user, "OWNER") || game.user.isGM;
+      if (!isOwner) {
+        // (If you pasted the tab-hiding helper earlier, keep this call. If not, it's safe to ignore.)
+        if (typeof this._mgRestrictTabsForNonOwners === "function") {
+          this._mgRestrictTabsForNonOwners(html);
+        }
+        this._mgMakeReadOnly(html);
+        return; // IMPORTANT: don’t register any of the interactive listeners below
+      }
 
 
       // Dynamically apply .narrow-mode based on sheet width
@@ -1465,6 +1474,69 @@ export class MidnightGambitActorSheet extends ActorSheet {
     
   //END EVENT LISTENERS
   //---------------------------------------------------------------------------------------------------------------------------
+
+  // --- Read-only mode for non-owners: block clicks, rolls, inputs, drags ---
+  _mgMakeReadOnly(html) {
+    const $root = html instanceof jQuery ? html : $(html);
+
+    // Disable form controls (but keep scrolling)
+    $root.find('input:not([type="hidden"]), select, textarea, button').prop('disabled', true);
+    $root.find('[contenteditable="true"]').attr('contenteditable', 'false');
+
+    // Remove draggable affordances
+    $root.find('[draggable="true"]').attr('draggable', 'false');
+
+    // Any interactive selectors we want to neuter (rolls, toggles, etc.)
+    const hotSelectors = [
+      ".strain-dot",
+      ".risk-dot",
+      ".flashback-dot",
+      ".load-icon",
+      ".draw-gambit",
+      ".discard-card",
+      ".remove-from-hand",
+      ".post-move",
+      ".post-signature",
+      ".spark-dot",
+      ".capacity-box input",
+      ".remove-guise",
+      ".attribute-modifier",
+      ".skill-name", ".skill-value",
+      ".repair-armor",
+      ".item-delete",
+      ".clickable-item",
+      ".post-weapon-tags", ".post-armor-tags", ".post-misc-tags",
+      ".sync-tags",
+      ".reset-gambit-deck",
+      ".post-gambit",
+      ".play-gambit",
+      ".gambit-hand-card",
+      "[data-roll]", ".rollable", ".inline-roll"
+    ].join(", ");
+
+    // Intercept events so existing handlers never fire
+    const block = (ev) => {
+      // Allow normal links (e.g., to open compendium entries) to still work
+      const el = ev.target;
+      const allowLink = el.closest?.("a[href]") != null;
+      if (allowLink) return;
+      ev.stopImmediatePropagation();
+      ev.stopPropagation();
+      ev.preventDefault();
+      return false;
+    };
+
+    $root.on("click.mgLock", hotSelectors, block);
+    $root.on("dblclick.mgLock", hotSelectors, block);
+    $root.on("contextmenu.mgLock", hotSelectors, block);
+    $root.on("dragstart.mgLock", hotSelectors, block);
+    $root.on("keydown.mgLock", hotSelectors, (ev) => {
+      if (ev.key === "Enter" || ev.key === " ") block(ev);
+    });
+
+    // Optional: add a class for styling "read-only" visuals if you want
+    $root.addClass("mg-view-only");
+  }
 
   /* If the current user is not an owned of this Actor, only show the first tab.
   This hides the extra tab buttons and their panels in the DOM

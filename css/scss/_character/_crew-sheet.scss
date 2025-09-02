@@ -12,7 +12,7 @@
 			position: relative;
 
 			&:before {
-				background:radial-gradient(95.16% 48.16% at 50% 65.69%, rgba(37, 66, 108, 0.00) 55.35%, #25426C 100%), url(<path-to-image>) transparent 50% / cover no-repeat;
+				background:radial-gradient(95.16% 42.16% at 50% 65.69%, rgba(37, 66, 108, 0.00) 55.35%, #25426C 100%), url(<path-to-image>) transparent 50% / cover no-repeat;
 				content: '';
 				position: absolute;
 				top: 0;
@@ -64,13 +64,14 @@
 
 			.mg-splash-strip {
 				display: flex;
-				height: 30rem;
+				height: 22rem;
 
 				.mg-splash-portrait {
 					flex: 1 0 0;
 					min-width: 0;
 					height: 100%;
 					object-fit: cover;
+					object-position: top;
 					display: block;
 					border: none;
 					padding-top: 5rem;
