@@ -145,14 +145,74 @@ Hooks.once("init", () => {
     default: "circle"
   });
 
-
-
   // --- Crew Sheet registration ---
   Actors.registerSheet("midnight-gambit", MidnightGambitCrewSheet, {
     types: ["crew"],
     makeDefault: true
   });
+
+  const reg = game.settings.settings;
+  // Crew Actor ID used by Initiative bar and "Open Crew Sheet"
+  if (!reg.has("midnight-gambit.crewActorId")) {
+    game.settings.register("midnight-gambit", "crewActorId", {
+      name: "Crew Actor (Initiative Source)",
+      hint: "Actor ID for the active Crew/Party. Set from the Crew sheet via 'Link to Initiative Bar'.",
+      scope: "world",
+      config: false,          // hidden from UI (you already control it in-sheet)
+      type: String,
+      default: ""
+    });
+  }
+  // Legacy setting some older snippets wrote; keep it for back-compat
+  if (!reg.has("midnight-gambit.activeCrewUuid")) {
+    game.settings.register("midnight-gambit", "activeCrewUuid", {
+      name: "Legacy Active Crew UUID",
+      scope: "world",
+      config: false,
+      type: String,
+      default: ""
+    });
+  }
 });
+
+/* Get Crew Sheet Helper
+==============================================================================================================================================*/
+function mgGetSettingSafe(module, key) {
+  try { return game.settings.get(module, key); } catch { return null; }
+}
+
+// Resolve the current Crew actor we should open
+async function mgResolveCurrentCrewActor() {
+  // 1) Preferred: world setting by Actor ID
+  const id = mgGetSettingSafe("midnight-gambit", "crewActorId");
+  if (id) {
+    const a = game.actors.get(id);
+    if (a) return a;
+  }
+
+  // 2) Legacy: world setting by Actor UUID
+  const legacy = mgGetSettingSafe("midnight-gambit", "activeCrewUuid");
+  if (legacy) {
+    try {
+      const doc = await fromUuid(legacy);
+      if (doc?.documentName === "Actor") return doc;
+    } catch (_) {}
+  }
+
+  // 3) Scene flag fallback (useful if you ever store per-scene Crew)
+  const sceneCrewId = canvas?.scene?.getFlag("midnight-gambit", "crewActorId");
+  if (sceneCrewId) {
+    const a = game.actors.get(sceneCrewId);
+    if (a) return a;
+  }
+
+  // 4) Last resort: first Actor of type "crew"
+  const anyCrew = game.actors.find(a => a.type === "crew");
+  if (anyCrew) return anyCrew;
+
+  return null;
+}
+
 
 
 /* MG Clock functions - renders for all but only GM can edit
@@ -1578,7 +1638,7 @@ Hooks.on("getSceneControlButtons", (controls) => {
           });
           if (!ok) return;
 
-          const all = mgClockGetAll();
+          const all = mgClocksGetAll();
           for (const id of Object.keys(all)) await mgClockDeleteById(id);
           mgClearAllClockDOM();
         }
@@ -1591,22 +1651,13 @@ Hooks.on("getSceneControlButtons", (controls) => {
         icon: "fa-solid fa-users",
         button: true,
         onClick: async () => {
-          const crewId = game.settings.get("midnight-gambit", "crewActorId") || null;
-          const legacyUuid = game.settings.get("midnight-gambit", "activeCrewUuid") || null;
-
-          let actor = crewId ? game.actors.get(crewId) : null;
-          if (!actor && legacyUuid) {
-            try {
-              const doc = await fromUuid(legacyUuid);
-              if (doc?.documentName === "Actor") actor = doc;
-            } catch (_) {}
-          }
-
+          const actor = await mgResolveCurrentCrewActor();
           if (!actor) {
-            ui.notifications?.warn("No Crew Actor is linked yet. Open your Crew and click 'Link to Initiative Bar'.");
+            ui.notifications?.warn("No Crew found. Open your Crew sheet and click 'Link to Initiative Bar' once.");
             return;
           }
-          actor.sheet?.render(true);
+          actor.sheet?.render(true, { focus: true });
+          ui.notifications?.info(`Opened Crew: ${actor.name}`);
         }
       }
     ]

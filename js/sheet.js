@@ -155,6 +155,9 @@ export class MidnightGambitActorSheet extends ActorSheet {
     /** Binds event listeners after rendering. This is the Event listener for most the system*/
     activateListeners(html) {
       super.activateListeners(html);
+      // --- Permission-gated tabs: non-owners only see the first tab ---
+      this._mgRestrictTabsForNonOwners(html);
+
 
       // Dynamically apply .narrow-mode based on sheet width
       const appWindow = html[0]?.closest(".window-app");
@@ -1462,6 +1465,45 @@ export class MidnightGambitActorSheet extends ActorSheet {
     
   //END EVENT LISTENERS
   //---------------------------------------------------------------------------------------------------------------------------
+
+  /* If the current user is not an owned of this Actor, only show the first tab.
+  This hides the extra tab buttons and their panels in the DOM
+  Change MIN_LEVEL to "OBSERVER" if you want observers to see all tabs.
+  ----------------------------------------------------------------------*/
+  _mgRestrictTabsForNonOwners(html) {
+    const isOwner = this.actor?.testUserPermission?.(game.user, "OWNER") || this.actor?.isOwner || game.user.isGM;
+    if (isOwner) return; // Owners & GMs see everything
+
+    // Locate the tab nav & body
+    const $root = html instanceof jQuery ? html : $(html);
+    const $nav  = $root.find("nav.sheet-tabs, .sheet-tabs").first();
+    const $items = $nav.find('.item[data-tab], [data-tab].item');
+
+    if (!$items.length) return;
+
+    // First tab id (fallback-safe)
+    const $firstItem = $items.first();
+    const firstTab = $firstItem.data("tab") || $firstItem.attr("data-tab");
+    if (!firstTab) return;
+
+    // Remove all other nav items
+    $items.slice(1).remove();
+
+    // Hide/remove all other tab panels
+    const $body = $root.find(".sheet-body");
+    const $tabs = $body.find('.tab[data-tab]');
+    $tabs.each((_, el) => {
+      const tab = el.getAttribute("data-tab");
+      if (tab !== firstTab) el.remove();
+    });
+
+    // Force-activate the first tab visually
+    $nav.find(".item").removeClass("active");
+    $firstItem.addClass("active");
+    $body.find(".tab").removeClass("active");
+    $body.find(`.tab[data-tab="${firstTab}"]`).addClass("active");
+  }
+
 
   /* Post a Gambit card to chat with full styled HTML
   ----------------------------------------------------------------------*/

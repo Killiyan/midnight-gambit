@@ -12,7 +12,7 @@
 			position: relative;
 
 			&:before {
-				background:radial-gradient(80.16% 80.16% at 50% 76.69%, rgba(37, 66, 108, 0.00) 41.35%, #25426C 100%), url(<path-to-image>) transparent 50% / cover no-repeat;
+				background:radial-gradient(95.16% 48.16% at 50% 65.69%, rgba(37, 66, 108, 0.00) 55.35%, #25426C 100%), url(<path-to-image>) transparent 50% / cover no-repeat;
 				content: '';
 				position: absolute;
 				top: 0;
@@ -33,8 +33,33 @@
 				border-radius: .5rem;
 				border: 2px solid $mg-blue-main-2;
 				justify-content: space-between;
-				color: $mg-ivory;
 				z-index: 10;
+				align-items: center;
+
+				input {
+					@include oswald();
+					color: $mg-ivory;
+					text-transform: uppercase;
+					letter-spacing: -.03rem;
+					font-size: 1.5rem;
+					background: transparent;
+					border: 1px solid transparent;
+					border-left: 0;
+					border-top: 0;
+					border-right: 0;
+					border-radius: 0;
+					cursor: text;
+					width: 50%;
+
+					&:hover,
+					&:focus {
+						box-shadow: none;
+						border: 2px solid $mg-blue-1;
+						border-left: 0;
+						border-top: 0;
+						border-right: 0;
+					}
+				}
 			}
 
 			.mg-splash-strip {
@@ -48,6 +73,7 @@
 					object-fit: cover;
 					display: block;
 					border: none;
+					padding-top: 5rem;
 				}
 			}
 		}
