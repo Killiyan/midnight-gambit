@@ -274,15 +274,74 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 			this.render(false);
 		});
 
-		$root.on("click", ".mg-use-initiative", async (ev) => {
-		await game.settings.set("midnight-gambit", "activeCrewUuid", this.actor.uuid);
-		ui.notifications?.info(`Initiative Bar linked to "${this.actor.name}".`);
+		// Link this Crew to the Initiative Bar AND persist current order to the bar's flag
+		$root
+		.off("click.mgUseIni")
+		.on("click.mgUseIni", ".mg-use-initiative", async (ev) => {
+			ev.preventDefault();
+			await this._applyInitiativeFromDOM($root);            // persist order (UUIDs + Actor IDs)
+			await game.settings.set("midnight-gambit", "activeCrewUuid", this.actor.uuid); // backward-compat
+			await game.settings.set("midnight-gambit", "crewActorId", this.actor.id);      // used by the bar
+			ui.notifications?.info(`Initiative Bar linked to "${this.actor.name}".`);
 		});
 
+		// (Optional) If you add a tab button like ".mg-apply-initiative", hook it too:
+		$root
+		.off("click.mgApplyIni")
+		.on("click.mgApplyIni", ".mg-apply-initiative", async (ev) => {
+			ev.preventDefault();
+			await this._applyInitiativeFromDOM($root);
+			ui.notifications?.info("Initiative order applied.");
+		});
 
 		// Initiative drag-reorder (full card draggable)
 		this._bindInitiativeDrag($root);
+		
 	}
+
+	/**
+	 * Read the visible Initiative tab order and persist it for both:
+	 * - Crew sheet storage: system.initiative.order (array of UUIDs)
+	 * - Initiative Bar source: flag("midnight-gambit","initiativeOrder") (array of Actor IDs)
+	 */
+	async _applyInitiativeFromDOM($root) {
+	// 1) Get UUIDs from the DOM, in order
+	const cards = $root.find(".mg-initiative-list .mg-init-card").toArray();
+	if (!cards.length) {
+		ui.notifications?.warn("No members found in the Initiative list.");
+		return;
+	}
+
+	const uuids = cards.map(el => el.dataset.uuid).filter(Boolean);
+
+	// 2) Resolve to Actor IDs (for the overlay)
+	const actorIds = [];
+	for (const uuid of uuids) {
+		let doc = null;
+		try { doc = await fromUuid(uuid); } catch (_) {}
+		let actor = null;
+
+		if (doc?.documentName === "Actor") actor = doc;
+		else if (doc?.actor) actor = doc.actor; // TokenDocument etc.
+		else if (doc?.parent?.documentName === "Actor") actor = doc.parent;
+
+		const id = actor?.id;
+		if (id) actorIds.push(id);
+	}
+
+	if (!actorIds.length) {
+		ui.notifications?.error("Could not resolve actor IDs from the Initiative list.");
+		return;
+	}
+
+	// 3) Persist both representations
+	//    a) Keep your sheet's canonical order by UUID (what you already use)
+	await this.actor.update({ "system.initiative.order": uuids });
+
+	//    b) Write the array of Actor IDs for the Initiative Bar overlay
+	await this.actor.setFlag("midnight-gambit", "initiativeOrder", actorIds);
+	}
+
 
 
 	_bindInitiativeDrag($root) {

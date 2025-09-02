@@ -1,5 +1,11 @@
 import { MGInitiativeBar } from "./initiative-bar.js";
 
+// After Hooks.once("ready", ...) or add a new one
+Hooks.once("ready", () => {
+  // Singleton access for debugging in console: game.mgInitiative
+  game.mgInitiative = MGInitiativeBar.instance;
+});
+
 
 /*Create Actor
 ==============================================================================================================================================*/
@@ -139,61 +145,6 @@ Hooks.once("init", () => {
     default: "circle"
   });
 
-  // MG: hide the core Combat/Initiative UI (sidebar + token controls)
-  game.settings.register("midnight-gambit", "hideCoreCombat", {
-    scope: "world",
-    config: true,
-    name: "Midnight Gambit — Hide Core Combat (Initiative)",
-    hint: "Hides the Foundry combat sidebar and token combat controls, so only the MG Initiative Bar is used.",
-    type: Boolean,
-    default: true
-  });
-
-  // Handlebars helpers used by initiative-bar.html
-  Handlebars.registerHelper("eq", (a, b) => a === b);
-
-  // Active crew UUID driving the initiative bar (world-scoped)
-  game.settings.register("midnight-gambit", "activeCrewUuid", {
-    scope: "world",
-    config: false,
-    type: String,
-    default: ""
-  });
-
-  // === INITIATIVE TOOL (Application instance; renders initiative-bar.html) ===
-  Hooks.on("getSceneControlButtons", (controls) => {
-    const tokenCtl = controls.find(c => c.name === "token");
-    if (!tokenCtl) return;
-
-    // remove any dupes
-    tokenCtl.tools = tokenCtl.tools.filter(t => t.name !== "mg-initiative");
-
-    tokenCtl.tools.push({
-      name: "mg-initiative",
-      title: "Midnight Gambit: Initiative",
-      icon: "fa-solid fa-users-between-lines",
-      toggle: true,
-      // Foundry Application instances expose .rendered when open
-      active: !!MGInitiativeBar?.rendered,
-      onClick: (toggled) => {
-        if (toggled) {
-          // OPEN the Foundry window (uses templates/initiative-bar.html)
-          MGInitiativeBar.render(true);
-        } else {
-          // CLOSE it
-          MGInitiativeBar.close();
-        }
-        // keep the toolbar toggle honest even if user hits [x]
-        setTimeout(() => ui.controls?.initialize(), 0);
-      }
-    });
-
-    // Optional: if you hide core combat, strip default combat tools
-    if (game.settings.get("midnight-gambit", "hideCoreCombat")) {
-      tokenCtl.tools = tokenCtl.tools.filter(t => !["combat", "toggleCombat"].includes(t.name));
-    }
-  });
-
 
 
   // --- Crew Sheet registration ---
@@ -201,39 +152,6 @@ Hooks.once("init", () => {
     types: ["crew"],
     makeDefault: true
   });
-});
-
-// Hide the Combat tab button and panel in the sidebar
-Hooks.on("renderSidebar", (app, html) => {
-  if (!game.settings.get("midnight-gambit", "hideCoreCombat")) return;
-  // Hide the tab button
-  html.find('.sidebar-tabs .item[data-tab="combat"]').hide();
-  // Hide the panel itself if someone tries to route to it
-  html.find('.tab[data-tab="combat"]').hide();
-});
-
-Hooks.on("renderSidebarTab", (app, html) => {
-  if (!game.settings.get("midnight-gambit", "hideCoreCombat")) return;
-  // If somehow the Combat tab renders, immediately redirect to Actors (or whatever you prefer)
-  if (app?.id === "combat") ui.sidebar.activateTab("actors");
-});
-
-Hooks.on("renderTokenHUD", (hud, html) => {
-  if (!game.settings.get("midnight-gambit", "hideCoreCombat")) return;
-  // Remove any combat-related HUD icons
-  html.find('.control-icon[data-action="combat"]').remove();       // add/remove from combat
-  html.find('.control-icon[data-action="combatCycle"]').remove();  // next/prev turn if present
-});
-
-Hooks.once("ready", () => {
-  const hide = game.settings.get("midnight-gambit", "hideCoreCombat");
-  document.body.toggleAttribute("data-hide-core-combat", hide);
-});
-
-// keep it in sync if someone flips the setting at runtime
-Hooks.on("closeSettingsConfig", () => {
-  const hide = game.settings.get("midnight-gambit", "hideCoreCombat");
-  document.body.toggleAttribute("data-hide-core-combat", hide);
 });
 
 
@@ -1635,6 +1553,29 @@ Hooks.on("getSceneControlButtons", (controls) => {
       }
     }
   );
+});
+
+/* Sidebar Initiative addition
+----------------------------------------------------------------------*/
+Hooks.on("getSceneControlButtons", (controls) => {
+  // Put our tool under the Token group (fallback to first group if not found)
+  const group = controls.find(c => c.name === "token") ?? controls[0];
+  if (!group) return;
+
+  group.tools.push({
+    name: "mgInitiative",
+    title: "Initiative",
+    icon: "fa-solid fa-flag-checkered",
+    toggle: true,
+    active: false,
+    onClick: (toggled) => {
+      if (!game.mgInitiative) {
+        ui.notifications?.error("Initiative UI failed to load (game.mgInitiative missing).");
+        return;
+      }
+      toggled ? game.mgInitiative.showBar() : game.mgInitiative.hideBar();
+    }
+  });
 });
 
 /* Portrait Injection
