@@ -339,6 +339,43 @@ body.system-midnight-gambit[data-hide-core-combat="true"] {
   animation: mg-slide-in .35s ease;
 }
 
+.system-midnight-gambit #controls {
+	.scene-control,
+	.sub-controls .control-tool {
+		background: rgba($mg-blue-4, .45);
+		@include mg-border();
+		border-radius: .5rem;
+		transition: color 0.5s ease, border 0.5s ease, box-shadow 0.5s ease, background .5s ease;
+
+		i {
+			color: $mg-ivory;
+			font-size: 1.25rem;
+			transition: color .5s ease;
+		}
+
+		&.active,
+		&:hover,
+		&:focus {
+			border: 1px solid $mg-blue-1;
+			box-shadow: 0 0 10px $mg-blue-1;
+			background: $mg-blue-3;
+			
+			i {
+				color: $mg-ivory;
+			}
+		}
+	}
+
+	.mg-queen {
+		width: 54px;
+		height: 54px;
+		display: inline-block;
+		background-image: url("../assets/images/mg-queen.png");
+		background-size: contain;
+		background-position: center;
+		background-repeat: no-repeat;
+	}
+}
 
 /* Pointer Event Resets
 ----------------------------------------------------------------------*/

@@ -1504,79 +1504,117 @@ async function mgOpenCreateClockDialog() {
   });
 }
 
-/* Sidebar Clock addition
+/* Midnight Gambit palette (queen icon): Initiative + Clocks + Crew
 ----------------------------------------------------------------------*/
 Hooks.on("getSceneControlButtons", (controls) => {
-  if (!game.user.isGM) return;
+  // Avoid duplicates on hot-reload
+  if (controls.some(c => c.name === "midnight-gambit")) return;
 
-  // Put our tools under the Token group (fallback to first group if not found)
-  const group = controls.find(c => c.name === "token") ?? controls[0];
-  if (!group) return;
+  // Insert right after the Token group if present
+  const afterToken = controls.findIndex(c => c.name === "token");
+  const insertAt = afterToken >= 0 ? afterToken + 1 : controls.length;
 
-  group.tools.push(
-    {
-      name: "mgAddClock",
-      title: "Add Clock",
-      icon: "fas fa-clock",
-      button: true,
-      onClick: async () => {
-        const opts = await mgOpenCreateClockDialog();
-        if (!opts) return;                                // canceled
-        const id = await mgClockCreate(opts);             // creates with gmOnly choice
-        if (id) {
-          mgRenderAllClocks();
+  const gm = game.user.isGM;
 
-          // If it was created as Public, play the ominous sting for everyone
-          if (!opts.gmOnly) {
-            AudioHelper.play(
-              { src: MG_CLOCK_SFX, volume: 0.8, autoplay: true, loop: false },
-              true // broadcast to all clients
-            );
+  const mg = {
+    name: "midnight-gambit",
+    title: "Midnight Gambit Tools",
+    icon: "mg-queen",
+    layer: "controls",
+    activeTool: "mgInitiative"    ,
+    tools: [
+      // --- Initiative toggle ---
+      {
+        name: "mgInitiative",
+        title: "Initiative",
+        icon: "fa-solid fa-swords",
+        toggle: true,
+        active: false,
+        onClick: (toggled) => {
+          if (!game.mgInitiative) {
+            ui.notifications?.error("Initiative UI failed to load (game.mgInitiative missing).");
+            return;
+          }
+          toggled ? game.mgInitiative.showBar() : game.mgInitiative.hideBar();
+        }
+      },
+
+      // --- Add Clock (GM only) ---
+      {
+        name: "mgAddClock",
+        title: "Add Clock",
+        icon: "fas fa-clock",
+        button: true,
+        visible: gm,
+        onClick: async () => {
+          const opts = await mgOpenCreateClockDialog();
+          if (!opts) return;                                // canceled
+          const id = await mgClockCreate(opts);             // creates with GM-only choice
+          if (id) {
+            mgRenderAllClocks();
+
+            // If it was created as Public, play the ominous sting for everyone
+            if (!opts.gmOnly) {
+              AudioHelper.play(
+                { src: MG_CLOCK_SFX, volume: 0.8, autoplay: true, loop: false },
+                true // broadcast to all clients
+              );
+            }
           }
         }
+      },
+
+      // --- Clear All Clocks (GM only) ---
+      {
+        name: "mgClearClocks",
+        title: "Clear All Clocks (Scene)",
+        icon: "fa-solid fa-clock-rotate-left",
+        button: true,
+        visible: gm,
+        onClick: async () => {
+          const ok = await Dialog.confirm({
+            title: "Clear All Clocks?",
+            content: "<p>This will remove all clocks from the current scene.</p>"
+          });
+          if (!ok) return;
+
+          const all = mgClockGetAll();
+          for (const id of Object.keys(all)) await mgClockDeleteById(id);
+          mgClearAllClockDOM();
+        }
+      },
+
+      // --- Open Crew Sheet (handy shortcut) ---
+      {
+        name: "mgOpenCrew",
+        title: "Open Crew Sheet",
+        icon: "fa-solid fa-users",
+        button: true,
+        onClick: async () => {
+          const crewId = game.settings.get("midnight-gambit", "crewActorId") || null;
+          const legacyUuid = game.settings.get("midnight-gambit", "activeCrewUuid") || null;
+
+          let actor = crewId ? game.actors.get(crewId) : null;
+          if (!actor && legacyUuid) {
+            try {
+              const doc = await fromUuid(legacyUuid);
+              if (doc?.documentName === "Actor") actor = doc;
+            } catch (_) {}
+          }
+
+          if (!actor) {
+            ui.notifications?.warn("No Crew Actor is linked yet. Open your Crew and click 'Link to Initiative Bar'.");
+            return;
+          }
+          actor.sheet?.render(true);
+        }
       }
-    },
-    {
-      name: "mgClearClocks",
-      title: "Clear All Clocks (Scene)",
-      icon: "fas fa-trash",
-      button: true,
-      onClick: async () => {
-        const ok = await Dialog.confirm({
-          title: "Clear All Clocks?",
-          content: "<p>This will remove all clocks from the current scene.</p>"
-        });
-        if (!ok) return;
-        const all = mgClocksGetAll();
-        for (const id of Object.keys(all)) await mgClockDeleteById(id);
-        mgClearAllClockDOM();
-      }
-    }
-  );
+    ]
+  };
+
+  controls.splice(insertAt, 0, mg);
 });
 
-/* Sidebar Initiative addition
-----------------------------------------------------------------------*/
-Hooks.on("getSceneControlButtons", (controls) => {
-  // Put our tool under the Token group (fallback to first group if not found)
-  const group = controls.find(c => c.name === "token") ?? controls[0];
-  if (!group) return;
-
-  group.tools.push({
-    name: "mgInitiative",
-    title: "Initiative",
-    icon: "fa-solid fa-flag-checkered",
-    toggle: true,
-    active: false,
-    onClick: (toggled) => {
-      if (!game.mgInitiative) {
-        ui.notifications?.error("Initiative UI failed to load (game.mgInitiative missing).");
-        return;
-      }
-      toggled ? game.mgInitiative.showBar() : game.mgInitiative.hideBar();
-    }
-  });
-});
 
 /* Portrait Injection
 ----------------------------------------------------------------------*/
