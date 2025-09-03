@@ -19,13 +19,19 @@ export class MGInitiativeBar extends Application {
   }
 
   /** Public helpers */
-  // We do NOT use Application's render/template; we mount our own DOM.
-  showBar() { this._ensureAttached(); }
+  // We do NOT use Application's template render; we mount our own DOM.
+  showBar() {
+    this._ensureAttached();
+    // ensure we have an order cached and laid out
+    if (!this._ids || !this._ids.length) this._ids = this.getOrderActorIds();
+    this._layoutDiagonal(this._ids);
+  }
   hideBar() { this._detach(); }
   toggleBar() { (this._attached ? this.hideBar() : this.showBar()); }
 
-  // (Optional safety) NOP out Application.render so nothing upstream tries to template-render us.
+  // (safety) noop Application.render
   async render() { return this; }
+
 
 
   /** Internal state */
@@ -92,17 +98,22 @@ export class MGInitiativeBar extends Application {
   /** Build minimal HTML (no template needed) */
   _buildHTML() {
     const ids = this.getOrderActorIds();
+    this._ids = [...ids]; // keep a local order array for layout/animation
     const activeId = this._getActiveId(ids);
 
     const wrap = document.createElement("div");
-    wrap.className = "mg-initiative";
+    wrap.className = "mg-initiative mg-ini--diag";
     wrap.setAttribute("role", "region");
     wrap.setAttribute("aria-label", "Initiative Order");
 
-    // header / drag handle
+    // Header + stage container
+    const activeName = game.actors.get(activeId)?.name ?? "";
     wrap.innerHTML = `
       <div class="mg-ini-header" data-drag-handle>
-        <span class="mg-ini-title"><i class="fa-solid fa-flag-checkered"></i> Initiative</span>
+        <div class="mg-ini-headline">
+          <div class="up-next">Up next:</div>
+          <div class="next-name" data-next-name>${activeName}</div>
+        </div>
         <div class="mg-ini-actions">
           <button type="button" class="mg-ini-btn mg-ini-next" title="End Turn (advance)">
             <i class="fa-solid fa-forward-step"></i>
@@ -115,79 +126,223 @@ export class MGInitiativeBar extends Application {
           </button>
         </div>
       </div>
-      <div class="mg-ini-row" aria-live="polite"></div>
+
+      <div class="mg-ini-stage">
+        <div class="mg-ini-lane" aria-hidden="true"></div>
+        <div class="mg-ini-diag-stage"></div>
+        <div class="mg-ini-watermark" aria-hidden="true">INITIATIVE</div>
+      </div>
     `;
-    
 
+    // Build slices once, then place them
+    const stage = wrap.querySelector(".mg-ini-diag-stage");
+    this._ensureSlices(stage, this._ids);
 
-    const row = wrap.querySelector(".mg-ini-row");
-    ids.forEach((id) => {
-      const actor = game.actors.get(id);
-      if (!actor) return;
-      const isActive = id === activeId;
-
-      const el = document.createElement("button");
-      el.type = "button";
-      el.className = "mg-ini-slot" + (isActive ? " is-active" : "");
-      el.dataset.actorId = id;
-      el.title = `${actor.name} — End Turn`;
-      el.innerHTML = `
-        <div class="mg-ini-portrait" style="background-image:url('${actor.img}');"></div>
-        <span class="mg-ini-name">${actor.name}</span>
-      `;
-      row.appendChild(el);
-    });
-
-    wrap.querySelector(".mg-ini-next").addEventListener("click", () => {
-      const first = wrap.querySelector(".mg-ini-slot");
-      if (!first) {
-        ui.notifications?.warn("No actors in Initiative to advance.");
-        return;
-      }
-      this._endTurn();
-    });
-
-    // Drag move
+    // Drag move (guard so buttons still click)
     wrap.querySelector("[data-drag-handle]").addEventListener("pointerdown", (ev) => {
-      if (ev.button !== 0) return; // only left-click
-      // If the pointerdown is on any interactive control, don't start a drag
+      if (ev.button !== 0) return;
       if (ev.target.closest(".mg-ini-actions, .mg-ini-btn, button, a, input, select, textarea")) return;
       this._onDragStart(ev, wrap);
     });
 
-
     return wrap;
+  }
+
+  /** Create any missing slice buttons for ids; reuse existing by data-actor-id */
+  _ensureSlices(stage, ids) {
+    const existing = new Map([...stage.querySelectorAll(".mg-ini-slice")]
+      .map(el => [el.dataset.actorId, el]));
+    for (const id of ids) {
+      if (existing.has(id)) continue;
+      const a = game.actors.get(id);
+      if (!a) continue;
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "mg-ini-slice";
+      btn.dataset.actorId = id;
+      btn.title = a.name;
+      btn.innerHTML = `
+        <div class="img" style="background-image:url('${a.img}')"></div>
+      `;
+      stage.appendChild(btn);
+    }
+    // Remove slices for actors no longer present
+    [...stage.querySelectorAll(".mg-ini-slice")].forEach(el => {
+      if (!ids.includes(el.dataset.actorId)) el.remove();
+    });
+  }
+
+  // Tall slices with right-edge alignment (lower top-right meets upper bottom-right)
+  _diagPositions(count) {
+    const sk = -22;                                     // degrees, right-lean
+    const t  = Math.tan(sk * Math.PI / 180);            // shear factor for skewX(sk)
+
+    // spacing + tiny nudge to taste
+    const gapY  = 28;                                   // vertical gap between a column pair
+    const edgeX = 4;                                    // small cosmetic nudge along the slanted edge
+
+    // column tops
+    const featured = { x: 40,  y:  96, w: 240, h: 340 }; // big left
+    const midTop   = { x: 380, y:  24, w: 190, h: 260 }; // middle col (top)
+    const rightTop = { x: 640, y: 104, w: 190, h: 260 }; // right col (top)
+
+    // place a slice directly below another with right edges aligned
+    // y_low = y_top + h_top + gapY
+    // x_low = x_top + (w_top - w_low) + t * (h_top + gapY) + edgeX
+    const belowAligned = (above, w, h) => {
+      const y = above.y + above.h + gapY;
+      const x = above.x + (above.w - w) + t * (above.h + gapY) + edgeX;
+      return { x, y, w, h };
+    };
+
+    const slots = [];
+    if (count > 0) slots.push({ ...featured, sk });
+    if (count > 1) slots.push({ ...midTop,   sk });
+    if (count > 2) slots.push({ ...belowAligned(midTop,   190, 260), sk });
+    if (count > 3) slots.push({ ...rightTop, sk });
+    if (count > 4) slots.push({ ...belowAligned(rightTop, 190, 260), sk });
+
+    // extras: continue stacking under the last right-hand slot
+    let prev = (count > 4) ? slots[slots.length - 1] : rightTop;
+    for (let i = 5; i < count; i++) {
+      const nxt = belowAligned(prev, 190, 260);
+      slots.push({ ...nxt, sk });
+      prev = nxt;
+    }
+    return slots;
+  }
+
+  /** Apply transforms/sizes to each slice according to current order */
+  _layoutDiagonal(ids) {
+    const stage = this._root?.querySelector(".mg-ini-diag-stage");
+    if (!stage) return;
+    const positions = this._diagPositions(ids.length);
+
+    // Update headline
+    const nextNameEl = this._root.querySelector("[data-next-name]");
+    const firstName = game.actors.get(ids[0])?.name ?? "";
+    if (nextNameEl) nextNameEl.textContent = firstName;
+
+    ids.forEach((id, i) => {
+      const el = stage.querySelector(`.mg-ini-slice[data-actor-id="${id}"]`);
+      if (!el) return;
+      const p = positions[i];
+      this._applySlicePos(el, p, i === 0);
+    });
+  }
+
+  /** Set inline transform/size for a slice, with skew container and unscrew inner image */
+  _applySlicePos(el, p, featured) {
+    el.style.setProperty("--w", `${p.w}px`);
+    el.style.setProperty("--h", `${p.h}px`);
+    el.style.setProperty("--x", `${p.x}px`);
+    el.style.setProperty("--y", `${p.y}px`);
+    el.style.setProperty("--skX", `${p.sk}deg`);
+    el.classList.toggle("is-featured", !!featured);
+  }
+
+  /** Animate advance: first slides left & fades; others shift forward; first re-enters at end from bottom */
+  async _endTurn() {
+    const stage = this._root?.querySelector(".mg-ini-diag-stage");
+    if (!stage) return;
+
+    // Make sure we have ids and slices
+    if (!this._ids || !this._ids.length) this._ids = this.getOrderActorIds();
+    this._ensureSlices(stage, this._ids);
+    if (!this._ids.length) {
+      ui.notifications?.warn("No actors in Initiative to advance.");
+      return;
+    }
+
+  const leavingId = this._ids[0];
+  let leavingEl = stage.querySelector(`.mg-ini-slice[data-actor-id="${leavingId}"]`);
+  if (!leavingEl) {
+    // Build once more and lay out, then reselect
+    this._ensureSlices(stage, this._ids);
+    this._layoutDiagonal(this._ids);
+    leavingEl = stage.querySelector(`.mg-ini-slice[data-actor-id="${leavingId}"]`);
+    if (!leavingEl) {
+      ui.notifications?.warn("No actors in Initiative to advance.");
+      return;
+    }
+  }
+
+    // 1) trigger others to shift forward (re-layout for positions 1..end -> 0..end-1)
+    const shifted = ids.slice(1);
+    this._layoutDiagonal(shifted); // everyone animates via CSS transition
+
+    // 2) leaving: slide left & fade
+    leavingEl.classList.add("is-leaving");
+    await this._afterTransition(leavingEl).catch(() => {});
+
+    // 3) move leaving to end; set it just below its final slot, then animate up into place
+    leavingEl.classList.remove("is-leaving");
+    stage.appendChild(leavingEl);
+
+    const newOrder = [...shifted, leavingId];
+    this._ids = newOrder;
+
+    // place it just below last slot, invisible
+    const positions = this._diagPositions(newOrder.length);
+    const lastPos = positions[positions.length - 1];
+    // start slightly below and transparent
+    leavingEl.style.transition = "none";
+    this._applySlicePos(leavingEl, lastPos, false);
+    leavingEl.style.transform = `translate(var(--x), calc(var(--y) + 36px)) skew(var(--sk))`;
+    leavingEl.style.opacity = "0";
+
+    // next frame → animate up into place
+    void leavingEl.offsetHeight; // reflow
+    leavingEl.style.transition = ""; // restore CSS transitions
+    leavingEl.style.transform = `translate(var(--x), var(--y)) skew(var(--sk))`;
+    leavingEl.style.opacity = "1";
+
+    await this._afterTransition(leavingEl).catch(() => {});
+    // Refresh full layout (also updates header name + featured class)
+    this._layoutDiagonal(this._ids);
+
+    // Persist the new actor-ID order to Crew flag if available
+    await this._persistCurrentOrder();
   }
 
   /** Bind all UI events via delegation on the root node */
   _bindRootEvents() {
     if (!this._root) return;
 
-    // Stop clicks inside from bubbling to the canvas
+    // Keep clicks inside the overlay from hitting the canvas
     this._root.addEventListener("click", (ev) => ev.stopPropagation());
     this._root.addEventListener("contextmenu", (ev) => ev.stopPropagation());
 
-    // Header buttons (close / reset / next)
+    // Header buttons (Close / Reset / Next)
     this._root.addEventListener("click", (ev) => {
-      const close = ev.target.closest(".mg-ini-close");
-      if (close) { ev.preventDefault(); this.hideBar(); return; }
+      const tgt = ev.target;
 
-      const reset = ev.target.closest(".mg-ini-reset");
-      if (reset) { ev.preventDefault(); this._resetOrder(); return; }
-
-      const next = ev.target.closest(".mg-ini-next");
-      if (next) {
+      if (tgt.closest(".mg-ini-close")) {
         ev.preventDefault();
-        const first = this._root.querySelector(".mg-ini-slot");
-        if (!first) { ui.notifications?.warn("No actors in Initiative to advance."); return; }
+        this.hideBar();
+        return;
+      }
+
+      if (tgt.closest(".mg-ini-reset")) {
+        ev.preventDefault();
+        this._resetOrder();
+        return;
+      }
+
+      if (tgt.closest(".mg-ini-next")) {
+        ev.preventDefault();
+        if (!this._ids || !this._ids.length) {
+          ui.notifications?.warn("No actors in Initiative to advance.");
+          return;
+        }
         this._endTurn();
         return;
       }
     });
 
-    // Click a portrait -> select token (does NOT end turn)
+    // Click a slice -> select its token (does NOT end turn)
     this._root.addEventListener("click", (ev) => {
-      const slot = ev.target.closest(".mg-ini-slot");
+      const slot = ev.target.closest(".mg-ini-slice");
       if (!slot) return;
       const actor = game.actors.get(slot.dataset.actorId);
       const token = canvas.tokens.placeables.find(t => t.actor?.id === actor?.id);
@@ -195,44 +350,75 @@ export class MGInitiativeBar extends Application {
     });
   }
 
-
   /** Active is simply the first element in the order array */
   _getActiveId(ids) { return ids[0] || null; }
 
-  /** Animate current to end */
+  /** Animate advance: first slides left, others shift forward, first re-enters at end from bottom */
   async _endTurn() {
-    const row = this._root?.querySelector(".mg-ini-row");
-    if (!row) return;
+    const stage = this._root?.querySelector(".mg-ini-diag-stage");
+    if (!stage) return;
 
-    const slot = row.querySelector(".mg-ini-slot");
-    if (!slot) return;
+    // Make sure we have ids and slice nodes
+    if (!this._ids || !this._ids.length) this._ids = this.getOrderActorIds();
+    this._ensureSlices(stage, this._ids);
 
-    // 1) LEAVE: slide down & fade
-    slot.classList.add("is-leaving");
-    await this._afterTransition(slot).catch(() => {});
+    if (!this._ids.length) {
+      ui.notifications?.warn("No actors in Initiative to advance.");
+      return;
+    }
 
-    // 2) Move to end
-    slot.classList.remove("is-leaving");
-    row.appendChild(slot);
+    const leavingId = this._ids[0];
+    let leavingEl = stage.querySelector(`.mg-ini-slice[data-actor-id="${leavingId}"]`);
+    if (!leavingEl) {
+      // Build & layout once more if the node isn't there yet
+      this._ensureSlices(stage, this._ids);
+      this._layoutDiagonal(this._ids);
+      leavingEl = stage.querySelector(`.mg-ini-slice[data-actor-id="${leavingId}"]`);
+      if (!leavingEl) {
+        ui.notifications?.warn("No actors in Initiative to advance.");
+        return;
+      }
+    }
 
-    // 3) ENTER: spawn at slight offset above, then settle
-    slot.classList.add("is-entering");
-    slot.style.transform = "translateY(-18px)";
-    slot.style.opacity = "0";
-    // next frame → animate in
-    requestAnimationFrame(() => {
-      slot.style.transform = "translateY(0)";
-      slot.style.opacity = "1";
-    });
-    await this._afterTransition(slot).catch(() => {});
-    slot.classList.remove("is-entering");
-    slot.style.transform = "";
-    slot.style.opacity = "";
+    // 1) shift others forward (ids[1..] -> positions[0..])
+    const shifted = this._ids.slice(1);
+    this._layoutDiagonal(shifted); // CSS transitions handle the move
 
-    // Persist & mark first
+    // 2) leaving: slide out left & fade
+    leavingEl.classList.add("is-leaving");
+    await this._afterTransition(leavingEl).catch(() => {});
+
+    // 3) move leaving to end; spawn slightly below its final slot, then animate up
+    leavingEl.classList.remove("is-leaving");
+    stage.appendChild(leavingEl);
+
+    const newOrder = [...shifted, leavingId];
+    this._ids = newOrder;
+
+    const positions = this._diagPositions(newOrder.length);
+    const lastPos = positions[positions.length - 1];
+
+    // place just below and invisible
+    leavingEl.style.transition = "none";
+    this._applySlicePos(leavingEl, lastPos, false);
+    leavingEl.style.transform = `translate(var(--x), calc(var(--y) + 36px)) skewX(var(--skX))`;
+    leavingEl.style.opacity = "0";
+
+    // next frame -> animate into place
+    void leavingEl.offsetHeight;
+    leavingEl.style.transition = "";
+    leavingEl.style.transform = `translate(var(--x), var(--y)) skewX(var(--skX))`;
+    leavingEl.style.opacity = "1";
+
+    await this._afterTransition(leavingEl).catch(() => {});
+
+    // refresh full layout (also updates header name + featured class)
+    this._layoutDiagonal(this._ids);
+
+    // persist new order to Crew flag (actor IDs)
     await this._persistCurrentOrder();
-    this._markActiveFirst();
   }
+
 
   // Small helper to await the end of the CSS transition
   _afterTransition(el) {
@@ -244,21 +430,19 @@ export class MGInitiativeBar extends Application {
     });
 }
 
-  _markActiveFirst() {
-    const slots = [...this._root.querySelectorAll(".mg-ini-slot")];
-    slots.forEach(s => s.classList.remove("is-active"));
-    if (slots[0]) slots[0].classList.add("is-active");
-  }
-
-  _currentIdsFromDOM() {
-    return [...this._root.querySelectorAll(".mg-ini-slot")].map(s => s.dataset.actorId);
-  }
-
+  /** Save the current actor-id order to the Crew flag the bar reads */
   async _persistCurrentOrder() {
-    const crewId = game.settings.get("midnight-gambit", "crewActorId");
-    const crew   = crewId ? game.actors.get(crewId) : null;
+    let crew = null;
+    try {
+      const crewId = game.settings.get("midnight-gambit", "crewActorId");
+      if (crewId) crew = game.actors.get(crewId) || null;
+    } catch (_) {}
+
     if (!crew) return;
-    const ids = this._currentIdsFromDOM();
+
+    const ids = Array.isArray(this._ids) ? this._ids : [];
+    if (!ids.length) return;
+
     await crew.setFlag("midnight-gambit", "initiativeOrder", ids);
   }
 
@@ -278,6 +462,7 @@ export class MGInitiativeBar extends Application {
     this._placeDefault();
     this._wireLiveRefresh();
     this._bindRootEvents();
+    this._layoutDiagonal(this._ids || this.getOrderActorIds());
   }
 
   _detach() {
@@ -359,47 +544,68 @@ Hooks.once("init", () => {
 Hooks.once("ready", () => {
   const css = document.createElement("style");
   css.textContent = `
-  .mg-initiative {
+  /* Stage box size – matches your mock proportions */
+  .mg-initiative.mg-ini--diag {
     position: fixed;
-    z-index: 32;
+    z-index: 10000;
     pointer-events: auto;
-  }
-  .mg-ini-header {
-    display:flex; align-items:center; justify-content:space-between;
-    padding: 4px 6px 8px; cursor: move;
-  }
-  .mg-ini-title { font-weight: 700; letter-spacing:.3px; }
-  .mg-ini-actions .mg-ini-btn {
-    background: transparent; border: 0; cursor: pointer; padding: 4px 6px; border-radius: 8px;
-  }
-  .mg-ini-actions .mg-ini-btn:hover { background: rgba(255,255,255,.06); }
-  .mg-ini-row {
-    display:flex; gap: 10px; padding: 6px; overflow-x: auto; scrollbar-width: thin;
-  }
-  .mg-ini-slot {
-    display:flex; align-items:center; gap: 10px;
-    background: rgba(255,255,255,.04);
+    width: 920px;
+    height: 560px;              /* a bit taller gives breathing room */
+    background: #122236cc;
+    border-radius: 16px;
     border: 1px solid rgba(255,255,255,.08);
-    border-radius: 12px; padding: 6px 10px;
-    transition: transform .25s ease, opacity .25s ease, box-shadow .2s ease;
-    will-change: transform, opacity;
-    cursor: default; /* portraits no longer advance turns */
+    box-shadow: 0 10px 24px rgba(0,0,0,.35);
+    padding: 10px 10px 12px;
   }
-  .mg-ini-slot.is-active {
-    box-shadow: 0 0 0 2px var(--mg-blue, #57A2FF) inset, 0 0 18px rgba(87,162,255,.25);
-  }
-  .mg-ini-slot.is-leaving { transform: translateY(18px); opacity: 0; }
-  .mg-ini-slot.is-entering { /* initial inline styles set in JS; class is just a hook if you want extra styling */ }
 
-  .mg-ini-portrait {
-    width: 36px; height: 36px; border-radius: 999px; background-size: cover; background-position: center;
-    border: 1px solid rgba(255,255,255,.15); box-shadow: 0 2px 6px rgba(0,0,0,.35) inset;
+  /* Optional diagonal dash lane */
+  .mg-ini-lane {
+    position: absolute;
+    left: 472px; top: 18px; bottom: 18px; width: 10px;
+    background-image: linear-gradient(#7da3d2 0 0);
+    background-size: 10px 16px;
+    background-repeat: repeat-y;
+    opacity: .35;
+    transform: skewX(-22deg);
+    border-radius: 3px;
+    pointer-events: none;
   }
-  .mg-ini-name { font-size: .9rem; max-width: 160px; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; }
-  .mg-ini-badge {
-    margin-left: 2px; font-size: .7rem; padding: 2px 6px; border-radius: 10px;
-    background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.1);
+
+  /* The angled portrait slice (now tall) */
+  .mg-ini-slice {
+    position: absolute;
+    width: var(--w, 200px);
+    height: var(--h, 181px);
+    transform: translate(var(--x, 0px), var(--y, 0px)) skewX(var(--skX, -22deg));
+    transform-origin: top left;
+    border-radius: 12px;
+    border: 5px solid rgba(255,255,255,.95);      /* thicker white like mock */
+    box-shadow: 0 12px 28px rgba(0,0,0,.40);
+    overflow: hidden;
+    padding: 0;
+    background: #0f1c2b;
+    transition: transform .28s ease, opacity .28s ease, box-shadow .2s ease, filter .2s ease;
   }
+
+  /* Unskew the image so it reads upright */
+  .mg-ini-slice .img {
+    position: absolute; inset: -6px;              /* bleed to hide skew gaps behind border */
+    background-size: cover; background-position: center;
+    transform: skewX(calc(-1 * var(--skX, -22deg))) scale(1.03);
+    transform-origin: top left;
+  }
+
+  /* Featured glow */
+  .mg-ini-slice.is-featured {
+    box-shadow: 0 0 0 4px rgba(87,162,255,.85) inset, 0 18px 44px rgba(0,0,0,.5);
+  }
+
+  /* Leave/enter cues for advance */
+  .mg-ini-slice.is-leaving {
+    transform: translate(calc(var(--x) - 140px), var(--y)) skewX(var(--skX));
+    opacity: 0;
+  }
+
   `;
   document.head.appendChild(css);
 });
