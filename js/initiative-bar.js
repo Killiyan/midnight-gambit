@@ -172,40 +172,57 @@ export class MGInitiativeBar extends Application {
     });
   }
 
-  // Tall slices with right-edge alignment (lower top-right meets upper bottom-right)
+  // Style A slot geometry — smaller/taller slices + tighter columns
   _diagPositions(count) {
-    const sk = -22;                                     // degrees, right-lean
-    const t  = Math.tan(sk * Math.PI / 180);            // shear factor for skewX(sk)
+    // Angle + shear factor for skewX
+    const sk = -22;
+    const t  = Math.tan(sk * Math.PI / 180);
 
-    // spacing + tiny nudge to taste
-    const gapY  = 28;                                   // vertical gap between a column pair
-    const edgeX = 4;                                    // small cosmetic nudge along the slanted edge
+    // 🔧 TWEAK ME: sizes
+    const FEAT_W = 120, FEAT_H = 180;    // featured left slice size
+    const SLICE_W = 75, SLICE_H = 180;  // all other slices size (was ~190x260)
 
-    // column tops
-    const featured = { x: 40,  y:  96, w: 240, h: 340 }; // big left
-    const midTop   = { x: 380, y:  24, w: 190, h: 260 }; // middle col (top)
-    const rightTop = { x: 640, y: 104, w: 190, h: 260 }; // right col (top)
+    // 🔧 TWEAK ME: horizontal column positions (reduce to tighten)
+    const COL_X_LEFT  = 60;
+    const COL_X_MID   = 240;             // was ~360–380 (closer now)
+    const COL_X_RIGHT = 324;             // was ~640 (much tighter)
 
-    // place a slice directly below another with right edges aligned
-    // y_low = y_top + h_top + gapY
-    // x_low = x_top + (w_top - w_low) + t * (h_top + gapY) + edgeX
+    // 🔧 TWEAK ME: vertical tops for each column
+    const Y_FEATURED = 120;
+    const Y_MID_TOP  = 28;
+    const Y_RIGHT_TOP= 60;
+
+    // 🔧 TWEAK ME: vertical gap inside a column pair
+    const GAP_Y  = 20;
+
+    // Tiny nudge to kiss the slanted edge just right
+    const EDGE_X = 2;
+
+    // Base tops
+    const featured = { x: COL_X_LEFT,  y: Y_FEATURED, w: FEAT_W,  h: FEAT_H };
+    const midTop   = { x: COL_X_MID,   y: Y_MID_TOP,  w: SLICE_W, h: SLICE_H };
+    const rightTop = { x: COL_X_RIGHT, y: Y_RIGHT_TOP,w: SLICE_W, h: SLICE_H };
+
+    // Place a slice directly below another with right edges aligned
+    // y_low = y_top + h_top + GAP_Y
+    // x_low = x_top + (w_top - w_low) + t * (h_top + GAP_Y) + EDGE_X
     const belowAligned = (above, w, h) => {
-      const y = above.y + above.h + gapY;
-      const x = above.x + (above.w - w) + t * (above.h + gapY) + edgeX;
+      const y = above.y + above.h + GAP_Y;
+      const x = above.x + (above.w - w) + t * (above.h + GAP_Y) + EDGE_X;
       return { x, y, w, h };
     };
 
     const slots = [];
     if (count > 0) slots.push({ ...featured, sk });
     if (count > 1) slots.push({ ...midTop,   sk });
-    if (count > 2) slots.push({ ...belowAligned(midTop,   190, 260), sk });
+    if (count > 2) slots.push({ ...belowAligned(midTop,   SLICE_W, SLICE_H), sk });
     if (count > 3) slots.push({ ...rightTop, sk });
-    if (count > 4) slots.push({ ...belowAligned(rightTop, 190, 260), sk });
+    if (count > 4) slots.push({ ...belowAligned(rightTop, SLICE_W, SLICE_H), sk });
 
-    // extras: continue stacking under the last right-hand slot
+    // Extras: keep stacking under the last one on the right
     let prev = (count > 4) ? slots[slots.length - 1] : rightTop;
     for (let i = 5; i < count; i++) {
-      const nxt = belowAligned(prev, 190, 260);
+      const nxt = belowAligned(prev, SLICE_W, SLICE_H);
       slots.push({ ...nxt, sk });
       prev = nxt;
     }
@@ -238,70 +255,88 @@ export class MGInitiativeBar extends Application {
     el.style.setProperty("--x", `${p.x}px`);
     el.style.setProperty("--y", `${p.y}px`);
     el.style.setProperty("--skX", `${p.sk}deg`);
+
+    // Extra left bleed to fully cover the skew wedge: tan(|sk|) * height + small fudge for borders
+    const bleedL = Math.abs(Math.tan(p.sk * Math.PI / 180) * p.h) + 12; // px
+    el.style.setProperty("--bleedL", `${Math.ceil(bleedL)}px`);
+
     el.classList.toggle("is-featured", !!featured);
   }
 
-  /** Animate advance: first slides left & fades; others shift forward; first re-enters at end from bottom */
+
+  /** Animate advance: first slides left, others shift forward, first re-enters at end from bottom */
   async _endTurn() {
     const stage = this._root?.querySelector(".mg-ini-diag-stage");
     if (!stage) return;
 
-    // Make sure we have ids and slices
+    // Make sure we have ids and slice nodes
     if (!this._ids || !this._ids.length) this._ids = this.getOrderActorIds();
     this._ensureSlices(stage, this._ids);
+
     if (!this._ids.length) {
       ui.notifications?.warn("No actors in Initiative to advance.");
       return;
     }
 
-  const leavingId = this._ids[0];
-  let leavingEl = stage.querySelector(`.mg-ini-slice[data-actor-id="${leavingId}"]`);
-  if (!leavingEl) {
-    // Build once more and lay out, then reselect
-    this._ensureSlices(stage, this._ids);
-    this._layoutDiagonal(this._ids);
-    leavingEl = stage.querySelector(`.mg-ini-slice[data-actor-id="${leavingId}"]`);
+    const leavingId = this._ids[0];
+    let leavingEl = stage.querySelector(`.mg-ini-slice[data-actor-id="${leavingId}"]`);
     if (!leavingEl) {
-      ui.notifications?.warn("No actors in Initiative to advance.");
-      return;
+      this._ensureSlices(stage, this._ids);
+      this._layoutDiagonal(this._ids);
+      leavingEl = stage.querySelector(`.mg-ini-slice[data-actor-id="${leavingId}"]`);
+      if (!leavingEl) {
+        ui.notifications?.warn("No actors in Initiative to advance.");
+        return;
+      }
     }
-  }
 
-    // 1) trigger others to shift forward (re-layout for positions 1..end -> 0..end-1)
-    const shifted = ids.slice(1);
-    this._layoutDiagonal(shifted); // everyone animates via CSS transition
+    // --- scrub any inline leftovers from prior cycle so .is-leaving works
+    leavingEl.classList.remove("is-entering", "is-leaving");
+    leavingEl.style.removeProperty("transform");
+    leavingEl.style.removeProperty("opacity");
+    leavingEl.style.removeProperty("transition");
 
-    // 2) leaving: slide left & fade
+    // 1) shift others forward (ids[1..] -> positions[0..])
+    const shifted = this._ids.slice(1);
+    this._layoutDiagonal(shifted); // CSS transitions handle the move
+
+    // 2) leaving: slide out left & fade
     leavingEl.classList.add("is-leaving");
     await this._afterTransition(leavingEl).catch(() => {});
 
-    // 3) move leaving to end; set it just below its final slot, then animate up into place
+    // 3) move leaving to end; spawn slightly below its final slot, then animate up
     leavingEl.classList.remove("is-leaving");
     stage.appendChild(leavingEl);
 
     const newOrder = [...shifted, leavingId];
     this._ids = newOrder;
 
-    // place it just below last slot, invisible
     const positions = this._diagPositions(newOrder.length);
     const lastPos = positions[positions.length - 1];
-    // start slightly below and transparent
+
+    // place just below and invisible (no transition for the teleport)
     leavingEl.style.transition = "none";
     this._applySlicePos(leavingEl, lastPos, false);
-    leavingEl.style.transform = `translate(var(--x), calc(var(--y) + 36px)) skew(var(--sk))`;
+    leavingEl.style.transform = `translate(var(--x), calc(var(--y) + 36px)) skewX(var(--skX))`;
     leavingEl.style.opacity = "0";
 
-    // next frame → animate up into place
-    void leavingEl.offsetHeight; // reflow
-    leavingEl.style.transition = ""; // restore CSS transitions
-    leavingEl.style.transform = `translate(var(--x), var(--y)) skew(var(--sk))`;
+    // next frame -> animate into place
+    void leavingEl.offsetHeight;
+    leavingEl.style.transition = ""; // restore css transitions
+    leavingEl.style.transform = `translate(var(--x), var(--y)) skewX(var(--skX))`;
     leavingEl.style.opacity = "1";
 
     await this._afterTransition(leavingEl).catch(() => {});
-    // Refresh full layout (also updates header name + featured class)
+
+    // --- scrub again so next cycle's .is-leaving takes over cleanly
+    leavingEl.style.removeProperty("transform");
+    leavingEl.style.removeProperty("opacity");
+    leavingEl.style.removeProperty("transition");
+
+    // refresh full layout (also updates header name + featured class)
     this._layoutDiagonal(this._ids);
 
-    // Persist the new actor-ID order to Crew flag if available
+    // persist new order to Crew flag (actor IDs)
     await this._persistCurrentOrder();
   }
 
@@ -352,73 +387,6 @@ export class MGInitiativeBar extends Application {
 
   /** Active is simply the first element in the order array */
   _getActiveId(ids) { return ids[0] || null; }
-
-  /** Animate advance: first slides left, others shift forward, first re-enters at end from bottom */
-  async _endTurn() {
-    const stage = this._root?.querySelector(".mg-ini-diag-stage");
-    if (!stage) return;
-
-    // Make sure we have ids and slice nodes
-    if (!this._ids || !this._ids.length) this._ids = this.getOrderActorIds();
-    this._ensureSlices(stage, this._ids);
-
-    if (!this._ids.length) {
-      ui.notifications?.warn("No actors in Initiative to advance.");
-      return;
-    }
-
-    const leavingId = this._ids[0];
-    let leavingEl = stage.querySelector(`.mg-ini-slice[data-actor-id="${leavingId}"]`);
-    if (!leavingEl) {
-      // Build & layout once more if the node isn't there yet
-      this._ensureSlices(stage, this._ids);
-      this._layoutDiagonal(this._ids);
-      leavingEl = stage.querySelector(`.mg-ini-slice[data-actor-id="${leavingId}"]`);
-      if (!leavingEl) {
-        ui.notifications?.warn("No actors in Initiative to advance.");
-        return;
-      }
-    }
-
-    // 1) shift others forward (ids[1..] -> positions[0..])
-    const shifted = this._ids.slice(1);
-    this._layoutDiagonal(shifted); // CSS transitions handle the move
-
-    // 2) leaving: slide out left & fade
-    leavingEl.classList.add("is-leaving");
-    await this._afterTransition(leavingEl).catch(() => {});
-
-    // 3) move leaving to end; spawn slightly below its final slot, then animate up
-    leavingEl.classList.remove("is-leaving");
-    stage.appendChild(leavingEl);
-
-    const newOrder = [...shifted, leavingId];
-    this._ids = newOrder;
-
-    const positions = this._diagPositions(newOrder.length);
-    const lastPos = positions[positions.length - 1];
-
-    // place just below and invisible
-    leavingEl.style.transition = "none";
-    this._applySlicePos(leavingEl, lastPos, false);
-    leavingEl.style.transform = `translate(var(--x), calc(var(--y) + 36px)) skewX(var(--skX))`;
-    leavingEl.style.opacity = "0";
-
-    // next frame -> animate into place
-    void leavingEl.offsetHeight;
-    leavingEl.style.transition = "";
-    leavingEl.style.transform = `translate(var(--x), var(--y)) skewX(var(--skX))`;
-    leavingEl.style.opacity = "1";
-
-    await this._afterTransition(leavingEl).catch(() => {});
-
-    // refresh full layout (also updates header name + featured class)
-    this._layoutDiagonal(this._ids);
-
-    // persist new order to Crew flag (actor IDs)
-    await this._persistCurrentOrder();
-  }
-
 
   // Small helper to await the end of the CSS transition
   _afterTransition(el) {
@@ -574,12 +542,11 @@ Hooks.once("ready", () => {
   /* The angled portrait slice (now tall) */
   .mg-ini-slice {
     position: absolute;
-    width: var(--w, 200px);
-    height: var(--h, 181px);
+    width: var(--w, 160px);
+    height: var(--h, 220px);
     transform: translate(var(--x, 0px), var(--y, 0px)) skewX(var(--skX, -22deg));
-    transform-origin: top left;
-    border-radius: 12px;
-    border: 5px solid rgba(255,255,255,.95);      /* thicker white like mock */
+    transform-origin: top left;       /* important for our geometry */
+    border: 4px solid rgba(255,255,255,.95);
     box-shadow: 0 12px 28px rgba(0,0,0,.40);
     overflow: hidden;
     padding: 0;
@@ -587,17 +554,26 @@ Hooks.once("ready", () => {
     transition: transform .28s ease, opacity .28s ease, box-shadow .2s ease, filter .2s ease;
   }
 
-  /* Unskew the image so it reads upright */
+  /* Unskewed image that BLEEDS beyond the frame to guarantee full cover */
   .mg-ini-slice .img {
-    position: absolute; inset: -6px;              /* bleed to hide skew gaps behind border */
-    background-size: cover; background-position: center;
-    transform: skewX(calc(-1 * var(--skX, -22deg))) scale(1.03);
+    position: absolute;
+    top: -18px;
+    bottom: -18px;
+    left: calc(-18px - var(--bleedL, 0px)); /* ← extra left bleed based on skew & height */
+    right: -18px;
+    background-size: cover;
+    background-position: top left;
     transform-origin: top left;
+    transform: skewX(calc(-1 * var(--skX, -22deg))) scale(1.02); /* tiny scale for safety */
   }
 
   /* Featured glow */
   .mg-ini-slice.is-featured {
     box-shadow: 0 0 0 4px rgba(87,162,255,.85) inset, 0 18px 44px rgba(0,0,0,.5);
+  }
+
+  .mg-ini-slice.is-featured .img {
+    background-position: top center;
   }
 
   /* Leave/enter cues for advance */
