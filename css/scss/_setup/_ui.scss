@@ -279,6 +279,7 @@
 					padding: 0;
 					background: #0f1c2b;
 					transition: transform .28s ease, opacity .28s ease, box-shadow .5s ease, filter .5s ease, border .5s ease;
+					border-radius: 0;
 
 					&:nth-of-type(2) {
 						border: 3px solid $mg-blue-2;
@@ -321,6 +322,28 @@
 			}
 		}
 	}
+/* END cap occupies a full slot (same geometry as slices) */
+.mg-ini-endcap {
+  position: absolute;
+  width: var(--w, 140px);
+  height: var(--h, 220px);
+  transform: translate(var(--x, 0), var(--y, 0)) skewX(var(--skX, -22deg));
+  transform-origin: top left;
+  border-radius: 12px;
+  border: 4px solid rgba(255,255,255,.90);
+  background: linear-gradient(135deg, #1a2a43, #0d1726);
+  box-shadow: 0 12px 28px rgba(0,0,0,.40);
+  overflow: hidden;
+  display: flex; align-items: center; justify-content: center;
+  user-select: none; pointer-events: none;
+}
+.mg-ini-endcap .label {
+  transform: skewX(calc(-1 * var(--skX, -22deg)));
+  font-weight: 900; letter-spacing: 2px;
+  text-transform: uppercase;
+  color: #8fb3e6; opacity: .95;
+}
+
 }
 /* Sidebar Styling
 ----------------------------------------------------------------------*/
