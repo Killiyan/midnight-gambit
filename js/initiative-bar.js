@@ -4,6 +4,7 @@
 const MAX_VISIBLE = 5;
 // Virtual "actor" used for the END slot
 const END_ID = "__MG_END__";
+const LEAVE_PX = 140;           // how far a leaving card slides left
 
 export class MGInitiativeBar extends Application {
   static #instance;
@@ -24,15 +25,18 @@ export class MGInitiativeBar extends Application {
   showBar() {
     this._ensureAttached();
     if (!this._ids || !this._ids.length) this._ids = this.getOrderActorIds();
+
+    // window starts at 0 when you open it
+    this._vOffset = 0;
+
     const stage = this._root.querySelector(".mg-ini-diag-stage");
-    const seqLen   = this._ids.length + 1; // +1 for END
-    const winCount = Math.min(MAX_VISIBLE, seqLen);
-    const actorWindow = this._ids.slice(0, Math.max(0, winCount - 1));
-    this._ensureSlices(stage, actorWindow);
-    this._ensureEndCap(stage);
-    this._layoutDiagonal(this._ids);
-    this._autosizeFrame();
+    this._ensureSlices(stage, this._ids);   // create ALL actor nodes
+    this._ensureEndCap(stage);              // create END node
+
+    this._layoutDiagonal(this._ids);        // lay out window using _vOffset
+    this._autosizeFrame();                  // lock size to window (no jiggle)
   }
+
 
   /** Internal state */
   _attached = false;
@@ -40,6 +44,7 @@ export class MGInitiativeBar extends Application {
   _root = null;
   _ids = [];
   _sizeLocked = false;
+  _vOffset = 0;
   _drag = { active: false, dx: 0, dy: 0 };
 
   // Null-safe: find the current Crew actor
@@ -137,10 +142,12 @@ export class MGInitiativeBar extends Application {
       </div>
     `;
 
-    // Build slices once, then place them
+    // Build ALL actor slices + END once, then place them
     const stage = wrap.querySelector(".mg-ini-diag-stage");
-    const visible = (this._ids || this.getOrderActorIds()).slice(0, Math.min((this._ids || []).length || MAX_VISIBLE, MAX_VISIBLE));
-    this._ensureSlices(stage, visible);
+    const all = this._ids?.length ? this._ids : this.getOrderActorIds();
+    this._ensureSlices(stage, all);
+    this._ensureEndCap(stage);
+
 
 
     // Drag move (guard so buttons still click)
@@ -234,55 +241,61 @@ export class MGInitiativeBar extends Application {
     return slots;
   }
 
-  /** Lay out a window of MAX_VISIBLE items from [actors..., END] */
+  /** Lay out ALL actors PLUS a final END slot; only first MAX_VISIBLE from _vOffset are visible */
   _layoutDiagonal(ids) {
     if (!this._root) return;
     const stage = this._root.querySelector(".mg-ini-diag-stage");
     if (!stage) return;
 
-    const actorIds = Array.isArray(ids) ? ids : [];
-    const seq = [...actorIds, END_ID];                 // END always exists at the tail
+    const actors = Array.isArray(ids) ? ids : [];
+    const seq = [...actors, END_ID];                 // full loop with END at tail
+    const L = seq.length;
 
-    const windowCount = Math.min(MAX_VISIBLE, seq.length);
-    const windowIds   = seq.slice(0, windowCount);     // <-- only the first MAX_VISIBLE
+    if (L === 0) return;
+
+    // clamp offset and build the window
+    this._vOffset = ((this._vOffset % L) + L) % L;
+    const winCount = Math.min(MAX_VISIBLE, L);
+
+    const windowIds = [];
+    for (let j = 0; j < winCount; j++) {
+      windowIds.push( seq[(this._vOffset + j) % L] );
+    }
 
     // Headline = first real actor in the window
+    const firstActor = windowIds.find(id => id !== END_ID) || null;
     const nextNameEl = this._root.querySelector("[data-next-name]");
-    const firstActorId = windowIds.find(id => id !== END_ID) || null;
-    if (nextNameEl) nextNameEl.textContent = firstActorId ? (game.actors.get(firstActorId)?.name ?? "") : "";
+    if (nextNameEl) nextNameEl.textContent = firstActor ? (game.actors.get(firstActor)?.name ?? "") : "";
 
-    // Ensure ONLY visible actor slices exist (prunes the rest)
-    const visibleActors = windowIds.filter(id => id !== END_ID);
-    this._ensureSlices(stage, visibleActors);
-
-    // Ensure END node exists
-    this._ensureEndCap(stage);
-    const endNode = stage.querySelector(".mg-ini-endcap");
+    // Ensure nodes exist
+    this._ensureSlices(stage, actors);
+    const endEl = this._ensureEndCap(stage);
 
     // Slot rects for the visible window
-    const slots = this._diagPositions(windowCount);
+    const slots = this._diagPositions(winCount);
 
-    // Place each item in the window
-    windowIds.forEach((id, i) => {
-      const p = slots[i];
-      if (id === END_ID) {
-        if (endNode) {
-          endNode.style.display = ""; // show
-          endNode.style.setProperty("--w", `${p.w}px`);
-          endNode.style.setProperty("--h", `${p.h}px`);
-          endNode.style.setProperty("--x", `${p.x}px`);
-          endNode.style.setProperty("--y", `${p.y}px`);
-          endNode.style.setProperty("--skX", `${p.sk}deg`);
-        }
-      } else {
-        const el = stage.querySelector(`.mg-ini-slice[data-actor-id="${id}"]`);
-        if (el) this._applySlicePos(el, p, i === 0);
-      }
+    // Place visible items into slot 0..winCount-1
+    windowIds.forEach((id, j) => {
+      const p = slots[j];
+      const el = (id === END_ID)
+        ? endEl
+        : stage.querySelector(`.mg-ini-slice[data-actor-id="${id}"]`);
+      if (!el) return;
+      this._applySlicePos(el, p, j === 0 && id !== END_ID);
+      el.style.visibility = ""; // visible
     });
 
-    // If END isn’t in the window, hide it
-    if (!windowIds.includes(END_ID) && endNode) endNode.style.display = "none";
+    // Hide all off-window items (keep them positioned invisibly)
+    const visSet = new Set(windowIds);
+    for (const id of seq) {
+      if (visSet.has(id)) continue;
+      const el = (id === END_ID)
+        ? endEl
+        : stage.querySelector(`.mg-ini-slice[data-actor-id="${id}"]`);
+      if (el) el.style.visibility = "hidden";
+    }
   }
+
 
   /** Set inline transform/size for a slice, with skew container and unscrew inner image */
   _applySlicePos(el, p, featured) {
@@ -299,99 +312,90 @@ export class MGInitiativeBar extends Application {
     el.classList.toggle("is-featured", !!featured);
   }
 
-  /** Advance one slot within the visible window; END is a real rotating slice */
+  /** Advance one slot; the visible window slides over [actors..., END] */
   async _endTurn() {
     const stage = this._root?.querySelector(".mg-ini-diag-stage");
     if (!stage) return;
 
     if (!this._ids || !this._ids.length) this._ids = this.getOrderActorIds();
-    const actorIds = this._ids.slice();
-    if (!actorIds.length) { ui.notifications?.warn("No actors in Initiative to advance."); return; }
+    const actors = this._ids.slice();
+    if (!actors.length) { ui.notifications?.warn("No actors in Initiative to advance."); return; }
 
-    // Sequence = all actors + END (END is virtual; not persisted)
-    const seq = [...actorIds, END_ID];
-    const windowCount = Math.min(MAX_VISIBLE, seq.length);
-    const visBefore   = seq.slice(0, windowCount);
+    const seq = [...actors, END_ID];
+    const L = seq.length;
+    const winCount = Math.min(MAX_VISIBLE, L);
 
-    // Ensure visible nodes exist
-    const needActors = visBefore.filter(id => id !== END_ID);
-    needActors.forEach(id => {
-      if (stage.querySelector(`.mg-ini-slice[data-actor-id="${id}"]`)) return;
-      const a = game.actors.get(id); if (!a) return;
-      const btn = document.createElement("button");
-      btn.type = "button";
-      btn.className = "mg-ini-slice";
-      btn.dataset.actorId = id;
-      btn.title = a.name;
-      btn.innerHTML = `<div class="mg-ini-image" style="background-image:url('${a.img}')"></div>`;
-      stage.appendChild(btn);
-    });
-    this._ensureEndCap(stage);
+    // BEFORE window based on current offset
+    this._vOffset = ((this._vOffset % L) + L) % L;
+    const windowBefore = [];
+    for (let j = 0; j < winCount; j++) windowBefore.push(seq[(this._vOffset + j) % L]);
 
-    const leavingId = visBefore[0];
+    // Ensure nodes for anything visible
+    this._ensureSlices(stage, actors);
+    const endEl = this._ensureEndCap(stage);
+
+    // Leaving element (slot 0)
+    const leavingId = windowBefore[0];
     const leavingEl = (leavingId === END_ID)
-      ? stage.querySelector(".mg-ini-endcap")
+      ? endEl
       : stage.querySelector(`.mg-ini-slice[data-actor-id="${leavingId}"]`);
     if (!leavingEl) return;
 
-    // Clean any inline transform leftovers
-    leavingEl.classList.remove("is-entering", "is-leaving");
+    // Clean leftovers
     leavingEl.style.removeProperty("transform");
     leavingEl.style.removeProperty("opacity");
     leavingEl.style.removeProperty("transition");
 
-    // 1) Shift the other items in the window forward (1..N-1 -> 0..N-2)
-    const slotsBefore = this._diagPositions(windowCount);
-    for (let i = 1; i < visBefore.length; i++) {
-      const id = visBefore[i];
-      const el = (id === END_ID)
-        ? stage.querySelector(".mg-ini-endcap")
-        : stage.querySelector(`.mg-ini-slice[data-actor-id="${id}"]`);
+    // 1) Shift items 1..N-1 into slots 0..N-2
+    const slotsBefore = this._diagPositions(winCount);
+    for (let j = 1; j < windowBefore.length; j++) {
+      const id = windowBefore[j];
+      const el = (id === END_ID) ? endEl : stage.querySelector(`.mg-ini-slice[data-actor-id="${id}"]`);
       if (!el) continue;
-      const p = slotsBefore[i - 1];
-      this._applySlicePos(el, p, (i - 1 === 0) && id !== END_ID);
+      const p = slotsBefore[j - 1];
+      this._applySlicePos(el, p, (j - 1 === 0) && id !== END_ID);
+      el.style.visibility = "";
     }
 
-    // 2) Leaving: slide out left & fade
-    leavingEl.classList.add("is-leaving");
+    // 2) Leaver slides LEFT + fades (inline transform so direction can’t flip)
+    leavingEl.style.transform = `translate(calc(var(--x) - ${LEAVE_PX}px), var(--y)) skewX(var(--skX))`;
+    leavingEl.style.opacity = "0";
     await this._afterTransition(leavingEl).catch(() => {});
+    leavingEl.style.removeProperty("transform");
+    leavingEl.style.removeProperty("opacity");
 
-    // 3) Update the logical actor order (END is virtual)
-    if (leavingId !== END_ID) this._ids = [...this._ids.slice(1), leavingId];
+    // 3) Move the window forward by one over the full sequence
+    this._vOffset = (this._vOffset + 1) % L;
+    // IMPORTANT: do NOT rotate this._ids here — the window offset is the “turn head”
 
-    // 4) Determine entrant for the last visible slot after the shift
-    const seqAfter  = [...seq.slice(1), leavingId];
-    const visAfter  = seqAfter.slice(0, windowCount);
-    const entrantId = visAfter[visAfter.length - 1];
+    // 4) Entrant = new last slot after offset shift
+    const entrantId = seq[(this._vOffset + winCount - 1) % L];
 
-    // Ensure entrant exists; if entrant is END, make sure it's visible before animating
-    let entrantEl;
-    if (entrantId === END_ID) {
-      entrantEl = stage.querySelector(".mg-ini-endcap");
-      if (entrantEl) entrantEl.style.display = "";          // ← important: show END before anim
-    } else {
-      entrantEl = stage.querySelector(`.mg-ini-slice[data-actor-id="${entrantId}"]`);
-      if (!entrantEl) {
-        const a = game.actors.get(entrantId);
-        if (a) {
-          entrantEl = document.createElement("button");
-          entrantEl.type = "button";
-          entrantEl.className = "mg-ini-slice";
-          entrantEl.dataset.actorId = entrantId;
-          entrantEl.title = a.name;
-          entrantEl.innerHTML = `<div class="mg-ini-image" style="background-image:url('${a.img}')"></div>`;
-          stage.appendChild(entrantEl);
-        }
+    // Ensure entrant exists
+    let entrantEl = (entrantId === END_ID)
+      ? endEl
+      : stage.querySelector(`.mg-ini-slice[data-actor-id="${entrantId}"]`);
+    if (!entrantEl && entrantId !== END_ID) {
+      const a = game.actors.get(entrantId);
+      if (a) {
+        entrantEl = document.createElement("button");
+        entrantEl.type = "button";
+        entrantEl.className = "mg-ini-slice";
+        entrantEl.dataset.actorId = entrantId;
+        entrantEl.title = a.name;
+        entrantEl.innerHTML = `<div class="mg-ini-image" style="background-image:url('${a.img}')"></div>`;
+        stage.appendChild(entrantEl);
       }
     }
 
-    // Animate entrant from below into the last slot
-    const slotsAfter = this._diagPositions(windowCount);
-    const lastPos    = slotsAfter[slotsAfter.length - 1];
+    // 5) Entrant animates from below into last slot
+    const slotsAfter = this._diagPositions(winCount);
+    const lastPos = slotsAfter[slotsAfter.length - 1];
 
     if (entrantEl) {
       entrantEl.style.transition = "none";
       this._applySlicePos(entrantEl, lastPos, false);
+      entrantEl.style.visibility = "";
       entrantEl.style.transform = `translate(var(--x), calc(var(--y) + 36px)) skewX(var(--skX))`;
       entrantEl.style.opacity = "0";
       void entrantEl.offsetHeight;
@@ -404,15 +408,10 @@ export class MGInitiativeBar extends Application {
       entrantEl.style.removeProperty("transition");
     }
 
-    // If a real actor left and is no longer visible, remove its node
-    if (leavingId !== END_ID && !visAfter.includes(leavingId)) {
-      leavingEl.remove();
-    }
-
-    // Final reconcile: prune to visible window and update header (END hidden if off-window)
+    // 6) Reconcile layout using NEW offset; only window is visible
     this._layoutDiagonal(this._ids);
 
-    // Persist actor order (END never saved)
+    // Persist a rotated *view* so others see the same head (END excluded)
     await this._persistCurrentOrder();
   }
 
@@ -451,23 +450,35 @@ export class MGInitiativeBar extends Application {
       }
     });
 
-    // Click a slice -> select its token (does NOT end turn)
+    // Click a slice -> select its token (ignore END)
     this._root.addEventListener("click", (ev) => {
       const slot = ev.target.closest(".mg-ini-slice");
       if (!slot) return;
+      if (slot.classList.contains("is-end") || slot.dataset.actorId === END_ID) return;
       const actor = game.actors.get(slot.dataset.actorId);
       const token = canvas.tokens.placeables.find(t => t.actor?.id === actor?.id);
       if (token) token.control({ releaseOthers: true });
     });
   }
 
-  /** Create the END slice node if missing (styled separately in CSS) */
+  /** Create the END slice as a real "player" button sharing mg-ini-slice styles */
   _ensureEndCap(stage) {
-    if (stage.querySelector(".mg-ini-endcap")) return;
-    const end = document.createElement("div");
-    end.className = "mg-ini-endcap";
-    end.innerHTML = `<div class="label">END</div>`;
+    let end = stage.querySelector(".mg-ini-slice.is-end");
+    if (end) return end;
+
+    end = document.createElement("button");
+    end.type = "button";
+    end.className = "mg-ini-slice is-end mg-ini-endcap";
+    end.dataset.actorId = END_ID; // so _layout & click code can treat it like a slice
+    end.title = "End of Round";
+
+    // Same inner structure as actors so the CSS applies identically; label overlays the image area.
+    end.innerHTML = `
+      <div class="mg-ini-image"></div>
+      <div class="label">END</div>
+    `;
     stage.appendChild(end);
+    return end;
   }
 
   /** Active is simply the first element in the order array */
@@ -483,31 +494,43 @@ export class MGInitiativeBar extends Application {
     });
 }
 
-  /** Save the current actor-id order to the Crew flag the bar reads */
+  /** Save the current actor-id order (rotated so slot 0’s actor is first) */
   async _persistCurrentOrder() {
     let crew = null;
     try {
       const crewId = game.settings.get("midnight-gambit", "crewActorId");
       if (crewId) crew = game.actors.get(crewId) || null;
     } catch (_) {}
-
     if (!crew) return;
 
     const ids = Array.isArray(this._ids) ? this._ids : [];
-    if (!ids.length) return;
+    const n = ids.length;
+    if (!n) return;
 
-    await crew.setFlag("midnight-gambit", "initiativeOrder", ids);
+    // Rotate ids by current window offset (END lives outside ids)
+    // If the window starts on END, the "next" actor is index 0.
+    const L = n + 1;
+    const off = ((this._vOffset % L) + L) % L;
+    const start = (off === n) ? 0 : off; // if pointing at END, start from 0
+    const rotated = [...ids.slice(start), ...ids.slice(0, start)];
+
+    await crew.setFlag("midnight-gambit", "initiativeOrder", rotated);
   }
+
 
   /** Reset to Crew order and relayout without closing */
   async _resetOrder() {
     this._ids = this.getOrderActorIds();
+    this._vOffset = 0; // restart the window at the beginning
+    if (!this._attached) return;
+
     const stage = this._root?.querySelector(".mg-ini-diag-stage");
     if (!stage) return;
-    const visible = this._ids.slice(0, Math.min(this._ids.length, MAX_VISIBLE));
-    this._ensureSlices(stage, visible);
+
+    this._ensureSlices(stage, this._ids);
+    this._ensureEndCap(stage);
     this._layoutDiagonal(this._ids);
-    // keep size locked; no autosize here
+    // size stays locked
   }
 
   /** Mount / Unmount */
@@ -519,8 +542,6 @@ export class MGInitiativeBar extends Application {
     this._placeDefault();
     this._wireLiveRefresh();
     this._bindRootEvents();
-    this._layoutDiagonal(this._ids || this.getOrderActorIds());
-    this._autosizeFrame();
   }
 
   _detach() {
