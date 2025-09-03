@@ -235,30 +235,47 @@
 			display:flex; 
 			align-items:center; 
 			justify-content:space-between;
+
+			.mg-ini-headline {
+				position: absolute;
+				top: 24%;
+				left: 20%;
+
+				.up-next {
+					@include roboto();
+					font-weight: 600;
+					font-style: italic;
+					font-size: .75rem;
+					letter-spacing: .05em;
+					color: $mg-blue-2;
+				}
+
+				.next-name {
+					@include oswald();
+					font-size: 1.25rem;
+					font-style: italic;
+					font-weight: 700;
+					color: $mg-ivory;
+					text-transform: uppercase;
+				}
+			}
+
+			.mg-ini-actions {
+				display: flex;
+				width: 100%;
+				margin-top: 2.125rem;
+				padding: 0 2.125rem;
+			}
 		}
 
 		.mg-ini-stage {
 			--pad: 2.125rem;
 			position: relative;
 			box-sizing: border-box;
-			padding: var(--pad);
+			padding: 0 2.125rem 2.125rem 2.125rem;
 			overflow: hidden;
 			width: auto;
 			height: auto;
-
-			.mg-ini-lane {
-				position: absolute;
-				left: 472px; 
-				top: 18px; 
-				bottom: 18px; 
-				width: 10px;
-				background-image: linear-gradient(#7da3d2 0 0);
-				background-size: 10px 16px;
-				background-repeat: repeat-y;
-				opacity: .35;
-				transform: skewX(-22deg);
-				pointer-events: none;
-			}
 
 			.mg-ini-diag-stage {
 				position: relative;
@@ -320,9 +337,21 @@
 					}
 				}
 			}
+
+			.mg-ini-watermark {
+				position: absolute;
+				right: 0;
+				bottom: 0;
+				@include oswald();
+				font-size: 3.4375rem;
+				color: $mg-blue-main-2;
+				font-weight: 700;
+				line-height: .8;
+			}
 		}
 	}
-/* END cap occupies a full slot (same geometry as slices) */
+
+/* END behaves like a slice */
 .mg-ini-endcap {
   position: absolute;
   width: var(--w, 140px);
@@ -336,13 +365,24 @@
   overflow: hidden;
   display: flex; align-items: center; justify-content: center;
   user-select: none; pointer-events: none;
+
+  /* same transition timings as slices */
+  transition: transform .28s ease, opacity .28s ease, box-shadow .2s ease, filter .2s ease;
 }
+
+/* Leave-left animation (matches .mg-ini-slice.is-leaving) */
+.mg-ini-endcap.is-leaving {
+  transform: translate(calc(var(--x) - 140px), var(--y)) skewX(var(--skX));
+  opacity: 0;
+}
+
 .mg-ini-endcap .label {
   transform: skewX(calc(-1 * var(--skX, -22deg)));
   font-weight: 900; letter-spacing: 2px;
   text-transform: uppercase;
   color: #8fb3e6; opacity: .95;
 }
+
 
 }
 /* Sidebar Styling
