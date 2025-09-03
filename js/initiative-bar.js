@@ -18,24 +18,32 @@ export class MGInitiativeBar extends Application {
     });
   }
 
-  /** Public helpers */
-  // We do NOT use Application's template render; we mount our own DOM.
+  /** Public helpers (frameless) */
   showBar() {
     this._ensureAttached();
-    // ensure we have an order cached and laid out
     if (!this._ids || !this._ids.length) this._ids = this.getOrderActorIds();
+    const stage = this._root.querySelector(".mg-ini-diag-stage");
+    this._ensureSlices(stage, this._ids);
     this._layoutDiagonal(this._ids);
+    this._autosizeFrame(); // compute & lock size ONCE on first open
   }
-  hideBar() { this._detach(); }
+  hideBar() {
+    this._detach();
+    this._sizeLocked = false; // next open can recompute size
+  }
   toggleBar() { (this._attached ? this.hideBar() : this.showBar()); }
-
-  // (safety) noop Application.render
   async render() { return this; }
+
+
 
 
 
   /** Internal state */
   _attached = false;
+  _attached = false;
+  _root = null;
+  _ids = [];
+  _sizeLocked = false;
   _drag = { active: false, dx: 0, dy: 0 };
 
   // Null-safe: find the current Crew actor
@@ -162,7 +170,7 @@ export class MGInitiativeBar extends Application {
       btn.dataset.actorId = id;
       btn.title = a.name;
       btn.innerHTML = `
-        <div class="img" style="background-image:url('${a.img}')"></div>
+        <div class="mg-ini-image" style="background-image:url('${a.img}')"></div>
       `;
       stage.appendChild(btn);
     }
@@ -419,6 +427,8 @@ export class MGInitiativeBar extends Application {
     const crew   = crewId ? game.actors.get(crewId) : null;
     if (crew) await crew.unsetFlag("midnight-gambit", "initiativeOrder");
     this._rerender();
+    this._autosizeFrame();
+    this._layoutDiagonal(this._ids);
   }
 
   /** Mount / Unmount */
@@ -431,6 +441,7 @@ export class MGInitiativeBar extends Application {
     this._wireLiveRefresh();
     this._bindRootEvents();
     this._layoutDiagonal(this._ids || this.getOrderActorIds());
+    this._autosizeFrame();
   }
 
   _detach() {
@@ -494,6 +505,69 @@ export class MGInitiativeBar extends Application {
     document.addEventListener("pointermove", onMove);
     document.addEventListener("pointerup", onUp, true);
   }
+
+  /** Compute a stable stage size from slot positions and lock it (no jank on advance) */
+  _autosizeFrame() {
+    if (!this._root || this._sizeLocked) return;
+
+    const frame   = this._root;
+    const stageBox= frame.querySelector(".mg-ini-stage");
+    const stage   = frame.querySelector(".mg-ini-diag-stage");
+    if (!stageBox || !stage) return;
+
+    // Use your layout math (stable) instead of live DOM (which includes animation transforms)
+    const ids = (this._ids && this._ids.length) ? this._ids : this.getOrderActorIds();
+    const pos = this._diagPositions(ids.length);
+
+    if (!pos.length) {
+      stage.style.width  = `300px`;
+      stage.style.height = `120px`;
+      this._sizeLocked = true;
+      return;
+    }
+
+    let minX =  Infinity, minY =  Infinity, maxX = -Infinity, maxY = -Infinity;
+
+    for (const p of pos) {
+      // Axis-aligned bounds of a rect skewed by skewX(p.sk) with origin at top-left:
+      // top-left:     (p.x, p.y)
+      // top-right:    (p.x + p.w, p.y)
+      // bottom-left:  (p.x + p.h * tan(sk), p.y + p.h)
+      // bottom-right: (p.x + p.w + p.h * tan(sk), p.y + p.h)
+      const skRad = p.sk * Math.PI / 180;
+      const tan   = Math.tan(skRad);
+
+      const x1 = p.x;
+      const x2 = p.x + p.w;
+      const x3 = p.x + p.h * tan;
+      const x4 = p.x + p.w + p.h * tan;
+
+      const localMinX = Math.min(x1, x3);
+      const localMaxX = Math.max(x2, x4);
+      const localMinY = p.y;
+      const localMaxY = p.y + p.h;
+
+      if (localMinX < minX) minX = localMinX;
+      if (localMinY < minY) minY = localMinY;
+      if (localMaxX > maxX) maxX = localMaxX;
+      if (localMaxY > maxY) maxY = localMaxY;
+    }
+
+    // Width/height of content at REST (no animation offsets)
+    const contentW = Math.ceil(maxX - minX);
+    const contentH = Math.ceil(maxY - minY);
+
+    // Safety buffer so the “enter from bottom” (+36px) never forces a resize
+    const ANIM_BUFFER = 48;
+
+    stage.style.width  = `${contentW}px`;
+    stage.style.height = `${contentH + ANIM_BUFFER}px`;
+
+    // Let the header + padded stage naturally size the outer frame
+    this._sizeLocked = true; // <- lock so subsequent calls are no-ops
+  }
+
+
 }
 
 // ---- System setting for Crew Actor selection (optional UI in core settings) ----
@@ -506,82 +580,4 @@ Hooks.once("init", () => {
     type: String,
     default: ""
   });
-});
-
-// Mini CSS injection (fallback if SCSS not yet compiled)
-Hooks.once("ready", () => {
-  const css = document.createElement("style");
-  css.textContent = `
-  /* Stage box size – matches your mock proportions */
-  .mg-initiative.mg-ini--diag {
-    position: fixed;
-    z-index: 10000;
-    pointer-events: auto;
-    width: 920px;
-    height: 560px;              /* a bit taller gives breathing room */
-    background: #122236cc;
-    border-radius: 16px;
-    border: 1px solid rgba(255,255,255,.08);
-    box-shadow: 0 10px 24px rgba(0,0,0,.35);
-    padding: 10px 10px 12px;
-  }
-
-  /* Optional diagonal dash lane */
-  .mg-ini-lane {
-    position: absolute;
-    left: 472px; top: 18px; bottom: 18px; width: 10px;
-    background-image: linear-gradient(#7da3d2 0 0);
-    background-size: 10px 16px;
-    background-repeat: repeat-y;
-    opacity: .35;
-    transform: skewX(-22deg);
-    border-radius: 3px;
-    pointer-events: none;
-  }
-
-  /* The angled portrait slice (now tall) */
-  .mg-ini-slice {
-    position: absolute;
-    width: var(--w, 160px);
-    height: var(--h, 220px);
-    transform: translate(var(--x, 0px), var(--y, 0px)) skewX(var(--skX, -22deg));
-    transform-origin: top left;       /* important for our geometry */
-    border: 4px solid rgba(255,255,255,.95);
-    box-shadow: 0 12px 28px rgba(0,0,0,.40);
-    overflow: hidden;
-    padding: 0;
-    background: #0f1c2b;
-    transition: transform .28s ease, opacity .28s ease, box-shadow .2s ease, filter .2s ease;
-  }
-
-  /* Unskewed image that BLEEDS beyond the frame to guarantee full cover */
-  .mg-ini-slice .img {
-    position: absolute;
-    top: -18px;
-    bottom: -18px;
-    left: calc(-18px - var(--bleedL, 0px)); /* ← extra left bleed based on skew & height */
-    right: -18px;
-    background-size: cover;
-    background-position: top left;
-    transform-origin: top left;
-    transform: skewX(calc(-1 * var(--skX, -22deg))) scale(1.02); /* tiny scale for safety */
-  }
-
-  /* Featured glow */
-  .mg-ini-slice.is-featured {
-    box-shadow: 0 0 0 4px rgba(87,162,255,.85) inset, 0 18px 44px rgba(0,0,0,.5);
-  }
-
-  .mg-ini-slice.is-featured .img {
-    background-position: top center;
-  }
-
-  /* Leave/enter cues for advance */
-  .mg-ini-slice.is-leaving {
-    transform: translate(calc(var(--x) - 140px), var(--y)) skewX(var(--skX));
-    opacity: 0;
-  }
-
-  `;
-  document.head.appendChild(css);
 });

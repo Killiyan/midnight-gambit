@@ -217,129 +217,111 @@
 /* On Screen Initiative
 ----------------------------------------------------------------------*/
 
-.mg-initiative-bar {
-	background: rgba($mg-blue-4, .45);
-	position: fixed;
-	left: 50%;
-	bottom: 16px;
-	transform: translateX(-50%);
-	z-index: 80;
-	pointer-events: auto;
-	/* Nice container look (keeps your existing inner styles) */
-	padding: .5rem;
-	border-radius: 12px;
-	background: linear-gradient(180deg, rgba(20,24,34,.85), rgba(12,14,20,.85));
-	backdrop-filter: blur(6px);
-	box-shadow: 0 4px 24px rgba(0,0,0,.35);
-	
+.mg-initiative {
 
-	.mg-initiative-root {
-		display: flex;
-		gap: 2rem;
-	}
+	/* Stage box size – matches your mock proportions */
+	&.mg-ini--diag {
+		position: fixed;
+		z-index: 32;
+		pointer-events: auto;
+		width: auto;
+		height: auto;
+		background: rgba($mg-blue-4, .45);
+		@include mg-border();
+		box-shadow: 0 10px 24px rgba(0,0,0,.35);
+		//padding: 2.125rem;
 
-	.window-content {
-		padding: .625rem;
-		background: rgba($mg-blue-4, .45) !important;
-	}
+		.mg-ini-header {
+			display:flex; 
+			align-items:center; 
+			justify-content:space-between;
+		}
 
-	.mg-initiative-root{
+		.mg-ini-stage {
+			--pad: 2.125rem;
+			position: relative;
+			box-sizing: border-box;
+			padding: var(--pad);
+			overflow: hidden;
+			width: auto;
+			height: auto;
 
-		.mg-bar-header {
-			display: flex; 
-			flex-direction: column;
-			align-items: center; 
-			gap: .5rem; 
-			margin-bottom: .5rem;
-
-			.mg-left { 
-				display:flex; 
-				align-items:center; 
-				gap:.5rem; 
+			.mg-ini-lane {
+				position: absolute;
+				left: 472px; 
+				top: 18px; 
+				bottom: 18px; 
+				width: 10px;
+				background-image: linear-gradient(#7da3d2 0 0);
+				background-size: 10px 16px;
+				background-repeat: repeat-y;
+				opacity: .35;
+				transform: skewX(-22deg);
+				pointer-events: none;
 			}
-		}
 
-		.mg-strip {
-			display: flex; 
-			gap: .35rem; 
-			align-items: stretch;
-		}
+			.mg-ini-diag-stage {
+				position: relative;
+				inset: auto;
+				display: block;
+				width: auto;
+				height: auto;
 
-		.mg-slot {
-			width: 5rem;
-			overflow: hidden; 
-			transition: transform .25s ease, opacity .25s ease;
-			margin-right: -1.5rem;
+				.mg-ini-slice {
+					position: absolute;
+					width: var(--w, 160px);
+					height: var(--h, 220px);
+					transform: translate(var(--x, 0px), var(--y, 0px)) skewX(var(--skX, -22deg));
+					transform-origin: top left;
+					border: 3px solid $mg-blue-main;
+					box-shadow: 0 12px 28px rgba(0,0,0,.40);
+					overflow: hidden;
+					padding: 0;
+					background: #0f1c2b;
+					transition: transform .28s ease, opacity .28s ease, box-shadow .5s ease, filter .5s ease, border .5s ease;
+
+					&:nth-of-type(2) {
+						border: 3px solid $mg-blue-2;
+					}
+
+					&:nth-of-type(3) {
+						border: 3px solid $mg-blue-3;
+					}
+
+					&:nth-of-type(4) {
+						border: 3px solid $mg-blue-main-2;
+					}
 
 
-			&.is-active { outline: 2px solid var(--color-accent); }
+					.mg-ini-image {
+						position: absolute;
+						top: -18px;
+						bottom: -18px;
+						left: calc(-18px - var(--bleedL, 0px)); /* ← extra left bleed based on skew & height */
+						right: -18px;
+						background-size: cover;
+						background-position: top left;
+						transform-origin: top left;
+						transform: skewX(calc(-1 * var(--skX, -22deg))) scale(1.02); /* tiny scale for safety */
+					}
 
-			.mg-art {
-				width: 100%;
-				height: 5rem;
-				overflow: hidden;
-				/* crop to a forward-leaning parallelogram */
-				--lean: 35%;
-				clip-path: polygon(0 0, calc(100% - var(--lean)) 0, 100% 100%, var(--lean) 100%);
-				-webkit-clip-path: polygon(0 0, calc(100% - var(--lean)) 0, 100% 100%, var(--lean) 100%);
+					&.is-featured {
+						border: 3px solid $mg-blue-1;
 
-				img {
-					display: block;
-					width: 100%;
-					height: 100%;
-					object-fit: cover;
+						.mg-ini-image {
+							background-position: top center;
+						}
+					}
+
+					&.is-leaving {
+						transform: translate(calc(var(--x) - 140px), var(--y)) skewX(var(--skX));
+						opacity: 0;
+					}
 				}
 			}
-
-			.mg-name { 
-				@include oswald();
-				text-transform: uppercase;
-				font-style: italic;
-				font-weight: 700;
-				letter-spacing: -0.03rem;
-				font-size: .75rem;
-				text-align:left; 
-				white-space:nowrap; 
-				overflow:hidden; 
-				text-overflow:ellipsis;
-				color: $mg-ivory;
-				margin-bottom: .5rem;
-			}
-		}
-
-		/* slide-out for the first slot when ending turn */
-		.mg-slot.mg-slide-out {
-			transform: translateY(12px);
-			opacity: 0.0;
 		}
 	}
 }
-
-/* existing (you likely already have this; keep it) */
-.mg-initiative-root .mg-slot.mg-slide-out {
-  transition: transform .35s ease, opacity .35s ease;
-  transform: translateY(12px);
-  opacity: 0;
-}
-
-/* NEW: slide-in keyframes for the last slot after rotation */
-@keyframes mg-slide-in {
-  from { transform: translateY(-12px); opacity: 0; }
-  to   { transform: translateY(0);     opacity: 1; }
-}
-.mg-initiative-root .mg-slot.mg-slide-in {
-  animation: mg-slide-in .35s ease;
-}
-
-.mg-initiative {
-	background: rgba($mg-blue-4, .45);
-	@include mg-border();
-	border-radius: .625rem;
-	backdrop-filter: blur(4px);
-	box-shadow: 0 2px 12px rgba(0,0,0,0.25);
-}
-
-
 /* Sidebar Styling
 ----------------------------------------------------------------------*/
 .system-midnight-gambit #controls {
