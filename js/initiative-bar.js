@@ -31,7 +31,6 @@ export class MGInitiativeBar extends Application {
 
     const stage = this._root.querySelector(".mg-ini-diag-stage");
     this._ensureSlices(stage, this._ids);   // create ALL actor nodes
-    this._ensureEndCap(stage);              // create END node
 
     this._layoutDiagonal(this._ids);        // lay out window using _vOffset
     this._autosizeFrame();                  // lock size to window (no jiggle)
@@ -103,21 +102,27 @@ export class MGInitiativeBar extends Application {
       .map(a => a.id);
   }
 
-
-  /** Build minimal HTML (no template needed) */
+  // Build minimal HTML (no template needed) — robust & mounts END up front
   _buildHTML() {
+    // Gather current ids and remember locally for layout
     const ids = this.getOrderActorIds();
-    this._ids = [...ids]; // keep a local order array for layout/animation
-    const activeId = this._getActiveId(ids);
+    this._ids = Array.isArray(ids) ? [...ids] : [];
+    const activeId = this._getActiveId(this._ids);
 
+    // Root container
     const wrap = document.createElement("div");
     wrap.className = "mg-initiative mg-ini--diag";
     wrap.setAttribute("role", "region");
     wrap.setAttribute("aria-label", "Initiative Order");
 
-    // Header + stage container
-    const activeName = game.actors.get(activeId)?.name ?? "";
-    wrap.innerHTML = `
+    // Header + stage container markup (keep your existing classes)
+    const activeName =
+      game.actors.get(activeId ?? "")?.name ??
+      game.actors.get(this._ids[0] ?? "")?.name ??
+      "—";
+
+      // Replace the stage container markup in _buildHTML() with this:
+      wrap.innerHTML = `
       <div class="mg-ini-header" data-drag-handle>
         <div class="mg-ini-headline">
           <div class="up-next">The spotlight's on</div>
@@ -136,52 +141,83 @@ export class MGInitiativeBar extends Application {
         </div>
       </div>
 
+      <!-- IMPORTANT: your SCSS expects .mg-ini-stage, not .mg-ini-diag-wrap -->
       <div class="mg-ini-stage">
         <div class="mg-ini-diag-stage"></div>
-        <div class="mg-ini-watermark" aria-hidden="true">INITIATIVE</div>
+        <div class="mg-ini-watermark">INITIATIVE</div>
       </div>
-    `;
+      `;
 
-    // Build ALL actor slices + END once, then place them
-    const stage = wrap.querySelector(".mg-ini-diag-stage");
-    const all = this._ids?.length ? this._ids : this.getOrderActorIds();
-    this._ensureSlices(stage, all);
-    this._ensureEndCap(stage);
+    // Attach to DOM *before* querying children
+    document.body.appendChild(wrap);
+    this._root = wrap;
 
+    // --- Guarantee a stage node exists and get a reference safely ---
+    let stage =
+      this._root.querySelector(".mg-ini-diag-stage") ||
+      this._root.querySelector(".mg-ini-stage .mg-ini-diag-stage");
 
+    if (!stage) {
+      const stageWrap =
+        this._root.querySelector(".mg-ini-diag-wrap") ||
+        this._root.querySelector(".mg-ini-stage") ||
+        this._root;
+      stage = document.createElement("div");
+      stage.className = "mg-ini-diag-stage";
+      stageWrap.appendChild(stage);
+    }
 
-    // Drag move (guard so buttons still click)
-    wrap.querySelector("[data-drag-handle]").addEventListener("pointerdown", (ev) => {
-      if (ev.button !== 0) return;
-      if (ev.target.closest(".mg-ini-actions, .mg-ini-btn, button, a, input, select, textarea")) return;
-      this._onDragStart(ev, wrap);
-    });
+    // Create ALL slices up front, including END, so it’s in the DOM from frame 1
+    const initialSeq = [...this._ids, END_ID];
+    this._ensureSlices(stage, initialSeq);
 
-    return wrap;
+    // First layout + size lock
+    this._layoutDiagonal(this._ids);
+    this._autosizeFrame();
   }
 
-  /** Create any missing slice buttons for ids; reuse existing by data-actor-id */
+  // Ensure the stage has slices (buttons) for every id in ids.
+  // Handles both real actors AND the END_ID. New elements start hidden.
   _ensureSlices(stage, ids) {
-    const existing = new Map([...stage.querySelectorAll(".mg-ini-slice")]
-      .map(el => [el.dataset.actorId, el]));
+    if (!stage) return;
+
+    const have = new Set(
+      [...stage.querySelectorAll(".mg-ini-slice")].map(n => n.dataset.actorId)
+    );
+
     for (const id of ids) {
-      if (existing.has(id)) continue;
+      if (have.has(id)) continue;
+
+      if (id === END_ID) {
+        const end = document.createElement("button");
+        end.type = "button";
+        end.className = "mg-ini-slice is-end mg-ini-endcap";
+        end.dataset.actorId = END_ID;
+        end.title = "End of Round";
+        end.innerHTML = `
+          <div class="mg-ini-image"></div>
+          <div class="label">END</div>
+        `;
+        // start hidden; layout will reveal when in window
+        end.style.visibility = "hidden";
+        stage.appendChild(end);
+        continue;
+      }
+
       const a = game.actors.get(id);
       if (!a) continue;
+
       const btn = document.createElement("button");
       btn.type = "button";
       btn.className = "mg-ini-slice";
       btn.dataset.actorId = id;
       btn.title = a.name;
-      btn.innerHTML = `
-        <div class="mg-ini-image" style="background-image:url('${a.img}')"></div>
-      `;
+      const img = a.img || a.prototypeToken?.texture?.src || "icons/svg/mystery-man.svg";
+      btn.innerHTML = `<div class="mg-ini-image" style="background-image: url('${img}');"></div>`;
+      // start hidden; layout will reveal when in window
+      btn.style.visibility = "hidden";
       stage.appendChild(btn);
     }
-    // Remove slices for actors no longer present
-    [...stage.querySelectorAll(".mg-ini-slice")].forEach(el => {
-      if (!ids.includes(el.dataset.actorId)) el.remove();
-    });
   }
 
   // Style A slot geometry — smaller/taller slices + tighter columns
@@ -241,61 +277,147 @@ export class MGInitiativeBar extends Application {
     return slots;
   }
 
-  /** Lay out ALL actors PLUS a final END slot; only first MAX_VISIBLE from _vOffset are visible */
-  _layoutDiagonal(ids) {
-    if (!this._root) return;
-    const stage = this._root.querySelector(".mg-ini-diag-stage");
-    if (!stage) return;
+  _layoutEndcap() {
+    const stage = this._stageEl || this._root?.querySelector(".mg-ini-diag-stage");
+    const cap   = this._endcapEl;
+    if (!stage || !cap) return;
 
-    const actors = Array.isArray(ids) ? ids : [];
-    const seq = [...actors, END_ID];                 // full loop with END at tail
-    const L = seq.length;
-
-    if (L === 0) return;
-
-    // clamp offset and build the window
-    this._vOffset = ((this._vOffset % L) + L) % L;
-    const winCount = Math.min(MAX_VISIBLE, L);
-
-    const windowIds = [];
-    for (let j = 0; j < winCount; j++) {
-      windowIds.push( seq[(this._vOffset + j) % L] );
+    const slices = stage.querySelectorAll(".mg-ini-slice");
+    if (!slices.length) {
+      // Hide when no slices; keeps it mounted but out of sight
+      cap.style.opacity = "0";
+      return;
+    } else {
+      cap.style.opacity = "1";
     }
 
-    // Headline = first real actor in the window
-    const firstActor = windowIds.find(id => id !== END_ID) || null;
-    const nextNameEl = this._root.querySelector("[data-next-name]");
-    if (nextNameEl) nextNameEl.textContent = firstActor ? (game.actors.get(firstActor)?.name ?? "") : "";
+    // Use the last slice as the reference; derive the spacing from the last pair.
+    const last = slices[slices.length - 1];
+    const prev = slices.length > 1 ? slices[slices.length - 2] : null;
 
-    // Ensure nodes exist
-    this._ensureSlices(stage, actors);
-    const endEl = this._ensureEndCap(stage);
+    const cLast = getComputedStyle(last);
+    const getNum = (cs, v, fallback=0) => {
+      const raw = cs.getPropertyValue(v).trim();
+      const n = parseFloat(raw);
+      return Number.isFinite(n) ? n : fallback;
+    };
 
-    // Slot rects for the visible window
+    const xLast = getNum(cLast, "--x", 0);
+    const yLast = getNum(cLast, "--y", 0);
+    const w     = getNum(cLast, "--w", 160);
+    const h     = getNum(cLast, "--h", 220);
+    const skX   = (cLast.getPropertyValue("--skX") || "-22deg").trim();
+    const bleed = (cLast.getPropertyValue("--bleedL") || "0px").trim();
+
+    // Derive delta slot: how far each card steps vs the previous one.
+    let dx = w * 0.8; // safe fallback if only one slice exists
+    let dy = 0;
+    if (prev) {
+      const cPrev = getComputedStyle(prev);
+      const xPrev = getNum(cPrev, "--x", xLast - dx);
+      const yPrev = getNum(cPrev, "--y", yLast);
+      dx = xLast - xPrev || dx;
+      dy = yLast - yPrev || dy;
+    }
+
+    // Place the endcap into the "next" slot after the last slice
+    const xCap = xLast + dx;
+    const yCap = yLast + dy;
+
+    cap.style.setProperty("--x", `${xCap}px`);
+    cap.style.setProperty("--y", `${yCap}px`);
+    cap.style.setProperty("--w", `${w}px`);
+    cap.style.setProperty("--h", `${h}px`);
+    cap.style.setProperty("--skX", skX);
+    cap.style.setProperty("--bleedL", bleed);
+    this._layoutEndcap();
+  }
+
+  // Compute and apply positions for the visible window. Hide everything else.
+  _layoutDiagonal(actorIds) {
+    const stage = this._root?.querySelector(".mg-ini-diag-stage");
+    if (!stage) return;
+
+    // Full sequence = actors + END
+    const seq = [...actorIds, END_ID];
+
+    // Make sure all nodes exist (including END) before we position/hide
+    this._ensureSlices(stage, seq);
+
+    const L = seq.length;
+    if (!L) return;
+
+    const winCount = Math.min(MAX_VISIBLE, L);
+
+    // Normalize offset and build the current window of ids
+    this._vOffset = ((this._vOffset % L) + L) % L;
+    const windowIds = [];
+    for (let j = 0; j < winCount; j++) {
+      windowIds.push(seq[(this._vOffset + j) % L]);
+    }
+
+    // Slot positions for the visible window
     const slots = this._diagPositions(winCount);
 
-    // Place visible items into slot 0..winCount-1
+    // Position and reveal visible items
     windowIds.forEach((id, j) => {
-      const p = slots[j];
-      const el = (id === END_ID)
-        ? endEl
-        : stage.querySelector(`.mg-ini-slice[data-actor-id="${id}"]`);
+      const el = stage.querySelector(`.mg-ini-slice[data-actor-id="${id}"]`);
       if (!el) return;
+
+      const p = slots[j];
       this._applySlicePos(el, p, j === 0 && id !== END_ID);
-      el.style.visibility = ""; // visible
+
+      // Inline safety: make sure END will transition transforms/opacity like others
+      if (id === END_ID) {
+        el.style.transitionProperty = el.style.transitionProperty || "transform, opacity";
+        el.style.transitionDuration = el.style.transitionDuration || "280ms";
+        el.style.transitionTimingFunction = el.style.transitionTimingFunction || "ease";
+      }
+
+      el.style.visibility = ""; // show
     });
 
-    // Hide all off-window items (keep them positioned invisibly)
+    // Hide everything not in the current window (END included)
     const visSet = new Set(windowIds);
     for (const id of seq) {
       if (visSet.has(id)) continue;
-      const el = (id === END_ID)
-        ? endEl
-        : stage.querySelector(`.mg-ini-slice[data-actor-id="${id}"]`);
+      const el = stage.querySelector(`.mg-ini-slice[data-actor-id="${id}"]`);
       if (el) el.style.visibility = "hidden";
     }
+
+    // Size the container to content after positions apply
+    if (typeof this._autosizeFrame === "function") this._autosizeFrame();
   }
 
+  // Smoothly animate the END cap using absolute pixel transforms
+  _animateEndTo(el, p) {
+    // Build absolute transform string (avoid CSS var reliance)
+    const nextT = `translate(${p.x}px, ${p.y}px) skewX(${p.sk}deg)`;
+
+    // Read previous transform (from dataset if we have it; else computed)
+    const cs = getComputedStyle(el);
+    const prevT = el.dataset.prevT || cs.transform || "none";
+    const prevOpacity = cs.opacity || "1";
+
+    // If transform actually changes, animate it
+    if (prevT !== nextT) {
+      try {
+        el.animate(
+          [{ transform: prevT, opacity: prevOpacity }, { transform: nextT, opacity: "1" }],
+          { duration: 280, easing: "ease", fill: "forwards" }
+        );
+      } catch (_) {
+        // Fallback: just set instantly if WAAPI isn't available
+        el.style.transform = nextT;
+        el.style.opacity = "1";
+      }
+    }
+
+    // Set the final state and remember it
+    el.style.transform = nextT;
+    el.style.opacity = "1";
+    el.dataset.prevT = nextT;
+  }
 
   /** Set inline transform/size for a slice, with skew container and unscrew inner image */
   _applySlicePos(el, p, featured) {
@@ -310,109 +432,123 @@ export class MGInitiativeBar extends Application {
     el.style.setProperty("--bleedL", `${Math.ceil(bleedL)}px`);
 
     el.classList.toggle("is-featured", !!featured);
+
+    // For END: animate using absolute transform so it always glides
+    if (el?.dataset?.actorId === END_ID) {
+      this._animateEndTo(el, p);
+    } else {
+      // Everyone else continues to use CSS var–driven transform
+      // (Leave your existing var assignments above as-is)
+    }    
+
+    // END: mirror transform inline so var updates are guaranteed to animate
+    if (el?.dataset?.actorId === END_ID) {
+      el.style.transform = `translate(var(--x), var(--y)) skewX(var(--skX))`;
+    }
   }
 
-  /** Advance one slot; the visible window slides over [actors..., END] */
+  // Advance the window by one with a single, synchronized animation pass.
   async _endTurn() {
     const stage = this._root?.querySelector(".mg-ini-diag-stage");
     if (!stage) return;
 
+    // Ensure current ids
     if (!this._ids || !this._ids.length) this._ids = this.getOrderActorIds();
     const actors = this._ids.slice();
     if (!actors.length) { ui.notifications?.warn("No actors in Initiative to advance."); return; }
 
+    // Full sequence includes END
     const seq = [...actors, END_ID];
     const L = seq.length;
     const winCount = Math.min(MAX_VISIBLE, L);
 
-    // BEFORE window based on current offset
+    // Build BEFORE and AFTER windows
     this._vOffset = ((this._vOffset % L) + L) % L;
     const windowBefore = [];
     for (let j = 0; j < winCount; j++) windowBefore.push(seq[(this._vOffset + j) % L]);
 
-    // Ensure nodes for anything visible
-    this._ensureSlices(stage, actors);
-    const endEl = this._ensureEndCap(stage);
+    const vOffsetAfter = (this._vOffset + 1) % L;
+    const windowAfter = [];
+    for (let j = 0; j < winCount; j++) windowAfter.push(seq[(vOffsetAfter + j) % L]);
 
-    // Leaving element (slot 0)
-    const leavingId = windowBefore[0];
-    const leavingEl = (leavingId === END_ID)
-      ? endEl
-      : stage.querySelector(`.mg-ini-slice[data-actor-id="${leavingId}"]`);
-    if (!leavingEl) return;
+    // Ensure DOM nodes exist for everything we might touch
+    this._ensureSlices(stage, seq);
 
-    // Clean leftovers
-    leavingEl.style.removeProperty("transform");
-    leavingEl.style.removeProperty("opacity");
-    leavingEl.style.removeProperty("transition");
+    // Who leaves? Who enters?
+    const leavingId  = windowBefore[0];
+    const entrantId  = windowAfter[winCount - 1];
 
-    // 1) Shift items 1..N-1 into slots 0..N-2
-    const slotsBefore = this._diagPositions(winCount);
-    for (let j = 1; j < windowBefore.length; j++) {
-      const id = windowBefore[j];
-      const el = (id === END_ID) ? endEl : stage.querySelector(`.mg-ini-slice[data-actor-id="${id}"]`);
-      if (!el) continue;
-      const p = slotsBefore[j - 1];
-      this._applySlicePos(el, p, (j - 1 === 0) && id !== END_ID);
-      el.style.visibility = "";
+    const leavingEl  = stage.querySelector(`.mg-ini-slice[data-actor-id="${leavingId}"]`);
+    const entrantEl  = stage.querySelector(`.mg-ini-slice[data-actor-id="${entrantId}"]`);
+
+    // Compute AFTER slot geometry for the visible window
+    const slotsAfter = this._diagPositions(winCount);
+
+    // We’ll collect everyone that should transition this tick
+    const toAnimate = [];
+
+    // 1) Prepare ENTRANT at its final slot but slightly below & faded (so it slides up)
+    if (entrantEl) {
+      this._applySlicePos(entrantEl, slotsAfter[winCount - 1], false);
+      entrantEl.style.visibility = "";
+      entrantEl.style.transition = "none"; // disable just for the prep pose
+      entrantEl.style.transform = `translate(var(--x), calc(var(--y) + 36px)) skewX(var(--skX))`;
+      entrantEl.style.opacity = "0";
+      toAnimate.push(entrantEl);
     }
 
-    // 2) Leaver slides LEFT + fades (inline transform so direction can’t flip)
-    leavingEl.style.transform = `translate(calc(var(--x) - ${LEAVE_PX}px), var(--y)) skewX(var(--skX))`;
-    leavingEl.style.opacity = "0";
-    await this._afterTransition(leavingEl).catch(() => {});
-    leavingEl.style.removeProperty("transform");
-    leavingEl.style.removeProperty("opacity");
+    // 2) Mark LEAVER to slide-left and fade (uses your CSS .is-leaving rule)
+    if (leavingEl) {
+      leavingEl.classList.add("is-leaving");
+      toAnimate.push(leavingEl);
+    }
 
-    // 3) Move the window forward by one over the full sequence
-    this._vOffset = (this._vOffset + 1) % L;
-    // IMPORTANT: do NOT rotate this._ids here — the window offset is the “turn head”
+    // 3) SHIFT the middle cards 1..N-1 → 0..N-2 by applying their new slot vars now.
+    //    Because transform is var-driven in your SCSS, this will animate *together*.
+    for (let j = 1; j < windowBefore.length; j++) {
+      const id = windowBefore[j];
+      const el = stage.querySelector(`.mg-ini-slice[data-actor-id="${id}"]`);
+      if (!el) continue;
+      const p = slotsAfter[j - 1];
+      this._applySlicePos(el, p, (j - 1 === 0) && id !== END_ID);
+      el.style.visibility = "";
+      toAnimate.push(el);
+    }
 
-    // 4) Entrant = new last slot after offset shift
-    const entrantId = seq[(this._vOffset + winCount - 1) % L];
+    // 4) Update the header "next name" immediately to reflect the new head
+    const nextId = windowAfter[0];
+    const nm = game.actors.get(nextId ?? "")?.name ?? (nextId === END_ID ? "End of Round" : "—");
+    const tgt = this._root?.querySelector("[data-next-name]");
+    if (tgt) tgt.textContent = nm;
 
-    // Ensure entrant exists
-    let entrantEl = (entrantId === END_ID)
-      ? endEl
-      : stage.querySelector(`.mg-ini-slice[data-actor-id="${entrantId}"]`);
-    if (!entrantEl && entrantId !== END_ID) {
-      const a = game.actors.get(entrantId);
-      if (a) {
-        entrantEl = document.createElement("button");
-        entrantEl.type = "button";
-        entrantEl.className = "mg-ini-slice";
-        entrantEl.dataset.actorId = entrantId;
-        entrantEl.title = a.name;
-        entrantEl.innerHTML = `<div class="mg-ini-image" style="background-image:url('${a.img}')"></div>`;
-        stage.appendChild(entrantEl);
+    // 5) Kick off all animations in the same frame
+    await this._nextFrame(); // allow the prep styles to take effect
+    if (entrantEl) {
+      entrantEl.style.transition = ""; // restore CSS transitions
+      entrantEl.style.transform = `translate(var(--x), var(--y)) skewX(var(--skX))`;
+      entrantEl.style.opacity = "1";
+    }
+
+    // 6) Wait until any transition finishes (grouped), then clean up
+    await this._afterAllTransitions(toAnimate, 450).catch(() => {});
+
+    if (leavingEl) leavingEl.classList.remove("is-leaving");
+    if (entrantEl) {
+      entrantEl.style.removeProperty("opacity");
+      // Keep END's transition/transform alive; other slices can drop inline overrides
+      if (entrantEl.dataset.actorId !== END_ID) {
+        entrantEl.style.removeProperty("transform");
+        entrantEl.style.removeProperty("transition");
       }
     }
 
-    // 5) Entrant animates from below into last slot
-    const slotsAfter = this._diagPositions(winCount);
-    const lastPos = slotsAfter[slotsAfter.length - 1];
-
-    if (entrantEl) {
-      entrantEl.style.transition = "none";
-      this._applySlicePos(entrantEl, lastPos, false);
-      entrantEl.style.visibility = "";
-      entrantEl.style.transform = `translate(var(--x), calc(var(--y) + 36px)) skewX(var(--skX))`;
-      entrantEl.style.opacity = "0";
-      void entrantEl.offsetHeight;
-      entrantEl.style.transition = "";
-      entrantEl.style.transform = `translate(var(--x), var(--y)) skewX(var(--skX))`;
-      entrantEl.style.opacity = "1";
-      await this._afterTransition(entrantEl).catch(() => {});
-      entrantEl.style.removeProperty("transform");
-      entrantEl.style.removeProperty("opacity");
-      entrantEl.style.removeProperty("transition");
-    }
-
-    // 6) Reconcile layout using NEW offset; only window is visible
+    // 7) Commit the new offset and reconcile layout (hides off-window, re-flags featured)
+    this._vOffset = vOffsetAfter;
     this._layoutDiagonal(this._ids);
+    if (typeof this._autosizeFrame === "function") this._autosizeFrame();
 
-    // Persist a rotated *view* so others see the same head (END excluded)
-    await this._persistCurrentOrder();
+    // Optional: persist a rotated view (ignore END in persisted order)
+    try { if (typeof this._persistCurrentOrder === "function") await this._persistCurrentOrder(); } catch (_) {}
   }
 
   /** Bind all UI events via delegation on the root node */
@@ -461,26 +597,6 @@ export class MGInitiativeBar extends Application {
     });
   }
 
-  /** Create the END slice as a real "player" button sharing mg-ini-slice styles */
-  _ensureEndCap(stage) {
-    let end = stage.querySelector(".mg-ini-slice.is-end");
-    if (end) return end;
-
-    end = document.createElement("button");
-    end.type = "button";
-    end.className = "mg-ini-slice is-end mg-ini-endcap";
-    end.dataset.actorId = END_ID; // so _layout & click code can treat it like a slice
-    end.title = "End of Round";
-
-    // Same inner structure as actors so the CSS applies identically; label overlays the image area.
-    end.innerHTML = `
-      <div class="mg-ini-image"></div>
-      <div class="label">END</div>
-    `;
-    stage.appendChild(end);
-    return end;
-  }
-
   /** Active is simply the first element in the order array */
   _getActiveId(ids) { return ids[0] || null; }
 
@@ -492,7 +608,30 @@ export class MGInitiativeBar extends Application {
       // Safety timer in case transition doesn't fire
       setTimeout(res, 300);
     });
-}
+  }
+
+  // Schedule the next animation frame (used to line up all transitions in one paint)
+  _nextFrame() {
+    return new Promise((resolve) => requestAnimationFrame(() => resolve()));
+  }
+
+  // Wait for any of the given elements to finish a transform/opacity transition.
+  // We resolve on the first relevant transitionend or after a safety timeout.
+  _afterAllTransitions(els, timeout = 450) {
+    return new Promise((resolve) => {
+      let resolved = false;
+      const onEnd = (ev) => {
+        if (ev && ev.propertyName && ev.propertyName !== "transform" && ev.propertyName !== "opacity") return;
+        if (resolved) return;
+        resolved = true;
+        els.forEach((el) => el.removeEventListener("transitionend", onEnd));
+        resolve();
+      };
+      els.forEach((el) => el.addEventListener("transitionend", onEnd, { once: true }));
+      setTimeout(() => { if (!resolved) onEnd({}); }, timeout);
+    });
+  }
+
 
   /** Save the current actor-id order (rotated so slot 0’s actor is first) */
   async _persistCurrentOrder() {
@@ -528,21 +667,25 @@ export class MGInitiativeBar extends Application {
     if (!stage) return;
 
     this._ensureSlices(stage, this._ids);
-    this._ensureEndCap(stage);
     this._layoutDiagonal(this._ids);
     // size stays locked
   }
 
   /** Mount / Unmount */
   _ensureAttached() {
-    if (this._attached) return;
-    this._root = this._buildHTML();
-    document.body.appendChild(this._root);
-    this._attached = true;
-    this._placeDefault();
-    this._wireLiveRefresh();
+    // If already attached, we're good
+    if (this._root && this._root.isConnected) return;
+  
+    // If _root somehow became a string or something weird, reset it
+    if (!(this._root instanceof HTMLElement)) this._root = null;
+  
+    // Build fresh DOM (buildHTML is the only place that appends to document.body)
+    this._attached = false;
+    this._buildHTML();
     this._bindRootEvents();
+    this._attached = true;
   }
+  
 
   _detach() {
     if (!this._attached) return;
@@ -620,45 +763,62 @@ export class MGInitiativeBar extends Application {
     document.addEventListener("pointerup", onUp, true);
   }
 
-  /** Compute a stable stage size from the VISIBLE window (actors + END) and lock it */
+  /** Dynamically size the stage so cards aren't clipped or squished (width + height) */
   _autosizeFrame() {
-    if (!this._root || this._sizeLocked) return;
+    if (!this._root) return;
+
+    // Your SCSS uses .mg-ini-stage around .mg-ini-diag-stage
+    const wrap =
+      this._root.querySelector(".mg-ini-stage") ||
+      this._root.querySelector(".mg-ini-diag-wrap"); // safety fallback
 
     const stage = this._root.querySelector(".mg-ini-diag-stage");
-    if (!stage) return;
+    if (!wrap || !stage) return;
 
-    const ids      = (this._ids && this._ids.length) ? this._ids : this.getOrderActorIds();
-    const seqLen   = (ids.length + 1);                         // +1 for END
-    const winCount = Math.min(MAX_VISIBLE, seqLen);            // only the window
-    const pos      = this._diagPositions(winCount);
-    if (!pos.length) { stage.style.width = "300px"; stage.style.height = "120px"; this._sizeLocked = true; return; }
-
-    let minX =  Infinity, minY =  Infinity, maxX = -Infinity, maxY = -Infinity;
-    for (const p of pos) {
-      const skRad = p.sk * Math.PI / 180;
-      const tan   = Math.tan(skRad);
-      const x1 = p.x;
-      const x2 = p.x + p.w;
-      const x3 = p.x + p.h * tan;
-      const x4 = p.x + p.w + p.h * tan;
-      const localMinX = Math.min(x1, x3);
-      const localMaxX = Math.max(x2, x4);
-      const localMinY = p.y;
-      const localMaxY = p.y + p.h;
-      if (localMinX < minX) minX = localMinX;
-      if (localMinY < minY) minY = localMinY;
-      if (localMaxX > maxX) maxX = localMaxX;
-      if (localMaxY > maxY) maxY = localMaxY;
+    const nodes = stage.querySelectorAll(".mg-ini-slice, .mg-ini-endcap");
+    if (!nodes.length) {
+      wrap.style.width = "";
+      wrap.style.height = "";
+      stage.style.width = "";
+      stage.style.height = "";
+      return;
     }
 
-    const contentW = Math.ceil(maxX - minX);
-    const contentH = Math.ceil(maxY - minY);
+    let maxRight = 0;
+    let maxBottom = 0;
 
-    const ANIM_BUFFER = 48; // covers the “slide up” so no resize-jank
-    stage.style.width  = `${contentW}px`;
-    stage.style.height = `${contentH + ANIM_BUFFER}px`;
+    for (const el of nodes) {
+      const cs = getComputedStyle(el);
 
-    this._sizeLocked = true;
+      // Skip fully hidden (off-window) items; include if you prefer full sequence bounds
+      if (cs.visibility === "hidden" || cs.display === "none") continue;
+
+      const x = parseFloat(cs.getPropertyValue("--x")) || 0;
+      const y = parseFloat(cs.getPropertyValue("--y")) || 0;
+      const w = parseFloat(cs.getPropertyValue("--w")) || el.getBoundingClientRect().width || 0;
+      const h = parseFloat(cs.getPropertyValue("--h")) || el.getBoundingClientRect().height || 0;
+
+      maxRight  = Math.max(maxRight,  x + w);
+      maxBottom = Math.max(maxBottom, y + h);
+    }
+
+    // Account for wrapper padding (your SCSS sets padding on .mg-ini-stage)
+    const cw = getComputedStyle(wrap);
+    const padL = parseFloat(cw.paddingLeft)   || 0;
+    const padR = parseFloat(cw.paddingRight)  || 0;
+    const padT = parseFloat(cw.paddingTop)    || 0;
+    const padB = parseFloat(cw.paddingBottom) || 0;
+
+    // Small cushion so borders/shadows don’t clip
+    const cushion = 8;
+
+    // Size the inner stage to the content bounds
+    stage.style.width  = `${Math.ceil(maxRight)}px`;
+    stage.style.height = `${Math.ceil(maxBottom)}px`;
+
+    // Size the wrapper to content + padding (wrapper is box-sizing: border-box)
+    wrap.style.width  = `${Math.ceil(maxRight + padL + padR + cushion)}px`;
+    wrap.style.height = `${Math.ceil(maxBottom + padT + padB + cushion)}px`;
   }
 
 }
@@ -674,3 +834,4 @@ Hooks.once("init", () => {
     default: ""
   });
 });
+
