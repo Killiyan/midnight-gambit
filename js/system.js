@@ -31,7 +31,15 @@ Hooks.once("init", async () => {
     type: String,
     default: ""
   });
-  
+
+  // Persist whether the Initiative Bar is open across refresh
+  game.settings.register("midnight-gambit", "initiativeOpen", {
+    name: "Initiative Bar Open",
+    scope: "client",   // per-user so GMs/players don't force each other open
+    config: false,
+    type: Boolean,
+    default: false
+  });
 
   //Setting custom tag rules so they persist
   game.settings.register("midnight-gambit", "customTags", {

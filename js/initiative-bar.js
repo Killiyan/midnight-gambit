@@ -50,7 +50,8 @@ export class MGInitiativeBar extends Application {
     // Initial layout uses current _vOffset (it will re-run above if restore succeeds)
     this._layoutDiagonal(this._ids);
     this._autosizeFrame();                  // lock size to window (no jiggle)
-
+    // Persist "is open" so a refresh re-opens it (no-await version)
+    game.settings.set(MG_NS, "initiativeOpen", true).catch(() => {});
   }
 
 
@@ -938,54 +939,57 @@ export class MGInitiativeBar extends Application {
     await this._clearIniState();
   }
 
-// Smoothly hide/close the initiative bar (public API used by your click handler)
-async hideBar(options = { animate: true }) {
-  const root =
-    this._root ||
-    this.element?.[0] ||
-    document.querySelector(".mg-ini-root") ||
-    null;
+  // Smoothly hide/close the initiative bar (public API used by your click handler)
+  async hideBar(options = { animate: true }) {
+    const root =
+      this._root ||
+      this.element?.[0] ||
+      document.querySelector(".mg-ini-root") ||
+      null;
 
-  if (!root) return false;
-  // Persist progress so reopen resumes at the same point
-  await this._persistIniState();
+    if (!root) return false;
+    // Persist progress so reopen resumes at the same point
+    await this._persistIniState();
+    
 
 
-  // Try to close the hosting Foundry window first (most reliable)
-  const winEl = root.closest?.(".window-app");
-  const appId = winEl?.dataset?.appid;
-  const app   = appId != null ? ui.windows?.[Number(appId)] : null;
-  if (app && typeof app.close === "function") {
-    await app.close();   // Foundry will handle teardown & DOM removal
+    // Try to close the hosting Foundry window first (most reliable)
+    const winEl = root.closest?.(".window-app");
+    const appId = winEl?.dataset?.appid;
+    const app   = appId != null ? ui.windows?.[Number(appId)] : null;
+    if (app && typeof app.close === "function") {
+      await app.close();   // Foundry will handle teardown & DOM removal
+      return true;
+    }
+
+    // Optional fade-out (keeps behavior consistent with your other async actions)
+    if (options.animate) {
+      // Use inline transition so we don't depend on CSS classes that might be missing
+      root.style.transition = root.style.transition || "opacity 180ms cubic-bezier(.2,.8,.2,1)";
+      // force reflow so the transition applies
+      void root.offsetWidth;
+      root.style.opacity = "0";
+      await new Promise((res) => {
+        const done = () => (root.removeEventListener("transitionend", done), res());
+        // If transition is instantly removed or not present, resolve next tick
+        const dur = parseFloat(getComputedStyle(root).transitionDuration || "0");
+        if (!dur) return queueMicrotask(res);
+        root.addEventListener("transitionend", done, { once: true });
+      });
+    }
+
+    // Fallback hard-remove (if not inside a Foundry window)
+    if (root.parentNode) root.parentNode.removeChild(root);
+
+    // Call your internal teardown if you have one
+    if (typeof this._teardown === "function") {
+      try { await this._teardown(); } catch (_) {}
+    }
+
+    // FINAL: only on manual close do we flip the “is open” flag off
+    await game.settings.set(MG_NS, "initiativeOpen", false);
     return true;
   }
-
-  // Optional fade-out (keeps behavior consistent with your other async actions)
-  if (options.animate) {
-    // Use inline transition so we don't depend on CSS classes that might be missing
-    root.style.transition = root.style.transition || "opacity 180ms cubic-bezier(.2,.8,.2,1)";
-    // force reflow so the transition applies
-    void root.offsetWidth;
-    root.style.opacity = "0";
-    await new Promise((res) => {
-      const done = () => (root.removeEventListener("transitionend", done), res());
-      // If transition is instantly removed or not present, resolve next tick
-      const dur = parseFloat(getComputedStyle(root).transitionDuration || "0");
-      if (!dur) return queueMicrotask(res);
-      root.addEventListener("transitionend", done, { once: true });
-    });
-  }
-
-  // Fallback hard-remove (if not inside a Foundry window)
-  if (root.parentNode) root.parentNode.removeChild(root);
-
-  // Call your internal teardown if you have one
-  if (typeof this._teardown === "function") {
-    try { await this._teardown(); } catch (_) {}
-  }
-
-  return true;
-}
 
   
   
@@ -1150,4 +1154,24 @@ Hooks.once("init", () => {
     default: ""
   });
 });
+
+
+// Auto-reopen Initiative Bar after reload if it was open before
+Hooks.once("ready", async () => {
+  try {
+    const shouldReopen = await game.settings.get(MG_NS, "initiativeOpen");
+    if (!shouldReopen) return;
+
+    // Reuse an existing instance if you keep one; otherwise create one
+    // If you already have a singleton, keep using it — this is safe either way.
+    if (!window.mgInitiativeBar || !(window.mgInitiativeBar instanceof MGInitiativeBar)) {
+      window.mgInitiativeBar = new MGInitiativeBar();
+    }
+
+    await window.mgInitiativeBar.showBar();
+  } catch (e) {
+    console.warn("MG | Failed to auto-reopen Initiative Bar:", e);
+  }
+});
+
 
