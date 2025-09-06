@@ -4,7 +4,14 @@
 const MAX_VISIBLE = 5;
 // Virtual "actor" used for the END slot
 const END_ID = "__MG_END__";
-const LEAVE_PX = 140;           // how far a leaving card slides left
+// how far a leaving card slides left
+const LEAVE_PX = 140;
+// --- Draggable position storage
+const DRAG_STORE_NAMESPACE = "midnight-gambit";
+const DRAG_STORE_KEY = "initiativeBarPos";
+const DRAG_MARGIN_PX = 16;
+const MG_KEY = "initiativeProgress";
+const MG_NS = "midnight-gambit";
 
 export class MGInitiativeBar extends Application {
   static #instance;
@@ -26,14 +33,24 @@ export class MGInitiativeBar extends Application {
     this._ensureAttached();
     if (!this._ids || !this._ids.length) this._ids = this.getOrderActorIds();
 
-    // window starts at 0 when you open it
+    // Try to restore previous offset if it matches this actor order; else start at 0
     this._vOffset = 0;
+    this._restoreIniStateIfAny()
+      .then((ok) => {
+        if (ok) {
+          // Re-layout once the offset is restored
+          this._layoutDiagonal(this._ids);
+        }
+      })
+      .catch(() => { /* ignore */ });
 
     const stage = this._root.querySelector(".mg-ini-diag-stage");
     this._ensureSlices(stage, this._ids);   // create ALL actor nodes
 
-    this._layoutDiagonal(this._ids);        // lay out window using _vOffset
+    // Initial layout uses current _vOffset (it will re-run above if restore succeeds)
+    this._layoutDiagonal(this._ids);
     this._autosizeFrame();                  // lock size to window (no jiggle)
+
   }
 
 
@@ -404,6 +421,48 @@ export class MGInitiativeBar extends Application {
     el.classList.toggle("is-featured", !!featured);
   }
 
+  /** Save current initiative progress so reopen resumes from here */
+  async _persistIniState() {
+    try {
+      const ids = Array.isArray(this._ids) ? this._ids.slice() : [];
+      // include END in length when computing offset, like your display logic
+      const L = Math.min(Math.max(ids.length + 1, 1), 9999);
+      const vOffset = ((this._vOffset ?? 0) % L + L) % L;
+
+      const payload = { ids, vOffset, ver: 1, at: Date.now() };
+      // store as string to be schema-proof across versions
+      await game.settings.set(MG_NS, MG_KEY, JSON.stringify(payload));
+    } catch (e) { /* ignore */ }
+  }
+
+  /** Clear saved progress (used by Reset and Apply-from-Crew) */
+  async _clearIniState() {
+    try { await game.settings.set(MG_NS, MG_KEY, ""); } catch (e) { /* ignore */ }
+  }
+
+  /** Try to restore saved progress; returns true if applied */
+  async _restoreIniStateIfAny() {
+    try {
+      const raw = await game.settings.get(MG_NS, MG_KEY);
+      if (!raw) return false;
+      let saved;
+      try { saved = JSON.parse(raw); } catch { return false; }
+
+      const ids = Array.isArray(saved?.ids) ? saved.ids : [];
+      const vOffset = Number.isFinite(saved?.vOffset) ? saved.vOffset : 0;
+
+      // Only restore if the saved actor list matches current order (same IDs, same length).
+      // (We ignore differences in END since you add it at render time.)
+      if (!Array.isArray(this._ids) || this._ids.length !== ids.length) return false;
+      for (let i = 0; i < ids.length; i++) {
+        if (this._ids[i] !== ids[i]) return false;
+      }
+
+      this._vOffset = vOffset;
+      return true;
+    } catch (e) { return false; }
+  }
+
   async _endTurn() {
     const stage = this._root?.querySelector(".mg-ini-diag-stage");
     if (!stage) return;
@@ -514,6 +573,9 @@ export class MGInitiativeBar extends Application {
     this._vOffset = vOffsetAfter;
     this._layoutDiagonal(this._ids);
     if (typeof this._autosizeFrame === "function") this._autosizeFrame();
+
+    // Save progress so a close/reopen resumes correctly
+    await this._persistIniState();
   }
   
 
@@ -635,6 +697,175 @@ export class MGInitiativeBar extends Application {
     if (el.getAttribute("aria-hidden") === "true") el.removeAttribute("aria-hidden");
   }
 
+  /** Apply initial position: bottom-right by default, or the last saved per-user flag */
+  async _applyInitialPosition() {
+    const root = this._root;
+    if (!root) return;
+
+    // Ensure fixed positioning so left/top behave
+    root.style.position = "fixed";
+    root.style.zIndex = root.style.zIndex || "9999";
+
+    // Load per-user position from flags (persists across reload for this player)
+    let saved = null;
+    try {
+      saved = await game.user?.getFlag?.("midnight-gambit", "initiativeBarPos");
+    } catch (_) { /* ignore */ }
+
+    if (saved && typeof saved.x === "number" && typeof saved.y === "number") {
+      const { innerWidth: W, innerHeight: H } = window;
+      const rect = root.getBoundingClientRect();
+      const maxX = Math.max(0, W - rect.width  - 16);
+      const maxY = Math.max(0, H - rect.height - 16);
+      const x = Math.min(Math.max(saved.x, 16), maxX);
+      const y = Math.min(Math.max(saved.y, 16), maxY);
+      root.style.left = `${x}px`;
+      root.style.top  = `${y}px`;
+      root.style.right = "";
+      root.style.bottom = "";
+      return;
+    }
+
+    // Default: park next to chat/sidebar (left of it), otherwise bottom-right
+    const rect = root.getBoundingClientRect();
+
+    // Try to find the sidebar/chat column (Foundry sidebar has id="sidebar")
+    const sidebar =
+      document.getElementById("sidebar") ||
+      document.querySelector("#sidebar, .sidebar, #ui-right");
+
+    if (sidebar) {
+      const s = sidebar.getBoundingClientRect();
+      // place to the LEFT of sidebar with a small gap, and align to bottom
+      let x = s.left - rect.width - 16;
+      let y = window.innerHeight - rect.height - 16;
+
+      // clamp into viewport just in case
+      const maxX = Math.max(0, window.innerWidth  - rect.width  - 16);
+      const maxY = Math.max(0, window.innerHeight - rect.height - 16);
+      x = Math.min(Math.max(x, 16), maxX);
+      y = Math.min(Math.max(y, 16), maxY);
+
+      root.style.left = `${x}px`;
+      root.style.top  = `${y}px`;
+      root.style.right = "";
+      root.style.bottom = "";
+    } else {
+      // fallback: bottom-right
+      const x = Math.max(16, window.innerWidth  - rect.width  - 16);
+      const y = Math.max(16, window.innerHeight - rect.height - 16);
+      root.style.left = `${x}px`;
+      root.style.top  = `${y}px`;
+      root.style.right = "";
+      root.style.bottom = "";
+    }
+  }
+
+  /** Persist current left/top so it restores for THIS player on refresh */
+  async _saveBarPosition() {
+    const root = this._root;
+    if (!root) return;
+    const x = parseFloat(root.style.left || "0");
+    const y = parseFloat(root.style.top  || "0");
+    if (!Number.isFinite(x) || !Number.isFinite(y)) return;
+
+    try {
+      await game.user?.setFlag?.("midnight-gambit", "initiativeBarPos", { x, y });
+    } catch (_) {
+      // (optional) swallow; no need to hard-fail if flags unavailable
+    }
+  }
+
+  /** Enable dragging by the header without killing header button clicks */
+  _enableDrag() {
+    const root = this._root;
+    if (!root) return;
+
+    // Drag handle = header bar; change selector if your header class differs
+    const handle = root.querySelector(".mg-ini-header") || root;
+    if (!handle || handle._mgDragBound) return;
+    handle._mgDragBound = true;
+
+    let dragging = false;
+    let pressX = 0, pressY = 0;
+    let startLeft = 0, startTop = 0;
+    const THRESH = 4; // px before we commit to a drag
+
+    const onPointerDown = (ev) => {
+      // Only primary button
+      if (ev.button !== 0) return;
+
+      // 🔒 IMPORTANT: if the pointer started on a header button, DO NOT drag
+      if (ev.target.closest(".mg-ini-btn")) return;
+
+      // Record press point; do not stop propagation yet—allow clicks unless we *start* dragging
+      const rect = root.getBoundingClientRect();
+      root.style.position = "fixed";
+      root.style.left = `${rect.left}px`;
+      root.style.top  = `${rect.top}px`;
+      root.style.right = "";
+      root.style.bottom = "";
+
+      pressX = ev.clientX;
+      pressY = ev.clientY;
+      startLeft = rect.left;
+      startTop  = rect.top;
+
+      handle.setPointerCapture?.(ev.pointerId);
+      window.addEventListener("pointermove", onPointerMove, { passive: false });
+      window.addEventListener("pointerup", onPointerUp,   { passive: false });
+    };
+
+    const onPointerMove = (ev) => {
+      const dx = ev.clientX - pressX;
+      const dy = ev.clientY - pressY;
+
+      if (!dragging) {
+        // commit to drag only after threshold — then we suppress click behavior
+        if (Math.abs(dx) < THRESH && Math.abs(dy) < THRESH) return;
+        dragging = true;
+        ev.preventDefault();
+        ev.stopPropagation();
+      } else {
+        ev.preventDefault();
+        ev.stopPropagation();
+      }
+
+      const { innerWidth: W, innerHeight: H } = window;
+      const rect = root.getBoundingClientRect();
+      const width  = rect.width;
+      const height = rect.height;
+
+      let x = startLeft + dx;
+      let y = startTop  + dy;
+
+      const M = 16; // margin
+      const minX = M, minY = M;
+      const maxX = Math.max(M, W - width  - M);
+      const maxY = Math.max(M, H - height - M);
+      x = Math.min(Math.max(x, minX), maxX);
+      y = Math.min(Math.max(y, minY), maxY);
+
+      root.style.left = `${x}px`;
+      root.style.top  = `${y}px`;
+    };
+
+    const onPointerUp = async (ev) => {
+      if (dragging) {
+        ev.preventDefault();
+        ev.stopPropagation();
+        dragging = false;
+        await this._saveBarPosition?.(); // harmless if not defined yet
+      }
+      handle.releasePointerCapture?.(ev.pointerId);
+      window.removeEventListener("pointermove", onPointerMove);
+      window.removeEventListener("pointerup", onPointerUp);
+    };
+
+    handle.style.cursor = "move";
+    handle.addEventListener("pointerdown", onPointerDown, { passive: true });
+  }
+  
   /** Reset to Crew order and relayout without closing */
   async _resetInitiative() {
     const root  = this._getRoot();
@@ -702,6 +933,9 @@ export class MGInitiativeBar extends Application {
     // 6) Recompute container sizing if you use autosize
     this._layoutDiagonal(this._ids);
     if (typeof this._autosizeFrame === "function") this._autosizeFrame();
+
+    // Reset should wipe the saved progress so a fresh open starts at 0 again
+    await this._clearIniState();
   }
 
 // Smoothly hide/close the initiative bar (public API used by your click handler)
@@ -713,6 +947,9 @@ async hideBar(options = { animate: true }) {
     null;
 
   if (!root) return false;
+  // Persist progress so reopen resumes at the same point
+  await this._persistIniState();
+
 
   // Try to close the hosting Foundry window first (most reliable)
   const winEl = root.closest?.(".window-app");
@@ -764,23 +1001,16 @@ async hideBar(options = { animate: true }) {
     this._attached = false;
     this._buildHTML();
     this._bindRootEvents();
+    this._applyInitialPosition(); // 1) place bottom-right (or restore)
+    this._enableDrag();           // 2) make header draggable and persist position
     this._attached = true;
   }
-  
 
   _detach() {
     if (!this._attached) return;
     this._root?.remove();
     this._root = null;
     this._attached = false;
-  }
-
-  _placeDefault() {
-    // Drop it near top-right; users can drag anywhere
-    const r = this._root;
-    r.style.left = "unset";
-    r.style.right = "24px";
-    r.style.top = "110px";
   }
 
   // Reliable root resolver for this widget (works whether _root/element is set)

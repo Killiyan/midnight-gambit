@@ -24,6 +24,15 @@ Hooks.once("init", async () => {
     makeDefault: true
   });
 
+  game.settings.register("midnight-gambit", "initiativeProgress", {
+    name: "Initiative Progress",
+    scope: "world",
+    config: false,
+    type: String,
+    default: ""
+  });
+  
+
   //Setting custom tag rules so they persist
   game.settings.register("midnight-gambit", "customTags", {
     name: "Custom Tags",
