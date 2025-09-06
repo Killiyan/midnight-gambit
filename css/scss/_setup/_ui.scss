@@ -240,6 +240,9 @@
 				position: absolute;
 				top: 24%;
 				left: 20%;
+				max-width: 8.75rem;
+				overflow: hidden;
+				max-height: 3rem;
 
 				.up-next {
 					@include roboto();
@@ -257,6 +260,11 @@
 					font-weight: 700;
 					color: $mg-ivory;
 					text-transform: uppercase;
+					display: block;
+					white-space: nowrap;
+					overflow: hidden;
+					text-overflow: ellipsis;
+					max-width: 100%;
 				}
 			}
 
