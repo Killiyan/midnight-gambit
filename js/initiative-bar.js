@@ -703,6 +703,53 @@ export class MGInitiativeBar extends Application {
     this._layoutDiagonal(this._ids);
     if (typeof this._autosizeFrame === "function") this._autosizeFrame();
   }
+
+// Smoothly hide/close the initiative bar (public API used by your click handler)
+async hideBar(options = { animate: true }) {
+  const root =
+    this._root ||
+    this.element?.[0] ||
+    document.querySelector(".mg-ini-root") ||
+    null;
+
+  if (!root) return false;
+
+  // Try to close the hosting Foundry window first (most reliable)
+  const winEl = root.closest?.(".window-app");
+  const appId = winEl?.dataset?.appid;
+  const app   = appId != null ? ui.windows?.[Number(appId)] : null;
+  if (app && typeof app.close === "function") {
+    await app.close();   // Foundry will handle teardown & DOM removal
+    return true;
+  }
+
+  // Optional fade-out (keeps behavior consistent with your other async actions)
+  if (options.animate) {
+    // Use inline transition so we don't depend on CSS classes that might be missing
+    root.style.transition = root.style.transition || "opacity 180ms cubic-bezier(.2,.8,.2,1)";
+    // force reflow so the transition applies
+    void root.offsetWidth;
+    root.style.opacity = "0";
+    await new Promise((res) => {
+      const done = () => (root.removeEventListener("transitionend", done), res());
+      // If transition is instantly removed or not present, resolve next tick
+      const dur = parseFloat(getComputedStyle(root).transitionDuration || "0");
+      if (!dur) return queueMicrotask(res);
+      root.addEventListener("transitionend", done, { once: true });
+    });
+  }
+
+  // Fallback hard-remove (if not inside a Foundry window)
+  if (root.parentNode) root.parentNode.removeChild(root);
+
+  // Call your internal teardown if you have one
+  if (typeof this._teardown === "function") {
+    try { await this._teardown(); } catch (_) {}
+  }
+
+  return true;
+}
+
   
   
   /** Mount / Unmount */
