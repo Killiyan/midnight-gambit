@@ -447,64 +447,82 @@ export class MGInitiativeBar extends Application {
     }
   }
 
-  // Advance the window by one with a single, synchronized animation pass.
+  // Advance one step with fully-synced anims.
+  // If entrant === leaver, use a temporary ghost to do the left-slide
+  // while the real card rises from below into the last slot.
   async _endTurn() {
     const stage = this._root?.querySelector(".mg-ini-diag-stage");
     if (!stage) return;
 
-    // Ensure current ids
     if (!this._ids || !this._ids.length) this._ids = this.getOrderActorIds();
     const actors = this._ids.slice();
     if (!actors.length) { ui.notifications?.warn("No actors in Initiative to advance."); return; }
 
-    // Full sequence includes END
     const seq = [...actors, END_ID];
     const L = seq.length;
     const winCount = Math.min(MAX_VISIBLE, L);
 
-    // Build BEFORE and AFTER windows
+    // BEFORE/AFTER windows
     this._vOffset = ((this._vOffset % L) + L) % L;
-    const windowBefore = [];
-    for (let j = 0; j < winCount; j++) windowBefore.push(seq[(this._vOffset + j) % L]);
-
+    const windowBefore = Array.from({ length: winCount }, (_, j) => seq[(this._vOffset + j) % L]);
     const vOffsetAfter = (this._vOffset + 1) % L;
-    const windowAfter = [];
-    for (let j = 0; j < winCount; j++) windowAfter.push(seq[(vOffsetAfter + j) % L]);
+    const windowAfter  = Array.from({ length: winCount }, (_, j) => seq[(vOffsetAfter + j) % L]);
 
-    // Ensure DOM nodes exist for everything we might touch
+    // Ensure nodes exist
     this._ensureSlices(stage, seq);
 
-    // Who leaves? Who enters?
-    const leavingId  = windowBefore[0];
-    const entrantId  = windowAfter[winCount - 1];
+    const leavingId = windowBefore[0];
+    const entrantId = windowAfter[winCount - 1];
+    const leavingEl = stage.querySelector(`.mg-ini-slice[data-actor-id="${leavingId}"]`);
+    const entrantEl = stage.querySelector(`.mg-ini-slice[data-actor-id="${entrantId}"]`);
+    if (!leavingEl) return;
 
-    const leavingEl  = stage.querySelector(`.mg-ini-slice[data-actor-id="${leavingId}"]`);
-    const entrantEl  = stage.querySelector(`.mg-ini-slice[data-actor-id="${entrantId}"]`);
+    const entrantIsLeaver = (leavingId === entrantId);
 
-    // Compute AFTER slot geometry for the visible window
+    // AFTER slot geometry for visible window
     const slotsAfter = this._diagPositions(winCount);
 
-    // We’ll collect everyone that should transition this tick
+    // Prep list to await transitions
     const toAnimate = [];
 
-    // 1) Prepare ENTRANT at its final slot but slightly below & faded (so it slides up)
-    if (entrantEl) {
+    // --- ENTRANT PREP ---
+    // Case A: entrant is a *different* element → standard rise from below
+    if (!entrantIsLeaver && entrantEl) {
       this._applySlicePos(entrantEl, slotsAfter[winCount - 1], false);
       entrantEl.style.visibility = "";
-      entrantEl.style.transition = "none"; // disable just for the prep pose
-      entrantEl.style.transform = `translate(var(--x), calc(var(--y) + 36px)) skewX(var(--skX))`;
-      entrantEl.style.opacity = "0";
+      entrantEl.style.transition = "none";
+      entrantEl.style.transform  = `translate(var(--x), calc(var(--y) + 36px)) skewX(var(--skX))`;
+      entrantEl.style.opacity    = "0";
       toAnimate.push(entrantEl);
     }
 
-    // 2) Mark LEAVER to slide-left and fade (uses your CSS .is-leaving rule)
-    if (leavingEl) {
-      leavingEl.classList.add("is-leaving");
+    // Case B: entrant === leaver
+    // We will:
+    //  1) Clone a GHOST of the leaver to perform the left-slide+fade.
+    //  2) Turn the *real* leaver into the entrant (prep below + opacity 0).
+    let ghost = null;
+    if (entrantIsLeaver) {
+      // 1) Ghost for the left-slide
+      ghost = leavingEl.cloneNode(true);
+      ghost.setAttribute("data-ghost", "1");
+      ghost.style.pointerEvents = "none";
+      ghost.style.visibility = "";          // visible ghost
+      // ensure it starts from the current var-driven pose (no inline overrides)
+      ghost.style.removeProperty("transform");
+      ghost.style.removeProperty("opacity");
+      stage.appendChild(ghost);
+
+      // 2) Real node becomes entrant, prepped below last slot
+      const lastPos = slotsAfter[winCount - 1];
+      this._applySlicePos(leavingEl, lastPos, false);
+      leavingEl.style.visibility = "";
+      leavingEl.style.transition = "none";
+      leavingEl.style.transform  = `translate(var(--x), calc(var(--y) + 36px)) skewX(var(--skX))`;
+      leavingEl.style.opacity    = "0";
       toAnimate.push(leavingEl);
     }
 
-    // 3) SHIFT the middle cards 1..N-1 → 0..N-2 by applying their new slot vars now.
-    //    Because transform is var-driven in your SCSS, this will animate *together*.
+    // --- SHIFTERS (middle cards) ---
     for (let j = 1; j < windowBefore.length; j++) {
       const id = windowBefore[j];
       const el = stage.querySelector(`.mg-ini-slice[data-actor-id="${id}"]`);
@@ -515,41 +533,70 @@ export class MGInitiativeBar extends Application {
       toAnimate.push(el);
     }
 
-    // 4) Update the header "next name" immediately to reflect the new head
+    // Update header immediately
     const nextId = windowAfter[0];
     const nm = game.actors.get(nextId ?? "")?.name ?? (nextId === END_ID ? "End of Round" : "—");
     const tgt = this._root?.querySelector("[data-next-name]");
     if (tgt) tgt.textContent = nm;
 
-    // 5) Kick off all animations in the same frame
-    await this._nextFrame(); // allow the prep styles to take effect
-    if (entrantEl) {
-      entrantEl.style.transition = ""; // restore CSS transitions
-      entrantEl.style.transform = `translate(var(--x), var(--y)) skewX(var(--skX))`;
-      entrantEl.style.opacity = "1";
+    // Sync flip
+    await this._nextFrame();
+
+    // --- LEAVE ANIMATION ---
+    if (entrantIsLeaver && ghost) {
+      // Ghost slides-left + fade via class (uses your .is-leaving CSS)
+      // Add class *now* so it transitions from current pose → left/out
+      ghost.classList.add("is-leaving");
+      toAnimate.push(ghost);
+    } else if (leavingEl) {
+      // Standard: real leaver slides-left + fades (inline so it never gets blocked)
+      leavingEl.style.transform = `translate(calc(var(--x) - 140px), var(--y)) skewX(var(--skX))`;
+      leavingEl.style.opacity   = "0";
     }
 
-    // 6) Wait until any transition finishes (grouped), then clean up
-    await this._afterAllTransitions(toAnimate, 450).catch(() => {});
+    // --- ENTRANT RISE ---
+    if (!entrantIsLeaver && entrantEl) {
+      entrantEl.style.transition = "";
+      entrantEl.style.transform  = `translate(var(--x), var(--y)) skewX(var(--skX))`;
+      entrantEl.style.opacity    = "1";
+    } else if (entrantIsLeaver) {
+      // Real node (leavingEl repurposed) rises into last slot
+      leavingEl.style.transition = "";
+      leavingEl.style.transform  = `translate(var(--x), var(--y)) skewX(var(--skX))`;
+      leavingEl.style.opacity    = "1";
+    }
 
-    if (leavingEl) leavingEl.classList.remove("is-leaving");
-    if (entrantEl) {
+    // Await all transitions (ghost + entrant + shifters together)
+    try {
+      await Promise.all(toAnimate.map((el) => this._afterTransition(el)));
+    } catch (_) {}
+
+    // Cleanup ghost
+    if (ghost && ghost.parentElement === stage) stage.removeChild(ghost);
+
+    // Cleanup entrant inline overrides
+    if (!entrantIsLeaver && entrantEl) {
       entrantEl.style.removeProperty("opacity");
-      // Keep END's transition/transform alive; other slices can drop inline overrides
       if (entrantEl.dataset.actorId !== END_ID) {
         entrantEl.style.removeProperty("transform");
         entrantEl.style.removeProperty("transition");
       }
+    } else if (entrantIsLeaver) {
+      leavingEl.style.removeProperty("opacity");
+      if (leavingEl.dataset.actorId !== END_ID) {
+        leavingEl.style.removeProperty("transform");
+        leavingEl.style.removeProperty("transition");
+      }
     }
 
-    // 7) Commit the new offset and reconcile layout (hides off-window, re-flags featured)
+    // Commit offset & reconcile layout (puts everything exactly where it belongs)
     this._vOffset = vOffsetAfter;
     this._layoutDiagonal(this._ids);
     if (typeof this._autosizeFrame === "function") this._autosizeFrame();
 
-    // Optional: persist a rotated view (ignore END in persisted order)
     try { if (typeof this._persistCurrentOrder === "function") await this._persistCurrentOrder(); } catch (_) {}
   }
+
 
   /** Bind all UI events via delegation on the root node */
   _bindRootEvents() {
