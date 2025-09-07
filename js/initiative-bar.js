@@ -521,6 +521,36 @@ export class MGInitiativeBar extends Application {
     }
   }
 
+  /** Make every initiative card/slice visible (used on full reset). */
+  _revealAllCards() {
+    const root = this._root;
+    if (!root) return;
+
+    // Cover both card and slice nodes (depending on your naming)
+    const nodes = root.querySelectorAll(".mg-ini-card, .mg-ini-slice, .mg-ini-slot, .mg-ini-node");
+
+    nodes.forEach((el) => {
+      // Generic hidden flags
+      el.removeAttribute("aria-hidden");
+      el.style.opacity = "";
+      el.style.transform = "";
+
+      // Classes we’ve used at various times for hiding/offstage/animations
+      el.classList.remove(
+        "mg-invisible",
+        "mg-offstage",
+        "mg-ini-offstage",
+        "mg-ini-hidden",
+        "is-hidden",
+        "is-off",
+        "is-ghost",
+        "is-collapsed",
+        "is-entering",
+        "is-leaving"
+      );
+    });
+  }
+
 
   /** Clear saved progress (used by Reset and Apply-from-Crew) */
   async _clearIniState() {
@@ -1168,12 +1198,20 @@ export class MGInitiativeBar extends Application {
           this._ids = this.getOrderActorIds();
         }
 
-        // Reset offset to the first slot (0) and rebuild/layout
+        // Reset offset to the first slot (0)
         this._vOffset = 0;
 
         if (this._attached) {
           const stage = this._root?.querySelector(".mg-ini-diag-stage");
-          if (stage) this._ensureSlices(stage, [...this._ids, END_ID]);
+          if (stage) {
+            // Rebuild stage nodes for the current IDs (+ END)
+            this._ensureSlices(stage, [...this._ids, END_ID]);
+
+            // Blow away any lingering invisibility/offstage styles
+            this._revealAllCards();
+          }
+
+          // Re-layout fresh and autosize
           this._layoutDiagonal(this._ids);
           if (typeof this._autosizeFrame === "function") this._autosizeFrame();
         }
@@ -1182,6 +1220,7 @@ export class MGInitiativeBar extends Application {
         this._persistIniState().catch(() => {});
         return;
       }
+
 
       // --- C) Order changed (existing behavior) ---
       const touchedFlag   = getProperty(changed, "flags.midnight-gambit.initiativeOrder");
