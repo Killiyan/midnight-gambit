@@ -31,6 +31,7 @@ export class MGInitiativeBar extends Application {
   /** Public helpers (frameless) */
   showBar() {
     this._ensureAttached();
+    this._wireLiveRefresh();
     if (!this._ids || !this._ids.length) this._ids = this.getOrderActorIds();
 
     // Try to restore previous offset if it matches this actor order; else start at 0
@@ -63,6 +64,7 @@ export class MGInitiativeBar extends Application {
   _sizeLocked = false;
   _vOffset = 0;
   _drag = { active: false, dx: 0, dy: 0 };
+  _lastSyncId = null;
 
   // Null-safe: find the current Crew actor
   _resolveCrewActor() {
@@ -436,6 +438,51 @@ export class MGInitiativeBar extends Application {
     } catch (e) { /* ignore */ }
   }
 
+  /** Emit a replicated "advance once" signal on the Crew actor flag. */
+  async _emitNextStep() {
+    const crew = this._resolveCrewActor();
+    if (!crew) {
+      ui.notifications?.warn("No Crew actor configured.");
+      return;
+    }
+
+    // Use current order or re-pull it if missing
+    const ids = (Array.isArray(this._ids) && this._ids.length)
+      ? this._ids.slice()
+      : this.getOrderActorIds();
+
+    if (!Array.isArray(ids) || !ids.length) {
+      ui.notifications?.warn("No actors in Initiative to advance.");
+      return;
+    }
+
+    // Compute the BEFORE index modulo (ids.length + END)
+    const L = ids.length + 1; // + END
+    const prev = ((this._vOffset ?? 0) % L + L) % L;
+
+    const payload = {
+      ids,
+      prev,
+      syncId: foundry.utils.randomID?.() ?? crypto.randomUUID?.() ?? `${Date.now()}-${Math.random()}`,
+      at: Date.now()
+    };
+
+    // This is the single replicated write that all clients will hear
+    try {
+      await crew.setFlag("midnight-gambit", "initiativeProgress", payload);
+    } catch (e) {
+      // If not allowed to write, ask the GM to do it
+      if (!game.user.isGM && game.socket) {
+        game.socket.emit("system.midnight-gambit", { type: "iniProgress", payload });
+        ui.notifications?.info("Requested GM to advance initiative.");
+        return;
+      }
+      console.error("MG | Failed to emit initiative progress:", e);
+      ui.notifications?.error("Couldn’t advance initiative (no permission).");
+    }
+
+  }
+
   /** Clear saved progress (used by Reset and Apply-from-Crew) */
   async _clearIniState() {
     try { await game.settings.set(MG_NS, MG_KEY, ""); } catch (e) { /* ignore */ }
@@ -606,11 +653,9 @@ export class MGInitiativeBar extends Application {
 
       if (tgt.closest(".mg-ini-next")) {
         ev.preventDefault();
-        if (!this._ids || !this._ids.length) {
-          ui.notifications?.warn("No actors in Initiative to advance.");
-          return;
-        }
-        this._endTurn();
+
+        // Emit a replicated progress tick; the updateActor listener will animate for everyone.
+        this._emitNextStep().catch(console.error);
         return;
       }
     });
@@ -1040,18 +1085,51 @@ export class MGInitiativeBar extends Application {
       const crew = this._resolveCrewActor();
       if (!crew || actor.id !== crew.id) return;
 
+      // 1) Progress tick (new): animate one step for everyone
+      const progress = getProperty(changed, "flags.midnight-gambit.initiativeProgress");
+      if (progress && typeof progress === "object") {
+        const { ids, prev, syncId } = progress;
+
+        // De-dupe so the authoring client doesn't double-animate
+        if (syncId && this._lastSyncId === syncId) return;
+        if (syncId) this._lastSyncId = syncId;
+
+        // If the emitter included an order, adopt it (sanity-filter to existing actors)
+        if (Array.isArray(ids) && ids.length) {
+          this._ids = ids.filter((id) => !!game.actors.get(id));
+        } else if (!Array.isArray(this._ids) || !this._ids.length) {
+          this._ids = this.getOrderActorIds();
+        }
+
+        // Align local offset to the prev index so _endTurn() performs the same step everywhere
+        const n = Array.isArray(this._ids) ? this._ids.length : 0;
+        const L = (n > 0 ? n + 1 : 1);
+        const clampedPrev = Number.isFinite(prev) ? ((prev % L) + L) % L : 0;
+        this._vOffset = clampedPrev;
+
+        // If the UI is open, run the same one-step animation everyone else will
+        if (this._attached) {
+          this._endTurn().catch(console.error);
+        } else {
+          // If closed, just persist state so next open resumes correctly
+          this._persistIniState().catch(() => {});
+        }
+        return; // Important: don't also run the order-refresher below
+      }
+
+      // 2) Order changed (existing behavior): re-layout to reflect new list
       const touchedFlag   = getProperty(changed, "flags.midnight-gambit.initiativeOrder");
       const touchedSystem = getProperty(changed, "system.initiative.order");
-      if (!touchedFlag && !touchedSystem) return;
+      if (touchedFlag || touchedSystem) {
+        this._ids = this.getOrderActorIds();
+        if (!this._attached) return;
 
-      // Pull fresh order and relayout
-      this._ids = this.getOrderActorIds();
-      if (!this._attached) return;
-      const stage = this._root?.querySelector(".mg-ini-diag-stage");
-      if (!stage) return;
-      const visible = this._ids.slice(0, Math.min(this._ids.length, MAX_VISIBLE));
-      this._ensureSlices(stage, visible);
-      this._layoutDiagonal(this._ids);
+        // Rebuild stage nodes if needed, then re-layout
+        const stage = this._root?.querySelector(".mg-ini-diag-stage");
+        if (stage) this._ensureSlices(stage, [...this._ids, END_ID]);
+        this._layoutDiagonal(this._ids);
+        if (typeof this._autosizeFrame === "function") this._autosizeFrame();
+      }
     });
   }
 
@@ -1174,4 +1252,23 @@ Hooks.once("ready", async () => {
   }
 });
 
+Hooks.once("ready", () => {
+  // Singleton access
+  game.mgInitiative = MGInitiativeBar.instance;
 
+  if (game.socket) {
+    game.socket.on("system.midnight-gambit", async (msg) => {
+      if (!game.user.isGM) return;
+      if (!msg || msg.type !== "iniProgress") return;
+
+      try {
+        const inst = game.mgInitiative;
+        const crew = inst?._resolveCrewActor?.();
+        if (!crew) return;
+        await crew.setFlag("midnight-gambit", "initiativeProgress", msg.payload);
+      } catch (e) {
+        console.error("MG | GM relay failed:", e);
+      }
+    });
+  }
+});
