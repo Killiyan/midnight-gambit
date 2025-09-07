@@ -427,15 +427,15 @@ export class MGInitiativeBar extends Application {
   /** Save current initiative progress so reopen resumes from here */
   async _persistIniState() {
     try {
-      const ids = Array.isArray(this._ids) ? this._ids.slice() : [];
-      // include END in length when computing offset, like your display logic
-      const L = Math.min(Math.max(ids.length + 1, 1), 9999);
-      const vOffset = ((this._vOffset ?? 0) % L + L) % L;
-
-      const payload = { ids, vOffset, ver: 1, at: Date.now() };
-      // store as string to be schema-proof across versions
-      await game.settings.set(MG_NS, MG_KEY, JSON.stringify(payload));
-    } catch (e) { /* ignore */ }
+      const payload = {
+        vOffset: Number(this._vOffset ?? 0),
+        // include anything else you were keeping locally:
+        pos: this._pos ?? null
+      };
+      await game.user.setFlag("midnight-gambit", "initiativeUi", payload);
+    } catch (e) {
+      console.warn("MG | Persist initiative UI failed:", e);
+    }
   }
 
   /** Emit a replicated "advance once" signal on the Crew actor flag. */
@@ -557,27 +557,16 @@ export class MGInitiativeBar extends Application {
     try { await game.settings.set(MG_NS, MG_KEY, ""); } catch (e) { /* ignore */ }
   }
 
-  /** Try to restore saved progress; returns true if applied */
+  /** Restore initiative UI state (per-user) */
   async _restoreIniStateIfAny() {
     try {
-      const raw = await game.settings.get(MG_NS, MG_KEY);
-      if (!raw) return false;
-      let saved;
-      try { saved = JSON.parse(raw); } catch { return false; }
-
-      const ids = Array.isArray(saved?.ids) ? saved.ids : [];
-      const vOffset = Number.isFinite(saved?.vOffset) ? saved.vOffset : 0;
-
-      // Only restore if the saved actor list matches current order (same IDs, same length).
-      // (We ignore differences in END since you add it at render time.)
-      if (!Array.isArray(this._ids) || this._ids.length !== ids.length) return false;
-      for (let i = 0; i < ids.length; i++) {
-        if (this._ids[i] !== ids[i]) return false;
-      }
-
-      this._vOffset = vOffset;
-      return true;
-    } catch (e) { return false; }
+      const saved = await game.user.getFlag("midnight-gambit", "initiativeUi");
+      if (!saved) return;
+      if (Number.isFinite(saved.vOffset)) this._vOffset = Number(saved.vOffset);
+      if (saved.pos && typeof saved.pos === "object") this._applySavedPosition?.(saved.pos);
+    } catch (e) {
+      console.warn("MG | Restore initiative UI failed:", e);
+    }
   }
 
   async _endTurn() {
