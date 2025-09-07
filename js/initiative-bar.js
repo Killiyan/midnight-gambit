@@ -483,6 +483,45 @@ export class MGInitiativeBar extends Application {
 
   }
 
+  /** Emit a replicated "reset initiative" signal on the Crew actor flag. */
+  async _emitReset() {
+    const crew = this._resolveCrewActor();
+    if (!crew) {
+      ui.notifications?.warn("No Crew actor configured.");
+      return;
+    }
+
+    // Adopt current order or pull fresh
+    const ids = (Array.isArray(this._ids) && this._ids.length)
+      ? this._ids.slice()
+      : this.getOrderActorIds();
+
+    if (!Array.isArray(ids) || !ids.length) {
+      ui.notifications?.warn("No actors in Initiative to reset.");
+      return;
+    }
+
+    const payload = {
+      ids,
+      syncId: foundry.utils.randomID?.() ?? crypto.randomUUID?.() ?? `${Date.now()}-${Math.random()}`,
+      at: Date.now()
+    };
+
+    try {
+      await crew.setFlag("midnight-gambit", "initiativeReset", payload);
+    } catch (e) {
+      // Non-GM relay fallback
+      if (!game.user.isGM && game.socket) {
+        game.socket.emit("system.midnight-gambit", { type: "iniReset", payload });
+        ui.notifications?.info("Requested GM to reset initiative.");
+        return;
+      }
+      console.error("MG | Failed to emit initiative reset:", e);
+      ui.notifications?.error("Couldn’t reset initiative (no permission).");
+    }
+  }
+
+
   /** Clear saved progress (used by Reset and Apply-from-Crew) */
   async _clearIniState() {
     try { await game.settings.set(MG_NS, MG_KEY, ""); } catch (e) { /* ignore */ }
@@ -647,7 +686,9 @@ export class MGInitiativeBar extends Application {
 
       if (tgt.closest(".mg-ini-reset")) {
         ev.preventDefault();
-        this._resetInitiative();
+
+        // Broadcast a reset to all clients; listener will rebuild/realign.
+        this._emitReset().catch(console.error);
         return;
       }
 
@@ -1085,52 +1126,77 @@ export class MGInitiativeBar extends Application {
       const crew = this._resolveCrewActor();
       if (!crew || actor.id !== crew.id) return;
 
-      // 1) Progress tick (new): animate one step for everyone
+      // --- A) Progress tick (advance one) ---
       const progress = getProperty(changed, "flags.midnight-gambit.initiativeProgress");
       if (progress && typeof progress === "object") {
         const { ids, prev, syncId } = progress;
 
-        // De-dupe so the authoring client doesn't double-animate
         if (syncId && this._lastSyncId === syncId) return;
         if (syncId) this._lastSyncId = syncId;
 
-        // If the emitter included an order, adopt it (sanity-filter to existing actors)
         if (Array.isArray(ids) && ids.length) {
           this._ids = ids.filter((id) => !!game.actors.get(id));
         } else if (!Array.isArray(this._ids) || !this._ids.length) {
           this._ids = this.getOrderActorIds();
         }
 
-        // Align local offset to the prev index so _endTurn() performs the same step everywhere
         const n = Array.isArray(this._ids) ? this._ids.length : 0;
         const L = (n > 0 ? n + 1 : 1);
         const clampedPrev = Number.isFinite(prev) ? ((prev % L) + L) % L : 0;
         this._vOffset = clampedPrev;
 
-        // If the UI is open, run the same one-step animation everyone else will
         if (this._attached) {
           this._endTurn().catch(console.error);
         } else {
-          // If closed, just persist state so next open resumes correctly
           this._persistIniState().catch(() => {});
         }
-        return; // Important: don't also run the order-refresher below
+        return;
       }
 
-      // 2) Order changed (existing behavior): re-layout to reflect new list
+      // --- B) Reset signal (go to start) ---
+      const resetSig = getProperty(changed, "flags.midnight-gambit.initiativeReset");
+      if (resetSig && typeof resetSig === "object") {
+        const { ids, syncId } = resetSig;
+
+        if (syncId && this._lastSyncId === syncId) return;
+        if (syncId) this._lastSyncId = syncId;
+
+        // Align IDs if provided, otherwise re-pull
+        if (Array.isArray(ids) && ids.length) {
+          this._ids = ids.filter((id) => !!game.actors.get(id));
+        } else {
+          this._ids = this.getOrderActorIds();
+        }
+
+        // Reset offset to the first slot (0) and rebuild/layout
+        this._vOffset = 0;
+
+        if (this._attached) {
+          const stage = this._root?.querySelector(".mg-ini-diag-stage");
+          if (stage) this._ensureSlices(stage, [...this._ids, END_ID]);
+          this._layoutDiagonal(this._ids);
+          if (typeof this._autosizeFrame === "function") this._autosizeFrame();
+        }
+
+        // Persist so reopening restores correctly
+        this._persistIniState().catch(() => {});
+        return;
+      }
+
+      // --- C) Order changed (existing behavior) ---
       const touchedFlag   = getProperty(changed, "flags.midnight-gambit.initiativeOrder");
       const touchedSystem = getProperty(changed, "system.initiative.order");
       if (touchedFlag || touchedSystem) {
         this._ids = this.getOrderActorIds();
         if (!this._attached) return;
 
-        // Rebuild stage nodes if needed, then re-layout
         const stage = this._root?.querySelector(".mg-ini-diag-stage");
         if (stage) this._ensureSlices(stage, [...this._ids, END_ID]);
         this._layoutDiagonal(this._ids);
         if (typeof this._autosizeFrame === "function") this._autosizeFrame();
       }
     });
+
   }
 
   _onAnyUpdate() {
@@ -1271,4 +1337,28 @@ Hooks.once("ready", () => {
       }
     });
   }
+
+  if (game.socket) {
+    game.socket.on("system.midnight-gambit", async (msg) => {
+      if (!game.user.isGM) return;
+      if (!msg) return;
+
+      try {
+        const inst = game.mgInitiative;
+        const crew = inst?._resolveCrewActor?.();
+        if (!crew) return;
+
+        if (msg.type === "iniProgress") {
+          await crew.setFlag("midnight-gambit", "initiativeProgress", msg.payload);
+        }
+
+        if (msg.type === "iniReset") {
+          await crew.setFlag("midnight-gambit", "initiativeReset", msg.payload);
+        }
+      } catch (e) {
+        console.error("MG | GM relay failed:", e);
+      }
+    });
+  }
+
 });
