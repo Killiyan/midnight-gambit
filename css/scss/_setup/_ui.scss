@@ -232,6 +232,13 @@
 		border-radius: .625rem;
 		overflow: hidden;
 
+		//Vars
+			--mg-foil-border-width: 3px;       /* thickness of the shiny outline */
+			--mg-foil-speed: 10s;              /* time for a full border shimmer cycle */
+			--mg-gleam-speed: 2400ms;          /* time for the top gleam sweep */
+			--mg-gleam-tilt: -18deg;           /* angle of the gleam streak */
+			--mg-gleam-opacity: 0.85;          /* brightness of the streak */
+			
 		.mg-ini-header {
 			height: 1rem;
 			background: rgba($mg-blue-main-2,.6);
@@ -303,26 +310,13 @@
 					height: var(--h, 220px);
 					transform: translate(var(--x, 0px), var(--y, 0px)) skewX(var(--skX, -22deg));
 					transform-origin: top left;
-					border: 3px solid $mg-blue-main;
+					border: 3px solid $mg-blue-4;
 					box-shadow: 0 12px 28px rgba(0,0,0,.40);
 					overflow: hidden;
 					padding: 0;
 					background: #0f1c2b;
 					transition: transform .28s ease, opacity .28s ease, box-shadow .5s ease, filter .5s ease, border .5s ease;
 					border-radius: 0;
-
-					&:nth-of-type(2) {
-						border: 3px solid $mg-blue-2;
-					}
-
-					&:nth-of-type(3) {
-						border: 3px solid $mg-blue-3;
-					}
-
-					&:nth-of-type(4) {
-						border: 3px solid $mg-blue-main-2;
-					}
-
 
 					.mg-ini-image {
 						position: absolute;
@@ -337,10 +331,59 @@
 					}
 
 					&.is-featured {
-						border: 3px solid $mg-blue-1;
 
 						.mg-ini-image {
 							background-position: top center;
+						}
+
+						&:before {
+							content: "";
+							background: url();
+							position: absolute;
+							inset: 0;
+							pointer-events: none;
+							border-radius: inherit;
+						}
+
+						/* Rotate the conic gradient for that holographic shimmer */
+						@keyframes mg-foil-rotate {
+						to { transform: rotate(1turn); }
+						}
+
+						&:after {
+							content: "";
+							position: absolute;
+							pointer-events: none;
+							inset: -10% -20% auto -20%;  /* mostly top area */
+							height: 118%;
+							transform: rotate(var(--mg-gleam-tilt)) translateX(-120%);
+							mix-blend-mode: screen;
+							opacity: var(--mg-gleam-opacity);
+
+							/* A tight bright core with soft falloff to transparent */
+							background:
+								linear-gradient(
+								90deg,
+								transparent 0%,
+								rgba($mg-blue-4,0.0) 30%,
+								rgba($mg-blue-3,0.35) 45%,
+								rgba($mg-blue-1, .9) 50%,
+								rgba($mg-blue-3,0.35) 55%,
+								rgba($mg-blue-4,0.0) 70%,
+								transparent 100%
+								);
+
+							filter: blur(0.6px);
+							animation: mg-gleam var(--mg-gleam-speed) ease-in-out infinite;
+						}
+
+						/* Sweep from left to right once per cycle, chill for a moment, then repeat */
+						@keyframes mg-gleam {
+						0%   { transform: rotate(var(--mg-gleam-tilt)) translateX(-120%); opacity: 0; }
+						10%  { opacity: var(--mg-gleam-opacity); }
+						45%  { transform: rotate(var(--mg-gleam-tilt)) translateX(120%); opacity: var(--mg-gleam-opacity); }
+						60%  { opacity: 0; }
+						100% { transform: rotate(var(--mg-gleam-tilt)) translateX(120%); opacity: 0; }
 						}
 					}
 
@@ -348,6 +391,22 @@
 						transform: translate(calc(var(--x) - 140px), var(--y)) skewX(var(--skX));
 						opacity: 0;
 					}
+				}
+
+				.mg-ini-slice[data-slot="0"] {
+					border: 3px solid $mg-blue-1;
+				}
+
+				.mg-ini-slice[data-slot="1"] {
+					border: 3px solid $mg-blue-2;
+				}
+
+				.mg-ini-slice[data-slot="2"] {
+					border: 3px solid $mg-blue-3;
+				}
+
+				.mg-ini-slice[data-slot="3"] {
+					border: 3px solid $mg-blue-main-2;
 				}
 			}
 

@@ -392,6 +392,9 @@ export class MGInitiativeBar extends Application {
       const p = slots[j];
       this._applySlicePos(el, p, j === 0 && id !== END_ID);
 
+      // Tag slot index for CSS theming (0 = featured, then 1..)
+      el.setAttribute("data-slot", String(j));
+
       // Inline safety: make sure END will transition transforms/opacity like others
       if (id === END_ID) {
         el.style.transitionProperty = el.style.transitionProperty || "transform, opacity";
@@ -408,6 +411,7 @@ export class MGInitiativeBar extends Application {
       if (visSet.has(id)) continue;
       const el = stage.querySelector(`.mg-ini-slice[data-actor-id="${id}"]`);
       if (el) el.style.visibility = "hidden";
+      el.removeAttribute("data-slot");
     }
 
     // Size the container to content after positions apply
