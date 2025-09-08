@@ -51,6 +51,7 @@ export class MGInitiativeBar extends Application {
     // Initial layout uses current _vOffset (it will re-run above if restore succeeds)
     this._layoutDiagonal(this._ids);
     this._autosizeFrame();                  // lock size to window (no jiggle)
+    this._renderActiveName();
     // Persist "is open" so a refresh re-opens it (no-await version)
     game.settings.set(MG_NS, "initiativeOpen", true).catch(() => {});
   }
@@ -518,6 +519,73 @@ export class MGInitiativeBar extends Application {
       }
       console.error("MG | Failed to emit initiative reset:", e);
       ui.notifications?.error("Couldn’t reset initiative (no permission).");
+    }
+  }
+
+  /** Normalize the cycle length (ids + END slot). */
+  _cycleLen() {
+    const n = Array.isArray(this._ids) ? this._ids.length : 0;
+    return Math.max(1, n + 1); // +1 for END slot
+  }
+
+  /** Compute current active index from _vOffset. Returns 0..len-1 where len = ids.length+1 (END). */
+  _activeIndex() {
+    const L = this._cycleLen();
+    let k = Number(this._vOffset ?? 0);
+    // normalize into [0, L)
+    k = ((k % L) + L) % L;
+    return k;
+  }
+
+  /** Persist durable initiative state so reopen/refresh shows correct active. (GM-only) */
+  async _persistDurableInitState() {
+    try {
+      if (!game.user.isGM) return; // only GM writes the scene flag
+
+      const ids = Array.isArray(this._ids) ? this._ids.filter(id => !!game.actors.get(id)) : [];
+      const n = ids.length;
+      const L = Math.max(1, n + 1); // +1 for END
+      const raw = Number(this._vOffset ?? 0);
+      const activeIndex = ((raw % L) + L) % L; // normalize [0, L)
+
+      if (canvas?.scene?.setFlag) {
+        await canvas.scene.setFlag("midnight-gambit", "initState", {
+          orderIds: ids,
+          activeIndex
+        });
+      }
+    } catch (e) {
+      console.warn("MG | Persist durable init state failed:", e);
+    }
+  }
+
+  /** Resolve the active actor (or null if the END slot is active). */
+  _activeActor() {
+    const idx = this._activeIndex();
+    const ids = Array.isArray(this._ids) ? this._ids : [];
+    if (idx < ids.length) {
+      const aid = ids[idx];
+      return game.actors.get(aid) ?? null;
+    }
+    return null; // END slot
+  }
+
+  /** Update the visible "active" name label in the UI. */
+  _renderActiveName() {
+    if (!this._attached || !this._root) return;
+
+    const actor = this._activeActor();
+    const label = actor ? actor.name : "End";
+
+    // Try common locations for the label (support both variants if your HTML moved)
+    const el =
+      this._root.querySelector(".mg-ini-active .mg-ini-active-name") ||
+      this._root.querySelector(".mg-ini-active-name");
+
+    if (el) {
+      el.textContent = label;
+      el.setAttribute("data-active-name", label);
+      el.setAttribute("aria-label", `Active: ${label}`);
     }
   }
 
@@ -1096,8 +1164,84 @@ export class MGInitiativeBar extends Application {
     return true;
   }
 
-  
-  
+  // === Shared-state readers (scene flag preferred) ===
+  async _readSharedInitiativeState() {
+    // Prefer scene flag
+    const scene = game.scenes?.current;
+    if (scene?.getFlag) {
+      const state = await scene.getFlag("midnight-gambit", "initState");
+      if (state && typeof state === "object") return state;
+    }
+    // Fallback in case you still have a world setting around
+    if (game.settings?.get) {
+      try {
+        const state = game.settings.get("midnight-gambit", "initState");
+        if (state && typeof state === "object") return state;
+      } catch (_) {}
+    }
+    return null;
+  }
+
+  /** Reorder the card DOM to match a list of ids */
+  _reorderCardsByIds(orderIds = []) {
+    if (!this._root) return;
+    const list = this._root.querySelector(".mg-init-list"); // adjust if your container differs
+    if (!list) return;
+
+    // Build a map from id -> card element (expects data-id on each card)
+    const byId = {};
+    list.querySelectorAll(".mg-init-card").forEach(el => {
+      byId[el.dataset.id] = el;
+    });
+
+    // Append in the desired order first
+    orderIds.forEach(id => {
+      const el = byId[id];
+      if (el) list.appendChild(el);
+    });
+
+    // Then append any strays not in orderIds (safety)
+    list.querySelectorAll(".mg-init-card").forEach(el => {
+      if (!orderIds.includes(el.dataset.id)) list.appendChild(el);
+    });
+  }
+
+  /** Make a given index the active card (class toggle only) */
+  _setActiveIndex(idx = 0) {
+    this._activeIndex = Math.max(0, idx);
+    const cards = this._root?.querySelectorAll(".mg-init-card") ?? [];
+    cards.forEach((el, i) => el.classList.toggle("active", i === this._activeIndex));
+  }
+
+  /** Update the header/label that shows the active card name */
+  _renderActiveName() {
+    if (!this._root) return;
+    const label = this._root.querySelector(".mg-init-active-name"); // adjust selector to your header element
+    if (!label) return;
+
+    const cards = [...this._root.querySelectorAll(".mg-init-card")];
+    const active = cards[this._activeIndex] || cards[0];
+    const name =
+      active?.dataset?.name ||
+      active?.querySelector(".name")?.textContent?.trim() ||
+      active?.textContent?.trim() ||
+      "";
+    label.textContent = name || "—";
+  }
+
+  /** One-shot hydrate on mount: read state → reorder → set active → update label */
+  async _syncUIFromSharedState() {
+    const state = await this._readSharedInitiativeState();
+    if (!state) return;
+
+    const orderIds = Array.isArray(state.orderIds) ? state.orderIds.slice() : [];
+    const activeIndex = Number.isInteger(state.activeIndex) ? state.activeIndex : 0;
+
+    if (orderIds.length) this._reorderCardsByIds(orderIds);
+    this._setActiveIndex(activeIndex);
+    this._renderActiveName();
+  }
+
   /** Mount / Unmount */
   _ensureAttached() {
     // If already attached, we're good
@@ -1113,6 +1257,7 @@ export class MGInitiativeBar extends Application {
     this._applyInitialPosition(); // 1) place bottom-right (or restore)
     this._enableDrag();           // 2) make header draggable and persist position
     this._attached = true;
+    this._syncUIFromSharedState();
   }
 
   _detach() {
@@ -1165,9 +1310,16 @@ export class MGInitiativeBar extends Application {
         this._vOffset = clampedPrev;
 
         if (this._attached) {
-          this._endTurn().catch(console.error);
+          this._endTurn()
+            .then(() => {
+              this._renderActiveName();
+              return this._persistDurableInitState(); // ✅ save {orderIds, activeIndex}
+            })
+            .catch(console.error);
         } else {
+          // closed: still save durable state so reopen shows correct active
           this._persistIniState().catch(() => {});
+          this._persistDurableInitState().catch(() => {});
         }
         return;
       }
@@ -1180,35 +1332,32 @@ export class MGInitiativeBar extends Application {
         if (syncId && this._lastSyncId === syncId) return;
         if (syncId) this._lastSyncId = syncId;
 
-        // Align IDs if provided, otherwise re-pull
         if (Array.isArray(ids) && ids.length) {
           this._ids = ids.filter((id) => !!game.actors.get(id));
         } else {
           this._ids = this.getOrderActorIds();
         }
 
-        // Reset offset to the first slot (0)
         this._vOffset = 0;
 
         if (this._attached) {
           const stage = this._root?.querySelector(".mg-ini-diag-stage");
           if (stage) {
-            // Rebuild stage nodes for the current IDs (+ END)
             this._ensureSlices(stage, [...this._ids, END_ID]);
-
-            // Blow away any lingering invisibility/offstage styles
-            this._revealAllCards();
+            this._revealAllCards?.();
           }
-
-          // Re-layout fresh and autosize
           this._layoutDiagonal(this._ids);
           if (typeof this._autosizeFrame === "function") this._autosizeFrame();
-        }
+          this._renderActiveName();
 
-        // Persist so reopening restores correctly
-        this._persistIniState().catch(() => {});
+          this._persistDurableInitState().catch(() => {});
+        } else {
+          this._persistIniState().catch(() => {});
+          this._persistDurableInitState().catch(() => {});
+        }
         return;
       }
+
 
 
       // --- C) Order changed (existing behavior) ---
@@ -1222,6 +1371,7 @@ export class MGInitiativeBar extends Application {
         if (stage) this._ensureSlices(stage, [...this._ids, END_ID]);
         this._layoutDiagonal(this._ids);
         if (typeof this._autosizeFrame === "function") this._autosizeFrame();
+        this._renderActiveName();
       }
     });
 
