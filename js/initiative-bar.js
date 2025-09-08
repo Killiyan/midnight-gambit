@@ -36,10 +36,12 @@ export class MGInitiativeBar extends Application {
   }
 
   /** Public helpers (frameless) */
-  /** Public helpers (frameless) */
   async showBar() {
     this._ensureAttached();
     this._wireLiveRefresh();
+    // keep the foil hidden until we finish layout/hydration
+    this._foilFadeOut(0)?.catch(() => {});
+    this._foilDefer = true;
 
     // Base order
     this._ids = this.getOrderActorIds();
@@ -54,6 +56,24 @@ export class MGInitiativeBar extends Application {
     this._layoutDiagonal(this._ids);
     this._autosizeFrame();
     this._renderActiveName();
+
+    // Snap the overlay to the final featured slice and bring it in
+    {
+      const stage = this._root?.querySelector(".mg-ini-diag-stage");
+      const feat  = stage?.querySelector('.mg-ini-slice[data-slot="0"]');
+
+      // If END is featured (or nothing yet), keep the overlay hidden
+      if (!feat || feat.dataset.actorId === END_ID) {
+        this._syncFoilToSlice(null, false);
+      } else {
+        await this._afterTransition(feat);
+        this._syncFoilToSlice(feat, true);  // mirror final transform (e.g., --x:60, --y:120)
+        this._resetFoilStroke();            // start lap at origin
+        await this._foilFadeIn(260).catch(() => {}); // subtle reveal on first paint
+      }
+    }
+
+    this._foilDefer = false;
 
     // Remember it's open (client-scoped; no GM perms needed)
     game.settings.set("midnight-gambit", "initiativeOpen", true).catch(() => {});
@@ -70,6 +90,7 @@ export class MGInitiativeBar extends Application {
   _vOffset = 0;
   _drag = { active: false, dx: 0, dy: 0 };
   _lastSyncId = null;
+  _foilDefer = false;
 
   // Null-safe: find the current Crew actor
   _resolveCrewActor() {
@@ -251,21 +272,21 @@ export class MGInitiativeBar extends Application {
     const sk = -22;
     const t  = Math.tan(sk * Math.PI / 180);
 
-    // 🔧 TWEAK ME: sizes
+    // TWEAK ME: sizes
     const FEAT_W = 120, FEAT_H = 180;    // featured left slice size
     const SLICE_W = 75, SLICE_H = 180;  // all other slices size (was ~190x260)
 
-    // 🔧 TWEAK ME: horizontal column positions (reduce to tighten)
+    // TWEAK ME: horizontal column positions (reduce to tighten)
     const COL_X_LEFT  = 60;
     const COL_X_MID   = 240;             // was ~360–380 (closer now)
     const COL_X_RIGHT = 324;             // was ~640 (much tighter)
 
-    // 🔧 TWEAK ME: vertical tops for each column
+    // TWEAK ME: vertical tops for each column
     const Y_FEATURED = 120;
     const Y_MID_TOP  = 28;
     const Y_RIGHT_TOP= 60;
 
-    // 🔧 TWEAK ME: vertical gap inside a column pair
+    // TWEAK ME: vertical gap inside a column pair
     const GAP_Y  = 20;
 
     // Tiny nudge to kiss the slanted edge just right
@@ -404,7 +425,7 @@ export class MGInitiativeBar extends Application {
 
       el.style.visibility = ""; // show
       // Mirror the floating foil to the featured slice (slot 0), but never to END
-      if (j === 0 && id !== END_ID) this._syncFoilToSlice(el, true);
+      if (!this._foilDefer && j === 0 && id !== END_ID) this._syncFoilToSlice(el, true);
     });
 
     // Hide everything not in the current window (END included)
@@ -414,9 +435,10 @@ export class MGInitiativeBar extends Application {
       const el = stage.querySelector(`.mg-ini-slice[data-actor-id="${id}"]`);
       if (el) el.style.visibility = "hidden";
       el.removeAttribute("data-slot");
-      // If END is in slot 0 (or nothing visible), hide the foil overlay
-      if (!windowIds.length || windowIds[0] === END_ID) this._syncFoilToSlice(null, false);
     }
+
+    // If END is in slot 0 (or nothing visible), hide the foil overlay
+    if (!windowIds.length || windowIds[0] === END_ID) this._syncFoilToSlice(null, false);
 
     // Size the container to content after positions apply
     if (typeof this._autosizeFrame === "function") this._autosizeFrame();
@@ -833,7 +855,7 @@ export class MGInitiativeBar extends Application {
       const onEnd = () => { el.removeEventListener("transitionend", onEnd); res(); };
       el.addEventListener("transitionend", onEnd, { once: true });
       // Safety timer in case transition doesn't fire
-      setTimeout(res, 300);
+      setTimeout(res, 430);
     });
   }
 
@@ -1106,6 +1128,10 @@ export class MGInitiativeBar extends Application {
     const el = document.createElement("div");
     el.className = "mg-ini-foil";
 
+    // start hidden; we'll reveal after first layout sync
+    el.style.display = "none";
+    el.style.opacity = "0";
+
     // Provide the SVG child that _syncFoilToSlice() sizes/animates
     el.innerHTML = `
       <svg class="mg-ini-foil-svg" xmlns="http://www.w3.org/2000/svg">
@@ -1294,28 +1320,36 @@ export class MGInitiativeBar extends Application {
   }
 
   /** Fade the floating foil out, then hide it (no mid-air during moves). */
-  async _foilFadeOut() {
+  async _foilFadeOut(ms = 180) {
     const foil = this._foilEl ?? this._ensureFoilLayer();
     if (!foil) return;
-    foil.style.transition = foil.style.transition || "opacity 180ms cubic-bezier(.2,.8,.2,1)";
-    // ensure it's showing so opacity can animate
+
+    // Instant path for ms <= 0 to avoid the 300ms _afterTransition safety timeout
+    if (ms <= 0) {
+      foil.style.transition = "none";
+      foil.style.opacity = "0";
+      foil.style.display = "none";
+      return; // no await, no race
+    }
+
+    foil.style.transition = `opacity ${ms}ms cubic-bezier(.2,.8,.2,1)`;
     foil.style.display = "";
-    // commit styles
-    void foil.offsetWidth;
+    void foil.offsetWidth;                 // commit base
     foil.style.opacity = "0";
     await this._afterTransition(foil);
     foil.style.display = "none";
   }
 
+
   /** Show the foil and fade it back in (after layout + resync). */
-  async _foilFadeIn() {
+  async _foilFadeIn(ms = 180) {
     const foil = this._foilEl ?? this._ensureFoilLayer();
     if (!foil) return;
     foil.style.transition = "none";
     foil.style.display = "";
     foil.style.opacity = "0";
-    void foil.offsetWidth; // commit base state
-    foil.style.transition = "opacity 180ms cubic-bezier(.2,.8,.2,1)";
+    void foil.offsetWidth;                 // commit base
+    foil.style.transition = `opacity ${ms}ms cubic-bezier(.2,.8,.2,1)`;
     foil.style.opacity = "1";
     await this._afterTransition(foil);
     foil.style.removeProperty("transition");
@@ -1635,23 +1669,52 @@ export class MGInitiativeBar extends Application {
         this._vOffset = 0;
 
         if (this._attached) {
-          const stage = this._root?.querySelector(".mg-ini-diag-stage");
-          if (stage) {
-            this._ensureSlices(stage, [...this._ids, END_ID]);
-            this._revealAllCards?.();
-          }
-          this._layoutDiagonal(this._ids);
-          if (typeof this._autosizeFrame === "function") this._autosizeFrame();
-          {
+          // run the longer reset timing without making the whole hook async
+          (async () => {
+            const RESET_FADE_MS = 320;
+            this._foilDefer = true;
+
+            // 1) hide the wisp so it doesn't float during the shuffle
+            await this._foilFadeOut(RESET_FADE_MS).catch(() => {});
+
+            // 2) rebuild + relayout
+            const stage = this._root?.querySelector(".mg-ini-diag-stage");
+            if (stage) {
+              this._ensureSlices(stage, [...this._ids, END_ID]);
+              this._revealAllCards?.();
+            }
+            this._layoutDiagonal(this._ids);
+            if (typeof this._autosizeFrame === "function") this._autosizeFrame();
+
+            // 3) animate the header name and wait for the featured slice's transform to finish
             const firstId = this._ids[0] ?? null;
             const resetName = firstId ? (game.actors.get(firstId)?.name ?? "—") : "End of Round";
-            this._animateActiveNameChange(resetName).catch(() => {});
-          }
-          // Restart the wisp after reset so it begins at the origin
-          this._resetFoilStroke();
-          this._foilFadeIn();
+            const feat = this._root?.querySelector('.mg-ini-diag-stage .mg-ini-slice[data-slot="0"]');
 
-          this._persistDurableInitState().catch(() => {});
+            await Promise.all([
+              this._animateActiveNameChange(resetName).catch(() => {}),
+              feat ? this._afterTransition(feat) : Promise.resolve()
+            ]);
+
+            {
+              const featNow = this._root?.querySelector('.mg-ini-diag-stage .mg-ini-slice[data-slot="0"]');
+              this._syncFoilToSlice(featNow, !!featNow);
+            }
+
+            // 4) reset the wisp lap, then fade it back in a hair slower for reset
+            this._resetFoilStroke();
+
+            // extra hold before showing the wisp again
+            const HOLD_AFTER_MS = 210;   // tweak to taste
+            await new Promise(r => setTimeout(r, HOLD_AFTER_MS));
+
+            this._foilDefer = true;
+
+            await this._foilFadeIn(RESET_FADE_MS).catch(() => {});
+
+            // 5) persist durable state for reopen/refresh
+            this._persistDurableInitState().catch(() => {});
+          })();
         } else {
           this._persistIniState().catch(() => {});
           this._persistDurableInitState().catch(() => {});
