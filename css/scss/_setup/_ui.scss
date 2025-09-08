@@ -229,16 +229,16 @@
 		background: rgba($mg-blue-4, .45);
 		@include mg-border();
 		box-shadow: 0 10px 24px rgba(0,0,0,.35);
-		//padding: 2.125rem;
+		border-radius: .625rem;
+		overflow: hidden;
 
 		.mg-ini-header {
-			display:flex; 
-			align-items:center; 
-			justify-content:space-between;
+			height: 1rem;
+			background: rgba($mg-blue-main-2,.6);
 
 			.mg-ini-headline {
 				position: absolute;
-				top: 24%;
+				top: 5rem;
 				left: 20%;
 				width: 8.25rem;
 				overflow: hidden;
@@ -273,6 +273,11 @@
 				width: 100%;
 				margin-top: 2.125rem;
 				padding: 0 2.125rem;
+				position: absolute;
+				left: -1rem;
+				bottom: 1rem;
+				width: 14rem;
+				z-index: 30;
 			}
 		}
 

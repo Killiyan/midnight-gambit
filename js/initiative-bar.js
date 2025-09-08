@@ -29,32 +29,29 @@ export class MGInitiativeBar extends Application {
   }
 
   /** Public helpers (frameless) */
-  showBar() {
+  /** Public helpers (frameless) */
+  async showBar() {
     this._ensureAttached();
     this._wireLiveRefresh();
-    if (!this._ids || !this._ids.length) this._ids = this.getOrderActorIds();
 
-    // Try to restore previous offset if it matches this actor order; else start at 0
-    this._vOffset = 0;
-    this._restoreIniStateIfAny()
-      .then((ok) => {
-        if (ok) {
-          // Re-layout once the offset is restored
-          this._layoutDiagonal(this._ids);
-        }
-      })
-      .catch(() => { /* ignore */ });
+    // Base order
+    this._ids = this.getOrderActorIds();
+
+    // Hydrate from durable scene/per-user state before first layout
+    await this._syncUIFromSharedState();
 
     const stage = this._root.querySelector(".mg-ini-diag-stage");
-    this._ensureSlices(stage, this._ids);   // create ALL actor nodes
+    this._ensureSlices(stage, [...this._ids, END_ID]); // make sure END is present too
 
-    // Initial layout uses current _vOffset (it will re-run above if restore succeeds)
+    // First layout uses the hydrated _vOffset
     this._layoutDiagonal(this._ids);
-    this._autosizeFrame();                  // lock size to window (no jiggle)
+    this._autosizeFrame();
     this._renderActiveName();
-    // Persist "is open" so a refresh re-opens it (no-await version)
-    game.settings.set(MG_NS, "initiativeOpen", true).catch(() => {});
+
+    // Remember it's open (client-scoped; no GM perms needed)
+    game.settings.set("midnight-gambit", "initiativeOpen", true).catch(() => {});
   }
+
 
 
   /** Internal state */
@@ -570,24 +567,26 @@ export class MGInitiativeBar extends Application {
     return null; // END slot
   }
 
-  /** Update the visible "active" name label in the UI. */
+  /** Update the visible "active" name label in the header */
   _renderActiveName() {
-    if (!this._attached || !this._root) return;
+    if (!this._root) return;
 
-    const actor = this._activeActor();
-    const label = actor ? actor.name : "End";
+    // Your header uses: <div class="next-name" data-next-name>...</div>
+    const el = this._root.querySelector("[data-next-name]");
+    if (!el) return;
 
-    // Try common locations for the label (support both variants if your HTML moved)
-    const el =
-      this._root.querySelector(".mg-ini-active .mg-ini-active-name") ||
-      this._root.querySelector(".mg-ini-active-name");
+    // Decide active based on hydrated ids + vOffset (+ END slot)
+    const L = Math.max(1, (Array.isArray(this._ids) ? this._ids.length : 0) + 1);
+    const idx = ((Number(this._vOffset ?? 0) % L) + L) % L;
 
-    if (el) {
-      el.textContent = label;
-      el.setAttribute("data-active-name", label);
-      el.setAttribute("aria-label", `Active: ${label}`);
+    if (Array.isArray(this._ids) && idx < this._ids.length) {
+      const actor = game.actors.get(this._ids[idx]);
+      el.textContent = actor?.name ?? "—";
+    } else {
+      el.textContent = "End of Round";
     }
   }
+
 
   /** Make every initiative card/slice visible (used on full reset). */
   _revealAllCards() {
@@ -1229,18 +1228,45 @@ export class MGInitiativeBar extends Application {
     label.textContent = name || "—";
   }
 
-  /** One-shot hydrate on mount: read state → reorder → set active → update label */
+  /** One-shot hydrate on mount: read durable scene state (fallback to per-user) */
   async _syncUIFromSharedState() {
-    const state = await this._readSharedInitiativeState();
-    if (!state) return;
+    // 1) Durable scene state (GM updates this after Next/Reset)
+    let orderIds = null;
+    let activeIndex = 0;
 
-    const orderIds = Array.isArray(state.orderIds) ? state.orderIds.slice() : [];
-    const activeIndex = Number.isInteger(state.activeIndex) ? state.activeIndex : 0;
+    try {
+      const scene = canvas?.scene;
+      if (scene?.getFlag) {
+        const state = await scene.getFlag("midnight-gambit", "initState");
+        if (state && typeof state === "object") {
+          if (Array.isArray(state.orderIds) && state.orderIds.length) {
+            orderIds = state.orderIds.filter(id => !!game.actors.get(id));
+          }
+          if (Number.isFinite(state.activeIndex)) {
+            activeIndex = Number(state.activeIndex);
+          }
+        }
+      }
+    } catch (_) { /* ignore */ }
 
-    if (orderIds.length) this._reorderCardsByIds(orderIds);
-    this._setActiveIndex(activeIndex);
+    // 2) If no scene state, fall back to per-user vOffset
+    if (!orderIds) {
+      orderIds = this.getOrderActorIds();
+      try {
+        const saved = await game.user.getFlag("midnight-gambit", "initiativeUi");
+        if (saved && Number.isFinite(saved.vOffset)) {
+          activeIndex = Number(saved.vOffset);
+        }
+      } catch (_) { /* ignore */ }
+    }
+
+    // Normalize and apply
+    this._ids = Array.isArray(orderIds) ? orderIds : [];
+    const L = Math.max(1, this._ids.length + 1); // +1 for END slot
+    this._vOffset = ((activeIndex % L) + L) % L;
     this._renderActiveName();
   }
+
 
   /** Mount / Unmount */
   _ensureAttached() {
@@ -1313,7 +1339,7 @@ export class MGInitiativeBar extends Application {
           this._endTurn()
             .then(() => {
               this._renderActiveName();
-              return this._persistDurableInitState(); // ✅ save {orderIds, activeIndex}
+              return this._persistDurableInitState();
             })
             .catch(console.error);
         } else {
