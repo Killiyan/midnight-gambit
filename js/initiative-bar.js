@@ -592,7 +592,6 @@ export class MGInitiativeBar extends Application {
     }
   }
 
-
   /** Make every initiative card/slice visible (used on full reset). */
   _revealAllCards() {
     const root = this._root;
@@ -622,7 +621,6 @@ export class MGInitiativeBar extends Application {
       );
     });
   }
-
 
   /** Clear saved progress (used by Reset and Apply-from-Crew) */
   async _clearIniState() {
@@ -693,13 +691,12 @@ export class MGInitiativeBar extends Application {
       el.style.visibility = "";
     }
   
-    // Update header immediately
+    // Animate the header name (inverse of card leave)
     const nextId = windowAfter[0];
     const nm = game.actors.get(nextId ?? "")?.name ?? (nextId === END_ID ? "End of Round" : "—");
-    const tgt = this._root?.querySelector("[data-next-name]");
-    if (tgt) tgt.textContent = nm;
-  
-    // Sync flip
+    const nameDone = this._animateActiveNameChange(nm).catch(() => {});
+
+    // Sync flip for the card animation pipeline
     await this._nextFrame();
   
     // --- LEAVE ANIMATION (always slide-left + fade) ---
@@ -735,8 +732,9 @@ export class MGInitiativeBar extends Application {
       leavingEl.style.transform  = `translate(var(--x), var(--y)) skewX(var(--skX))`;
       leavingEl.style.opacity    = "1";
       await this._afterTransition(leavingEl);
+      await nameDone;
     } else {
-      await Promise.all([leaveDone, reenterDone]);
+      await Promise.all([leaveDone, reenterDone, nameDone]);
     }
   
     // Cleanup small inline bits
@@ -1042,6 +1040,36 @@ export class MGInitiativeBar extends Application {
 
     handle.style.cursor = "move";
     handle.addEventListener("pointerdown", onPointerDown, { passive: true });
+  }
+
+  /** Slide-in animation for the active name (inverse of card leave). */
+  async _animateActiveNameChange(newName) {
+    const label = this._root?.querySelector(this.constructor.SELECTORS.activeName || "[data-next-name]");
+    if (!label) return;
+
+    // Start off-canvas to the RIGHT (inverse of card sliding left) and invisible
+    label.style.willChange = "transform, opacity";
+    label.style.transition = "none";
+    label.style.transform  = `translateX(${LEAVE_PX}px)`;
+    label.style.opacity    = "0";
+    // Ensure the initial state is committed before we change text + animate
+    void label.offsetWidth;
+
+    // Swap the text, then animate it into place
+    label.textContent      = newName;
+    label.style.transition = "transform 260ms cubic-bezier(.2,.8,.2,1), opacity 260ms cubic-bezier(.2,.8,.2,1)";
+    label.style.transform  = "translateX(0)";
+    label.style.opacity    = "1";
+
+    try {
+      await this._afterTransition(label);
+    } finally {
+      // Clean up inline styles so future layout is clean
+      label.style.removeProperty("transition");
+      label.style.removeProperty("transform");
+      label.style.removeProperty("opacity");
+      label.style.willChange = "";
+    }
   }
   
   /** Reset to Crew order and relayout without closing */
@@ -1363,7 +1391,11 @@ export class MGInitiativeBar extends Application {
           }
           this._layoutDiagonal(this._ids);
           if (typeof this._autosizeFrame === "function") this._autosizeFrame();
-          this._renderActiveName();
+          {
+            const firstId = this._ids[0] ?? null;
+            const resetName = firstId ? (game.actors.get(firstId)?.name ?? "—") : "End of Round";
+            this._animateActiveNameChange(resetName).catch(() => {});
+          }
 
           this._persistDurableInitState().catch(() => {});
         } else {
@@ -1372,8 +1404,6 @@ export class MGInitiativeBar extends Application {
         }
         return;
       }
-
-
 
       // --- C) Order changed (existing behavior) ---
       const touchedFlag   = getProperty(changed, "flags.midnight-gambit.initiativeOrder");
