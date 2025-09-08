@@ -1282,9 +1282,9 @@ export class MGInitiativeBar extends Application {
         linear-gradient(#000 0 0);
               mask-composite: exclude;
 
-      background: color-mix(in oklab, var(--slot-stroke, #4173BE), white 35%);
-      filter: blur(var(--mg-halo-blur, 14px));
-      opacity: var(--mg-halo-opacity, 0.28);
+        background: color-mix(in oklab, var(--mg-halo-color, var(--slot-stroke, #4173BE)) 85%, white 20%);
+        filter: blur(var(--mg-halo-blur, 12px));
+        opacity: var(--mg-halo-opacity, 0.45);
     }
 
     /* The SVG layer that hosts the moving wisp */
@@ -1309,8 +1309,9 @@ export class MGInitiativeBar extends Application {
       stroke-dashoffset: 0;
       /* gentle glow */
       filter:
-        drop-shadow(0 0 6px rgba(162,215,41,0.45))
-        drop-shadow(0 0 12px rgba(162,215,41,0.25));
+        drop-shadow(0 0 var(--mg-glow1, 8px)  color-mix(in oklab, var(--mg-glow-color, var(--slot-stroke, #A2D729)) 90%, transparent))
+        drop-shadow(0 0 var(--mg-glow2, 16px) color-mix(in oklab, var(--mg-glow-color, var(--slot-stroke, #A2D729)) 65%, transparent))
+        drop-shadow(0 0 var(--mg-glow3, 28px) color-mix(in oklab, var(--mg-glow-color, var(--slot-stroke, #A2D729)) 45%, transparent));
       animation: mg-foil-dash var(--mg-foil-speed, 3800ms) linear infinite;
     }
 
