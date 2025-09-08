@@ -20,6 +20,13 @@ export class MGInitiativeBar extends Application {
     return this.#instance;
   }
 
+  static get SELECTORS() {
+  return {
+    activeName: "[data-next-name]"
+  };
+}
+
+
   static get defaultOptions() {
     return foundry.utils.mergeObject(super.defaultOptions, {
       id: "mg-initiative",
@@ -570,20 +577,18 @@ export class MGInitiativeBar extends Application {
   /** Update the visible "active" name label in the header */
   _renderActiveName() {
     if (!this._root) return;
+    const label = this._root.querySelector("[data-next-name]");
+    if (!label) return;
 
-    // Your header uses: <div class="next-name" data-next-name>...</div>
-    const el = this._root.querySelector("[data-next-name]");
-    if (!el) return;
+    const ids = Array.isArray(this._ids) ? this._ids : [];
+    const L = Math.max(1, ids.length + 1);                 // +1 for END slot
+    const idx = ((Number(this._vOffset ?? 0) % L) + L) % L; // normalize [0,L)
 
-    // Decide active based on hydrated ids + vOffset (+ END slot)
-    const L = Math.max(1, (Array.isArray(this._ids) ? this._ids.length : 0) + 1);
-    const idx = ((Number(this._vOffset ?? 0) % L) + L) % L;
-
-    if (Array.isArray(this._ids) && idx < this._ids.length) {
-      const actor = game.actors.get(this._ids[idx]);
-      el.textContent = actor?.name ?? "—";
+    if (idx < ids.length) {
+      const actor = game.actors.get(ids[idx]);
+      label.textContent = actor?.name ?? "—";
     } else {
-      el.textContent = "End of Round";
+      label.textContent = "End of Round";
     }
   }
 
@@ -968,7 +973,7 @@ export class MGInitiativeBar extends Application {
       // Only primary button
       if (ev.button !== 0) return;
 
-      // 🔒 IMPORTANT: if the pointer started on a header button, DO NOT drag
+      // IMPORTANT: if the pointer started on a header button, DO NOT drag
       if (ev.target.closest(".mg-ini-btn")) return;
 
       // Record press point; do not stop propagation yet—allow clicks unless we *start* dragging
@@ -1210,22 +1215,6 @@ export class MGInitiativeBar extends Application {
     this._activeIndex = Math.max(0, idx);
     const cards = this._root?.querySelectorAll(".mg-init-card") ?? [];
     cards.forEach((el, i) => el.classList.toggle("active", i === this._activeIndex));
-  }
-
-  /** Update the header/label that shows the active card name */
-  _renderActiveName() {
-    if (!this._root) return;
-    const label = this._root.querySelector(".mg-init-active-name"); // adjust selector to your header element
-    if (!label) return;
-
-    const cards = [...this._root.querySelectorAll(".mg-init-card")];
-    const active = cards[this._activeIndex] || cards[0];
-    const name =
-      active?.dataset?.name ||
-      active?.querySelector(".name")?.textContent?.trim() ||
-      active?.textContent?.trim() ||
-      "";
-    label.textContent = name || "—";
   }
 
   /** One-shot hydrate on mount: read durable scene state (fallback to per-user) */
