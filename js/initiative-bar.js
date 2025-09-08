@@ -403,6 +403,8 @@ export class MGInitiativeBar extends Application {
       }
 
       el.style.visibility = ""; // show
+      // Mirror the floating foil to the featured slice (slot 0), but never to END
+      if (j === 0 && id !== END_ID) this._syncFoilToSlice(el, true);
     });
 
     // Hide everything not in the current window (END included)
@@ -412,6 +414,8 @@ export class MGInitiativeBar extends Application {
       const el = stage.querySelector(`.mg-ini-slice[data-actor-id="${id}"]`);
       if (el) el.style.visibility = "hidden";
       el.removeAttribute("data-slot");
+      // If END is in slot 0 (or nothing visible), hide the foil overlay
+      if (!windowIds.length || windowIds[0] === END_ID) this._syncFoilToSlice(null, false);
     }
 
     // Size the container to content after positions apply
@@ -754,6 +758,13 @@ export class MGInitiativeBar extends Application {
     this._layoutDiagonal(this._ids);
     if (typeof this._autosizeFrame === "function") this._autosizeFrame();
 
+    // After relayout, re-sync foil to the new featured slice
+    {
+      const stage = this._root?.querySelector(".mg-ini-diag-stage");
+      const feat = stage?.querySelector('.mg-ini-slice[data-slot="0"]');
+      this._syncFoilToSlice(feat, !!feat);
+    }
+
     // Save progress so a close/reopen resumes correctly
     await this._persistIniState();
   }
@@ -1075,6 +1086,185 @@ export class MGInitiativeBar extends Application {
       label.style.willChange = "";
     }
   }
+
+  /** Ensures a single floating foil layer exists and contains the SVG ring. */
+  _ensureFoilLayer() {
+    this._ensureFoilCSS();
+    if (this._foilEl && this._foilEl.isConnected) return this._foilEl;
+
+    const stage = this._root?.querySelector(".mg-ini-diag-stage");
+    if (!stage) return null;
+
+    const el = document.createElement("div");
+    el.className = "mg-ini-foil";
+
+    // Provide the SVG child that _syncFoilToSlice() sizes/animates
+    el.innerHTML = `
+      <svg class="mg-ini-foil-svg" xmlns="http://www.w3.org/2000/svg">
+        <rect class="mg-ini-foil__ring" x="0.5" y="0.5" width="1" height="1" rx="0" ry="0"/>
+      </svg>
+    `;
+
+    stage.appendChild(el);
+    this._foilEl = el;
+    return el;
+  }
+
+  /**
+   * Sync the floating foil to the given slice (or hide if none).
+   * - Positions and sizes the SVG ring to match the slice’s box and radius.
+   * - Computes perimeter so the dash animates one clean lap.
+   */
+  _syncFoilToSlice(sliceEl, isFeatured) {
+    const stage = this._root?.querySelector(".mg-ini-diag-stage");
+    if (!stage) return;
+    const foil = this._ensureFoilLayer();
+    if (!foil) return;
+
+    if (!sliceEl || !isFeatured) {
+      foil.style.display = "none";
+      return;
+    }
+    foil.style.display = "";
+
+    // Size overlay to slice box
+    const w = sliceEl.offsetWidth;
+    const h = sliceEl.offsetHeight;
+    foil.style.width  = `${w}px`;
+    foil.style.height = `${h}px`;
+
+    // Mirror transform so it rides the same path
+    const comp = getComputedStyle(sliceEl);
+    foil.style.transform = comp.transform;
+    foil.style.transformOrigin = comp.transformOrigin;
+
+    // Border radius from the slice (fallback to 12px)
+    // Note: borderRadius can be "12px" or a 4-corner string; take the first length.
+    const brRaw = (comp.borderRadius || "12px").trim().split(" ")[0];
+    const rPx = Math.max(0, parseFloat(brRaw) || 12);
+
+    // Keep radius sane (cannot exceed half the side)
+    const r = Math.min(rPx, w * 0.5, h * 0.5);
+
+    // Update SVG rect geometry
+    const svg  = foil.querySelector(".mg-ini-foil-svg");
+    const ring = foil.querySelector(".mg-ini-foil__ring");
+    if (!svg || !ring) return;
+
+    svg.setAttribute("width",  String(w));
+    svg.setAttribute("height", String(h));
+
+    // Tight inset so stroke sits right on the edge
+    const sw =  Math.max(2, parseFloat(getComputedStyle(ring).strokeWidth) || 3);
+    const inset = sw / 2;
+
+    ring.setAttribute("x", String(inset));
+    ring.setAttribute("y", String(inset));
+    ring.setAttribute("width",  String(Math.max(0, w - sw)));
+    ring.setAttribute("height", String(Math.max(0, h - sw)));
+    ring.setAttribute("rx", String(Math.max(0)));
+    ring.setAttribute("ry", String(Math.max(0)));
+
+    // Derive the perimeter of a rounded rectangle:
+    // P = 2*(w'+h' - 2r') + 2πr'
+    const wPrime = Math.max(0, w - sw);
+    const hPrime = Math.max(0, h - sw);
+    const rPrime = Math.max(0, Math.min(r - inset, wPrime * 0.5, hPrime * 0.5));
+    const perimeter = 2 * (wPrime + hPrime - 2 * rPrime) + 2 * Math.PI * rPrime;
+
+    // One short wisp + big gap
+    const wispLen = Math.max(48, perimeter * 0.18);
+    const gapLen  = Math.max(1, perimeter - wispLen);
+
+    foil.style.setProperty("--mg-perimeter", `${perimeter.toFixed(2)}px`);
+    foil.style.setProperty("--mg-dash-on",   `${wispLen.toFixed(2)}px`);
+    foil.style.setProperty("--mg-dash-off",  `${gapLen.toFixed(2)}px`);
+
+    // Match border rounding + brand stroke color on the halo & wisp
+    foil.style.setProperty("--mg-foil-radius", `0px`);
+    const slotStroke = comp.getPropertyValue("--slot-stroke")?.trim();
+    if (slotStroke) {
+      foil.style.setProperty("--slot-stroke", slotStroke);
+    }
+
+    // (Optional) speed/width knobs per theme (fallbacks already defined in CSS)
+    // foil.style.setProperty("--mg-foil-speed", "4200ms");
+    // foil.style.setProperty("--mg-foil-stroke", "3px");
+  }
+
+  /** Inject foil CSS once: SVG wisp around the border + soft halo (no spinning box). */
+  _ensureFoilCSS() {
+    if (document.getElementById("mg-foil-css")) return;
+    const css = `
+    .mg-ini-foil {
+      position: absolute;
+      left: 0; top: 0;
+      width: 0; height: 0;
+      pointer-events: none;
+      z-index: 50; /* above slices, below header */
+    }
+
+    /* Soft halo hugging the border ring (keeps that subtle glow) */
+    .mg-ini-foil::after{
+      content:"";
+      position:absolute;
+      inset:0;
+      pointer-events:none;
+      border-radius: var(--mg-foil-radius, 12px);
+
+      /* show only in the border ring */
+      padding: var(--mg-foil-width, 3px);
+      -webkit-mask:
+        linear-gradient(#000 0 0) content-box,
+        linear-gradient(#000 0 0);
+      -webkit-mask-composite: xor;
+              mask:
+        linear-gradient(#000 0 0) content-box,
+        linear-gradient(#000 0 0);
+              mask-composite: exclude;
+
+      background: color-mix(in oklab, var(--slot-stroke, #4173BE), white 35%);
+      filter: blur(var(--mg-halo-blur, 14px));
+      opacity: var(--mg-halo-opacity, 0.28);
+    }
+
+    /* The SVG layer that hosts the moving wisp */
+    .mg-ini-foil-svg {
+      position:absolute;
+      inset:0;
+      width:100%;
+      height:100%;
+      overflow:visible;
+    }
+
+    /* The glowing wisp: one rounded-rect stroke segment that travels the border */
+    .mg-ini-foil__ring {
+      fill: none;
+      stroke: var(--slot-stroke, #A2D729);
+      stroke-width: var(--mg-foil-stroke, 3px);
+      stroke-linecap: butt;
+      stroke-linejoin: miter;
+      vector-effect: non-scaling-stroke;
+      /* one dash + big gap, we animate dashoffset to orbit */
+      stroke-dasharray: var(--mg-dash-on, 80px) var(--mg-dash-off, 4000px);
+      stroke-dashoffset: 0;
+      /* gentle glow */
+      filter:
+        drop-shadow(0 0 6px rgba(162,215,41,0.45))
+        drop-shadow(0 0 12px rgba(162,215,41,0.25));
+      animation: mg-foil-dash var(--mg-foil-speed, 3800ms) linear infinite;
+    }
+
+    @keyframes mg-foil-dash {
+      to { stroke-dashoffset: calc(-1 * var(--mg-perimeter, 1000px)); }
+    }
+    `;
+    const tag = document.createElement("style");
+    tag.id = "mg-foil-css";
+    tag.textContent = css;
+    document.head.appendChild(tag);
+  }
+
   
   /** Reset to Crew order and relayout without closing */
   async _resetInitiative() {
@@ -1309,6 +1499,8 @@ export class MGInitiativeBar extends Application {
 
   _detach() {
     if (!this._attached) return;
+    this._foilEl?.remove();
+    this._foilEl = null;
     this._root?.remove();
     this._root = null;
     this._attached = false;
