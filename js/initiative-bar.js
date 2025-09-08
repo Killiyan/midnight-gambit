@@ -699,6 +699,9 @@ export class MGInitiativeBar extends Application {
       el.style.visibility = "";
     }
   
+    // hide the border wisp during the move so it doesn't float
+    this._foilFadeOut().catch(() => {});
+
     // Animate the header name (inverse of card leave)
     const nextId = windowAfter[0];
     const nm = game.actors.get(nextId ?? "")?.name ?? (nextId === END_ID ? "End of Round" : "—");
@@ -764,6 +767,11 @@ export class MGInitiativeBar extends Application {
       const feat = stage?.querySelector('.mg-ini-slice[data-slot="0"]');
       this._syncFoilToSlice(feat, !!feat);
     }
+
+    // Restart the wisp so the orbit begins fresh on the new feature
+    this._resetFoilStroke();
+
+    await this._foilFadeIn();
 
     // Save progress so a close/reopen resumes correctly
     await this._persistIniState();
@@ -1202,6 +1210,8 @@ export class MGInitiativeBar extends Application {
       width: 0; height: 0;
       pointer-events: none;
       z-index: 50; /* above slices, below header */
+      opacity: 1;
+      transition: opacity 180ms cubic-bezier(.2,.8,.2,1);
     }
 
     /* Soft halo hugging the border ring (keeps that subtle glow) */
@@ -1265,7 +1275,52 @@ export class MGInitiativeBar extends Application {
     document.head.appendChild(tag);
   }
 
-  
+  /** Restart the foil wisp animation from the start of the border path. */
+  _resetFoilStroke() {
+    const ring = this._foilEl?.querySelector(".mg-ini-foil__ring");
+    if (!ring) return;
+
+    // Zero the offset so the wisp begins at the path origin (top-left of the rect)
+    ring.style.strokeDashoffset = "0px";
+
+    // Restart the CSS animation cleanly (works for SVG across browsers)
+    const prev = ring.style.animation;
+    ring.style.animation = "none";
+    // Force a reflow (SVG-friendly): either getBBox or getBoundingClientRect
+    if (typeof ring.getBBox === "function") void ring.getBBox();
+    else void ring.getBoundingClientRect();
+    // Restore to stylesheet animation
+    if (prev) ring.style.animation = prev; else ring.style.removeProperty("animation");
+  }
+
+  /** Fade the floating foil out, then hide it (no mid-air during moves). */
+  async _foilFadeOut() {
+    const foil = this._foilEl ?? this._ensureFoilLayer();
+    if (!foil) return;
+    foil.style.transition = foil.style.transition || "opacity 180ms cubic-bezier(.2,.8,.2,1)";
+    // ensure it's showing so opacity can animate
+    foil.style.display = "";
+    // commit styles
+    void foil.offsetWidth;
+    foil.style.opacity = "0";
+    await this._afterTransition(foil);
+    foil.style.display = "none";
+  }
+
+  /** Show the foil and fade it back in (after layout + resync). */
+  async _foilFadeIn() {
+    const foil = this._foilEl ?? this._ensureFoilLayer();
+    if (!foil) return;
+    foil.style.transition = "none";
+    foil.style.display = "";
+    foil.style.opacity = "0";
+    void foil.offsetWidth; // commit base state
+    foil.style.transition = "opacity 180ms cubic-bezier(.2,.8,.2,1)";
+    foil.style.opacity = "1";
+    await this._afterTransition(foil);
+    foil.style.removeProperty("transition");
+  }
+
   /** Reset to Crew order and relayout without closing */
   async _resetInitiative() {
     const root  = this._getRoot();
@@ -1592,6 +1647,9 @@ export class MGInitiativeBar extends Application {
             const resetName = firstId ? (game.actors.get(firstId)?.name ?? "—") : "End of Round";
             this._animateActiveNameChange(resetName).catch(() => {});
           }
+          // Restart the wisp after reset so it begins at the origin
+          this._resetFoilStroke();
+          this._foilFadeIn();
 
           this._persistDurableInitState().catch(() => {});
         } else {
