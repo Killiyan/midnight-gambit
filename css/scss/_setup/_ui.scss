@@ -238,6 +238,22 @@
 			--mg-gleam-speed: 2400ms;          /* time for the top gleam sweep */
 			--mg-gleam-tilt: -18deg;           /* angle of the gleam streak */
 			--mg-gleam-opacity: 0.85;          /* brightness of the streak */
+
+		&.is-collapsed {
+			max-height: none;
+
+			.mg-ini-header {
+				height: auto;
+				padding: .625rem;
+				
+				.mg-ini-headline {
+					position: relative;
+					top: 0;
+					left: 0;
+					width: auto;
+				}
+			}
+		}
 			
 		.mg-ini-header {
 			height: 1rem;
@@ -337,12 +353,15 @@
 						}
 
 						&:before {
-							content: "";
-							background: url();
+							content: '';
+							background-image: url("/systems/midnight-gambit/assets/images/mg-queen.png");
+							background-size: cover;
 							position: absolute;
-							inset: 0;
-							pointer-events: none;
-							border-radius: inherit;
+							bottom: -1.5rem;
+							right: -.75rem;
+							width: 55%;
+							height: 55%;
+							z-index: 1;
 						}
 
 						/* Rotate the conic gradient for that holographic shimmer */
@@ -359,6 +378,7 @@
 							transform: rotate(var(--mg-gleam-tilt)) translateX(-120%);
 							mix-blend-mode: screen;
 							opacity: var(--mg-gleam-opacity);
+							z-index: 2;
 
 							/* A tight bright core with soft falloff to transparent */
 							background:

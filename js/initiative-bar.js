@@ -43,6 +43,11 @@ export class MGInitiativeBar extends Application {
     this._foilFadeOut(0)?.catch(() => {});
     this._foilDefer = true;
 
+    try {
+      const wasCollapsed = await game.user?.getFlag?.("midnight-gambit", "initiativeCollapsed");
+      if (wasCollapsed === true) await this._setCollapsed(true, { animate: false });
+    } catch (_) {}
+
     // Base order
     this._ids = this.getOrderActorIds();
 
@@ -69,7 +74,7 @@ export class MGInitiativeBar extends Application {
         await this._afterTransition(feat);
         this._syncFoilToSlice(feat, true);  // mirror final transform (e.g., --x:60, --y:120)
         this._resetFoilStroke();            // start lap at origin
-        await this._foilFadeIn(260).catch(() => {}); // subtle reveal on first paint
+        await this._foilFadeIn().catch(() => {}); // uses _foilFadeInMs (700)
       }
     }
 
@@ -91,6 +96,11 @@ export class MGInitiativeBar extends Application {
   _drag = { active: false, dx: 0, dy: 0 };
   _lastSyncId = null;
   _foilDefer = false;
+  _foilFadeInMs = 700; // ms — global fade-in duration for the wisp (all cases)
+  _collapsed = false;          // current collapsed state
+  _collapseReleasePosition = false; // set to true if you want to drop fixed pos in collapsed mode
+
+
 
   // Null-safe: find the current Crew actor
   _resolveCrewActor() {
@@ -844,6 +854,19 @@ export class MGInitiativeBar extends Application {
       const token = canvas.tokens.placeables.find(t => t.actor?.id === actor?.id);
       if (token) token.control({ releaseOthers: true });
     });
+
+    // Double-click header (outside of action buttons) -> toggle collapse
+    const header = this._root.querySelector(".mg-ini-header");
+    if (header && !header._mgCollapseBound) {
+      header._mgCollapseBound = true;
+      header.addEventListener("dblclick", (ev) => {
+        // ignore dblclicks on the control buttons
+        if (ev.target.closest(".mg-ini-actions")) return;
+        ev.preventDefault();
+        ev.stopPropagation();
+        this._toggleCollapsed().catch(console.error);
+      }, { passive: true });
+    }
   }
 
   /** Active is simply the first element in the order array */
@@ -1301,6 +1324,84 @@ export class MGInitiativeBar extends Application {
     document.head.appendChild(tag);
   }
 
+  /** Inject minimal collapse CSS (hide stage + actions when collapsed) */
+  _ensureCollapseCSS() {
+    if (document.getElementById("mg-ini-collapse-css")) return;
+    const css = `
+      .mg-initiative.is-collapsed .mg-ini-stage { display: none !important; }
+      .mg-initiative.is-collapsed .mg-ini-actions { display: none !important; }
+      .mg-initiative.is-collapsed .mg-ini-header { cursor: pointer; }
+    `;
+    const tag = document.createElement("style");
+    tag.id = "mg-ini-collapse-css";
+    tag.textContent = css;
+    document.head.appendChild(tag);
+  }
+
+  /** Apply collapsed/expanded state. Persists per-user. */
+  async _setCollapsed(next = false, { animate = true } = {}) {
+    next = !!next;
+    if (!this._root || next === this._collapsed) return;
+    this._ensureCollapseCSS();
+    this._collapsed = next;
+
+    // Persist for THIS user so reload remembers
+    try { await game.user?.setFlag?.("midnight-gambit", "initiativeCollapsed", next); } catch (_) {}
+
+    // Collapse → hide foil and optionally release fixed positioning
+    if (next) {
+      // hide the wisp immediately so nothing floats
+      await this._foilFadeOut(animate ? 180 : 0).catch(() => {});
+      this._root.classList.add("is-collapsed");
+
+      if (this._collapseReleasePosition) {
+        // Save current pos so we can restore when expanded
+        const rect = this._root.getBoundingClientRect();
+        this._preCollapsePos = { left: rect.left, top: rect.top };
+        // Let the container flow if you want (optional)
+        Object.assign(this._root.style, {
+          position: "",
+          left: "", right: "", top: "", bottom: ""
+        });
+      }
+      return;
+    }
+
+    // Expand → reapply fixed pos if we released it, resync foil to featured, fade back in
+    this._root.classList.remove("is-collapsed");
+
+    if (this._collapseReleasePosition && this._preCollapsePos) {
+      // Restore fixed placement roughly where it was
+      Object.assign(this._root.style, {
+        position: "fixed",
+        left: `${this._preCollapsePos.left}px`,
+        top: `${this._preCollapsePos.top}px`,
+        right: "", bottom: ""
+      });
+    }
+
+    // Ensure layout is current, then snap foil to featured and fade in
+    const stage = this._root?.querySelector(".mg-ini-diag-stage");
+    const feat  = stage?.querySelector('.mg-ini-slice[data-slot="0"]') || null;
+
+    if (feat && feat.dataset.actorId !== "__MG_END__") {
+      // wait one paint so DOM toggles are committed
+      await this._nextFrame();
+      this._syncFoilToSlice(feat, true);
+      this._resetFoilStroke();
+      await this._foilFadeIn(animate ? undefined : 0).catch(() => {});
+    } else {
+      // nothing featured -> keep foil hidden
+      this._syncFoilToSlice(null, false);
+    }
+  }
+
+  /** Convenience toggle bound to header dblclick */
+  async _toggleCollapsed() {
+    return this._setCollapsed(!this._collapsed, { animate: true });
+  }
+
+
   /** Restart the foil wisp animation from the start of the border path. */
   _resetFoilStroke() {
     const ring = this._foilEl?.querySelector(".mg-ini-foil__ring");
@@ -1342,14 +1443,17 @@ export class MGInitiativeBar extends Application {
 
 
   /** Show the foil and fade it back in (after layout + resync). */
-  async _foilFadeIn(ms = 180) {
+  async _foilFadeIn(ms) {
     const foil = this._foilEl ?? this._ensureFoilLayer();
     if (!foil) return;
+    const dur = (ms ?? this._foilFadeInMs ?? 700);
+
     foil.style.transition = "none";
     foil.style.display = "";
     foil.style.opacity = "0";
-    void foil.offsetWidth;                 // commit base
-    foil.style.transition = `opacity ${ms}ms cubic-bezier(.2,.8,.2,1)`;
+    void foil.offsetWidth; // commit base
+
+    foil.style.transition = `opacity ${dur}ms cubic-bezier(.2,.8,.2,1)`;
     foil.style.opacity = "1";
     await this._afterTransition(foil);
     foil.style.removeProperty("transition");
@@ -1710,7 +1814,7 @@ export class MGInitiativeBar extends Application {
 
             this._foilDefer = true;
 
-            await this._foilFadeIn(RESET_FADE_MS).catch(() => {});
+            await this._foilFadeIn().catch(() => {}); // same slow fade as everything else
 
             // 5) persist durable state for reopen/refresh
             this._persistDurableInitState().catch(() => {});
