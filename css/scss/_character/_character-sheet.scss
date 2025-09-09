@@ -1001,60 +1001,6 @@ h1,h2,h3,h4 {
   100% { transform: scale(1); }
 }
 
-
-/*Tab Styling
-==============================================================================*/
-
-//Removing tabs when you minimize the character sheet
-.sheet.minimized nav.sheet-tabs.floating {
-  opacity: 0;
-}
-
-.sheet nav {
-  &.sheet-tabs.floating {
-    position: absolute;
-    right: -53px;
-    top: 87px;
-    display: flex;
-    flex-direction: column;
-    gap: 0.5em;
-    z-index: -2;
-    pointer-events: auto;
-    border: none;
-    opacity: 1;
-
-    .item {
-      background: $mg-blue-main;
-      color: $mg-blue-2;
-      padding: .875rem .875rem .875rem 1.625rem;
-      border-radius: 0 .625rem .625rem 0;
-      border: 3px solid $mg-blue-main-2;
-      border-left: none;
-      white-space: nowrap;
-      font-weight: bold;
-      cursor: pointer;
-      display: flex;
-      justify-content: center;
-      transition: color .2s ease, border-color .2s ease, background .2s ease, transform 0.2s ease;
-
-      &:hover,
-      &:focus {
-        background:$mg-blue-3;
-        border-color: $mg-blue-main-2;
-        color: $mg-ivory;
-        text-shadow: none;
-        transform: translateX(.75rem);
-      }
-
-      &.active {
-        background: $mg-blue-3;
-        border-color: $mg-blue-main-2;
-        color: $mg-ivory;
-      }
-    }
-  }
-}
-
 /*Inventory Styling
 ==============================================================================*/
 

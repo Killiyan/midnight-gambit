@@ -129,23 +129,27 @@ export class MGInitiativeBar extends Application {
     return crew;
   }
 
-  /** Try Crew flag first, else fallback to player characters */
+  /** Try Crew flag first, else fallback to player characters (hidden-aware). */
   getOrderActorIds() {
     // 1) Resolve Crew actor
     const crew = this._resolveCrewActor();
 
-    // 2) Prefer Crew flag: array of Actor IDs
+    // 2) Prefer Crew flag: array of Actor IDs (already filtered by the Crew sheet)
     const fromFlag = crew?.getFlag("midnight-gambit", "initiativeOrder");
     if (Array.isArray(fromFlag) && fromFlag.length) {
       return fromFlag.filter(id => !!game.actors.get(id));
     }
 
-    // 3) Fallback: Crew system initiative (UUIDs) -> Actor IDs
+    // 3) Fallback: Crew system initiative (UUIDs) -> Actor IDs, minus hidden
     const uuids = crew?.system?.initiative?.order ?? [];
+    const hidden = new Set(Array.isArray(crew?.system?.initiative?.hidden) ? crew.system.initiative.hidden : []);
+
     if (Array.isArray(uuids) && uuids.length) {
       const ids = uuids
+        .filter(u => !hidden.has(u)) // ignore hidden UUIDs
         .map(u => (typeof u === "string" && u.indexOf("Actor.") === 0) ? u.split(".")[1] : null)
         .filter(id => id && game.actors.get(id));
+
       if (ids.length) return ids;
     }
 
@@ -1785,9 +1789,20 @@ export class MGInitiativeBar extends Application {
             // 2) rebuild + relayout
             const stage = this._root?.querySelector(".mg-ini-diag-stage");
             if (stage) {
+              // Remove any stale slices that aren't part of the new set
+              const want = new Set([...this._ids, END_ID]);
+              stage.querySelectorAll(".mg-ini-slice").forEach(node => {
+                const id = node.getAttribute("data-actor-id");
+                if (!want.has(id)) node.remove();
+              });
+
+              // Ensure all needed slices exist (adds any missing)
               this._ensureSlices(stage, [...this._ids, END_ID]);
+
+              // Make sure nothing is visually stuck hidden after the rebuild
               this._revealAllCards?.();
             }
+
             this._layoutDiagonal(this._ids);
             if (typeof this._autosizeFrame === "function") this._autosizeFrame();
 

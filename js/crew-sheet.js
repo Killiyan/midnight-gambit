@@ -31,18 +31,22 @@ export class MidnightGambitCrewSheet extends ActorSheet {
     const members = await this._resolveMembers(party.members || [], party.cache || {});
     const order = Array.isArray(initiative.order) ? initiative.order.slice() : [];
 
-    // Initiative list uses saved order first, then appends any new members
-    const initMembers = [];
-    const seen = new Set();
+	// Initiative list uses saved order first, then appends any new members
+	const initMembers = [];
+	const seen = new Set();
+	const hidden = Array.isArray(initiative.hidden) ? initiative.hidden : [];
 
-    for (const uuid of order) {
-      const m = members.find(x => x.uuid === uuid);
-      if (m) { initMembers.push(m); seen.add(uuid); }
-    }
-    for (const m of members) if (!seen.has(m.uuid)) initMembers.push(m);
+	for (const uuid of order) {
+	const m = members.find(x => x.uuid === uuid);
+	if (m) { initMembers.push({ ...m, hidden: hidden.includes(m.uuid) }); seen.add(uuid); }
+	}
+	for (const m of members) {
+	if (!seen.has(m.uuid)) initMembers.push({ ...m, hidden: hidden.includes(m.uuid) });
+	}
 
 	data.partyMembers = members;
 	data.initiativeMembers = initMembers;
+
 	data.canEdit = this.isEditable;
 
 	// Make actor available to the template (for name binding)
@@ -253,6 +257,44 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 			} catch {}
 		});
 
+		// Toggle hidden/visible for a member in initiative (works for everyone)
+		$root.off("click.mgInitHide").on("click.mgInitHide", ".mg-init-visibility, .mg-init-eye", async (ev) => {
+		ev.preventDefault();
+		ev.stopPropagation();
+
+		const card = ev.currentTarget.closest(".mg-init-card");
+		const uuid = card?.dataset?.uuid;
+		if (!uuid) return;
+
+		// Flip local DOM state for instant feedback
+		const wasHidden = card.dataset.hidden === "true";
+		const nowHidden = !wasHidden;
+		card.dataset.hidden = String(nowHidden);
+		card.classList.toggle("is-hidden", nowHidden);
+
+		// Update icon
+		const icon = ev.currentTarget.querySelector("i");
+		if (icon) icon.className = `fa-solid ${nowHidden ? "fa-eye-slash" : "fa-eye"}`;
+
+		// Persist to the actor; revert UI if it fails
+		try {
+			const prev = Array.isArray(this.actor.system?.initiative?.hidden)
+			? this.actor.system.initiative.hidden.slice()
+			: [];
+			const set = new Set(prev);
+			if (nowHidden) set.add(uuid); else set.delete(uuid);
+
+			await this.actor.update({ "system.initiative.hidden": Array.from(set) }, { render: false });
+		} catch (err) {
+			// Revert UI if update failed (e.g., no ownership)
+			card.dataset.hidden = String(wasHidden);
+			card.classList.toggle("is-hidden", wasHidden);
+			if (icon) icon.className = `fa-solid ${wasHidden ? "fa-eye-slash" : "fa-eye"}`;
+			ui.notifications?.warn("You need owner permission to change initiative visibility.");
+			console.warn("MG | toggle hidden failed", err);
+		}
+		});
+
 		// Everything below this should only bind for owners (reorder/remove)
 		if (!this.isEditable) return;
 
@@ -296,53 +338,61 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 
 		// Initiative drag-reorder (full card draggable)
 		this._bindInitiativeDrag($root);
-		
 	}
 
 	/**
 	 * Read the visible Initiative tab order and persist it for both:
 	 * - Crew sheet storage: system.initiative.order (array of UUIDs)
 	 * - Initiative Bar source: flag("midnight-gambit","initiativeOrder") (array of Actor IDs)
-	 */
+	 * - Completely apply + hard-reset the Initiative Bar to the visible order
+	*/
 	async _applyInitiativeFromDOM($root) {
-	// 1) Get UUIDs from the DOM, in order
-	const cards = $root.find(".mg-initiative-list .mg-init-card").toArray();
-	if (!cards.length) {
-		ui.notifications?.warn("No members found in the Initiative list.");
-		return;
+		// 1) Read visible (non-hidden) cards in-order
+		const cards = $root.find('.mg-initiative-list .mg-init-card')
+			.toArray()
+			.filter(el => el?.dataset?.hidden !== "true");
+
+		if (!cards.length) {
+			ui.notifications?.warn("No members found in the Initiative list.");
+			return;
+		}
+
+		const uuids = cards.map(el => el.dataset.uuid).filter(Boolean);
+
+		// 2) Resolve UUIDs to Actor IDs (for the overlay)
+		const actorIds = [];
+		for (const uuid of uuids) {
+			let doc = null;
+			try { doc = await fromUuid(uuid); } catch (_) {}
+			let actor = null;
+			if (doc?.documentName === "Actor") actor = doc;
+			else if (doc?.actor) actor = doc.actor;           // TokenDocument etc.
+			else if (doc?.parent?.documentName === "Actor") actor = doc.parent;
+
+			const id = actor?.id;
+			if (id) actorIds.push(id);
+		}
+
+		if (!actorIds.length) {
+			ui.notifications?.error("Could not resolve actor IDs from the Initiative list.");
+			return;
+		}
+
+		// 3) Persist both representations
+		//    a) Keep your sheet's canonical order by UUID (what you already use)
+		await this.actor.update({ "system.initiative.order": uuids });
+
+		//    b) Write the array of Actor IDs for the Initiative Bar overlay
+		await this.actor.setFlag("midnight-gambit", "initiativeOrder", actorIds);
+
+		//    c) Tell the overlay to HARD RESET to exactly these ids (no ghosts)
+		const syncId = `crew-${this.actor.id}-${Date.now()}`; // prevent dedupe on rapid clicks
+		await this.actor.setFlag("midnight-gambit", "initiativeReset", {
+		ids: actorIds,
+		syncId
+		});
+
 	}
-
-	const uuids = cards.map(el => el.dataset.uuid).filter(Boolean);
-
-	// 2) Resolve to Actor IDs (for the overlay)
-	const actorIds = [];
-	for (const uuid of uuids) {
-		let doc = null;
-		try { doc = await fromUuid(uuid); } catch (_) {}
-		let actor = null;
-
-		if (doc?.documentName === "Actor") actor = doc;
-		else if (doc?.actor) actor = doc.actor; // TokenDocument etc.
-		else if (doc?.parent?.documentName === "Actor") actor = doc.parent;
-
-		const id = actor?.id;
-		if (id) actorIds.push(id);
-	}
-
-	if (!actorIds.length) {
-		ui.notifications?.error("Could not resolve actor IDs from the Initiative list.");
-		return;
-	}
-
-	// 3) Persist both representations
-	//    a) Keep your sheet's canonical order by UUID (what you already use)
-	await this.actor.update({ "system.initiative.order": uuids });
-
-	//    b) Write the array of Actor IDs for the Initiative Bar overlay
-	await this.actor.setFlag("midnight-gambit", "initiativeOrder", actorIds);
-	}
-
-
 
 	_bindInitiativeDrag($root) {
 	const $list = $root.find(".mg-initiative-list");

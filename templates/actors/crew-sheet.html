@@ -1,8 +1,8 @@
 <form class="mg-crew-sheet sheet actor flexcol" autocomplete="off">
 
-	<nav class="sheet-tabs tabs">
-		<a class="item" data-tab="party"><i class="fa-solid fa-users"></i> Party</a>
-		<a class="item" data-tab="initiative"><i class="fa-solid fa-list-ol"></i> Initiative</a>
+	<nav class="sheet-tabs floating tabs">
+		<a class="item" data-tab="party"><i class="fa-solid fa-users"></i> <span>Party</span></a>
+		<a class="item" data-tab="initiative"><i class="fa-solid fa-list-ol"></i> <span>Initiative</span></a>
 	</nav>
 
 	<!-- Splash banner: party portraits -->
@@ -91,21 +91,37 @@
 
 		<div class="mg-initiative-list">
 			{{#each initiativeMembers as |m|}}
-			<article class="mg-init-card" data-uuid="{{m.uuid}}">
+			<article class="mg-init-card {{#if m.hidden}}is-muted{{/if}}" data-uuid="{{m.uuid}}" data-hidden="{{m.hidden}}">
 				<div class="mg-init-portrait">
-				<img src="{{m.img}}" alt="{{m.name}}" />
+					<img src="{{m.img}}" alt="{{m.name}}" />
 				</div>
+
 				<div class="mg-init-main">
-				<div class="mg-init-name">{{m.name}}</div>
-				<div class="mg-init-meta">
+					<div class="mg-init-name">{{m.name}}</div>
+					<div class="mg-init-meta">
 					<span class="mg-init-class">{{m.className}}</span>
 					<span class="mg-dot">&middot;</span>
 					<span class="mg-init-level">Lv {{m.levelText}}</span>
 					{{#if m.missing}}<span class="mg-init-missing">(Missing)</span>{{/if}}
+					</div>
 				</div>
+
+				<!-- New: eye toggle (works even when you can’t drag) -->
+				<div class="mg-init-actions">
+					<button type="button"
+							class="mg-init-eye"
+							title="{{#if m.hidden}}Include in Initiative{{else}}Hide from Initiative{{/if}}"
+							aria-pressed="{{#unless m.hidden}}true{{/unless}}">
+					{{#if m.hidden}}
+						<i class="fa-regular fa-eye-slash"></i>
+					{{else}}
+						<i class="fa-regular fa-eye"></i>
+					{{/if}}
+					</button>
 				</div>
+
 				<div class="mg-init-grip" aria-hidden="true">
-				<i class="fa-solid fa-grip-lines"></i>
+					<i class="fa-solid fa-grip-lines"></i>
 				</div>
 			</article>
 			{{/each}}
