@@ -321,7 +321,7 @@ export class MidnightGambitActorSheet extends ActorSheet {
             navBtn.toggleClass("mg-pending-glow", hasPending);
             navBtn.find(".mg-pending-badge").remove();
             if (hasPending) {
-              navBtn.append(`<span class="mg-pending-badge" aria-hidden="true">${total}</span>`);
+              navBtn.append(`<p class="mg-pending-badge" aria-hidden="true">${total}</p>`);
             }
           };
 

@@ -546,60 +546,65 @@
 			border: none;
 			opacity: 1;
 
-			.item {
-				background: $mg-blue-main;
-				color: $mg-blue-2;
-				padding: .875rem .875rem .875rem 1.625rem;
-				border-radius: 0 .625rem .625rem 0;
-				border: 3px solid $mg-blue-main-2;
-				border-left: none;
-				white-space: nowrap;
-				font-weight: bold;
-				cursor: pointer;
-				display: flex;
-				justify-content: center;
-				transition: color .2s ease, border-color .2s ease, background .2s ease, transform 0.2s ease;
-				position: relative;
-				z-index: -2;
+				.item {
+					background: $mg-blue-main;
+					color: $mg-blue-2;
+					padding: .875rem .875rem .875rem 1.625rem;
+					border-radius: 0 .625rem .625rem 0;
+					border: 3px solid $mg-blue-main-2;
+					border-left: none;
+					white-space: nowrap;
+					font-weight: bold;
+					cursor: pointer;
+					display: flex;
+					justify-content: center;
+					transition: color .2s ease, border-color .2s ease, background .2s ease, transform 0.2s ease;
+					position: relative;
+					z-index: -2;
 
-			&:hover,
-			&:focus {
-				background:$mg-blue-3;
-				border-color: $mg-blue-main-2;
-				color: $mg-ivory;
-				text-shadow: none;
-				transform: translateX(.75rem);
+				&:hover,
+				&:focus {
+					background:$mg-blue-3;
+					border-color: $mg-blue-main-2;
+					color: $mg-ivory;
+					text-shadow: none;
+					transform: translateX(.75rem);
+
+					span {
+						opacity: 1;
+						padding-left: .25rem;
+					}
+				}
+
+				&.active {
+					background: $mg-blue-3;
+					border-color: $mg-blue-main-2;
+					color: $mg-ivory;
+					text-shadow: none;
+				}
 
 				span {
-					opacity: 1;
-					padding-left: .25rem;
+					opacity: 0;
+					transition: opacity .2s ease, padding .5s ease;
+					background: $mg-blue-main;
+					color: $mg-blue-2;
+					padding: .25rem .5rem .25rem 0;
+					border-radius: 0 .625rem .625rem 0;
+					border: 3px solid $mg-blue-main-2;
+					position: absolute;
+					top: .375rem;
+					left: 100%;
+					z-index: -4;
+					@include oswald();
+					font-style: italic;
+					text-transform: uppercase;
+					font-size: .75rem;
 				}
 			}
 
-			&.active {
-				background: $mg-blue-3;
-				border-color: $mg-blue-main-2;
-				color: $mg-ivory;
-				text-shadow: none;
-			}
-
-			span {
-				opacity: 0;
-				transition: opacity .2s ease, padding .5s ease;
-				background: $mg-blue-main;
-				color: $mg-blue-2;
-				padding: .25rem .5rem .25rem 0;
-				border-radius: 0 .625rem .625rem 0;
-				border: 3px solid $mg-blue-main-2;
-				position: absolute;
-				top: .375rem;
-				left: 100%;
-				z-index: -4;
-				@include oswald();
-				font-style: italic;
-				text-transform: uppercase;
-				font-size: .75rem;
-			}
+			.mg-pending-badge {
+				border-radius: .5rem;
+				z-index: 2;
 			}
 		}
 	}

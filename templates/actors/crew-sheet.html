@@ -3,6 +3,7 @@
 	<nav class="sheet-tabs floating tabs">
 		<a class="item" data-tab="party"><i class="fa-solid fa-users"></i> <span>Party</span></a>
 		<a class="item" data-tab="initiative"><i class="fa-solid fa-list-ol"></i> <span>Initiative</span></a>
+		<a class="item" data-tab="settings"><i class="fa-solid fa-gear"></i> <span>Settings</span></a>
 	</nav>
 
 	<!-- Splash banner: party portraits -->
@@ -39,93 +40,131 @@
 	<section class="sheet-body">
 		<!-- PARTY TAB -->
 		<div class="tab" data-tab="party">
-		<div class="mg-party-drop-hint">
-			{{#if canEdit}}
-			Drag characters from the Actors directory onto this sheet to add them to the party.
-			{{else}}
-			You can view the party. Owners can edit.
-			{{/if}}
-		</div>
+			<div class="mg-party-drop-hint">
+				{{#if canEdit}}
+				<h2>Drag characters from the Actors directory onto this sheet to add them to the party.</h2>
+				{{else}}
+				<h2>You can view the party. Owners can edit.</h2>
+				{{/if}}
+			</div>
 
-		<div class="mg-party-grid">
-			{{#each partyMembers as |m|}}
-			<article class="mg-member-card" data-uuid="{{m.uuid}}">
-				<div class="mg-member-portrait">
-				<img src="{{m.img}}" alt="{{m.name}}" />
-				</div>
-				<div class="mg-member-info">
-					<div class="mg-member-name">{{m.name}}</div>
-					<div class="mg-member-meta">
-						<span class="mg-member-class">{{m.className}}</span>
-						<span class="mg-member-level">Lv {{m.levelText}}</span>
-						{{#if m.missing}}<span class="mg-member-missing">(Missing)</span>{{/if}}
+			<div class="mg-party-grid">
+				{{#each partyMembers as |m|}}
+				<article class="mg-member-card" data-uuid="{{m.uuid}}">
+					<div class="mg-member-portrait">
+						<img src="{{m.img}}" alt="{{m.name}}" />
 					</div>
-				</div>
+					<div class="mg-member-info">
+						<div class="mg-member-name">{{m.name}}</div>
+						<div class="mg-member-meta">
+							<span class="mg-member-class">{{m.className}}</span>
+							<span class="mg-member-level">Lv {{m.levelText}}</span>
+							{{#if m.missing}}<span class="mg-member-missing">(Missing)</span>{{/if}}
+						</div>
+					</div>
 
-				<div class="mg-member-actions">
+					<div class="mg-member-actions">
 
-					<button type="button" class="mg-open-member" title="Open Character Sheet" aria-label="Open Character Sheet">
-						<i class="fa-solid fa-address-card"></i>
-					</button>
+						<button type="button" class="mg-open-member" title="Open Character Sheet" aria-label="Open Character Sheet">
+							<i class="fa-solid fa-address-card"></i>
+						</button>
 
-					{{#if ../canEdit}}
-					<button type="button" class="mg-remove-member" title="Remove from Party">
-						<i class="fas fa-times"></i>
-					</button>
-					{{/if}}
-				</div>
-			</article>
-			{{/each}}
-		</div>
+						{{#if ../canEdit}}
+						<button type="button" class="mg-remove-member" title="Remove from Party">
+							<i class="fas fa-times"></i>
+						</button>
+						{{/if}}
+					</div>
+				</article>
+				{{/each}}
+			</div>
 		</div>
 
 		<!-- INITIATIVE TAB -->
 		<div class="tab" data-tab="initiative">
-		<div class="mg-initiative-note">
-			{{#if canEdit}}
-			Reorder by dragging a card. This order is used for turn flow.
-			{{else}}
-			View-only initiative. Owners can reorder.
-			{{/if}}
-		</div>
+			<div class="mg-initiative-note">
+				{{#if canEdit}}
+				<h2>Reorder by dragging a card. This order is used for turn flow.</h2>
+				{{else}}
+				<h2>View-only initiative. Owners can reorder.</h2>
+				{{/if}}
+			</div>
 
-		<div class="mg-initiative-list">
-			{{#each initiativeMembers as |m|}}
-			<article class="mg-init-card {{#if m.hidden}}is-muted{{/if}}" data-uuid="{{m.uuid}}" data-hidden="{{m.hidden}}">
-				<div class="mg-init-portrait">
-					<img src="{{m.img}}" alt="{{m.name}}" />
-				</div>
-
-				<div class="mg-init-main">
-					<div class="mg-init-name">{{m.name}}</div>
-					<div class="mg-init-meta">
-					<span class="mg-init-class">{{m.className}}</span>
-					<span class="mg-dot">&middot;</span>
-					<span class="mg-init-level">Lv {{m.levelText}}</span>
-					{{#if m.missing}}<span class="mg-init-missing">(Missing)</span>{{/if}}
+			<div class="mg-initiative-list">
+				{{#each initiativeMembers as |m|}}
+				<article class="mg-init-card {{#if m.hidden}}is-muted{{/if}}" data-uuid="{{m.uuid}}" data-hidden="{{m.hidden}}">
+					<div class="mg-init-portrait">
+						<img src="{{m.img}}" alt="{{m.name}}" />
 					</div>
+
+					<div class="mg-init-main">
+						<div class="mg-init-name">{{m.name}}</div>
+						<div class="mg-init-meta">
+						<span class="mg-init-class">{{m.className}}</span>
+						<span class="mg-dot">&middot;</span>
+						<span class="mg-init-level">Lv {{m.levelText}}</span>
+						{{#if m.missing}}<span class="mg-init-missing">(Missing)</span>{{/if}}
+						</div>
+					</div>
+
+					<!-- New: eye toggle (works even when you can’t drag) -->
+					<div class="mg-init-actions">
+						<button type="button"
+								class="mg-init-eye"
+								title="{{#if m.hidden}}Include in Initiative{{else}}Hide from Initiative{{/if}}"
+								aria-pressed="{{#unless m.hidden}}true{{/unless}}">
+						{{#if m.hidden}}
+							<i class="fa-regular fa-eye-slash"></i>
+						{{else}}
+							<i class="fa-regular fa-eye"></i>
+						{{/if}}
+						</button>
+
+						<div class="mg-init-grip" aria-hidden="true">
+							<i class="fa-solid fa-grip-lines"></i>
+						</div>
+					</div>
+				</article>
+				{{/each}}
+			</div>
+		</div>
+
+		<!-- SETTINGS TAB -->
+		<div class="tab" data-tab="settings">
+		<div class="mg-crew-settings">
+
+			<div class="mg-diricon-row">
+				<div class="mg-content">
+					<h2>Directory Icon</h2>
+					<p>This image only changes how the Crew appears in the <em>actors</em> sidebar.
+					It does not change the Crew’s portrait or any tokens.</p>
 				</div>
 
-				<!-- New: eye toggle (works even when you can’t drag) -->
-				<div class="mg-init-actions">
-					<button type="button"
-							class="mg-init-eye"
-							title="{{#if m.hidden}}Include in Initiative{{else}}Hide from Initiative{{/if}}"
-							aria-pressed="{{#unless m.hidden}}true{{/unless}}">
-					{{#if m.hidden}}
-						<i class="fa-regular fa-eye-slash"></i>
-					{{else}}
-						<i class="fa-regular fa-eye"></i>
+				<div class="diricon-settings">
+					<div class="mg-diricon-preview" title="Directory Icon Preview">
+						{{#if directoryIconResolved}}
+							<img src="{{directoryIconResolved}}"
+							alt="Directory Icon Preview" />
+						{{else}}
+							<img src="systems/midnight-gambit/assets/images/mg-queen.png"
+							alt="Directory Icon Preview" />
+						{{/if}}
+					</div>
+
+					{{#if canEdit}}
+					<div class="mg-diricon-actions">
+						<button type="button" class="mg-pick-diricon">
+						<i class="fa-regular fa-image"></i> Choose Icon
+						</button>
+						<button type="button" class="mg-clear-diricon">
+						<i class="fa-solid fa-ban"></i> Clear
+						</button>
+					</div>
 					{{/if}}
-					</button>
 				</div>
+			</div>
+		</div>
+		</div>
 
-				<div class="mg-init-grip" aria-hidden="true">
-					<i class="fa-solid fa-grip-lines"></i>
-				</div>
-			</article>
-			{{/each}}
-		</div>
-		</div>
 	</section>
 </form>

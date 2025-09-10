@@ -49,6 +49,17 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 
 	data.canEdit = this.isEditable;
 
+	// Directory icon override (Actors list only)
+	data.directoryIcon = this.actor.getFlag("midnight-gambit", "directoryIcon") || "";
+
+	const rawDirIcon = data.directoryIcon;
+	data.directoryIconResolved =
+	this._normalizeDirIconPath(rawDirIcon) ||
+	foundry.utils.getRoute("systems/midnight-gambit/assets/images/mg-queen.png");
+
+
+
+
 	// Make actor available to the template (for name binding)
 	data.actor = this.actor;
 
@@ -227,6 +238,54 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 	catch { return "—"; }
 	}
 
+	/** Normalize an image path for core UIs (Actors directory & sheet preview). */
+	_normalizeIconPath(url) {
+	if (!url) return "";
+	// Already absolute or external? Route & return.
+	if (/^(systems|modules|worlds|https?:\/\/|data:)/i.test(url)) {
+		return foundry.utils.getRoute(url);
+	}
+	// Handle "./" or "../" paths by anchoring to this system.
+	const cleaned = String(url).replace(/^\.\.?\//, "");
+	const base = `systems/${game.system.id}`;
+	return foundry.utils.getRoute(`${base}/${cleaned}`);
+	}
+
+	/** Normalize an image path so it loads in core UIs & the sheet preview. */
+	_normalizeDirIconPath(url) {
+	if (!url) return "";
+	let out = String(url).trim().replace(/\\/g, "/");
+
+	// Already absolute URLs or data-URI
+	if (/^(?:https?:\/\/|data:)/i.test(out)) return foundry.utils.getRoute(out);
+
+	// Treat leading slash as absolute virtual path (/systems, /modules, etc.)
+	if (out.startsWith("/")) return foundry.utils.getRoute(out);
+
+	// If it already starts with systems/modules/worlds/etc., also absolute
+	if (/^(systems|modules|worlds|icons|ui|assets)\b/i.test(out)) {
+		return foundry.utils.getRoute(out);
+	}
+
+	// Anchor ./ or ../ (or naked) to this system
+	out = out.replace(/^\.\.?\//, "");
+	return foundry.utils.getRoute(`systems/${game.system.id}/${out}`);
+	}
+
+	/** (Optional) One-time fix: clean up any flag that accidentally saved a doubled base. */
+	async _sanitizeDirIconFlagOnce() {
+	const raw = this.actor.getFlag("midnight-gambit", "directoryIcon");
+	if (!raw) return;
+
+	const cleaned = this._normalizeDirIconPath(raw);
+	if (cleaned !== raw) {
+		try {
+		await this.actor.setFlag("midnight-gambit", "directoryIcon", cleaned);
+		} catch (_) {
+		// ignore if not owner
+		}
+	}
+	}
 
 	activateListeners(html) {
 	super.activateListeners(html);
@@ -335,6 +394,45 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 			await this._applyInitiativeFromDOM($root);
 			ui.notifications?.info("Initiative order applied.");
 		});
+		
+		// Fix any previously saved double-prefixed value on open
+		if (this.isEditable) {
+		this._sanitizeDirIconFlagOnce();
+		}
+
+		// Ensure any old non-namespaced handlers are removed
+		$root.off("click", ".mg-pick-diricon");
+		$root.off("click", ".mg-clear-diricon");
+
+		// Settings tab: Choose directory icon (list-only)
+		$root.off("click.mgPickDirIcon").on("click.mgPickDirIcon", ".mg-pick-diricon", async (ev) => {
+		ev.preventDefault();
+		const current = this.actor.getFlag("midnight-gambit", "directoryIcon") || "";
+		const picker = new FilePicker({
+			type: "image",
+			current,
+			callback: async (path) => {
+			const resolved = this._normalizeDirIconPath(path);
+			await this.actor.setFlag("midnight-gambit", "directoryIcon", resolved);
+			// Update preview immediately; refresh directory too
+			this.element.find(".mg-diricon-preview img").attr("src", resolved);
+			this.render(false);
+			ui.actors?.render(true);
+			}
+		});
+		picker.render(true);
+		});
+
+		// Settings tab: Clear directory icon
+		$root.off("click.mgClearDirIcon").on("click.mgClearDirIcon", ".mg-clear-diricon", async (ev) => {
+		ev.preventDefault();
+		await this.actor.unsetFlag("midnight-gambit", "directoryIcon");
+		const fallback = foundry.utils.getRoute("systems/midnight-gambit/assets/images/mg-queen.png");
+		this.element.find(".mg-diricon-preview img").attr("src", fallback);
+		this.render(false);
+		ui.actors?.render(true);
+		});
+
 
 		// Initiative drag-reorder (full card draggable)
 		this._bindInitiativeDrag($root);

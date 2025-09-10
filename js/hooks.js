@@ -1828,4 +1828,70 @@ Hooks.on("updateActor", (actor, diff, _opts, _id) => {
   if (guiseTouched) app._mgRefreshGuiseVisibility(app.element);
 });
 
+// --- Setting: default Crew directory image (path-safe default) ---
+Hooks.once("init", () => {
+  game.settings.register("midnight-gambit", "defaultCrewDirectoryImage", {
+    name: "Default Crew Directory Image",
+    hint: "Shown in the Actors sidebar for Crew actors that still have the default silhouette.",
+    scope: "world",
+    config: true,
+    type: String,
+    // Use absolute virtual path here
+    default: "systems/midnight-gambit/assets/images/mg-queen.png"
+  });
+});
 
+// Resolve a path within this system reliably for directory thumbnails
+function normalizeSystemAsset(url) {
+  if (!url) return url;
+  const u = String(url).trim().replace(/\\/g, "/");
+
+  // Absolute or external → just route it
+  if (/^(?:https?:\/\/|data:)/i.test(u)) return foundry.utils.getRoute(u);
+
+  // Leading slash is already an absolute virtual path (/systems, /modules, etc.)
+  if (u.startsWith("/")) return foundry.utils.getRoute(u);
+
+  // Starts with a known virtual root → treat as absolute
+  if (/^(systems|modules|worlds|icons|ui|assets)\b/i.test(u)) {
+    return foundry.utils.getRoute(u);
+  }
+
+  // Otherwise anchor to THIS system and route
+  const cleaned = u.replace(/^\.\.?\//, "");
+  return foundry.utils.getRoute(`systems/${game.system.id}/${cleaned}`);
+}
+
+Hooks.on("renderActorDirectory", (app, html) => {
+  // Setting value → normalize (so ../assets/... works too)
+  const rawDefault = game.settings.get("midnight-gambit", "defaultCrewDirectoryImage");
+  const defaultUrl = normalizeSystemAsset(rawDefault) ||
+                     foundry.utils.getRoute("systems/midnight-gambit/assets/images/mg-queen.png");
+
+  // Each <li class="document actor" data-document-id="...">
+  html.find("li.document.actor").each((_, li) => {
+    const id = li.dataset.documentId || li.dataset.entityId;
+    const actor = game.actors.get(id);
+    if (!actor) return;
+
+    // Thumbnail element (v11 covers both forms)
+    const $img = $(li).find("img.thumbnail, .thumbnail img").first();
+    const $thumbBox = $img.length ? null : $(li).find(".thumbnail").first();
+
+    // Per-actor list-only override flag
+    const perActorRaw = actor.getFlag("midnight-gambit", "directoryIcon");
+    const perActor = normalizeSystemAsset(perActorRaw);
+
+    const img = actor.img ?? "";
+    const isSilhouette = !img || img === "icons/svg/mystery-man.svg";
+
+    const want = perActor || (actor.type === "crew" && isSilhouette ? defaultUrl : null);
+    if (!want) return;
+
+    if ($img?.length) {
+      $img.attr("src", want).attr("data-src", want).attr("srcset", "");
+    } else if ($thumbBox?.length) {
+      $thumbBox.css("background-image", `url(${want})`);
+    }
+  });
+});
