@@ -52,10 +52,12 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 	// Directory icon override (Actors list only)
 	data.directoryIcon = this.actor.getFlag("midnight-gambit", "directoryIcon") || "";
 
-	const rawDirIcon = data.directoryIcon;
+	const rawDirIcon = this.actor.getFlag("midnight-gambit", "directoryIcon") || "";
+	data.directoryIcon = rawDirIcon;  // raw value as stored
 	data.directoryIconResolved =
-	this._normalizeDirIconPath(rawDirIcon) ||
-	foundry.utils.getRoute("systems/midnight-gambit/assets/images/mg-queen.png");
+		this._normalizeDirIconPath(rawDirIcon) ||
+		foundry.utils.getRoute("systems/midnight-gambit/assets/images/mg-queen.png");
+
 
 
 
@@ -240,37 +242,59 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 
 	/** Normalize an image path for core UIs (Actors directory & sheet preview). */
 	_normalizeIconPath(url) {
-	if (!url) return "";
-	// Already absolute or external? Route & return.
-	if (/^(systems|modules|worlds|https?:\/\/|data:)/i.test(url)) {
-		return foundry.utils.getRoute(url);
-	}
-	// Handle "./" or "../" paths by anchoring to this system.
-	const cleaned = String(url).replace(/^\.\.?\//, "");
-	const base = `systems/${game.system.id}`;
-	return foundry.utils.getRoute(`${base}/${cleaned}`);
+		if (!url) return "";
+		// Already absolute or external? Route & return.
+		if (/^(systems|modules|worlds|https?:\/\/|data:)/i.test(url)) {
+			return foundry.utils.getRoute(url);
+		}
+		// Handle "./" or "../" paths by anchoring to this system.
+		const cleaned = String(url).replace(/^\.\.?\//, "");
+		const base = `systems/${game.system.id}`;
+		return foundry.utils.getRoute(`${base}/${cleaned}`);
 	}
 
-	/** Normalize an image path so it loads in core UIs & the sheet preview. */
+	/** Normalize a path so it loads in core UIs & previews. Never re-anchors. */
 	_normalizeDirIconPath(url) {
-	if (!url) return "";
-	let out = String(url).trim().replace(/\\/g, "/");
+		if (!url) return "";
+		const u = String(url).trim().replace(/\\/g, "/");
 
-	// Already absolute URLs or data-URI
-	if (/^(?:https?:\/\/|data:)/i.test(out)) return foundry.utils.getRoute(out);
+		// External or data URIs
+		if (/^(?:https?:\/\/|data:)/i.test(u)) return foundry.utils.getRoute(u);
 
-	// Treat leading slash as absolute virtual path (/systems, /modules, etc.)
-	if (out.startsWith("/")) return foundry.utils.getRoute(out);
+		// Absolute virtual paths or known roots (don't prepend anything)
+		if (u.startsWith("/")) return foundry.utils.getRoute(u);
+		if (/^(systems|modules|worlds|icons|ui|assets)\b/i.test(u)) return foundry.utils.getRoute(u);
 
-	// If it already starts with systems/modules/worlds/etc., also absolute
-	if (/^(systems|modules|worlds|icons|ui|assets)\b/i.test(out)) {
-		return foundry.utils.getRoute(out);
+		// Anything else: route as-is (works for most FilePicker returns)
+		return foundry.utils.getRoute(u);
 	}
 
-	// Anchor ./ or ../ (or naked) to this system
-	out = out.replace(/^\.\.?\//, "");
-	return foundry.utils.getRoute(`systems/${game.system.id}/${out}`);
+	/** Default directory the picker opens to (world assets first, else your system). */
+	_initialPickerDir() {
+		const worldBase = `worlds/${game.world?.id || ""}`;
+		// point somewhere sane in the world dir if it exists in your content tree
+		return worldBase ? `${worldBase}/assets/images` : `systems/${game.system.id}/assets/images`;
 	}
+
+
+	/** Update the Actors sidebar thumbnail for THIS crew immediately (no full render needed). */
+	_refreshDirectoryThumb(url) {
+		const dir = ui.actors;
+		if (!dir?.element?.length) return; // sidebar closed, nothing to patch
+
+		const $li = dir.element.find(
+			`li.document.actor[data-document-id="${this.actor.id}"], li.document.actor[data-entity-id="${this.actor.id}"]`
+		);
+		if (!$li.length) return;
+
+		const $img = $li.find("img.thumbnail, .thumbnail img").first();
+		if ($img.length) {
+			$img.attr("src", url).attr("data-src", url).attr("srcset", "");
+		} else {
+			$li.find(".thumbnail").first().css("background-image", `url(${url})`);
+		}
+	}
+
 
 	/** (Optional) One-time fix: clean up any flag that accidentally saved a doubled base. */
 	async _sanitizeDirIconFlagOnce() {
@@ -404,20 +428,30 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 		$root.off("click", ".mg-pick-diricon");
 		$root.off("click", ".mg-clear-diricon");
 
-		// Settings tab: Choose directory icon (list-only)
+		// Settings tab: Choose directory icon (Actors list thumbnail)
 		$root.off("click.mgPickDirIcon").on("click.mgPickDirIcon", ".mg-pick-diricon", async (ev) => {
 		ev.preventDefault();
-		const current = this.actor.getFlag("midnight-gambit", "directoryIcon") || "";
+
+		const current = this.actor.getFlag("midnight-gambit", "directoryIcon") || this._initialPickerDir?.();
 		const picker = new FilePicker({
 			type: "image",
+			activeSource: "data",
 			current,
 			callback: async (path) => {
-			const resolved = this._normalizeDirIconPath(path);
-			await this.actor.setFlag("midnight-gambit", "directoryIcon", resolved);
-			// Update preview immediately; refresh directory too
-			this.element.find(".mg-diricon-preview img").attr("src", resolved);
-			this.render(false);
-			ui.actors?.render(true);
+			// Store exactly what the picker returns (works for worlds/modules/systems/http/data:)
+			await this.actor.setFlag("midnight-gambit", "directoryIcon", path);
+
+			// Route-safe URL for preview + directory thumb
+			const url = this._normalizeDirIconPath(path);
+
+			// 1) Update the sheet preview
+			this.element.find(".mg-diricon-preview img").attr("src", url);
+
+			// 2) Update the directory entry inline (no refresh needed)
+			this._refreshDirectoryThumb(url);
+
+			// 3) Fallback: re-render directory in case it’s closed
+			ui.actors?.render(false);
 			}
 		});
 		picker.render(true);
@@ -426,13 +460,20 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 		// Settings tab: Clear directory icon
 		$root.off("click.mgClearDirIcon").on("click.mgClearDirIcon", ".mg-clear-diricon", async (ev) => {
 		ev.preventDefault();
-		await this.actor.unsetFlag("midnight-gambit", "directoryIcon");
-		const fallback = foundry.utils.getRoute("systems/midnight-gambit/assets/images/mg-queen.png");
-		this.element.find(".mg-diricon-preview img").attr("src", fallback);
-		this.render(false);
-		ui.actors?.render(true);
-		});
 
+		await this.actor.unsetFlag("midnight-gambit", "directoryIcon");
+
+		const fallback = this._normalizeDirIconPath("systems/midnight-gambit/assets/images/mg-queen.png");
+
+		// 1) Sheet preview
+		this.element.find(".mg-diricon-preview img").attr("src", fallback);
+
+		// 2) Directory entry (inline)
+		this._refreshDirectoryThumb(fallback);
+
+		// 3) Fallback render
+		ui.actors?.render(false);
+		});
 
 		// Initiative drag-reorder (full card draggable)
 		this._bindInitiativeDrag($root);

@@ -1805,6 +1805,11 @@ Hooks.on("updateActor", (actor, changes) => {
       if (app.render) app.render(false);
     }
   }
+
+  if (actor.type !== "crew") return;
+  if (foundry.utils.hasProperty(changes, "flags.midnight-gambit.directoryIcon")) {
+    ui.actors?.render(true);
+  }
 });
 
 
