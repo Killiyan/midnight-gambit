@@ -368,40 +368,51 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 
 		// Toggle hidden/visible for a member in initiative (works for everyone)
 		$root.off("click.mgInitHide").on("click.mgInitHide", ".mg-init-visibility, .mg-init-eye", async (ev) => {
-		ev.preventDefault();
-		ev.stopPropagation();
+			ev.preventDefault();
+			ev.stopPropagation();
 
-		const card = ev.currentTarget.closest(".mg-init-card");
-		const uuid = card?.dataset?.uuid;
-		if (!uuid) return;
+			const card = ev.currentTarget.closest(".mg-init-card");
+			const uuid = card?.dataset?.uuid;
+			if (!uuid) return;
 
-		// Flip local DOM state for instant feedback
-		const wasHidden = card.dataset.hidden === "true";
-		const nowHidden = !wasHidden;
-		card.dataset.hidden = String(nowHidden);
-		card.classList.toggle("is-hidden", nowHidden);
+			// Flip local DOM state for instant feedback
+			const wasHidden = card.dataset.hidden === "true";
+			const nowHidden = !wasHidden;
+			card.dataset.hidden = String(nowHidden);
+			card.classList.toggle("is-hidden", nowHidden);
 
-		// Update icon
-		const icon = ev.currentTarget.querySelector("i");
-		if (icon) icon.className = `fa-solid ${nowHidden ? "fa-eye-slash" : "fa-eye"}`;
+			// Visually mute immediately
+			card.classList.toggle("is-muted", nowHidden);
 
-		// Persist to the actor; revert UI if it fails
-		try {
-			const prev = Array.isArray(this.actor.system?.initiative?.hidden)
-			? this.actor.system.initiative.hidden.slice()
-			: [];
-			const set = new Set(prev);
-			if (nowHidden) set.add(uuid); else set.delete(uuid);
+			// Disable interaction right away
+			if (nowHidden) {
+			card.style.opacity = "0.5";
+			} else {
+			card.style.opacity = "";
+			card.style.pointerEvents = "";
+			}
 
-			await this.actor.update({ "system.initiative.hidden": Array.from(set) }, { render: false });
-		} catch (err) {
-			// Revert UI if update failed (e.g., no ownership)
-			card.dataset.hidden = String(wasHidden);
-			card.classList.toggle("is-hidden", wasHidden);
-			if (icon) icon.className = `fa-solid ${wasHidden ? "fa-eye-slash" : "fa-eye"}`;
-			ui.notifications?.warn("You need owner permission to change initiative visibility.");
-			console.warn("MG | toggle hidden failed", err);
-		}
+			// Update icon
+			const icon = ev.currentTarget.querySelector("i");
+			if (icon) icon.className = `fa-solid ${nowHidden ? "fa-eye-slash" : "fa-eye"}`;
+
+			// Persist to the actor; revert UI if it fails
+			try {
+				const prev = Array.isArray(this.actor.system?.initiative?.hidden)
+				? this.actor.system.initiative.hidden.slice()
+				: [];
+				const set = new Set(prev);
+				if (nowHidden) set.add(uuid); else set.delete(uuid);
+
+				await this.actor.update({ "system.initiative.hidden": Array.from(set) }, { render: false });
+			} catch (err) {
+				// Revert UI if update failed (e.g., no ownership)
+				card.dataset.hidden = String(wasHidden);
+				card.classList.toggle("is-hidden", wasHidden);
+				if (icon) icon.className = `fa-solid ${wasHidden ? "fa-eye-slash" : "fa-eye"}`;
+				ui.notifications?.warn("You need owner permission to change initiative visibility.");
+				console.warn("MG | toggle hidden failed", err);
+			}
 		});
 
 		// Everything below this should only bind for owners (reorder/remove)

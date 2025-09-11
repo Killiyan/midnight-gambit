@@ -100,10 +100,16 @@
 				padding: 1rem;
 				align-items: center;
 				overflow: hidden;
+				transition:
+					opacity .5s ease,
+					background .5s ease,
+					border .5s ease;
+				will-change: opacity, background, border;
 
 				&.is-muted {
 					background: $mg-blue-4;
 					border: 2px solid $mg-blue-main-2;
+					opacity: .6;
 				}
 
 				.mg-member-portrait,
