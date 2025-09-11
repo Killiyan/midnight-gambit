@@ -101,6 +101,11 @@
 				align-items: center;
 				overflow: hidden;
 
+				&.is-muted {
+					background: $mg-blue-4;
+					border: 2px solid $mg-blue-main-2;
+				}
+
 				.mg-member-portrait,
 				.mg-init-portrait {
 					position: absolute;

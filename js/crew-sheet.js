@@ -6,71 +6,97 @@
 // - Initiative tab: full-card drag reorder, persisted to system.initiative.order
 
 export class MidnightGambitCrewSheet extends ActorSheet {
-  static get defaultOptions() {
-    return foundry.utils.mergeObject(super.defaultOptions, {
-      classes: ["midnight-gambit", "sheet", "actor", "crew-sheet"],
-      template: "systems/midnight-gambit/templates/actors/crew-sheet.html",
-      width: 900,
-      height: 720,
-      tabs: [{ navSelector: ".sheet-tabs", contentSelector: ".sheet-body", initial: "party" }]
-    });
-  }
-
-  /** Limit data based on ownership so players can reorder/add if they are owners of the Crew actor. */
-  get isEditable() {
-    return this.actor?.isOwner ?? false;
-  }
-
-  async getData(options) {
-    const data = await super.getData(options);
-    const sys = this.actor.system ?? {};
-    const party = sys.party ?? {};
-    const initiative = sys.initiative ?? {};
-
-    // Resolve live members from UUIDs; build a sane display model
-    const members = await this._resolveMembers(party.members || [], party.cache || {});
-    const order = Array.isArray(initiative.order) ? initiative.order.slice() : [];
-
-	// Initiative list uses saved order first, then appends any new members
-	const initMembers = [];
-	const seen = new Set();
-	const hidden = Array.isArray(initiative.hidden) ? initiative.hidden : [];
-
-	for (const uuid of order) {
-	const m = members.find(x => x.uuid === uuid);
-	if (m) { initMembers.push({ ...m, hidden: hidden.includes(m.uuid) }); seen.add(uuid); }
-	}
-	for (const m of members) {
-	if (!seen.has(m.uuid)) initMembers.push({ ...m, hidden: hidden.includes(m.uuid) });
+	static get defaultOptions() {
+	return foundry.utils.mergeObject(super.defaultOptions, {
+		classes: ["midnight-gambit", "sheet", "actor", "crew-sheet"],
+		template: "systems/midnight-gambit/templates/actors/crew-sheet.html",
+		width: 900,
+		height: 720,
+		tabs: [{ navSelector: ".sheet-tabs", contentSelector: ".sheet-body", initial: "party" }]
+	});
 	}
 
-	data.partyMembers = members;
-	data.initiativeMembers = initMembers;
+	/** Header buttons (adds a GM-only "Primary Crew" toggle) */
+	_getHeaderButtons() {
+	// Keep Foundry’s stock buttons (Configure, Close, etc.)
+	const buttons = (super._getHeaderButtons?.() ?? []);
 
-	data.canEdit = this.isEditable;
+	// Only GMs can set world-level settings
+	if (game.user.isGM) {
+		const current = game.settings.get("midnight-gambit", "crewActorId") || "";
+		const isPrimary = current === this.actor.id;
 
-	// Directory icon override (Actors list only)
-	data.directoryIcon = this.actor.getFlag("midnight-gambit", "directoryIcon") || "";
+		buttons.unshift({
+		label: isPrimary ? "Primary Crew" : "Make Primary",
+		class: isPrimary ? "mg-primary-crew is-active" : "mg-primary-crew",
+		icon: isPrimary ? "fa-solid fa-star" : "fa-regular fa-star",
+		onclick: async () => {
+			await game.settings.set("midnight-gambit", "crewActorId", this.actor.id);
+			ui.notifications?.info(`"${this.actor.name}" is now the Primary Crew.`);
+			this.render(false); // refresh header so star/label updates
+		}
+		});
+	}
 
-	const rawDirIcon = this.actor.getFlag("midnight-gambit", "directoryIcon") || "";
-	data.directoryIcon = rawDirIcon;  // raw value as stored
-	data.directoryIconResolved =
-		this._normalizeDirIconPath(rawDirIcon) ||
-		foundry.utils.getRoute("systems/midnight-gambit/assets/images/mg-queen.png");
+	return buttons;
+	}
+
+
+	/** Limit data based on ownership so players can reorder/add if they are owners of the Crew actor. */
+	get isEditable() {
+		return this.actor?.isOwner ?? false;
+	}
+
+	async getData(options) {
+		const data = await super.getData(options);
+		const sys = this.actor.system ?? {};
+		const party = sys.party ?? {};
+		const initiative = sys.initiative ?? {};
+
+		// Resolve live members from UUIDs; build a sane display model
+		const members = await this._resolveMembers(party.members || [], party.cache || {});
+		const order = Array.isArray(initiative.order) ? initiative.order.slice() : [];
+
+		// Initiative list uses saved order first, then appends any new members
+		const initMembers = [];
+		const seen = new Set();
+		const hidden = Array.isArray(initiative.hidden) ? initiative.hidden : [];
+
+		for (const uuid of order) {
+		const m = members.find(x => x.uuid === uuid);
+		if (m) { initMembers.push({ ...m, hidden: hidden.includes(m.uuid) }); seen.add(uuid); }
+		}
+		for (const m of members) {
+		if (!seen.has(m.uuid)) initMembers.push({ ...m, hidden: hidden.includes(m.uuid) });
+		}
+
+		data.partyMembers = members;
+		data.initiativeMembers = initMembers;
+
+		data.canEdit = this.isEditable;
+
+		// Directory icon override (Actors list only)
+		data.directoryIcon = this.actor.getFlag("midnight-gambit", "directoryIcon") || "";
+
+		const rawDirIcon = this.actor.getFlag("midnight-gambit", "directoryIcon") || "";
+		data.directoryIcon = rawDirIcon;  // raw value as stored
+		data.directoryIconResolved =
+			this._normalizeDirIconPath(rawDirIcon) ||
+			foundry.utils.getRoute("systems/midnight-gambit/assets/images/mg-queen.png");
 
 
 
 
 
-	// Make actor available to the template (for name binding)
-	data.actor = this.actor;
+		// Make actor available to the template (for name binding)
+		data.actor = this.actor;
 
-	// Splash images across the top (Party portraits)
-	data.splashImages = members.map(m => m.img).filter(Boolean);
+		// Splash images across the top (Party portraits)
+		data.splashImages = members.map(m => m.img).filter(Boolean);
 
-	return data;
+		return data;
 
-  }
+	}
 
 	/** Try to find the actor's Guise item in the most reliable order:
 	 *  1) If actor.system.guise is set, prefer the EMBEDDED item with that id

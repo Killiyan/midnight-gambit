@@ -345,7 +345,7 @@
 						left: calc(-18px - var(--bleedL, 0px)); /* ← extra left bleed based on skew & height */
 						right: -18px;
 						background-size: cover;
-						background-position: top left;
+						background-position: top center;
 						transform-origin: top left;
 						transform: skewX(calc(-1 * var(--skX, -22deg))) scale(1.02); /* tiny scale for safety */
 					}
