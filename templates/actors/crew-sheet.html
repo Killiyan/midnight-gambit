@@ -40,11 +40,13 @@
 	<section class="sheet-body">
 		<!-- PARTY TAB -->
 		<div class="tab" data-tab="party">
-			<div class="mg-party-drop-hint">
+			<div class="mg-content">
 				{{#if canEdit}}
-				<h2>Drag characters from the Actors directory onto this sheet to add them to the party.</h2>
+				<h2>Party List</h2>
+				<p>Drag characters from the Actors directory onto this sheet to add them to the party</p>
 				{{else}}
-				<h2>You can view the party. Owners can edit.</h2>
+				<h2>View Only</h2>
+				<p>You can view the party. Owners can edit</p>
 				{{/if}}
 			</div>
 
@@ -84,7 +86,10 @@
 		<div class="tab" data-tab="initiative">
 			<div class="mg-initiative-note">
 				{{#if canEdit}}
-				<h2>Reorder by dragging a card. This order is used for turn flow.</h2>
+				<div class="mg-content">
+					<h2>Initiative Order</h2>
+					<p>Reorder party members by dragging a card by it's grip area, or hide a member by clicking the hide from order button. This order is used for turn flow.</p>
+				</div>
 				{{else}}
 				<h2>View-only initiative. Owners can reorder.</h2>
 				{{/if}}

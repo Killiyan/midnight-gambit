@@ -69,8 +69,12 @@ form button,
   background: $mg-blue-3;
   color: $mg-ivory;
   @include oswald();
-  font-size: 1rem;
+  font-size: .9rem;
   text-transform: uppercase;
+  font-style: italic;
+  letter-spacing: .02em;
+  padding: .35rem;
+  font-weight: 700;
   @include mg-border();
   border-radius: .5rem;
   transition: background 0.5s ease, color 0.5s ease, box-shadow .5s ease;
@@ -90,6 +94,11 @@ form button,
       color: $mg-blue-3;
     }
   }
+}
+
+.directory .action-buttons button {
+  height: auto;
+  font-size: .8rem;
 }
 
 .sidebar-tab {

@@ -16,6 +16,8 @@ h1,h2,h3,h4 {
     @include oswald();
     font-size: 1.25rem;
     font-style: italic;
+    font-weight: 700;
+    text-transform: uppercase;
   }
 
   h3 {
@@ -24,7 +26,16 @@ h1,h2,h3,h4 {
     @include oswald();
     font-size: 1rem;
   }
+
+  .mg-content {
+    margin-top: 2rem;
+
+    &:first-of-type {
+      margin: 0;
+    }
+  }
 }
+
 
 /*Window Styling
 ==============================================================================*/
@@ -867,8 +878,8 @@ h1,h2,h3,h4 {
       }
 
       img {
-        width: 100%;
-        height: 100%;
+        width: auto;
+        height: auto;
         object-fit: cover;
         cursor: pointer;
         border: none;
@@ -1634,6 +1645,98 @@ h1,h2,h3,h4 {
       font-size: 1.25rem;
     }
   }
+}
+
+/* Profile Image Cropping
+==============================================================================*/
+/* Profile crop wrapper (applies saved crop via CSS vars) */
+.mg-profile-crop.mg-cropbox {
+  position: relative;
+  overflow: hidden;
+  width: var(--mg-profile-w, 100%);
+  height: var(--mg-profile-h, 100%);
+  box-shadow: 0 0 0 1px rgba(255,255,255,0.06) inset;
+}
+
+.mg-profile-crop.mg-cropbox > img {
+  position: absolute;
+  left: 50%; top: 50%;
+  transform:
+    translate(calc(-1% * var(--mg-crop-x, 50)), calc(-1% * var(--mg-crop-y, 50)))
+    scale(var(--mg-crop-scale, 1));
+  transform-origin: center center;
+  min-width: 100%;
+  min-height: 100%;
+  will-change: transform;
+  transition: transform 180ms ease;
+}
+
+/* Simple overlay editor */
+.mg-crop-editor { 
+  position: fixed; 
+  inset: 0; z-index: 10000; 
+  background: rgba($mg-blue-main-2,0.55); 
+  display: grid; 
+  place-items: center; 
+
+  .mg-crop-panel { 
+    width: 480px; 
+    padding: 12px; 
+    border-radius: 12px; 
+    background: $mg-blue-4; 
+    color: #eee; 
+    box-shadow: 0 12px 40px rgba(0,0,0,0.6); 
+  }
+
+  .mg-crop-stage { 
+    position: relative;
+    overflow: hidden; 
+    width: auto; 
+    height: auto; 
+    aspect-ratio: 13 / 9;
+    margin: 8px auto 12px; 
+    background: $mg-blue-main; 
+    border-radius: 10px; 
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.06); 
+
+    img { 
+      position: absolute; 
+      left: 50%; 
+      top: 50%; 
+      transform: translate(calc(-1% * var(--x, 50)), calc(-1% * var(--y, 50))) scale(var(--s, 1)); 
+      transform-origin: center center; 
+      user-select: none;
+      pointer-events: none; 
+    }
+  }
+
+  .mg-actions { 
+    display:flex; 
+    gap:1rem;
+    justify-content:flex-end; 
+    padding-top: 1rem;
+
+    .mg-cancel { 
+      background:$mg-blue-main-2;
+      color: rgba($mg-blue-1, .7); 
+    }
+  }
+
+  .mg-row { 
+    display:flex; 
+    gap:8px; 
+    align-items:center; 
+    justify-content:space-between; 
+
+    .hint { 
+      opacity:.8; 
+      font-size:12px 
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mg-profile-crop.mg-cropbox > img { transition: none !important; }
 }
 
 .moves-section.drag-hover {

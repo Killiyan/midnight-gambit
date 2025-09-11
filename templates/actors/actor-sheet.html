@@ -13,7 +13,7 @@
 
     <div class="character-info">
       <div class="profile-image">
-        <img src="{{actor.img}}" data-tooltip="Click to Change Profile Image" data-edit="img" title="{{actor.name}}" />
+        <img class="mg-profile-img" src="{{actor.img}}" data-tooltip="Click to Change Profile Image" data-edit="img" title="{{actor.name}}" />
       </div>
 
       <div class="personal-info">
@@ -694,11 +694,22 @@
           </div>
         {{else}}
           <section class="level-controls disabled">
-            <!-- Optional: show a soft nudge -->
             <div class="mg-muted">Drop a Guise onto your sheet to enable leveling.</div>
           </section>
         {{/if}}
-        <div class="guise-display">
+
+        <div class="mg-content">
+          <h2>Profile Image Crop</h2>
+
+          <button type="button" class="mg-crop-profile">
+            <i class="fa-solid fa-crop"></i> Crop Actor Profile Image
+          </button>
+        </div>
+
+        <div class="guise-display mg-content">
+          <h3>Remove Guise</h2>
+          <p>Only do this if you have a glitch, or need to rework your character!</p>
+          
           <span class="guise-name">
             {{#if guise}}
               <button type="button" class="remove-guise" title="Remove Guise">Remove Guise</button>

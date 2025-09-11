@@ -152,9 +152,141 @@ export class MidnightGambitActorSheet extends ActorSheet {
       return context;
     }
 
+    /** Wrap the profile img in a cropbox and apply saved vars from flags. */
+    _mgInitProfileCrop(html) {
+      const $root = html instanceof jQuery ? html : $(html);
+      const $img = $root.find("img.mg-profile-img").first();
+      if (!$img.length) return;
+
+      // Wrap once
+      let $wrap = $img.closest(".mg-profile-crop.mg-cropbox");
+      if (!$wrap.length) {
+        $wrap = $(`<div class="mg-profile-crop mg-cropbox"></div>`);
+        $img.wrap($wrap);
+        $wrap = $img.closest(".mg-profile-crop.mg-cropbox");
+      }
+
+      // Apply from flags
+      const crop = this.actor.getFlag("midnight-gambit", "crops")?.profile?.css || {};
+      const x = Number.isFinite(crop.x) ? crop.x : 50;
+      const y = Number.isFinite(crop.y) ? crop.y : 50;
+      const s = Number.isFinite(crop.scale) ? crop.scale : 1;
+
+      $wrap[0].style.setProperty("--mg-crop-x", String(x));
+      $wrap[0].style.setProperty("--mg-crop-y", String(y));
+      $wrap[0].style.setProperty("--mg-crop-scale", String(s));
+    }
+
+    /** Modal cropper: drag to pan, wheel to zoom; saves to flags on Save. */
+    _mgOpenProfileCropper(html) {
+      const $root = html instanceof jQuery ? html : $(html);
+      const $img = $root.find("img.mg-profile-img").first();
+      const src = $img.attr("src");
+      if (!src) return;
+
+      // Current values
+      const saved = this.actor.getFlag("midnight-gambit", "crops")?.profile?.css || {};
+      let x = Number.isFinite(saved.x) ? saved.x : 50;
+      let y = Number.isFinite(saved.y) ? saved.y : 50;
+      let s = Number.isFinite(saved.scale) ? saved.scale : 1;
+
+      // Build overlay
+      const $ui = $(`
+        <div class="mg-crop-editor" role="dialog" aria-modal="true">
+          <div class="mg-crop-panel">
+            <div class="mg-row">
+              <div><strong>Crop Actor Profile Image</strong></div>
+              <div class="hint">Drag to pan • Mouse wheel to zoom • Esc to cancel</div>
+            </div>
+            <div class="mg-crop-stage">
+              <img src="${src}" alt="preview" style="--x:${x}; --y:${y}; --s:${s}">
+            </div>
+            <div class="mg-actions">
+              <button class="ghost mg-cancel">Cancel</button>
+              <button class="primary mg-save">Save</button>
+            </div>
+          </div>
+        </div>
+      `);
+
+      const stage = $ui.find(".mg-crop-stage")[0];
+      const imgEl = $ui.find(".mg-crop-stage img")[0];
+
+      // Drag state
+      let dragging = false;
+      let last = { cx: 0, cy: 0 };
+
+      const apply = () => {
+        imgEl.style.setProperty("--x", String(x));
+        imgEl.style.setProperty("--y", String(y));
+        imgEl.style.setProperty("--s", String(s));
+      };
+
+      // Drag to pan (pointer events = works with mouse + pen)
+      stage.addEventListener("pointerdown", (ev) => {
+        dragging = true;
+        last = { cx: ev.clientX, cy: ev.clientY };
+        stage.setPointerCapture?.(ev.pointerId);
+      });
+      stage.addEventListener("pointermove", (ev) => {
+        if (!dragging) return;
+        const dx = ev.clientX - last.cx;
+        const dy = ev.clientY - last.cy;
+        last = { cx: ev.clientX, cy: ev.clientY };
+        const w = stage.clientWidth;
+        const h = stage.clientHeight;
+        x -= (dx / w) * 100;
+        y -= (dy / h) * 100;
+        apply();
+      });
+      stage.addEventListener("pointerup", () => { dragging = false; });
+      stage.addEventListener("pointercancel", () => { dragging = false; });
+
+      // Wheel to zoom (clamped)
+      stage.addEventListener("wheel", (ev) => {
+        ev.preventDefault();
+        const delta = Math.sign(ev.deltaY) * 0.05;
+        s = Math.min(3, Math.max(0.5, s - delta));
+        apply();
+      }, { passive: false });
+
+      // Buttons
+      $ui.on("click", ".mg-cancel", () => $ui.remove());
+      $ui.on("click", ".mg-save", async () => {
+        try {
+          const ns = "midnight-gambit";
+          const crops = (await this.actor.getFlag(ns, "crops")) || {};
+          crops.profile = crops.profile || {};
+          crops.profile.css = { x, y, scale: s };
+          await this.actor.setFlag(ns, "crops", crops);
+          this._mgInitProfileCrop(html); // apply immediately on sheet
+          $ui.remove();
+        } catch (err) {
+          console.error("MG | Save profile crop failed:", err);
+          ui.notifications?.error("Failed to save profile crop. See console.");
+        }
+      });
+
+      // Esc to close
+      const onKey = (ev) => {
+        if (ev.key === "Escape") { $ui.remove(); window.removeEventListener("keydown", onKey); }
+      };
+      window.addEventListener("keydown", onKey);
+
+      document.body.appendChild($ui[0]);
+    }
+
+
     /** Binds event listeners after rendering. This is the Event listener for most the system*/
     activateListeners(html) {
       super.activateListeners(html);
+
+      this._mgInitProfileCrop(html);
+      html.find(".mg-crop-profile").off("click.mgCrop").on("click.mgCrop", (ev) => {
+        ev.preventDefault();
+        this._mgOpenProfileCropper(html);
+      });
+
 
       // Owner / GM? Full interactivity. Otherwise: view-only and bail out.
       const isOwner = this.actor?.testUserPermission?.(game.user, "OWNER") || game.user.isGM;
@@ -366,7 +498,6 @@ export class MidnightGambitActorSheet extends ActorSheet {
           "system.gambits.locked": true
         });
       });
-
 
       //Discard Gambit
       html.find(".discard-card").on("click", async (event) => {
