@@ -1587,6 +1587,41 @@ export class MidnightGambitActorSheet extends ActorSheet {
 
       this._mgBindMoveGrid(html);
 
+      // Settings: "Change Profile Image" (same behavior as clicking the banner)
+      html.off("click.mgPickAvatar").on("click.mgPickAvatar", ".mg-change-profile-image", async (ev) => {
+        ev.preventDefault();
+
+        const current = this.actor.img || this.actor.prototypeToken?.texture?.src || "icons/svg/mystery-man.svg";
+
+        const picker = new FilePicker({
+          type: "image",
+          activeSource: "data",
+          current,
+          callback: async (path) => {
+            // Update the actor image; if the prototype token was mirroring, mirror the new path too.
+            const updates = { img: path };
+            try {
+              const proto = this.actor.prototypeToken;
+              const was   = proto?.texture?.src;
+              if (proto && (was === current || !was)) {
+                updates["prototypeToken.texture.src"] = path;
+              }
+            } catch (_) {}
+
+            await this.actor.update(updates);
+
+            // Optional instant preview if your template has a banner/img selector:
+            // (safe no-op if selectors don't exist)
+            const routed = foundry.utils.getRoute(path);
+            this.element.find(".profile-banner img, .profile-image").attr("src", routed);
+
+            ui.notifications?.info("Profile image updated.");
+          }
+        });
+
+        picker.render(true);
+      });
+
       // Defensive: hide Level controls if no Guise (in case template guard is missing)
       {
         const guiseId   = this.actor?.system?.guise;

@@ -12,8 +12,8 @@
   <div class="sheet-body">
 
     <div class="character-info">
-      <div class="profile-image">
-        <img class="mg-profile-img" src="{{actor.img}}" data-tooltip="Click to Change Profile Image" data-edit="img" title="{{actor.name}}" />
+      <div class="profile-image" data-tooltip="Click to Change Profile Image">
+        <img class="mg-profile-img" src="{{actor.img}}" data-edit="img" title="{{actor.name}}" />
       </div>
 
       <div class="personal-info">
@@ -699,11 +699,19 @@
         {{/if}}
 
         <div class="mg-content">
-          <h2>Profile Image Crop</h2>
+          <h2>Profile Image</h2>
 
-          <button type="button" class="mg-crop-profile">
-            <i class="fa-solid fa-crop"></i> Crop Actor Profile Image
-          </button>
+          <div class="button-wrapper">
+            <button type="button" class="mg-change-profile-image">
+              <i class="fa-solid fa-image"></i>
+              Change Profile Image
+            </button>
+
+            <button type="button" class="mg-crop-profile">
+              <i class="fa-solid fa-crop"></i> Crop Actor Profile Image
+            </button>
+          </div>
+          
         </div>
 
         <div class="guise-display mg-content">
