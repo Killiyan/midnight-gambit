@@ -862,7 +862,8 @@ h1,h2,h3,h4 {
     top: 0;
     right: 0;
     width: 100%;
-    height: 30rem;
+    height: auto;
+    aspect-ratio: 16 / 9;
     z-index: 10;
     position: relative;
 
@@ -1686,9 +1687,10 @@ h1,h2,h3,h4 {
   place-items: center; 
 
   .mg-crop-panel { 
-    width: 480px; 
-    padding: 12px; 
-    border-radius: 12px; 
+    width: 610px; 
+    padding: 1rem; 
+    border-radius: 12px;
+    aspect-ratio: 16 / 9;
     background: $mg-blue-4; 
     color: #eee; 
     box-shadow: 0 12px 40px rgba(0,0,0,0.6); 
@@ -1790,4 +1792,14 @@ h1,h2,h3,h4 {
   padding-bottom: .75rem;
   @include oswald();
   font-size: 1.25rem;
+}
+
+/* Subtle "pay attention" flash on strain tracks when Risk rolls a 1 */
+.midnight-gambit .strain-track.mg-strain-flash {
+  animation: mgStrainFlash 1.2s ease;
+}
+@keyframes mgStrainFlash {
+  0%   { box-shadow: 0 0 0 0 rgba(255, 80, 80, 0.6); }
+  50%  { box-shadow: 0 0 0 8px rgba(255, 80, 80, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(255, 80, 80, 0); }
 }

@@ -1734,6 +1734,150 @@ Hooks.on("renderChatMessage", (message, html) => {
   }
 });
 
+// --- Risk It: one-use per message; subsequent risks via the spawned result card ---
+Hooks.on("renderChatMessage", (message, html) => {
+  const root = html[0];
+  if (!root) return;
+
+  // Helper: disable a button visually
+  const disableBtn = (btn) => {
+    btn.disabled = true;
+    btn.classList.add("is-disabled");
+    btn.setAttribute("aria-disabled", "true");
+  };
+
+  // Helper: flash both strain tracks on an open actor sheet
+  const flashStrain = (actor) => {
+    const el = actor?.sheet?.element;
+    if (!el?.length) return;
+    const $tracks = el.find(".strain-track");
+    $tracks.addClass("mg-strain-flash");
+    setTimeout(() => $tracks.removeClass("mg-strain-flash"), 1200);
+  };
+
+  // Core handler for both the first Risk and "Risk Again"
+  const handleRiskClick = async (btn) => {
+    disableBtn(btn); // UI first
+
+    // Mark this message as consumed so refresh doesn't re-enable it
+    try { await message.setFlag("midnight-gambit", "riskConsumed", true); } catch (e) {}
+
+    const actorId  = btn.dataset.actorId;
+    const keptStr  = btn.dataset.kept || "";
+    const skillMod = Number(btn.dataset.skillMod || 0);
+
+    const actor = game.actors.get(actorId);
+    if (!actor) return ui.notifications.warn("Actor not found for Risk.");
+
+    const kept = keptStr.split(",").map(n => Number(n)).filter(Number.isFinite);
+    if (kept.length < 2) return ui.notifications.warn("Risk requires two kept dice.");
+
+    // Roll the risk die
+    const riskRoll = await (new Roll("1d6")).evaluate({ async: true });
+    const R = riskRoll.total;
+
+    // Replace the lower of the two kept dice
+    const L   = Math.min(kept[0], kept[1]);
+    const idx = kept.indexOf(L);
+    const newDice = kept.slice();
+    newDice[idx] = R;
+
+    const newSum   = newDice[0] + newDice[1];
+    const newTotal = newSum + skillMod;
+
+    // If a 1, flash both strain tracks (player clicks to assign 1)
+    if (R === 1) {
+      flashStrain(actor);
+      ui.notifications.info(`${actor.name} Risked it: rolled a 1 — take 1 Strain.`);
+    }
+
+    // Consume one Risk die (gray out one dot)
+    try {
+      const used  = Number(actor.system?.riskUsed ?? 0);
+      const total = Number(actor.system?.riskDice ?? 0);
+      if (used < total) await actor.update({ "system.riskUsed": used + 1 });
+    } catch (err) {
+      console.warn("MG | failed to consume a Risk die:", err);
+    }
+
+  // Can we risk again? (only show the button if there are dice left)
+  const usedNow  = Number(actor.system?.riskUsed ?? 0);
+  const totalRD  = Number(actor.system?.riskDice ?? 0);
+  const canAgain = usedNow < totalRD;
+
+  // --- Build resultText to match your original style, but for the NEW result ---
+  let resultText;
+  if (newDice.every(d => d === 6)) {
+    resultText = `<div class="result-label"><i class="fa-solid fa-star text-gold"></i> <strong>ACE!</strong></div><span>You steal the spotlight.</span>`;
+  } else if (newDice.every(d => d === 1)) {
+    resultText = `<div class="result-label"><i class="fa-solid fa-skull-crossbones"></i> <strong>Critical Failure</strong></div><span>It goes horribly wrong.</span>`;
+  } else if (newTotal <= 6) {
+    resultText = `<div class="result-label"><i class="fa-solid fa-fire-flame result-fail"></i> <strong>Failure</strong></div><span>something goes awry.</span>`;
+  } else if (newTotal <= 10) {
+    resultText = `<div class="result-label"><i class="fa-solid fa-swords result-mixed"></i> <strong>Complication</strong></div> <span>success with a cost.</span>`;
+  } else {
+    resultText = `<div class="result-label"><i class="fa-solid fa-sparkles flourish-animate"></i> <strong class="flourish-animate">Flourish</strong></div><span>narrate your success.</span>`;
+  }
+
+  // --- Small kept-dice line under the outcome ---
+  const modStr = skillMod
+    ? (skillMod > 0 ? ` + ${skillMod}` : ` − ${Math.abs(skillMod)}`)
+    : "";
+  const keptSmall = `<div class="mg-risk-kept"><small>Kept: [${newDice[0]}, ${newDice[1]}]${modStr} = <strong>${newTotal}</strong></small></div>`;
+
+  // --- Build "Risk Again" control (HTML, not boolean!) ---
+  const againBtn = canAgain
+    ? `<button type="button"
+              class="mg-risk-again"
+              data-actor-id="${actor.id}"
+              data-kept="${newDice.join(",")}"
+              data-skill-mod="${skillMod}">
+        <i class="fa-solid fa-dice-d6"></i> Risk Again
+      </button>
+      <small class="hint">Replaces the lower; a <strong>1</strong> causes 1 Strain.</small>`
+    : `<small class="hint">No Risk dice remaining.</small>`;
+
+  // --- Compose the follow-up message ---
+  const content = `
+    <div class="mg-chat-card mg-risk-result">
+      <div class="roll-container">
+        <div class="mg-risk-result-outcome"><label>Risk Result</label> ${resultText}</div>
+      </div>
+      ${keptSmall}
+      <p class="dice-total risk-result">Replaced lower die <strong>${L}</strong> → <strong>${R}</strong>.</p>
+      ${R === 1 ? `<p class="text-danger"><strong>Strain:</strong> choose a track and click to add 1.</p>` : ""}
+      <div class="mg-risk-controls mg-risk-controls-again">
+        ${againBtn}
+      </div>
+    </div>
+  `;
+
+  await ChatMessage.create({
+    speaker: ChatMessage.getSpeaker({ actor }),
+    content,
+    type: CONST.CHAT_MESSAGE_TYPES.OTHER
+  });
+  };
+
+  // 1) Original chat roll's "Risk It" button (one-use, persisted)
+  const riskBtn = root.querySelector(".mg-risk-it");
+  if (riskBtn) {
+    const consumed = message.getFlag("midnight-gambit", "riskConsumed");
+    if (consumed) disableBtn(riskBtn);
+    else riskBtn.addEventListener("click", () => handleRiskClick(riskBtn), { once: true });
+  }
+
+  // 2) Each spawned "Risk Result" card can be used once as well
+  const riskAgainBtn = root.querySelector(".mg-risk-again");
+  if (riskAgainBtn) {
+    const consumed = message.getFlag("midnight-gambit", "riskConsumed");
+    if (consumed) disableBtn(riskAgainBtn);
+    else riskAgainBtn.addEventListener("click", () => handleRiskClick(riskAgainBtn), { once: true });
+  }
+});
+
+
+
 /* Move Learn Spenders Global
 ------------------------------------------------------------------*/
 async function mgConsumePending(actor, type, count = 1) {
