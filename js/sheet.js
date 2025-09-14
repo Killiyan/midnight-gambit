@@ -1661,25 +1661,20 @@ export class MidnightGambitActorSheet extends ActorSheet {
 
           const el = event.currentTarget;
 
-          // Try to resolve an Item by id (owned -> world -> null)
+          // Resolve the clicked card (prefer owned Item)
           const itemId = el.dataset.itemId || el.getAttribute("data-id");
+          const source = el.dataset.source || "drawn"; // hand cards are usually 'drawn'
           let item = null;
-          if (itemId) {
-            item = this.actor?.items?.get(itemId) || game.items?.get(itemId) || null;
-          }
+          if (itemId) item = this.actor?.items?.get(itemId) || game.items?.get(itemId) || null;
 
-          // Fallbacks if markup only has data-* attributes
-          const fallbackName = el.dataset.name || "Gambit";
-          const fallbackDesc = el.dataset.description || "";
+          const name = item?.name ?? el.dataset.name ?? "Gambit";
+          const description = item?.system?.description ?? el.dataset.description ?? "";
 
-          const payload = item
-            ? { name: item.name, description: item.system?.description ?? "" }
-            : { name: fallbackName, description: fallbackDesc };
-
-          this._mgOpenGambitZoom(payload, { sourceEl: el });
+          this._mgOpenGambitZoom(
+            { id: itemId, source, name, description },
+            { sourceEl: el }
+          );
         });
-
-
     }
     
   //END EVENT LISTENERS
@@ -1690,8 +1685,10 @@ export class MidnightGambitActorSheet extends ActorSheet {
    * Accepts either an Item-like object ({ name, system.description }) or a plain { name, description }.
    */
   _mgOpenGambitZoom(data, { sourceEl = null } = {}) {
+    const itemId = data?.id ?? null;
+    const fromSource = data?.source ?? "drawn";
     const name = data?.name ?? "Gambit";
-    const description = (data?.system?.description ?? data?.description ?? "").trim();
+    const description = (data?.description ?? "").trim();
 
     // One-time CSS
     if (!document.getElementById("mg-gz-styles")) {
@@ -1727,21 +1724,66 @@ export class MidnightGambitActorSheet extends ActorSheet {
           <button class="mg-gz-close" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
         </div>
         <div class="mg-gz-body">${description || "<em>No description.</em>"}</div>
+        <button class="mg-gz-play" data-item-id="${itemId ?? ""}" data-source="${fromSource}">
+          <i class="fa-solid fa-play mg-icon"></i> Play
+        </button>
       </div>
     `;
-
+    
+    const card = overlay.querySelector(".mg-gz-card");
     const remove = () => overlay.remove();
+
+    // Close interactions
     overlay.addEventListener("click", (ev) => { if (ev.target === overlay) remove(); });
-    overlay.querySelector(".mg-gz-close")?.addEventListener("click", remove);
+    overlay.querySelectorAll(".mg-gz-close").forEach(btn => btn.addEventListener("click", remove));
     const onKey = (ev) => { if (ev.key === "Escape") { remove(); window.removeEventListener("keydown", onKey); } };
     window.addEventListener("keydown", onKey);
 
-    document.body.appendChild(overlay);
+    // Play → post to chat + move to Discard
+    overlay.querySelector(".mg-gz-play")?.addEventListener("click", async (ev) => {
+      ev.preventDefault();
 
-    // Staged entrance + transform origin from the source card
+      try {
+        // 1) Post to chat
+        const chatContent = `
+          <div class="chat-move">
+            <h2><i class="fa-solid fa-cards"></i> ${name}</h2>
+            <p>${description}</p>
+          </div>
+        `;
+        await ChatMessage.create({
+          user: game.user.id,
+          speaker: ChatMessage.getSpeaker({ actor: this.actor }),
+          content: chatContent
+        });
+
+        // 2) Move from its source list → discard
+        if (itemId) {
+          const g = this.actor.system.gambits ?? {};
+          const srcList = Array.isArray(g[fromSource]) ? [...g[fromSource]] : [];
+          const discard = Array.isArray(g.discard) ? [...g.discard] : [];
+
+          const idx = srcList.indexOf(itemId);
+          if (idx !== -1) srcList.splice(idx, 1);
+          if (!discard.includes(itemId)) discard.push(itemId);
+
+          await this.actor.update({
+            [`system.gambits.${fromSource}`]: srcList,
+            "system.gambits.discard": discard
+          });
+        }
+      } catch (err) {
+        console.error("MG | Play Gambit failed:", err);
+        ui.notifications?.error("Failed to play Gambit. See console.");
+      } finally {
+        remove();
+      }
+    });
+
+    // Mount + staged entrance (zoom from source)
+    document.body.appendChild(overlay);
     requestAnimationFrame(() => {
       overlay.classList.add("mg-gz-show");
-      const card = overlay.querySelector(".mg-gz-card");
       if (sourceEl) {
         try {
           const r = sourceEl.getBoundingClientRect();

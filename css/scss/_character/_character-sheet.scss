@@ -1655,7 +1655,7 @@ h1,h2,h3,h4 {
     text-shadow: 7px 5px 2px $mg-blue-main;
     filter: drop-shadow(0 0 0.75rem $black);
     @include oswald();
-    font-size: 1.75rem;
+    font-size: 1.45rem;
     width: 100%;
     z-index: 3;
     pointer-events: none;
@@ -1679,6 +1679,13 @@ h1,h2,h3,h4 {
     overflow-y: scroll;
     line-height: 1.5;
     max-height: 10rem;
+  }
+
+  .mg-gz-play {
+    width: 80%;
+    position: relative;
+    z-index: 2;
+    margin-top: 1rem;
   }
 
   .mg-gz-close {
