@@ -1370,6 +1370,23 @@ h1,h2,h3,h4 {
   flex-direction: column;
   padding: 1.125rem;
 
+  .gambit-counter {
+    position: absolute;
+    font-size: .75rem;
+    @include roboto();
+    font-style: italic;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    padding: 0.5rem;
+    top: 0;
+    left: 3rem;
+    background: $mg-blue-4;
+    color: $mg-blue-3;
+    border-radius: 0 0 0.5rem;
+    width: 100%;
+  }
+
   .gambit-hand,
   .gambit-deck,
   .gambit-discard {
@@ -1378,7 +1395,7 @@ h1,h2,h3,h4 {
     background: $mg-blue-main;
     border-radius: .5rem;
     @include mg-border();
-    padding: 2.125rem 2.125rem 2.125rem 5.125rem;
+    padding: 4.125rem 2.125rem 2.125rem 5.125rem;
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 2.125rem;

@@ -305,9 +305,13 @@
             <button type="button" class="draw-gambit"><i class="fa-solid fa-cards"></i> Draw Card</button>
             <button type="button" class="reset-gambit-deck"><i class="fa-solid fa-arrows-spin"></i> Reset Deck</button>
           </div>
-          <p><strong>Hand Size:</strong> {{gambitDeck.length}} / {{system.gambits.maxDeckSize}}</p>
 
           <div class="gambit-hand">
+            
+            <span class="hand-size gambit-counter" title="Cards in hand / hand limit">
+              Hand Size: {{gambitCounts.handCount}}/{{gambitCounts.handMax}}
+            </span>
+
             <h2 class="gambit-banner">Hand</h2>
             {{#each gambitDrawn}}
               <div class="gambit-card drawn" data-source="drawn" draggable="true" data-item-id="{{_id}}">
@@ -339,6 +343,10 @@
 
           <div class="gambit-deck">
             <h2 class="gambit-banner">Deck</h2>
+
+            <span class="deck-size gambit-counter" title="Cards in deck / deck capacity">
+              Deck Size: {{gambitCounts.deckCount}}/{{gambitCounts.deckMax}}
+            </span>
 
             {{#each gambitDeck}}
               <div class="gambit-card" data-source="deck" draggable="true" data-item-id="{{_id}}">

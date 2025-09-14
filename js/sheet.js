@@ -21,6 +21,21 @@ export class MidnightGambitActorSheet extends ActorSheet {
       const drawnIds = context.system.gambits.drawn ?? [];
       const discardIds = context.system.gambits.discard ?? [];
 
+      // --- Gambit counters for UI ---
+      const handCount = drawnIds.length;
+      const deckCount = deckIds.length;
+      const handMax   = Number(context.system.gambits?.maxDrawSize ?? 3);
+      const deckMax   = Number(context.system.gambits?.maxDeckSize ?? 3);
+
+      context.gambitCounts = {
+        handCount, handMax,                      // e.g., "Hand Size: 2/4"
+        deckCount, deckMax,                      // e.g., "Deck Size: 3/5"
+        handAtCap: handCount >= handMax,
+        deckAtCap: deckCount >= deckMax,
+        deckRemaining: Math.max(0, deckMax - deckCount)
+      };
+
+
       // === Guise presence drives Level UI ===
       // "hasActiveGuise" is true if the actor has an applied guise id on system,
       // or at least one Guise item owned (pick whichever you really use).
