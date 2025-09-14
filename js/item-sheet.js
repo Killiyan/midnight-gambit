@@ -142,7 +142,7 @@ export class MidnightGambitItemSheet extends ItemSheet {
 		this.render();
 		});
 
-		// Remove tag from item & CONFIG
+		// Remove tag from this item only (do NOT touch global registry here)
 		html.find(".remove-tag").on("click", async (event) => {
 		event.preventDefault();
 		const tagId = event.currentTarget.dataset.tagId;
@@ -153,14 +153,12 @@ export class MidnightGambitItemSheet extends ItemSheet {
 		const updatedCustom = { ...(item.system.customTags || {}) };
 		delete updatedCustom[tagId];
 
-		CONFIG.MidnightGambit.ITEM_TAGS = CONFIG.MidnightGambit.ITEM_TAGS.filter(t => t.id !== tagId);
-
 		await item.update({
 			"system.tags": updatedTags,
 			"system.customTags": updatedCustom
 		});
 
-		console.log("✅ Fully removed custom tag:", tagId);
+		console.log("Removed tag from item:", tagId, "item:", item.name);
 		this.render();
 		});
 
@@ -183,7 +181,7 @@ export class MidnightGambitItemSheet extends ItemSheet {
 		}
 		});
 
-		// Delete custom tag globally
+		// Delete custom tag globally (CONFIG + persistent settings + all items)
 		html.find(".delete-custom-tag").on("click", async (event) => {
 		event.preventDefault();
 		const tagId = event.currentTarget.dataset.tagId;
@@ -197,12 +195,20 @@ export class MidnightGambitItemSheet extends ItemSheet {
 		});
 		if (!confirmed) return;
 
-		CONFIG.MidnightGambit.ITEM_TAGS = CONFIG.MidnightGambit.ITEM_TAGS.filter(t => t.id !== tagId);
+		// 1) Update in-memory registry
+		CONFIG.MidnightGambit.ITEM_TAGS = (CONFIG.MidnightGambit.ITEM_TAGS || []).filter(t => t.id !== tagId);
 
-		for (const item of game.items.contents) {
-			const tags = item.system.tags || [];
-			const customTags = item.system.customTags || {};
-			if (tags.includes(tagId) || customTags[tagId]) {
+		// 2) Update persistent registry (world setting) so it survives reloads
+		let stored = game.settings.get("midnight-gambit", "customTags") || [];
+		stored = stored.filter(t => t.id !== tagId);
+		await game.settings.set("midnight-gambit", "customTags", stored);
+
+		// 3) Clean the tag off ALL items in the world directory (World Items)
+		const worldItems = game.items?.contents ?? [];
+		for (const item of worldItems) {
+			const tags = item.system?.tags || [];
+			const customTags = item.system?.customTags || {};
+			if (tags.includes(tagId) || Object.hasOwn(customTags, tagId)) {
 			const updated = {
 				"system.tags": tags.filter(t => t !== tagId),
 				"system.customTags": { ...customTags }
@@ -212,8 +218,33 @@ export class MidnightGambitItemSheet extends ItemSheet {
 			}
 		}
 
-		ui.notifications.info(`Custom tag "${tagId}" deleted from system.`);
+		// 4) Clean the tag off all embedded items on every actor (Actor-owned Items)
+		const actors = game.actors?.contents ?? [];
+		for (const actor of actors) {
+			// Gather embedded item updates in batches per actor (avoid spam)
+			const updates = [];
+			for (const item of actor.items) {
+			const tags = item.system?.tags || [];
+			const customTags = item.system?.customTags || {};
+			if (tags.includes(tagId) || Object.hasOwn(customTags, tagId)) {
+				const updated = {
+				_id: item.id,
+				"system.tags": tags.filter(t => t !== tagId),
+				"system.customTags": { ...customTags }
+				};
+				delete updated["system.customTags"][tagId];
+				updates.push(updated);
+			}
+			}
+			if (updates.length) {
+			await actor.updateEmbeddedDocuments("Item", updates);
+			}
+		}
+
+		ui.notifications.info(`Custom tag "${tagId}" deleted everywhere and removed from registry.`);
+		console.log(`🗑️ Deleted custom tag globally: ${tagId}`);
 		this.render();
 		});
+
 	}
 }

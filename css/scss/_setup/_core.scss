@@ -79,6 +79,10 @@ form button,
   border-radius: .5rem;
   transition: background 0.5s ease, color 0.5s ease, box-shadow .5s ease;
 
+  &.mg-risk-it {
+    margin-bottom: .5rem;
+  }
+
   i {
     transition: color .5s ease;
     color: $mg-blue-4;
@@ -283,12 +287,6 @@ button:disabled {
     }
   }
 
-  .roll-container {
-    padding: 1.25rem;
-    @include mg-border();
-    border-radius: .5rem;
-  }
-
   .message-content {
     color: $mg-blue-2;
     padding-top: 1.125rem;
@@ -342,6 +340,9 @@ button:disabled {
       font-style: italic;
       display: block;
       position: relative;
+      padding: 1.25rem;
+      @include mg-border();
+      border-radius: .5rem;
 
       label {
         font-size: .75rem;
@@ -622,9 +623,56 @@ button:disabled {
   }
 
   .roll-container {
+    @include oswald();
+    font-size: 1rem;
+    color: $mg-blue-2;
+    font-weight: 700;
+    font-style: italic;
+    display: block;
+    position: relative;
     padding: 1.25rem;
     @include mg-border();
     border-radius: .5rem;
+
+    label {
+      font-size: .75rem;
+      @include roboto();
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      padding: 0.5rem;
+      position: absolute;
+      top: 0;
+      left: 0;
+      background: $mg-blue-4;
+      border-radius: 0.5rem 0 0.5rem;
+      opacity: .6;
+    }
+
+    .result-label {
+      display: flex;
+      align-items: center;
+      gap: .625rem;
+      margin-top: 1.625rem;
+      text-transform: uppercase;
+
+      strong {
+        color: $mg-ivory;
+      }
+    }
+
+    span {
+      padding-left: 3rem;
+      display: block;
+    }
+
+    i {
+      display: block;
+      color: $mg-blue-4;
+      background: $mg-blue-3;
+      padding: .625rem;
+      border-radius: .5rem;
+    }
   }
 
   .message-content {
@@ -663,40 +711,6 @@ button:disabled {
       border-radius: .5rem;
       border-color: $mg-blue-main-2;
       box-shadow: none;
-    }
-
-    .roll-container strong {
-      @include oswald();
-      font-size: 1rem;
-      color: $mg-blue-2;
-      font-weight: 700;
-      font-style: italic;
-      display: block;
-
-      .result-label {
-        display: flex;
-        align-items: center;
-        gap: .625rem;
-        margin-top: .625rem;
-        text-transform: uppercase;
-
-        strong {
-          color: $mg-ivory;
-        }
-      }
-
-      span {
-        padding-left: 3rem;
-        display: block;
-      }
-
-      i {
-        display: block;
-        color: $mg-blue-4;
-        background: $mg-blue-3;
-        padding: .625rem;
-        border-radius: .5rem;
-      }
     }
   }
 
