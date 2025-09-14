@@ -1651,10 +1651,115 @@ export class MidnightGambitActorSheet extends ActorSheet {
 
       this._mgRefreshGuiseVisibility(html);
 
+      // === Bottom Hand: right-click to zoom a Gambit card ===
+      // Hand UI is outside the sheet DOM, so use delegated listener on document.
+      $(document)
+        .off("contextmenu.mgHandZoom")
+        .on("contextmenu.mgHandZoom", ".gambit-hand-ui .gambit-hand-card", (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+
+          const el = event.currentTarget;
+
+          // Try to resolve an Item by id (owned -> world -> null)
+          const itemId = el.dataset.itemId || el.getAttribute("data-id");
+          let item = null;
+          if (itemId) {
+            item = this.actor?.items?.get(itemId) || game.items?.get(itemId) || null;
+          }
+
+          // Fallbacks if markup only has data-* attributes
+          const fallbackName = el.dataset.name || "Gambit";
+          const fallbackDesc = el.dataset.description || "";
+
+          const payload = item
+            ? { name: item.name, description: item.system?.description ?? "" }
+            : { name: fallbackName, description: fallbackDesc };
+
+          this._mgOpenGambitZoom(payload, { sourceEl: el });
+        });
+
+
     }
     
   //END EVENT LISTENERS
   //---------------------------------------------------------------------------------------------------------------------------
+
+  /**
+   * Centered overlay for a Gambit: shows name + description.
+   * Accepts either an Item-like object ({ name, system.description }) or a plain { name, description }.
+   */
+  _mgOpenGambitZoom(data, { sourceEl = null } = {}) {
+    const name = data?.name ?? "Gambit";
+    const description = (data?.system?.description ?? data?.description ?? "").trim();
+
+    // One-time CSS
+    if (!document.getElementById("mg-gz-styles")) {
+      const style = document.createElement("style");
+      style.id = "mg-gz-styles";
+      style.textContent = `
+        .mg-gz-backdrop {
+          position: fixed; inset: 0; display: grid; place-items: center;
+          background: rgba(0,0,0,0.55); z-index: 10000; opacity: 0; transition: opacity 160ms ease;
+        }
+        .mg-gz-backdrop.mg-gz-show { opacity: 1; }
+        .mg-gz-card {
+          width: min(720px, 90vw); max-height: min(80vh, 900px); overflow: auto;
+          background: var(--mg-panel, #111); color: var(--mg-ivory, #f5f5f2);
+          border: 1px solid rgba(255,255,255,0.12); border-radius: 14px;
+          box-shadow: 0 10px 40px rgba(0,0,0,0.6); transform: scale(0.92);
+          transition: transform 160ms ease, opacity 160ms ease; opacity: 0;
+        }
+        .mg-gz-card.mg-gz-in { transform: scale(1); opacity: 1; }
+        .mg-gz-header { display: flex; align-items: center; justify-content: space-between;
+          padding: 14px 16px; border-bottom: 1px solid rgba(255,255,255,0.08); }
+        .mg-gz-title { font-size: 1.25rem; font-weight: 700; margin: 0; display: flex; gap: 8px; align-items: center; }
+        .mg-gz-body { padding: 16px; line-height: 1.5; }
+        .mg-gz-close { background: transparent; border: none; color: inherit; cursor: pointer; font-size: 1.1rem; }
+        .mg-gz-close:focus { outline: 2px solid rgba(255,255,255,0.25); outline-offset: 2px; }
+        .mg-gz-body p { margin: 0 0 0.75rem 0; }
+      `;
+      document.head.appendChild(style);
+    }
+
+    // Backdrop + card
+    const overlay = document.createElement("div");
+    overlay.className = "mg-gz-backdrop";
+    overlay.innerHTML = `
+      <div class="mg-gz-card" role="dialog" aria-label="${name}">
+        <div class="mg-gz-header">
+          <h3 class="mg-gz-title"><i class="fa-solid fa-cards"></i> ${name}</h3>
+          <button class="mg-gz-close" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="mg-gz-body">${description || "<em>No description.</em>"}</div>
+      </div>
+    `;
+
+    const remove = () => overlay.remove();
+    overlay.addEventListener("click", (ev) => { if (ev.target === overlay) remove(); });
+    overlay.querySelector(".mg-gz-close")?.addEventListener("click", remove);
+    const onKey = (ev) => { if (ev.key === "Escape") { remove(); window.removeEventListener("keydown", onKey); } };
+    window.addEventListener("keydown", onKey);
+
+    document.body.appendChild(overlay);
+
+    // Staged entrance + transform origin from the source card
+    requestAnimationFrame(() => {
+      overlay.classList.add("mg-gz-show");
+      const card = overlay.querySelector(".mg-gz-card");
+      if (sourceEl) {
+        try {
+          const r = sourceEl.getBoundingClientRect();
+          const cx = (r.left + r.right) / 2;
+          const cy = (r.top + r.bottom) / 2;
+          card.style.transformOrigin = `${(cx / innerWidth) * 100}% ${(cy / innerHeight) * 100}%`;
+        } catch (_) {}
+      }
+      card.classList.add("mg-gz-in");
+    });
+
+    return overlay;
+  }
 
   // --- Read-only mode for non-owners: block clicks, rolls, inputs, drags ---
   _mgMakeReadOnly(html) {
