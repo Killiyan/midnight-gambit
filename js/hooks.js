@@ -69,7 +69,6 @@ function renderGambitHand(actor) {
     div.dataset.itemId = card.id;
     div.style.setProperty("--rotate", `${(i - mid) * 10}deg`);
     div.innerHTML = `
-      <div class="gambit-foil"></div>
       <div class="gambit-title">${card.name}</div>
     `;
 

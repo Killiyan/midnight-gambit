@@ -26,7 +26,7 @@
             </button>
 
               {{#if this.isCustom}}
-                <button type="button" class="delete-custom-tag" data-tag-id="{{this.id}}" title="Delete custom tag globally">🗑️</button>
+                <button type="button" class="delete-custom-tag" data-tag-id="{{this.id}}" title="Delete custom tag globally"><i class="fa-solid fa-delete-left"></i></button>
               {{/if}}
           </div>
         {{/each}}
@@ -34,7 +34,7 @@
       </div>
     </div>
     
-    <div class="wrapper">
+    <div class="wrapper tag-wrapper">
       {{#each item.system.tags}}
         {{#with (findTag ../tags this) as |tag|}}
         <span class="item-tag" data-tooltip="{{tag.description}}">{{tag.label}}</span>
