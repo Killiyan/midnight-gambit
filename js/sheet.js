@@ -1652,24 +1652,27 @@ export class MidnightGambitActorSheet extends ActorSheet {
       this._mgRefreshGuiseVisibility(html);
 
       // === Bottom Hand: right-click to zoom a Gambit card ===
-      // Hand UI is outside the sheet DOM, so use delegated listener on document.
       $(document)
         .off("contextmenu.mgHandZoom")
-        .on("contextmenu.mgHandZoom", ".gambit-hand-ui .gambit-hand-card", (event) => {
+        .on("contextmenu.mgHandZoom", ".gambit-hand-ui .gambit-hand-card", async (event) => {
           event.preventDefault();
           event.stopPropagation();
 
           const el = event.currentTarget;
 
-          // Resolve the clicked card (prefer owned Item)
+          // Resolve the clicked card
           const itemId = el.dataset.itemId || el.getAttribute("data-id");
-          const source = el.dataset.source || "drawn"; // hand cards are usually 'drawn'
+          const source = el.dataset.source || "drawn";
           let item = null;
           if (itemId) item = this.actor?.items?.get(itemId) || game.items?.get(itemId) || null;
 
           const name = item?.name ?? el.dataset.name ?? "Gambit";
           const description = item?.system?.description ?? el.dataset.description ?? "";
 
+          // NEW: animate the "pull from hand" first
+          await this._mgPullFromHand(el);
+
+          // Then open the center zoom (your existing modal)
           this._mgOpenGambitZoom(
             { id: itemId, source, name, description },
             { sourceEl: el }
@@ -1729,7 +1732,7 @@ export class MidnightGambitActorSheet extends ActorSheet {
         </button>
       </div>
     `;
-    
+
     const card = overlay.querySelector(".mg-gz-card");
     const remove = () => overlay.remove();
 
@@ -1796,6 +1799,70 @@ export class MidnightGambitActorSheet extends ActorSheet {
     });
 
     return overlay;
+  }
+
+  /**
+   * Pull a styled clone of the hand card to the exact viewport center.
+   * We animate the fixed-position shell (not the inner ghost) so centering is precise.
+   */
+  async _mgPullFromHand(sourceEl) {
+    if (!sourceEl) return;
+
+    // 1) Measure the source card
+    const src = sourceEl.getBoundingClientRect();
+
+    // 2) Build an ancestry "shell" so your existing CSS still applies
+    const shell = document.createElement("div");
+    shell.className = "gambit-hand-ui";
+    const shellInner = document.createElement("div");
+    shellInner.className = "gambit-hand";
+    shell.appendChild(shellInner);
+
+    // 3) Clone the card (deep) with all its classes/children intact
+    const ghost = sourceEl.cloneNode(true);
+    shellInner.appendChild(ghost);
+
+    // 4) Fix-position the shell at the card’s spot
+    Object.assign(shell.style, {
+      position: "fixed",
+      left: `${src.left}px`,
+      top: `${src.top}px`,
+      width: `${src.width}px`,
+      height: `${src.height}px`,
+      margin: 0,
+      zIndex: 10001,
+      pointerEvents: "none",
+      // We'll animate THIS element so centering math is exact
+      transformOrigin: "0 0",
+      transition: "transform 220ms ease, opacity 220ms ease",
+      opacity: "1"
+    });
+
+    // Keep the ghost visually intact; no transforms here
+    ghost.style.willChange = "transform, opacity";
+
+    document.body.appendChild(shell);
+
+    // 5) Compute transform that centers the scaled shell
+    const scale = Math.min(1.2, Math.max(1.05, 600 / Math.max(src.width, src.height)));
+    const targetLeft = (window.innerWidth  / 2) - (src.width  * scale) / 2;
+    const targetTop  = (window.innerHeight / 2) - (src.height * scale) / 2;
+
+    const dx = targetLeft - src.left;
+    const dy = targetTop  - src.top;
+
+    // Force reflow so the transition kicks
+    // eslint-disable-next-line no-unused-expressions
+    shell.offsetWidth;
+
+    // 6) Animate the shell to center (translate THEN scale from its top-left)
+    shell.style.transform = `translate3d(${dx}px, ${dy}px, 0) scale(${scale})`;
+
+    // 7) Finish & clean up
+    await new Promise((res) => setTimeout(res, 220));
+    shell.style.opacity = "0";
+    await new Promise((res) => setTimeout(res, 120));
+    shell.remove();
   }
 
   // --- Read-only mode for non-owners: block clicks, rolls, inputs, drags ---

@@ -53,6 +53,15 @@ h1,h2,h3,h4 {
     overflow: visible;
     height: 100%;
     width: 100%;
+
+    a {
+      transition: text-shadow .5s ease;
+
+      &:hover,
+      &:focus {
+        text-shadow: 0 0 .5rem $mg-blue-1;
+      }
+    }
   }
 
   .window-content {
