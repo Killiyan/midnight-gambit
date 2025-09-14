@@ -122,11 +122,17 @@ export class MidnightGambitActor extends Actor {
     data.unlocks ??= { trickDeck:false, aceInSleeve:false, signaturePerk:false, finalHand:false, allTiers:false, dualClass:false };
 
     if (L?.caps) {
-      // Draw pool / equip caps come straight from table
-      if (Number.isFinite(+L.caps.drawPool)) data.gambits.maxDrawSize = +L.caps.drawPool;
-      if (Number.isFinite(+L.caps.equipMax)) data.gambits.maxEquip   = +L.caps.equipMax;
+      // 1) Deck capacity: your table's "Gambit Draw Pool" = DECK SIZE
+      if (Number.isFinite(+L.caps.drawPool)) data.gambits.maxDeckSize = +L.caps.drawPool;
 
-      // You can expose tier as a string for the sheet to print a friendly label
+      // 2) HAND SIZE (how many you can draw at once):
+      //    Levels 1–5: 3   |   6–9: 4   |   10–12: 5
+      data.gambits.maxDrawSize = (lvl >= 10) ? 5 : (lvl >= 6 ? 4 : 3);
+
+      // 3) Equipped cap if you use it
+      if (Number.isFinite(+L.caps.equipMax)) data.gambits.maxEquip = +L.caps.equipMax;
+
+      // 4) Tier label passthrough
       data.tier = L.caps.tier || "rookie";
     }
 

@@ -2135,30 +2135,31 @@ export class MidnightGambitActorSheet extends ActorSheet {
       await this.render(true);
       return [];
     }
-
+    
     /* Gambit Item creation and limits
     ----------------------------------------------------------------------*/
-    
     if (itemData.type === "gambit") {
       const [gambitItem] = await this.actor.createEmbeddedDocuments("Item", [itemData]);
 
-      const currentDeck = this.actor.system.gambits.deck ?? [];
-      const level = this.actor.system.level ?? 1;
-      const maxDeck = 3; // TODO: scale later based on level
+      // Use level-scaled deck capacity from actor data (not hard-coded 3)
+      const g = this.actor.system.gambits ?? {};
+      const deck = Array.isArray(g.deck) ? g.deck : [];
+      const maxDeck = Number(g.maxDeckSize ?? 3);
 
-      if (currentDeck.length >= maxDeck) {
-        ui.notifications.warn(`You can only have ${maxDeck} Gambits in your deck at Level ${level}.`);
-        return []; // prevent adding to deck
+      // Don’t add duplicates; enforce capacity
+      const nextDeck = deck.includes(gambitItem.id) ? deck : [...deck, gambitItem.id];
+
+      if (nextDeck.length > maxDeck) {
+        // Roll back the item we just created and warn
+        await gambitItem.delete();
+        ui.notifications.warn(`Your deck can hold ${maxDeck} Gambits right now.`);
+        return [];
       }
 
-      if (!currentDeck.includes(gambitItem.id)) {
-        await this.actor.update({
-          "system.gambits.deck": [...currentDeck, gambitItem.id]
-        });
-      }
-
+      await this.actor.update({ "system.gambits.deck": nextDeck });
       return [];
     }
+
 
     /* Learned Move drop-on-actor
     ---------------------------------------------------------------------*/
