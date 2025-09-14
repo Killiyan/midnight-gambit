@@ -789,11 +789,16 @@ button:disabled {
   }
 }
 
+p {
+  @include roboto();
+  line-height: 1.5;
+}
+
 ::-webkit-scrollbar-thumb,
 ::-webkit-scrollbar {
-  background: $mg-blue-1 !important;
+  background: $mg-blue-4 !important;
   border-color: $mg-blue-2 !important;
-  scrollbar-color: $mg-blue-1 !important;
+  scrollbar-color: $mg-blue-1 $mg-blue-4 !important;
 }
 
 :root {

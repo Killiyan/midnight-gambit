@@ -1704,15 +1704,10 @@ export class MidnightGambitActorSheet extends ActorSheet {
         }
         .mg-gz-backdrop.mg-gz-show { opacity: 1; }
         .mg-gz-card {
-          width: min(720px, 90vw); max-height: min(80vh, 900px); overflow: auto;
-          background: var(--mg-panel, #111); color: var(--mg-ivory, #f5f5f2);
-          border: 1px solid rgba(255,255,255,0.12); border-radius: 14px;
           box-shadow: 0 10px 40px rgba(0,0,0,0.6); transform: scale(0.92);
           transition: transform 160ms ease, opacity 160ms ease; opacity: 0;
         }
         .mg-gz-card.mg-gz-in { transform: scale(1); opacity: 1; }
-        .mg-gz-header { display: flex; align-items: center; justify-content: space-between;
-          padding: 14px 16px; border-bottom: 1px solid rgba(255,255,255,0.08); }
         .mg-gz-title { font-size: 1.25rem; font-weight: 700; margin: 0; display: flex; gap: 8px; align-items: center; }
         .mg-gz-body { padding: 16px; line-height: 1.5; }
         .mg-gz-close { background: transparent; border: none; color: inherit; cursor: pointer; font-size: 1.1rem; }
@@ -1728,7 +1723,7 @@ export class MidnightGambitActorSheet extends ActorSheet {
     overlay.innerHTML = `
       <div class="mg-gz-card" role="dialog" aria-label="${name}">
         <div class="mg-gz-header">
-          <h3 class="mg-gz-title"><i class="fa-solid fa-cards"></i> ${name}</h3>
+          <h3 class="gambit-title">${name}</h3>
           <button class="mg-gz-close" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
         </div>
         <div class="mg-gz-body">${description || "<em>No description.</em>"}</div>
