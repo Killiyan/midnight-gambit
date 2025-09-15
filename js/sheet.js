@@ -1669,13 +1669,19 @@ export class MidnightGambitActorSheet extends ActorSheet {
           const name = item?.name ?? el.dataset.name ?? "Gambit";
           const description = item?.system?.description ?? el.dataset.description ?? "";
 
-          // NEW: animate the "pull from hand" first
-          await this._mgPullFromHand(el);
+          // 1) Dim the actual hand card (smooth transition)
+          this._mgMarkHandCardActive?.(el, true);
 
-          // Then open the center zoom (your existing modal)
+          // 2) Pull animation to center — wait for it to finish
+          try { await this._mgPullFromHand?.(el); } catch (_) {}
+
+          // 3) Open zoom; when closed, restore the real card's opacity
           this._mgOpenGambitZoom(
             { id: itemId, source, name, description },
-            { sourceEl: el }
+            {
+              sourceEl: el,
+              onClose: () => this._mgMarkHandCardActive?.(el, false)
+            }
           );
         });
     }
@@ -1685,39 +1691,40 @@ export class MidnightGambitActorSheet extends ActorSheet {
 
   /**
    * Centered overlay for a Gambit: shows name + description.
-   * Accepts either an Item-like object ({ name, system.description }) or a plain { name, description }.
+   * Uses your exact HTML structure and styling. No CSS overrides beyond overlay/animation.
+   * Accepts { id, source, name, description } and optional { sourceEl, onClose }.
    */
-  _mgOpenGambitZoom(data, { sourceEl = null } = {}) {
-    const itemId = data?.id ?? null;
+  _mgOpenGambitZoom(data, { sourceEl = null, onClose = null } = {}) {
+    const itemId     = data?.id ?? null;
     const fromSource = data?.source ?? "drawn";
-    const name = data?.name ?? "Gambit";
-    const description = (data?.description ?? "").trim();
+    const rawName    = data?.name ?? "Gambit";
+    const name       = String(rawName).replace(/[&<>"]/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[s]));
+    const description = (data?.description ?? "").trim(); // allow rich HTML from item/system
 
-    // One-time CSS
+    // Inject tiny, namespaced CSS just for the overlay + enter animation
     if (!document.getElementById("mg-gz-styles")) {
       const style = document.createElement("style");
       style.id = "mg-gz-styles";
       style.textContent = `
         .mg-gz-backdrop {
           position: fixed; inset: 0; display: grid; place-items: center;
-          background: rgba(0,0,0,0.55); z-index: 10000; opacity: 0; transition: opacity 160ms ease;
+          background: rgba(0,0,0,0.55); z-index: 10000;
+          opacity: 0; transition: opacity 160ms ease;
         }
         .mg-gz-backdrop.mg-gz-show { opacity: 1; }
+        /* Only animation affordances on the container so your own card CSS stays intact */
         .mg-gz-card {
-          box-shadow: 0 10px 40px rgba(0,0,0,0.6); transform: scale(0.92);
-          transition: transform 160ms ease, opacity 160ms ease; opacity: 0;
+          box-shadow: 0 10px 40px rgba(0,0,0,0.6);
+          transform: scale(0.92);
+          opacity: 0;
+          transition: transform 160ms ease, opacity 160ms ease;
         }
         .mg-gz-card.mg-gz-in { transform: scale(1); opacity: 1; }
-        .mg-gz-title { font-size: 1.25rem; font-weight: 700; margin: 0; display: flex; gap: 8px; align-items: center; }
-        .mg-gz-body { padding: 16px; line-height: 1.5; }
-        .mg-gz-close { background: transparent; border: none; color: inherit; cursor: pointer; font-size: 1.1rem; }
-        .mg-gz-close:focus { outline: 2px solid rgba(255,255,255,0.25); outline-offset: 2px; }
-        .mg-gz-body p { margin: 0 0 0.75rem 0; }
       `;
       document.head.appendChild(style);
     }
 
-    // Backdrop + card
+    // Build the overlay using YOUR structure
     const overlay = document.createElement("div");
     overlay.className = "mg-gz-backdrop";
     overlay.innerHTML = `
@@ -1733,19 +1740,26 @@ export class MidnightGambitActorSheet extends ActorSheet {
       </div>
     `;
 
-    const card = overlay.querySelector(".mg-gz-card");
-    const remove = () => overlay.remove();
+    const cardEl = overlay.querySelector(".mg-gz-card");
+
+    // Unified close that also triggers optional onClose callback
+    const finishClose = () => { try { if (typeof onClose === "function") onClose(); } catch(_) {} };
+    const close = () => {
+      window.removeEventListener("keydown", onKey);
+      overlay.classList.remove("mg-gz-show");
+      cardEl.classList.remove("mg-gz-in");
+      setTimeout(() => { overlay.remove(); finishClose(); }, 160);
+    };
+    const onKey = (ev) => { if (ev.key === "Escape") close(); };
 
     // Close interactions
-    overlay.addEventListener("click", (ev) => { if (ev.target === overlay) remove(); });
-    overlay.querySelectorAll(".mg-gz-close").forEach(btn => btn.addEventListener("click", remove));
-    const onKey = (ev) => { if (ev.key === "Escape") { remove(); window.removeEventListener("keydown", onKey); } };
+    overlay.addEventListener("click", (ev) => { if (ev.target === overlay) close(); });
+    overlay.querySelectorAll(".mg-gz-close").forEach(btn => btn.addEventListener("click", close));
     window.addEventListener("keydown", onKey);
 
-    // Play → post to chat + move to Discard
+    // Play → post to chat → move to Discard → close
     overlay.querySelector(".mg-gz-play")?.addEventListener("click", async (ev) => {
       ev.preventDefault();
-
       try {
         // 1) Post to chat
         const chatContent = `
@@ -1760,16 +1774,14 @@ export class MidnightGambitActorSheet extends ActorSheet {
           content: chatContent
         });
 
-        // 2) Move from its source list → discard
+        // 2) Move from its source list → discard (if we know which)
         if (itemId) {
           const g = this.actor.system.gambits ?? {};
           const srcList = Array.isArray(g[fromSource]) ? [...g[fromSource]] : [];
           const discard = Array.isArray(g.discard) ? [...g.discard] : [];
-
           const idx = srcList.indexOf(itemId);
           if (idx !== -1) srcList.splice(idx, 1);
           if (!discard.includes(itemId)) discard.push(itemId);
-
           await this.actor.update({
             [`system.gambits.${fromSource}`]: srcList,
             "system.gambits.discard": discard
@@ -1779,11 +1791,11 @@ export class MidnightGambitActorSheet extends ActorSheet {
         console.error("MG | Play Gambit failed:", err);
         ui.notifications?.error("Failed to play Gambit. See console.");
       } finally {
-        remove();
+        close();
       }
     });
 
-    // Mount + staged entrance (zoom from source)
+    // Mount + staged entrance (transform-origin biased toward the clicked card)
     document.body.appendChild(overlay);
     requestAnimationFrame(() => {
       overlay.classList.add("mg-gz-show");
@@ -1792,10 +1804,10 @@ export class MidnightGambitActorSheet extends ActorSheet {
           const r = sourceEl.getBoundingClientRect();
           const cx = (r.left + r.right) / 2;
           const cy = (r.top + r.bottom) / 2;
-          card.style.transformOrigin = `${(cx / innerWidth) * 100}% ${(cy / innerHeight) * 100}%`;
-        } catch (_) {}
+          cardEl.style.transformOrigin = `${(cx / innerWidth) * 100}% ${(cy / innerHeight) * 100}%`;
+        } catch(_) {}
       }
-      card.classList.add("mg-gz-in");
+      cardEl.classList.add("mg-gz-in");
     });
 
     return overlay;
@@ -1863,6 +1875,12 @@ export class MidnightGambitActorSheet extends ActorSheet {
     shell.style.opacity = "0";
     await new Promise((res) => setTimeout(res, 120));
     shell.remove();
+  }
+
+  _mgMarkHandCardActive(el, isActive) {
+    if (!el) return;
+    el.style.transition = "opacity 160ms ease";
+    el.style.opacity = isActive ? "0.15" : "1";
   }
 
   // --- Read-only mode for non-owners: block clicks, rolls, inputs, drags ---

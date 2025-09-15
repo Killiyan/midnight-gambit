@@ -320,11 +320,46 @@ button:disabled {
     .dice-formula,
     .dice-total {
       @include mg-border();
+      background: rgba(0,0,0, .1);
       margin: 0.5rem 0;
       padding: 1.125rem;
       border-radius: .5rem;
       border-color: $mg-blue-main-2;
       box-shadow: none;
+
+      &.risk-result {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        font-size: .75rem;
+        opacity: .8;
+
+        strong {
+          font-size: 1.25rem;
+          font-weight: 700;
+          opacity: 1;
+          color: $mg-blue-1;
+        }
+      }
+    }
+
+    .mg-risk-kept {
+      p {
+        display: flex;
+        flex-direction: column;
+        gap: .5rem;
+        align-items: center;
+        align-content: center;
+        font-size: .75rem;
+        opacity: .8;
+        
+        strong {
+          font-size: 1.25rem;
+          font-weight: 700;
+          opacity: 1;
+        }
+      }
     }
 
     .risk-result strong {

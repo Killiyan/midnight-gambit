@@ -1822,7 +1822,7 @@ Hooks.on("renderChatMessage", (message, html) => {
   const modStr = skillMod
     ? (skillMod > 0 ? ` + ${skillMod}` : ` − ${Math.abs(skillMod)}`)
     : "";
-  const keptSmall = `<div class="mg-risk-kept"><small>Kept: [${newDice[0]}, ${newDice[1]}]${modStr} = <strong>${newTotal}</strong></small></div>`;
+  const keptSmall = `<div class="mg-risk-kept dice-total"><p>Kept: [${newDice[0]}, ${newDice[1]}]${modStr} = <strong>${newTotal}</strong></p></div>`;
 
   // --- Build "Risk Again" control (HTML, not boolean!) ---
   const againBtn = canAgain
@@ -1843,7 +1843,7 @@ Hooks.on("renderChatMessage", (message, html) => {
         <div class="mg-risk-result-outcome"><label>Risk Result</label> ${resultText}</div>
       </div>
       ${keptSmall}
-      <p class="dice-total risk-result">Replaced lower die <strong>${L}</strong> → <strong>${R}</strong>.</p>
+      <p class="dice-total risk-result">Replaced lower die <strong>${L} → ${R}</strong></p>
       ${R === 1 ? `<p class="text-danger"><strong>Strain:</strong> choose a track and click to add 1.</p>` : ""}
       <div class="mg-risk-controls mg-risk-controls-again">
         ${againBtn}
