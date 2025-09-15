@@ -9,6 +9,15 @@ export async function evaluateRoll({
 	const displayFormula = skillMod !== 0 ? `${formula} + (${skillMod})` : formula;
 	const actualFormula  = `${formula} ${skillMod >= 0 ? "+" : "-"} ${Math.abs(skillMod)}`;
 
+	// Compute whether this actor can Risk at all (used to hide the button)
+	let canRisk = false;
+	if (enableRisk && actor) {
+		const used  = Number(actor.system?.riskUsed ?? 0);
+		const total = Number(actor.system?.riskDice ?? 0);
+		canRisk = used < total;
+	}
+
+
 	const roll = new Roll(actualFormula, rollData);
 	await roll.evaluate({ async: true });
 
@@ -31,7 +40,7 @@ export async function evaluateRoll({
 	}
 
 	// Risk controls (basic version; one-use on this message)
-	const riskControls = (enableRisk && actor)
+	const riskControls = (enableRisk && actor && canRisk)
 	? `
 		<div class="mg-risk-controls">
 		<button type="button"
