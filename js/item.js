@@ -2,8 +2,6 @@ export class MidnightGambitItem extends Item {
   prepareDerivedData() {
     super.prepareDerivedData();
 
-    const system = this.system;
-
     // Always normalize + prune tags against active library and local custom map
     const sys = this.system;
 
@@ -39,7 +37,6 @@ export class MidnightGambitItem extends Item {
           const q = Number(system.qty);
           system.qty = Number.isFinite(q) ? q : 1;
 
-          if (!Array.isArray(system.tags)) system.tags = [];
           if (typeof system.notes !== "string") system.notes = "";
           if (typeof system.description !== "string") system.description = ""; // ← ensure textarea has a value
           break;

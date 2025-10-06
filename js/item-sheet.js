@@ -34,27 +34,6 @@ export class MidnightGambitItemSheet extends ItemSheet {
 		context.system = this.item.system ?? {};
 		context.itemType = this.item.type;
 
-			// --- One-time prune of orphan tag ids on this item (prevents "ghost" chip on source sheet) ---
-			{
-				const isAsset  = this.item.type === "asset";
-				const listKey  = isAsset ? "ASSET_TAGS" : "ITEM_TAGS";
-				const lc = (s) => String(s ?? "").toLowerCase();
-
-				const libIds   = new Set((CONFIG.MidnightGambit?.[listKey] || []).map(t => lc(t.id)));
-				const localMap = context.system.customTags || {};
-				const localIds = new Set(Object.keys(localMap).map(lc));
-				const valid    = new Set([...libIds, ...localIds]);
-
-				const current  = Array.from(context.system.tags || []);
-				const next     = current.map(lc).filter(id => valid.has(id));
-
-				if (current.length !== next.length) {
-					await this.item.update({ "system.tags": next });
-					// reflect immediately in this render pass
-					context.system.tags = next;
-				}
-			}
-
 			// Initialize remainingCapacity for armor once
 			if (context.itemType === "armor") {
 			context.system.remainingCapacity ??= {
@@ -128,11 +107,6 @@ export class MidnightGambitItemSheet extends ItemSheet {
 		context.customTags = localEntries.map(([id]) => id);
 		context.tags       = [...flaggedGlobal, ...localOnly];
 		context.tagsMap    = Object.fromEntries(context.tags.map(tag => [tag.id, tag]));
-
-
-
-		console.log("✅ Item sheet getData fired");
-		console.log("Tags in context:", context.tags);
 
 		return context;
 	}
@@ -222,46 +196,6 @@ export class MidnightGambitItemSheet extends ItemSheet {
 		this.render(false);
 		});
 
-		// Remove tag from this item only (do NOT touch global registry here)
-		html.find(".remove-tag").on("click", async (event) => {
-		event.preventDefault();
-		const tagId = event.currentTarget.dataset.tagId;
-		if (!tagId) return;
-
-		const item = this.item;
-		const updatedTags = (item.system.tags || []).filter(t => t !== tagId);
-		const updatedCustom = { ...(item.system.customTags || {}) };
-		delete updatedCustom[tagId];
-
-		await item.update({
-			"system.tags": updatedTags,
-			"system.customTags": updatedCustom
-		});
-
-		console.log("Removed tag from item:", tagId, "item:", item.name);
-		this.render();
-		});
-
-		// Edit tag description
-		html.find(".editable-tag-label").on("click", async (event) => {
-		const tagId = event.currentTarget.dataset.tagId;
-		const listKey = this.item.type === "asset" ? "ASSET_TAGS" : "ITEM_TAGS";
-		const tagIndex = (CONFIG.MidnightGambit[listKey] || []).findIndex(t => t.id === tagId);
-		if (tagIndex === -1) return;
-
-		const currentDesc = CONFIG.MidnightGambit[listKey][tagIndex].description ?? "";
-		const newDesc = await Dialog.prompt({
-			title: `Edit Tag Description (${CONFIG.MidnightGambit[listKey][tagIndex].label})`,
-			content: `<textarea name="desc" rows="4" style="width:100%;">${currentDesc}</textarea>`,
-			callback: html => html.find("textarea[name='desc']").val(),
-			rejectClose: false
-		});
-		if (newDesc !== null) {
-			CONFIG.MidnightGambit[listKey][tagIndex].description = newDesc;
-			this.render();
-		}
-		});
-
 		// Delete custom tag globally (library-aware: Assets vs Gear) + hard purge
 		html.off("click.mgDel", ".delete-custom-tag").on("click.mgDel", ".delete-custom-tag", async (event) => {
 		event.preventDefault();
@@ -340,29 +274,6 @@ export class MidnightGambitItemSheet extends ItemSheet {
 			});
 		}
 
-		// Coherence pass (lower-cased): keep only ids that still exist in the registry or in item's custom map
-		{
-		const lc = (s) => String(s ?? "").toLowerCase();
-
-		const libIds   = new Set((CONFIG.MidnightGambit?.[listKey] || []).map(t => lc(t.id)));
-		const localMap = this.item.system?.customTags || {};
-		const localIds = new Set(Object.keys(localMap).map(lc));
-
-		const valid = new Set([...libIds, ...localIds]); // union of current library and this item's custom map
-
-		const current = Array.from(this.item.system?.tags || []);
-		const next    = current
-			.map(lc)                     // normalize
-			.filter(id => id !== lc(tagId)) // remove the one we just deleted globally
-			.filter(id => valid.has(id));   // drop any other orphans
-
-		// If anything changed, write it back
-		if (current.length !== next.length) {
-			await this.item.update({ "system.tags": next });
-		}
-		}
-
-
 		// Helper: only touch relevant item family
 		const appliesTo = (doc) => isAsset ? (doc.type === "asset") : (doc.type !== "asset");
 
@@ -373,9 +284,6 @@ export class MidnightGambitItemSheet extends ItemSheet {
 			const tags = item.system?.tags || [];
 			const custom = item.system?.customTags || {};
 			if (!tags.includes(tagId) && !Object.prototype.hasOwnProperty.call(custom, tagId)) continue;
-
-			const updatedCustom = { ...custom };
-			delete updatedCustom[tagId];
 
 			const lc = (s) => String(s ?? "").toLowerCase();
 			const prunedTags = tags.filter(t => lc(t) !== lc(tagId));
@@ -403,9 +311,6 @@ export class MidnightGambitItemSheet extends ItemSheet {
 				const custom = item.system?.customTags || {};
 				if (!tags.includes(tagId) && !Object.prototype.hasOwnProperty.call(custom, tagId)) continue;
 
-				const updatedCustom = { ...custom };
-				delete updatedCustom[tagId];
-
 				const lc = (s) => String(s ?? "").toLowerCase();
 				const prunedTags = tags.filter(t => lc(t) !== lc(tagId));
 
@@ -421,7 +326,7 @@ export class MidnightGambitItemSheet extends ItemSheet {
 				...deletions
 				});
 			}
-			
+
 			if (updates.length) {
 			await actor.updateEmbeddedDocuments("Item", updates);
 			actorItemsUpdated += updates.length;
@@ -436,14 +341,6 @@ export class MidnightGambitItemSheet extends ItemSheet {
 			this.render(false);
 			this._rerenderOpenTagSheets(isAsset);
 		});
-
-		// Keep Asset tags CSV in sync while typing
-		if (this.item?.type === "asset") {
-			const $root = html instanceof jQuery ? html : $(html);
-			$root.find(".tags-input").on("input", (ev) => {
-				$root.find('input[name="system.tagsCsv"]').val(ev.currentTarget.value || "");
-			});
-		}
 	}
 
 	/** Re-render all open item sheets of the relevant family so pills update without a full refresh */

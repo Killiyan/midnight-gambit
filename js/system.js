@@ -85,7 +85,7 @@ Hooks.once("init", async () => {
     CONFIG.MidnightGambit.ASSET_TAGS = [...ASSET_TAGS, ...assetCustomTags];
     CONFIG.MidnightGambit.LEVELS     = LEVEL_TABLE;
 
-    console.log("✅ ITEM_TAGS, ASSET_TAGS & LEVEL_TABLE loaded into CONFIG at init");
+
   } catch (e) {
     console.error("❌ Failed to load config data in init:", e);
   }

@@ -30,14 +30,18 @@ export const ITEM_TAGS = [
 
 // Asset-only tag library (separate from gear)
 export const ASSET_TAGS = [
-  { id: "contact",   label: "Contact",   description: "Reliable NPC resource." },
-  { id: "license",   label: "License",   description: "Permit, charter, deed." },
-  { id: "vehicle",   label: "Vehicle",   description: "Transport the crew controls." },
-  { id: "stash",     label: "Stash",     description: "Hidden cache or vault." },
-  { id: "leverage",  label: "Leverage",  description: "Debt, favor, blackmail." },
-  { id: "map",       label: "Map",       description: "Plans or layout intel." },
-  { id: "rumor",     label: "Rumor",     description: "Lead or clue; needs follow-up." },
-  { id: "safehouse", label: "Safehouse", description: "Secure spot; limited capacity." }
+  { id: "gear-and-equipment",   label: "Gear & Equipment",   description: "Specialized tools, weapons, gadgets, magic items, and disguises." },
+  { id: "vehicles",   label: "Vehicles & Mobility",   description: "Rides, mechs, gliders, animals." },
+  { id: "ally",   label: "Allies & Favors",   description: "Temporary (or permanent) help from NPCs or Organizations." },
+  { id: "territory",   label: "Territory & Infrastructure",   description: "Informal control of zones or access." },
+  { id: "limited",   label: "Limited",   description: "Asset contains a limited amount of uses." },
+  { id: "conditions",   label: "Conditions",   description: "Asset can only be used under certain conditions." },
+  { id: "special",   label: "Special Tools",   description: "One offs or items that cannot be easily replaced - usually granted as part of the story." },
+  { id: "durable",   label: "Durable",   description: "Survives a job unless destroyed" },
+  { id: "specialized",   label: "Specialized",   description: "Requires a particular skill or training to operate." },
+  { id: "expendable",   label: "Expendable",   description: "Degrades with each use." },
+  { id: "notorious",   label: "Notorious",   description: "Known and recognized - adds heat if used openly." },
+  { id: "cursed",   label: "Cursed",   description: "Use comes with a cost, consequence, or dark hitch." },
 ];
 
 /* Level Up Table
