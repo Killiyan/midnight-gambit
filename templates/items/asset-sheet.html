@@ -1,0 +1,56 @@
+<form class="asset-sheet" autocomplete="off">
+  <header class="sheet-header flexrow">
+    <img class="profile" src="{{item.img}}" data-edit="img" title="{{item.name}}" />
+    <h1 class="charname"><input name="name" type="text" value="{{item.name}}" /></h1>
+  </header>
+
+  <section class="sheet-body">
+    <div class="form-group stacked">
+      <label>Description</label>
+      <textarea name="system.description" rows="6">{{system.description}}</textarea>
+    </div>
+
+    <div class="wrapper">
+      <label>Tags</label>
+
+      <div class="tag-selector">
+        {{#each tags}}
+          <div class="tag-container">
+            <button
+              type="button"
+              class="tag-pill {{#if (includes ../system.tags this.id)}}selected{{/if}}"
+              data-tag-id="{{this.id}}"
+              title="{{this.description}}"
+            >
+              {{this.label}}
+            </button>
+
+            {{!-- Only show global delete for library custom tags --}}
+            {{#if (and this.isCustom this.isGlobal)}}
+              <button type="button" class="delete-custom-tag" data-tag-id="{{this.id}}" title="Delete custom tag globally">
+                <i class="fa-solid fa-delete-left"></i>
+              </button>
+            {{/if}}
+          </div>
+        {{/each}}
+      </div>
+    </div>
+
+    <!-- Optional: show chosen tags like the gear sheet -->
+    <div class="wrapper tag-wrapper">
+      {{#each system.tags}}
+        {{#with (findTag ../tags this) as |tag|}}
+          <span class="item-tag" data-tooltip="{{tag.description}}">{{tag.label}}</span>
+        {{else}}
+          <span class="item-tag">{{this}}</span>
+        {{/with}}
+      {{/each}}
+
+      <button class="add-custom-tag">
+        <i class="fa-solid fa-plus"></i> Add Custom Tag
+      </button>
+    </div>
+
+
+  </section>
+</form>

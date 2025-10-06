@@ -97,6 +97,31 @@ export class MidnightGambitActor extends Actor {
       data.casterType = gSys.casterType ?? null;
     }
 
+    // === Crew defaults (non-destructive) ===
+    if (this.type === "crew") {
+      const s = this.system;
+
+      // Currency parity with character Lux
+      s.lux = Number.isFinite(Number(s.lux)) ? Number(s.lux) : 0;
+
+      // Flavor/Bio
+      s.bio ??= {};
+      s.bio.lookAndFeel ??= "";
+      s.bio.weakness ??= "";
+      s.bio.location ??= "";
+      s.bio.features ??= "";
+      s.bio.tags ??= []; // array of strings for now
+
+      // Gambits deck state (deck/hand/discard)
+      s.gambits ??= {};
+      s.gambits.deck ??= [];      // array of embedded Item IDs (type: gambit)
+      s.gambits.drawn ??= [];
+      s.gambits.discard ??= [];
+      s.gambits.handSize ??= 3;   // tweak later if you like
+      s.gambits.deckSize ??= 10;  // optional cap, not enforced yet
+
+      // Nothing special needed for Assets; they are embedded Items of type "asset"
+    }
 
     // === Clamp attributes ===
     for (const key of Object.keys(base)) {

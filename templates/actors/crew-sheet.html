@@ -3,6 +3,9 @@
 	<nav class="sheet-tabs floating tabs">
 		<a class="item" data-tab="party"><i class="fa-solid fa-users"></i> <span>Party</span></a>
 		<a class="item" data-tab="initiative"><i class="fa-solid fa-list-ol"></i> <span>Initiative</span></a>
+		<a class="item" data-tab="assets"><i class="fa-solid fa-vault"></i> <span>Assets</span></a>
+		<a class="item" data-tab="gambits"><i class="fa-solid fa-cards-blank"></i><span>Gambits</span></a>
+		<a class="item" data-tab="bio"><i class="fa-solid fa-id-card-clip"></i><span>Bio</span></a>
 		<a class="item" data-tab="settings"><i class="fa-solid fa-gear"></i> <span>Settings</span></a>
 	</nav>
 
@@ -131,6 +134,155 @@
 					</div>
 				</article>
 				{{/each}}
+			</div>
+		</div>
+
+		<!-- ASSETS TAB -->
+		<div class="tab" data-tab="assets">
+			<div class="mg-crew-assets">
+				<div class="mg-crew-assets-head">
+				<div class="lux">
+					<label>Lux</label>
+					<div class="lux-edit">
+					<button class="lux-dec" {{#unless isEditable}}disabled{{/unless}}>−</button>
+					<input class="lux-input" type="number" value="{{system.lux}}" {{#unless isEditable}}disabled{{/unless}}>
+					<button class="lux-inc" {{#unless isEditable}}disabled{{/unless}}>+</button>
+					</div>
+				</div>
+
+				<div class="asset-search">
+					<i class="fa-light fa-magnifying-glass"></i>
+					<input class="asset-query" type="text" placeholder="Search assets, tags, notes..." value="">
+				</div>
+				</div>
+
+				<div class="mg-crew-assets-drop hint">Drag Asset items here to add them to the Crew.</div>
+
+				<table class="mg-crew-assets-table">
+				<thead>
+					<tr><th>Name</th><th>Qty</th><th>Tags</th><th>Notes</th><th></th></tr>
+				</thead>
+				<tbody>
+					{{#if assets.length}}
+					{{#each assets}}
+						<tr data-item-id="{{this.id}}">
+						<td class="name">{{this.name}}</td>
+						<td class="qty">
+							<input type="number" min="0" value="{{this.system.qty}}" {{#unless @root.isEditable}}disabled{{/unless}}>
+						</td>
+						<td class="tags">{{join this.system.tags ", "}}</td>
+						<td class="notes">{{this.system.notes}}</td>
+						<td class="actions">
+							<button class="asset-edit" {{#unless @root.isEditable}}disabled{{/unless}}><i class="fa-light fa-pen-to-square"></i></button>
+							<button class="asset-delete" {{#unless @root.isEditable}}disabled{{/unless}}><i class="fa-light fa-trash"></i></button>
+						</td>
+						</tr>
+					{{/each}}
+					{{else}}
+					<tr class="empty"><td colspan="5"><em>No assets yet.</em></td></tr>
+					{{/if}}
+				</tbody>
+				</table>
+			</div>
+		</div>
+
+		<!-- GAMBITS TAB -->
+		<div class="tab" data-tab="gambits">
+			<div class="mg-crew-gambits">
+				<div class="mg-crew-gb-controls">
+				<div class="left">
+					<button class="gb-draw" {{#unless isEditable}}disabled{{/unless}}><i class="fa-light fa-hand-holding"></i> Draw</button>
+					<span class="hint">Hand {{gb.drawn.length}}/{{gb.handSize}}</span>
+				</div>
+				<div class="right">
+					<button class="gb-shuffle" {{#unless isEditable}}disabled{{/unless}}><i class="fa-light fa-shuffle"></i> Shuffle</button>
+					<button class="gb-recall"  {{#unless isEditable}}disabled{{/unless}}><i class="fa-light fa-rotate-left"></i> Recall Discard</button>
+				</div>
+				</div>
+
+				<div class="mg-crew-gb-drop hint">Drag Gambit items here to add to the Deck.</div>
+
+				<div class="mg-crew-gb-zones">
+				<div class="zone deck">
+					<h4>Deck ({{gb.deck.length}})</h4>
+					<ul class="deck-list">
+					{{#if gb.deck.length}}
+						{{#each gb.deck}}
+						<li class="card" data-id="{{this.id}}">{{this.name}}</li>
+						{{/each}}
+					{{else}} <li class="empty"><em>Empty</em></li> {{/if}}
+					</ul>
+				</div>
+
+				<div class="zone hand">
+					<h4>Hand ({{gb.drawn.length}}/{{gb.handSize}})</h4>
+					<ul class="hand-list">
+					{{#if gb.drawn.length}}
+						{{#each gb.drawn}}
+						<li class="card drawn" data-id="{{this.id}}">
+							<span class="title">{{this.name}}</span>
+							<div class="actions">
+							<button class="gb-play" data-id="{{this.id}}" {{#unless @root.isEditable}}disabled{{/unless}}>
+								<i class="fa-light fa-sparkles"></i> Play
+							</button>
+							<button class="gb-discard" data-id="{{this.id}}" {{#unless @root.isEditable}}disabled{{/unless}}>
+								<i class="fa-light fa-box-archive"></i>
+							</button>
+							</div>
+						</li>
+						{{/each}}
+					{{else}} <li class="empty"><em>No cards in hand</em></li> {{/if}}
+					</ul>
+				</div>
+
+				<div class="zone discard">
+					<h4>Discard ({{gb.discard.length}})</h4>
+					<ul class="discard-list">
+					{{#if gb.discard.length}}
+						{{#each gb.discard}}
+						<li class="card" data-id="{{this.id}}">{{this.name}}</li>
+						{{/each}}
+					{{else}} <li class="empty"><em>Empty</em></li> {{/if}}
+					</ul>
+				</div>
+				</div>
+			</div>
+		</div>
+
+		<!-- BIO TAB -->
+		<div class="tab" data-tab="bio">
+			<div class="mg-crew-bio">
+				<div class="bio-grid">
+				<div class="field">
+					<label>Look &amp; Feel</label>
+					<textarea class="bio-look">{{system.bio.lookAndFeel}}</textarea>
+				</div>
+				<div class="field">
+					<label>Weakness</label>
+					<textarea class="bio-weak">{{system.bio.weakness}}</textarea>
+				</div>
+				<div class="field">
+					<label>Location</label>
+					<input class="bio-location" type="text" value="{{system.bio.location}}">
+				</div>
+				<div class="field">
+					<label>Features</label>
+					<textarea class="bio-features">{{system.bio.features}}</textarea>
+				</div>
+
+				<div class="field">
+					<label>Tags (placeholder)</label>
+					<div class="tags-row">
+					<input class="bio-add-tag" type="text" placeholder="Type a tag and press Enter">
+					<div class="tag-list">
+						{{#each system.bio.tags as |t idx|}}
+						<span class="tag" data-idx="{{idx}}">{{t}} <i class="fa-light fa-xmark"></i></span>
+						{{/each}}
+					</div>
+					</div>
+					<small>We’ll wire effectful tags later.</small>
+				</div>
+				</div>
 			</div>
 		</div>
 

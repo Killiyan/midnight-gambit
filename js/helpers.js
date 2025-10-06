@@ -78,3 +78,19 @@ Handlebars.registerHelper("findTag", function (tags, id) {
   return tag || { id, label: id, custom: true }; // fallback for unknown tags
 });
 
+// Join array helper for templates: {{join someArray ", "}}
+if (typeof Handlebars !== "undefined" && !Handlebars.helpers?.join) {
+  Handlebars.registerHelper("join", function(arr, sep) {
+    if (!Array.isArray(arr)) return "";
+    return arr.join(typeof sep === "string" ? sep : ", ");
+  });
+}
+
+if (!Handlebars.helpers.includes) {
+  Handlebars.registerHelper("includes", (arr, val) => Array.isArray(arr) && arr.includes(val));
+}
+
+if (!Handlebars.helpers.and) {
+  Handlebars.registerHelper("and", (a, b) => !!a && !!b);
+}
+

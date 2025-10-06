@@ -94,6 +94,28 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 		// Splash images across the top (Party portraits)
 		data.splashImages = members.map(m => m.img).filter(Boolean);
 
+		const s = this.actor.system ?? {};
+
+		// Defaults (non-destructive)
+		s.lux = Number.isFinite(Number(s.lux)) ? Number(s.lux) : 0;
+		s.bio ??= { lookAndFeel: "", weakness: "", location: "", features: "", tags: [] };
+		s.gambits ??= { deck: [], drawn: [], discard: [], handSize: 3, deckSize: 10 };
+		for (const k of ["deck","drawn","discard"]) s.gambits[k] ??= [];
+
+		// Build template-friendly arrays
+		const mapItem = id => this.actor.items.get(id);
+		const gb = {
+		deck:    (s.gambits.deck    || []).map(mapItem).filter(Boolean),
+		drawn:   (s.gambits.drawn   || []).map(mapItem).filter(Boolean),
+		discard: (s.gambits.discard || []).map(mapItem).filter(Boolean),
+		handSize: Number(s.gambits.handSize) || 3
+		};
+
+		// Expose to the template
+		data.assets = this.actor.items.filter(i => i.type === "asset");
+		data.gb = gb;
+		data.isEditable = this.isEditable;
+
 		return data;
 
 	}
@@ -514,6 +536,11 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 
 		// Initiative drag-reorder (full card draggable)
 		this._bindInitiativeDrag($root);
+
+		// --- Render new tabs (Assets / Gambits / Bio)
+		this._bindAssetsTab(html);
+		this._bindGambitsTab(html);
+		this._bindBioTab(html);
 	}
 
 	/**
@@ -638,4 +665,200 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 		await finalize();
 	});
 	}
+
+    /* Assets tab bindings
+    ----------------------------------------------------------------------*/  
+	_bindAssetsTab(html) {
+	const root = html.find(".mg-crew-assets");
+	if (!root.length) return;
+
+	// Search (client-only filter; re-render to apply)
+	root.find(".asset-query").on("input", (ev) => {
+		const q = (ev.currentTarget.value || "").toLowerCase();
+		// simple filter by forcing a re-render with a flag stash on the sheet instance
+		this._assetQuery = q;
+		// If you want live filter without data mutation, you can hide/show rows here instead
+		this.render(false);
+	});
+
+	if (!this.isEditable) return;
+
+	// Lux controls
+	root.find(".lux-inc").on("click", () =>
+		this.actor.update({ "system.lux": (this.actor.system.lux || 0) + 1 })
+	);
+	root.find(".lux-dec").on("click", () =>
+		this.actor.update({ "system.lux": Math.max(0, (this.actor.system.lux || 0) - 1) })
+	);
+	root.find(".lux-input")
+		.on("keydown", (ev) => {
+		if (ev.key !== "Enter") return;
+		const v = Number(ev.currentTarget.value);
+		this.actor.update({ "system.lux": Number.isFinite(v) ? v : 0 });
+		})
+		.on("change", (ev) => {
+		const v = Number(ev.currentTarget.value);
+		this.actor.update({ "system.lux": Number.isFinite(v) ? v : 0 });
+		});
+
+	// Edit/Delete Asset
+	root.on("click", ".asset-edit", (ev) => {
+		const id = ev.currentTarget.closest("tr")?.dataset.itemId;
+		this.actor.items.get(id)?.sheet?.render(true);
+	});
+	root.on("click", ".asset-delete", async (ev) => {
+		const id = ev.currentTarget.closest("tr")?.dataset.itemId;
+		if (id) await this.actor.deleteEmbeddedDocuments("Item", [id]);
+	});
+
+	// Qty change
+	root.on("change", "tbody .qty input", async (ev) => {
+		const id = ev.currentTarget.closest("tr")?.dataset.itemId;
+		const v = Number(ev.currentTarget.value);
+		const item = this.actor.items.get(id);
+		if (item) await item.update({ "system.qty": Number.isFinite(v) ? v : 1 });
+	});
+
+	// Drag/drop (accept only Item type "asset")
+	const dropZone = root.find(".mg-crew-assets-drop");
+	dropZone.on("dragover", (ev) => ev.preventDefault());
+	dropZone.on("drop", async (ev) => {
+		ev.preventDefault();
+		const txt = ev.originalEvent?.dataTransfer?.getData("text/plain");
+		if (!txt) return;
+		let data; try { data = JSON.parse(txt); } catch { return; }
+		if (data.type !== "Item") return;
+
+		const doc = await fromUuid(data.uuid);
+		if (!doc || doc.documentName !== "Item") return;
+		const item = doc instanceof Item ? doc : doc.toObject();
+		if ((item.type || doc.type) !== "asset") {
+		ui.notifications?.warn("Only Asset items can be added here."); return;
+		}
+		const obj = item instanceof Item ? item.toObject() : item;
+		delete obj._id;
+		await this.actor.createEmbeddedDocuments("Item", [obj]);
+	});
+	}
+
+    /* Gambits tab bindings
+    ----------------------------------------------------------------------*/  
+	_bindGambitsTab(html) {
+	const root = html.find(".mg-crew-gambits");
+	if (!root.length) return;
+
+	if (this.isEditable) {
+		root.find(".gb-draw").on("click", async () => {
+		const g = foundry.utils.deepClone(this.actor.system.gambits);
+		const handSize = Number(g.handSize) || 3;
+		if (!g.deck.length && g.discard.length) {
+			g.deck = foundry.utils.shuffle(g.discard); g.discard = [];
+		}
+		if (!g.deck.length) return;
+		if (g.drawn.length >= handSize) { ui.notifications?.warn("Hand is full."); return; }
+		const id = g.deck.shift(); if (id) g.drawn.push(id);
+		await this.actor.update({ "system.gambits": g });
+		});
+
+		root.find(".gb-shuffle").on("click", async () => {
+		const g = foundry.utils.deepClone(this.actor.system.gambits);
+		g.deck = foundry.utils.shuffle(g.deck);
+		await this.actor.update({ "system.gambits.deck": g.deck });
+		});
+
+		root.find(".gb-recall").on("click", async () => {
+		const g = foundry.utils.deepClone(this.actor.system.gambits);
+		g.deck = g.deck.concat(g.discard);
+		g.discard = [];
+		g.deck = foundry.utils.shuffle(g.deck);
+		await this.actor.update({ "system.gambits": g });
+		});
+
+		root.on("click", ".gb-play", async (ev) => {
+		const id = ev.currentTarget.dataset.id;
+		const g = foundry.utils.deepClone(this.actor.system.gambits);
+		const idx = g.drawn.indexOf(id);
+		if (idx >= 0) {
+			g.drawn.splice(idx, 1);
+			g.discard.push(id);
+			await this.actor.update({ "system.gambits": g });
+			const item = this.actor.items.get(id);
+			if (item) ChatMessage.create({
+			speaker: ChatMessage.getSpeaker({ actor: this.actor }),
+			content: `<b>Crew plays:</b> ${Handlebars.escapeExpression(item.name)}`
+			});
+		}
+		});
+
+		root.on("click", ".gb-discard", async (ev) => {
+		const id = ev.currentTarget.dataset.id;
+		const g = foundry.utils.deepClone(this.actor.system.gambits);
+		const idx = g.drawn.indexOf(id);
+		if (idx >= 0) {
+			g.drawn.splice(idx, 1);
+			g.discard.push(id);
+			await this.actor.update({ "system.gambits": g });
+		}
+		});
+
+		// Drag/drop: only Item type "gambit"
+		const dropZone = root.find(".mg-crew-gb-drop");
+		dropZone.on("dragover", (ev) => ev.preventDefault());
+		dropZone.on("drop", async (ev) => {
+		ev.preventDefault();
+		const txt = ev.originalEvent?.dataTransfer?.getData("text/plain");
+		if (!txt) return;
+		let data; try { data = JSON.parse(txt); } catch { return; }
+		if (data.type !== "Item") return;
+
+		const doc = await fromUuid(data.uuid);
+		if (!doc || doc.documentName !== "Item") return;
+		const item = doc instanceof Item ? doc : doc.toObject();
+		if ((item.type || doc.type) !== "gambit") {
+			ui.notifications?.warn("Only Gambit items can be added to the Deck."); return;
+		}
+		const obj = item instanceof Item ? item.toObject() : item;
+		delete obj._id;
+		const [created] = await this.actor.createEmbeddedDocuments("Item", [obj]);
+		const g = foundry.utils.deepClone(this.actor.system.gambits);
+		g.deck.push(created.id);
+		await this.actor.update({ "system.gambits.deck": g.deck });
+		});
+	}
+	}
+
+    /* Bio tab bindings
+    ----------------------------------------------------------------------*/
+	_bindBioTab(html) {
+	const root = html.find(".mg-crew-bio");
+	if (!root.length) return;
+
+	const commit = (path, val) => this.actor.update({ [path]: val });
+
+	root.find(".bio-look").on("change", (ev)=> commit("system.bio.lookAndFeel", ev.currentTarget.value));
+	root.find(".bio-weak").on("change", (ev)=> commit("system.bio.weakness", ev.currentTarget.value));
+	root.find(".bio-location").on("change", (ev)=> commit("system.bio.location", ev.currentTarget.value));
+	root.find(".bio-features").on("change", (ev)=> commit("system.bio.features", ev.currentTarget.value));
+
+	root.find(".bio-add-tag").on("keydown", async (ev) => {
+		if (ev.key !== "Enter") return;
+		ev.preventDefault();
+		const v = ev.currentTarget.value?.trim();
+		if (!v) return;
+		const tags = Array.from(this.actor.system.bio?.tags || []);
+		tags.push(v);
+		await this.actor.update({ "system.bio.tags": tags });
+		ev.currentTarget.value = "";
+	});
+
+	root.on("click", ".tag i", async (ev) => {
+		const span = ev.currentTarget.closest(".tag");
+		const idx = Number(span?.dataset.idx);
+		if (!Number.isInteger(idx)) return;
+		const tags = Array.from(this.actor.system.bio?.tags || []);
+		tags.splice(idx, 1);
+		await this.actor.update({ "system.bio.tags": tags });
+	});
+	}
+
 }

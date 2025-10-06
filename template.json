@@ -22,7 +22,7 @@
 	},
 
 	"Item": {
-		"types": ["guise", "weapon", "armor", "misc", "gambit", "move"],
+		"types": ["guise", "weapon", "armor", "misc", "gambit", "move", "asset"],
 		"weapon": {
 			"system": {
 				"description": "",
@@ -64,6 +64,14 @@
 		"move": {
 			"description": "",
 			"tags": []
+		},
+		"asset": {
+		"system": {
+			"description": "",
+			"tags": [],
+			"qty": 1,
+			"notes": ""
+		}
 		}
 	},
 

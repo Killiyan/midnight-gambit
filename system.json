@@ -25,12 +25,15 @@
     "gridUnits": "ft",
     "primaryTokenAttribute": "strain.mortal",
     "actorTypes": ["character"],
-    "itemTypes": ["guise", "weapon", "armor", "misc"]
+    "itemTypes": ["guise", "weapon", "armor", "misc", "gambit", "asset"]
   },
   "config": {
     "actorTypes": {
       "character": {
         "label": "Character"
+      },
+      "crew": {
+        "label": "Crew"
       }
     },
     "itemTypes": {
@@ -38,7 +41,8 @@
       "weapon": { "label": "Weapon" },
       "armor": { "label": "Armor" },
       "misc": { "label": "Misc" },
-      "move": { "label": "Move" }
+      "move": { "label": "Move" },
+      "asset":  { "label": "Asset" }
     }
   },
   "packs": [

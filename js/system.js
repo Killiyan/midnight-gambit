@@ -50,10 +50,18 @@ Hooks.once("init", async () => {
     default: []
   });
 
+  game.settings.register("midnight-gambit", "assetCustomTags", {
+    name: "Asset Custom Tags",
+    scope: "world",
+    config: false,
+    type: Array,
+    default: []
+  });
+
   // Register Item Sheets
   Items.unregisterSheet("core", ItemSheet);
   Items.registerSheet("midnight-gambit", MidnightGambitItemSheet, {
-    types: ["weapon", "armor", "misc", "gambit", "move"],
+    types: ["weapon", "armor", "misc", "gambit", "move", "asset"],
     makeDefault: true
   });
 
@@ -68,13 +76,16 @@ Hooks.once("init", async () => {
   });
 
   try {
-    const { ITEM_TAGS, LEVEL_TABLE } = await import("../config.js");
+    const { ITEM_TAGS, ASSET_TAGS, LEVEL_TABLE } = await import("../config.js");
     CONFIG.MidnightGambit ??= {};
-    const customTags = game.settings.get("midnight-gambit", "customTags") || [];
-    CONFIG.MidnightGambit.ITEM_TAGS = [...ITEM_TAGS, ...customTags];
-    CONFIG.MidnightGambit.LEVELS = LEVEL_TABLE;
+    const customTags      = game.settings.get("midnight-gambit", "customTags") || [];
+    const assetCustomTags = game.settings.get("midnight-gambit", "assetCustomTags") || [];
 
-    console.log("✅ ITEM_TAGS & LEVEL_TABLE loaded into CONFIG at init");
+    CONFIG.MidnightGambit.ITEM_TAGS  = [...ITEM_TAGS,  ...customTags];
+    CONFIG.MidnightGambit.ASSET_TAGS = [...ASSET_TAGS, ...assetCustomTags];
+    CONFIG.MidnightGambit.LEVELS     = LEVEL_TABLE;
+
+    console.log("✅ ITEM_TAGS, ASSET_TAGS & LEVEL_TABLE loaded into CONFIG at init");
   } catch (e) {
     console.error("❌ Failed to load config data in init:", e);
   }

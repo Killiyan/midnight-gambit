@@ -28,6 +28,18 @@ export const ITEM_TAGS = [
   { id: "illegal", label: "Illegal", description: "Possession iteself causes heat in certain areas." },
 ];
 
+// Asset-only tag library (separate from gear)
+export const ASSET_TAGS = [
+  { id: "contact",   label: "Contact",   description: "Reliable NPC resource." },
+  { id: "license",   label: "License",   description: "Permit, charter, deed." },
+  { id: "vehicle",   label: "Vehicle",   description: "Transport the crew controls." },
+  { id: "stash",     label: "Stash",     description: "Hidden cache or vault." },
+  { id: "leverage",  label: "Leverage",  description: "Debt, favor, blackmail." },
+  { id: "map",       label: "Map",       description: "Plans or layout intel." },
+  { id: "rumor",     label: "Rumor",     description: "Lead or clue; needs follow-up." },
+  { id: "safehouse", label: "Safehouse", description: "Secure spot; limited capacity." }
+];
+
 /* Level Up Table
 ==============================================================================================================================================*/
 export const LEVEL_TABLE = {
