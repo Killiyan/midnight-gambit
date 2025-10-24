@@ -291,6 +291,36 @@
 			}
 		}
 
+		.assets {
+
+			.mg-assets-table {
+				border-radius: .5rem;
+				overflow: hidden;
+				@include mg-border;
+				border-collapse: unset;
+				border-spacing: 0;
+
+				thead {
+					background: $mg-blue-main;
+					border: none;
+				}
+
+				th {
+					@include oswald();
+					font-size: 1rem;
+					text-transform: uppercase;
+					color: $mg-ivory;
+					border: none;
+					text-align: left;
+					padding: 1.25rem;
+				}
+
+				td {
+					padding: 1.25rem;
+				}
+			}
+		}
+
 		.mg-crew-settings {
 			.mg-diricon-row {
 				display: flex;
@@ -350,3 +380,5 @@
 		}
 	}
 }
+
+

@@ -138,53 +138,58 @@
 		</div>
 
 		<!-- ASSETS TAB -->
-		<div class="tab" data-tab="assets">
-			<div class="mg-crew-assets">
-				<div class="mg-crew-assets-head">
-				<div class="lux">
-					<label>Lux</label>
-					<div class="lux-edit">
-					<button class="lux-dec" {{#unless isEditable}}disabled{{/unless}}>−</button>
-					<input class="lux-input" type="number" value="{{system.lux}}" {{#unless isEditable}}disabled{{/unless}}>
-					<button class="lux-inc" {{#unless isEditable}}disabled{{/unless}}>+</button>
-					</div>
-				</div>
+		<div class="tab assets" data-tab="assets">
 
-				<div class="asset-search">
-					<i class="fa-light fa-magnifying-glass"></i>
-					<input class="asset-query" type="text" placeholder="Search assets, tags, notes..." value="">
-				</div>
-				</div>
-
-				<div class="mg-crew-assets-drop hint">Drag Asset items here to add them to the Crew.</div>
-
-				<table class="mg-crew-assets-table">
+			<!-- This wrapper becomes our drop zone -->
+			<div class="mg-asset-drop">
+				<table class="mg-assets-table">
 				<thead>
-					<tr><th>Name</th><th>Qty</th><th>Tags</th><th>Notes</th><th></th></tr>
+					<tr>
+						<th>Name</th>
+						<th>Qty</th>
+						<th>Tags</th>
+						<th>Notes</th>
+						<th>⚙</th>
+					</tr>
 				</thead>
 				<tbody>
-					{{#if assets.length}}
-					{{#each assets}}
-						<tr data-item-id="{{this.id}}">
-						<td class="name">{{this.name}}</td>
-						<td class="qty">
-							<input type="number" min="0" value="{{this.system.qty}}" {{#unless @root.isEditable}}disabled{{/unless}}>
-						</td>
-						<td class="tags">{{join this.system.tags ", "}}</td>
-						<td class="notes">{{this.system.notes}}</td>
-						<td class="actions">
-							<button class="asset-edit" {{#unless @root.isEditable}}disabled{{/unless}}><i class="fa-light fa-pen-to-square"></i></button>
-							<button class="asset-delete" {{#unless @root.isEditable}}disabled{{/unless}}><i class="fa-light fa-trash"></i></button>
-						</td>
-						</tr>
+					{{#each (filterItems actor.items "asset") as |it|}}
+					<tr class="asset-row inventory-item" data-item-id="{{it.id}}">
+					<td class="name clickable-item">
+						<i class="fa-solid fa-box-archive"></i> {{it.name}}
+					</td>
+					<td>
+						<input class="asset-qty" type="number" min="0" value="{{it.system.qty}}" />
+					</td>
+					<td class="asset-tags">
+						{{#if it.system.tags.length}}
+						<div class="tag-pills">
+							{{#each it.system.tags as |tagId|}}
+							<span class="item-tag">{{tagId}}</span>
+							{{/each}}
+						</div>
+						{{else}}
+						<span class="muted">—</span>
+						{{/if}}
+					</td>
+					<td class="asset-notes">
+						<input class="asset-notes-input" type="text" value="{{it.system.notes}}" placeholder="Notes…" />
+					</td>
+					<td class="asset-actions" style="text-align:center;">
+						<button class="post-asset" data-item-id="{{it.id}}" title="Post to Chat">
+						<i class="fa-regular fa-message"></i>
+						</button>
+						<button class="asset-delete" data-item-id="{{it.id}}" title="Delete">
+						<i class="fa-solid fa-trash"></i>
+						</button>
+					</td>
+					</tr>
 					{{/each}}
-					{{else}}
-					<tr class="empty"><td colspan="5"><em>No assets yet.</em></td></tr>
-					{{/if}}
 				</tbody>
 				</table>
 			</div>
 		</div>
+
 
 		<!-- GAMBITS TAB -->
 		<div class="tab" data-tab="gambits">

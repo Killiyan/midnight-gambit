@@ -116,6 +116,12 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 		data.gb = gb;
 		data.isEditable = this.isEditable;
 
+		// Assets list for the Assets tab (sorted by name)
+		data.assets = this.actor.items
+		.filter(i => i.type === "asset")
+		.sort((a, b) => a.name.localeCompare(b.name));
+
+
 		return data;
 
 	}
@@ -229,54 +235,100 @@ export class MidnightGambitCrewSheet extends ActorSheet {
     return out;
   }
 
-  /** Top-level drop handler: accept Actor documents of type "character". */
-  async _onDrop(event) {
-    if (!this.isEditable) return false;
-    const data = TextEditor.getDragEventData(event);
-    if (data?.type !== "Actor") return false;
+	/** Top-level drop handler:
+	 *  - Accept Actor documents of type "character" onto the Party tab (your custom logic)
+	 *  - Accept Item drops (Assets, Gambits) and create embedded Items on the Crew,
+	 *    then re-render immediately so the new row appears without a manual refresh.
+	 *  - For anything else: defer to base class.
+	 */
+	async _onDrop(event) {
+	if (!this.isEditable) return false;
 
-    const actor = await fromUuid(data.uuid);
-    if (!actor || actor.documentName !== "Actor") return false;
-    if (actor.type !== "character") {
-      ui.notifications?.warn("Only player characters can join the Crew (for now).");
-      return false;
-    }
+	const data = TextEditor.getDragEventData(event);
 
-    const sys = this.actor.system ?? {};
-    const party = sys.party ?? {};
-    const members = Array.isArray(party.members) ? party.members.slice() : [];
+	// === Handle Item drops here so we can force a re-render ===
+	if (data?.type === "Item") {
+		try {
+		const src = await fromUuid(data.uuid);
+		if (!src || src.documentName !== "Item") return false;
 
-    if (members.includes(actor.uuid)) {
-      ui.notifications?.info(`${actor.name} is already in the party.`);
-      return false;
-    }
+		// Clone to a plain object and strip _id so it gets a fresh one
+		const obj = (src instanceof Item) ? src.toObject() : src;
+		delete obj._id;
 
-    members.push(actor.uuid);
+		// Only accept types we care about here
+		const isAsset  = (obj.type || src.type) === "asset";
+		const isGambit = (obj.type || src.type) === "gambit";
+		if (!isAsset && !isGambit) return false;
 
-    // Build/merge a small cache snapshot
-    const cache = foundry.utils.duplicate(party.cache ?? {});
-    cache[actor.uuid] = {
-      name: actor.name,
-      img: actor.img,
-      type: actor.type,
-      className: await this._peekClassName(actor),
-      level: await this._peekLevel(actor)
-    };
+		// Create the embedded item on the Crew
+		const [created] = await this.actor.createEmbeddedDocuments("Item", [obj]);
 
-    // Also append to initiative if not present
-    const initiative = sys.initiative ?? {};
-    const order = Array.isArray(initiative.order) ? initiative.order.slice() : [];
-    if (!order.includes(actor.uuid)) order.push(actor.uuid);
+		// If a Gambit was dropped onto the Crew, add it to the deck immediately
+		if (isGambit && created?.id) {
+			const g = foundry.utils.deepClone(this.actor.system.gambits ?? {});
+			g.deck = Array.isArray(g.deck) ? g.deck.slice() : [];
+			g.deck.push(created.id);
+			await this.actor.update({ "system.gambits.deck": g.deck }, { render: false });
+		}
 
-    await this.actor.update({
-      "system.party.members": members,
-      "system.party.cache": cache,
-      "system.initiative.order": order
-    });
+		// Force a sheet refresh so the new row shows up NOW
+		this.render(false);
+		return true;
+		} catch (err) {
+		console.warn("MG | _onDrop Item failed:", err);
+		return false;
+		}
+	}
 
-    this.render(false);
-    return true;
-  }
+	// === Your existing Party member (Actor) drop logic ===
+	if (data?.type === "Actor") {
+		const actor = await fromUuid(data.uuid);
+		if (!actor || actor.documentName !== "Actor") return false;
+		if (actor.type !== "character") {
+		ui.notifications?.warn("Only player characters can join the Crew (for now).");
+		return false;
+		}
+
+		const sys = this.actor.system ?? {};
+		const party = sys.party ?? {};
+		const members = Array.isArray(party.members) ? party.members.slice() : [];
+
+		if (members.includes(actor.uuid)) {
+		ui.notifications?.info(`${actor.name} is already in the party.`);
+		return false;
+		}
+
+		members.push(actor.uuid);
+
+		// Build/merge a small cache snapshot
+		const cache = foundry.utils.duplicate(party.cache ?? {});
+		cache[actor.uuid] = {
+		name: actor.name,
+		img: actor.img,
+		type: actor.type,
+		className: await this._peekClassName(actor),
+		level: await this._peekLevel(actor)
+		};
+
+		// Also append to initiative if not present
+		const initiative = sys.initiative ?? {};
+		const order = Array.isArray(initiative.order) ? initiative.order.slice() : [];
+		if (!order.includes(actor.uuid)) order.push(actor.uuid);
+
+		await this.actor.update({
+		"system.party.members": members,
+		"system.party.cache": cache,
+		"system.initiative.order": order
+		});
+
+		this.render(false);
+		return true;
+	}
+
+	// Fallback: let the base class handle anything else
+	return super._onDrop?.(event);
+	}
 
 	async _peekClassName(actor) {
 	try { return await this._resolveClassName(actor); }
@@ -537,6 +589,108 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 		// Initiative drag-reorder (full card draggable)
 		this._bindInitiativeDrag($root);
 
+		/* Assets tab listeners
+		====================================================================*/
+		{
+		const $root = html instanceof jQuery ? html : $(html);
+
+		// Open item sheet on click (same pattern as character inventory)
+		// (We mirrored your clickable-item logic)  【sheet.js†:contentReference[oaicite:1]{index=1}】
+		$root.off("click.mgAssetOpen").on("click.mgAssetOpen", ".assets .clickable-item", async (ev) => {
+			ev.preventDefault();
+			ev.stopPropagation();
+			const row = ev.currentTarget.closest(".inventory-item");
+			if (!row) return;
+			const itemId = row.dataset.itemId;
+			const item = this.actor.items.get(itemId);
+			if (item) item.sheet.render(true);
+		});
+
+		// Create a blank Asset on the crew
+		$root.off("click.mgAssetCreate").on("click.mgAssetCreate", ".assets .asset-create", async (ev) => {
+			ev.preventDefault();
+			await Item.create({
+			name: "New Asset",
+			type: "asset",
+			system: { description: "", tags: [], qty: 1, notes: "" },
+			folder: null
+			}, { parent: this.actor });
+			this.render(false);
+		});
+
+		// Qty change
+		$root.off("change.mgAssetQty").on("change.mgAssetQty", ".assets .asset-qty", async (ev) => {
+			const tr = ev.currentTarget.closest(".asset-row");
+			const item = this.actor.items.get(tr?.dataset?.itemId);
+			if (!item) return;
+			const qty = Math.max(0, Number(ev.currentTarget.value ?? 0));
+			await item.update({ "system.qty": qty });
+		});
+
+		// Notes change (blur to avoid hammering updates)
+		$root.off("change.mgAssetNotes").on("change.mgAssetNotes", ".assets .asset-notes-input", async (ev) => {
+			const tr = ev.currentTarget.closest(".asset-row");
+			const item = this.actor.items.get(tr?.dataset?.itemId);
+			if (!item) return;
+			const notes = String(ev.currentTarget.value ?? "");
+			await item.update({ "system.notes": notes });
+		});
+
+		// Delete with confirm (mirrors your inventory delete flow)
+		$root.off("click.mgAssetDelete").on("click.mgAssetDelete", ".assets .asset-delete", async (ev) => {
+			ev.preventDefault();
+			const id = ev.currentTarget.dataset.itemId;
+			const item = this.actor.items.get(id);
+			if (!item) return;
+			const ok = await Dialog.confirm({ title: `Delete ${item.name}?`, content: `<p>Remove <strong>${item.name}</strong> from the Crew?</p>` });
+			if (!ok) return;
+			await item.delete();
+		});
+
+		// Post to chat (simple card for now)
+		$root.off("click.mgAssetPost").on("click.mgAssetPost", ".assets .post-asset", async (ev) => {
+			ev.preventDefault();
+			const id = ev.currentTarget.dataset.itemId;
+			const item = this.actor.items.get(id);
+			if (!item) return;
+
+			const tagLabels = (item.system.tags || [])
+			.map(t => CONFIG.MidnightGambit?.ASSET_TAGS?.find(def => def.id === t)?.label || t)
+			.join(", ");
+
+			const content = `
+			<div class="chat-item">
+				<h2><i class="fa-solid fa-vault"></i> ${item.name}</h2>
+				${item.system.description ? `<p><em>${item.system.description}</em></p>` : ""}
+				<p><strong>Qty:</strong> ${item.system.qty ?? 0}</p>
+				${tagLabels ? `<p><strong>Tags:</strong> ${tagLabels}</p>` : ""}
+				${item.system.notes ? `<p><strong>Notes:</strong> ${item.system.notes}</p>` : ""}
+			</div>
+			`;
+
+			await ChatMessage.create({
+			user: game.user.id,
+			speaker: ChatMessage.getSpeaker({ actor: this.actor }),
+			content
+			});
+		});
+
+		// Enable drag-and-drop onto the Assets area and forward to Foundry’s drop handler
+		// (This is exactly how your character sheet forwards drops.)  【sheet.js†:contentReference[oaicite:2]{index=2}】【sheet.js†:contentReference[oaicite:3]{index=3}】
+		const $zone = $root.find(".assets .mg-asset-drop");
+		if ($zone.length) {
+			$zone.on("dragenter", (e) => { e.preventDefault(); e.stopPropagation(); $zone.addClass("drag-hover"); });
+			$zone.on("dragover",  (e) => { e.preventDefault(); e.stopPropagation(); });
+			$zone.on("dragleave", (e) => { if (!$zone[0].contains(e.relatedTarget)) $zone.removeClass("drag-hover"); });
+			$zone.on("drop", async (e) => {
+			e.preventDefault(); e.stopPropagation(); $zone.removeClass("drag-hover");
+			// This calls ActorSheet’s drop → creates embedded Item on the Crew
+			return this._onDrop(e.originalEvent);
+			});
+		}
+		}
+
+
 		// --- Render new tabs (Assets / Gambits / Bio)
 		this._bindAssetsTab(html);
 		this._bindGambitsTab(html);
@@ -669,76 +823,55 @@ export class MidnightGambitCrewSheet extends ActorSheet {
     /* Assets tab bindings
     ----------------------------------------------------------------------*/  
 	_bindAssetsTab(html) {
-	const root = html.find(".mg-crew-assets");
-	if (!root.length) return;
+		const root = html.find(".mg-crew-assets");
+		if (!root.length) return;
 
-	// Search (client-only filter; re-render to apply)
-	root.find(".asset-query").on("input", (ev) => {
-		const q = (ev.currentTarget.value || "").toLowerCase();
-		// simple filter by forcing a re-render with a flag stash on the sheet instance
-		this._assetQuery = q;
-		// If you want live filter without data mutation, you can hide/show rows here instead
-		this.render(false);
-	});
-
-	if (!this.isEditable) return;
-
-	// Lux controls
-	root.find(".lux-inc").on("click", () =>
-		this.actor.update({ "system.lux": (this.actor.system.lux || 0) + 1 })
-	);
-	root.find(".lux-dec").on("click", () =>
-		this.actor.update({ "system.lux": Math.max(0, (this.actor.system.lux || 0) - 1) })
-	);
-	root.find(".lux-input")
-		.on("keydown", (ev) => {
-		if (ev.key !== "Enter") return;
-		const v = Number(ev.currentTarget.value);
-		this.actor.update({ "system.lux": Number.isFinite(v) ? v : 0 });
-		})
-		.on("change", (ev) => {
-		const v = Number(ev.currentTarget.value);
-		this.actor.update({ "system.lux": Number.isFinite(v) ? v : 0 });
+		// Search (client-only filter; re-render to apply)
+		root.find(".asset-query").on("input", (ev) => {
+			const q = (ev.currentTarget.value || "").toLowerCase();
+			// simple filter by forcing a re-render with a flag stash on the sheet instance
+			this._assetQuery = q;
+			// If you want live filter without data mutation, you can hide/show rows here instead
+			this.render(false);
 		});
 
-	// Edit/Delete Asset
-	root.on("click", ".asset-edit", (ev) => {
-		const id = ev.currentTarget.closest("tr")?.dataset.itemId;
-		this.actor.items.get(id)?.sheet?.render(true);
-	});
-	root.on("click", ".asset-delete", async (ev) => {
-		const id = ev.currentTarget.closest("tr")?.dataset.itemId;
-		if (id) await this.actor.deleteEmbeddedDocuments("Item", [id]);
-	});
+		if (!this.isEditable) return;
 
-	// Qty change
-	root.on("change", "tbody .qty input", async (ev) => {
-		const id = ev.currentTarget.closest("tr")?.dataset.itemId;
-		const v = Number(ev.currentTarget.value);
-		const item = this.actor.items.get(id);
-		if (item) await item.update({ "system.qty": Number.isFinite(v) ? v : 1 });
-	});
+		// Lux controls
+		root.find(".lux-inc").on("click", () =>
+			this.actor.update({ "system.lux": (this.actor.system.lux || 0) + 1 })
+		);
+		root.find(".lux-dec").on("click", () =>
+			this.actor.update({ "system.lux": Math.max(0, (this.actor.system.lux || 0) - 1) })
+		);
+		root.find(".lux-input")
+			.on("keydown", (ev) => {
+			if (ev.key !== "Enter") return;
+			const v = Number(ev.currentTarget.value);
+			this.actor.update({ "system.lux": Number.isFinite(v) ? v : 0 });
+			})
+			.on("change", (ev) => {
+			const v = Number(ev.currentTarget.value);
+			this.actor.update({ "system.lux": Number.isFinite(v) ? v : 0 });
+			});
 
-	// Drag/drop (accept only Item type "asset")
-	const dropZone = root.find(".mg-crew-assets-drop");
-	dropZone.on("dragover", (ev) => ev.preventDefault());
-	dropZone.on("drop", async (ev) => {
-		ev.preventDefault();
-		const txt = ev.originalEvent?.dataTransfer?.getData("text/plain");
-		if (!txt) return;
-		let data; try { data = JSON.parse(txt); } catch { return; }
-		if (data.type !== "Item") return;
+		// Edit/Delete Asset
+		root.on("click", ".asset-edit", (ev) => {
+			const id = ev.currentTarget.closest("tr")?.dataset.itemId;
+			this.actor.items.get(id)?.sheet?.render(true);
+		});
+		root.on("click", ".asset-delete", async (ev) => {
+			const id = ev.currentTarget.closest("tr")?.dataset.itemId;
+			if (id) await this.actor.deleteEmbeddedDocuments("Item", [id]);
+		});
 
-		const doc = await fromUuid(data.uuid);
-		if (!doc || doc.documentName !== "Item") return;
-		const item = doc instanceof Item ? doc : doc.toObject();
-		if ((item.type || doc.type) !== "asset") {
-		ui.notifications?.warn("Only Asset items can be added here."); return;
-		}
-		const obj = item instanceof Item ? item.toObject() : item;
-		delete obj._id;
-		await this.actor.createEmbeddedDocuments("Item", [obj]);
-	});
+		// Qty change
+		root.on("change", "tbody .qty input", async (ev) => {
+			const id = ev.currentTarget.closest("tr")?.dataset.itemId;
+			const v = Number(ev.currentTarget.value);
+			const item = this.actor.items.get(id);
+			if (item) await item.update({ "system.qty": Number.isFinite(v) ? v : 1 });
+		});
 	}
 
     /* Gambits tab bindings
