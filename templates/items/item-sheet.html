@@ -37,9 +37,9 @@
     <div class="wrapper tag-wrapper">
       {{#each item.system.tags}}
         {{#with (findTag ../tags this) as |tag|}}
-        <span class="item-tag" data-tooltip="{{tag.description}}">{{tag.label}}</span>
+        <span class="item-tag tag" data-tooltip="{{tag.description}}">{{tag.label}}</span>
         {{else}}
-        <span class="item-tag">{{this}}</span>
+        <span class="item-tag tag">{{this}}</span>
         {{/with}}
       {{/each}}
       

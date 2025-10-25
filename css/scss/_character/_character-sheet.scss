@@ -1234,13 +1234,6 @@ h1,h2,h3,h4 {
           pointer-events: all;
         }
       }
-
-      .item-tags {
-        display: flex;
-        flex-wrap: wrap;
-        gap: .5rem;
-        justify-content: flex-start;
-      }
     }
 
     &.weapons,
@@ -1292,29 +1285,6 @@ h1,h2,h3,h4 {
         grid-template-columns: 1fr 1fr 1fr 1fr 2fr 1fr;
       }
     }
-  }
-}
-
-.item-tag {
-  background: $mg-blue-main-2;
-  @include roboto();
-  text-transform: uppercase;
-  letter-spacing: .05em;
-  font-weight: 700;
-  font-size: .75rem;
-  color: $mg-blue-1;
-  padding: .5rem;
-  border-radius: .5rem;
-}
-
-.chat-tags {
-  display: flex;
-  flex-wrap: wrap;
-  margin-top: .5rem;
-  gap: .5rem;
-
-  .item-tag {
-    width: auto;
   }
 }
 

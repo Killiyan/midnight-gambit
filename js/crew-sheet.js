@@ -5,6 +5,14 @@
 // - Double-click a card to open actor sheet
 // - Initiative tab: full-card drag reorder, persisted to system.initiative.order
 
+// v11-safe HTML escaper
+const ESC = (s) =>
+  (window.Handlebars?.escapeExpression?.(String(s ?? ""))) ??
+  String(s ?? "").replace(/[&<>"'`=\/]/g, (c) =>
+    ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;","/":"&#x2F;","`":"&#x60;","=":"&#x3D;" }[c])
+  );
+
+
 export class MidnightGambitCrewSheet extends ActorSheet {
 	static get defaultOptions() {
 	return foundry.utils.mergeObject(super.defaultOptions, {
@@ -84,10 +92,6 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 			this._normalizeDirIconPath(rawDirIcon) ||
 			foundry.utils.getRoute("systems/midnight-gambit/assets/images/mg-queen.png");
 
-
-
-
-
 		// Make actor available to the template (for name binding)
 		data.actor = this.actor;
 
@@ -116,11 +120,24 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 		data.gb = gb;
 		data.isEditable = this.isEditable;
 
-		// Assets list for the Assets tab (sorted by name)
+		// Assets for the card grid (sorted) + pretty tag labels
+		const tagDefs  = CONFIG.MidnightGambit?.ASSET_TAGS ?? [];   // [{id,label,description?}, ...]
+		const labelFor = (id) => tagDefs.find(t => t.id === id)?.label || id;
+
 		data.assets = this.actor.items
 		.filter(i => i.type === "asset")
-		.sort((a, b) => a.name.localeCompare(b.name));
+		.sort((a, b) => a.name.localeCompare(b.name))
+		.map(i => {
+			const raw = i.system?.tags;
+			const ids = Array.isArray(raw)
+			? raw
+			: (typeof raw === "string" ? raw.split(",").map(s => s.trim()).filter(Boolean) : []);
 
+			const v = i.toObject();
+			v.id = i.id || v._id;               // keep the id your template expects
+			v._tags = ids.map((id) => ({ id, label: labelFor(id) })); // [{id,label}]
+			return v;
+		});
 
 		return data;
 
@@ -589,110 +606,336 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 		// Initiative drag-reorder (full card draggable)
 		this._bindInitiativeDrag($root);
 
-		/* Assets tab listeners
-		====================================================================*/
+		/* Crew Assets: card grid bindings
+		------------------------------------------------------------------*/
 		{
-		const $root = html instanceof jQuery ? html : $(html);
+			const $root = html instanceof jQuery ? html : $(html);
 
-		// Open item sheet on click (same pattern as character inventory)
-		// (We mirrored your clickable-item logic)  【sheet.js†:contentReference[oaicite:1]{index=1}】
-		$root.off("click.mgAssetOpen").on("click.mgAssetOpen", ".assets .clickable-item", async (ev) => {
+			// Post to chat on name click (same UX as Moves)
+			$root.off("click.mgAssetPostName").on("click.mgAssetPostName", ".assets .post-asset", async (ev) => {
 			ev.preventDefault();
-			ev.stopPropagation();
-			const row = ev.currentTarget.closest(".inventory-item");
-			if (!row) return;
-			const itemId = row.dataset.itemId;
-			const item = this.actor.items.get(itemId);
-			if (item) item.sheet.render(true);
-		});
-
-		// Create a blank Asset on the crew
-		$root.off("click.mgAssetCreate").on("click.mgAssetCreate", ".assets .asset-create", async (ev) => {
-			ev.preventDefault();
-			await Item.create({
-			name: "New Asset",
-			type: "asset",
-			system: { description: "", tags: [], qty: 1, notes: "" },
-			folder: null
-			}, { parent: this.actor });
-			this.render(false);
-		});
-
-		// Qty change
-		$root.off("change.mgAssetQty").on("change.mgAssetQty", ".assets .asset-qty", async (ev) => {
-			const tr = ev.currentTarget.closest(".asset-row");
-			const item = this.actor.items.get(tr?.dataset?.itemId);
-			if (!item) return;
-			const qty = Math.max(0, Number(ev.currentTarget.value ?? 0));
-			await item.update({ "system.qty": qty });
-		});
-
-		// Notes change (blur to avoid hammering updates)
-		$root.off("change.mgAssetNotes").on("change.mgAssetNotes", ".assets .asset-notes-input", async (ev) => {
-			const tr = ev.currentTarget.closest(".asset-row");
-			const item = this.actor.items.get(tr?.dataset?.itemId);
-			if (!item) return;
-			const notes = String(ev.currentTarget.value ?? "");
-			await item.update({ "system.notes": notes });
-		});
-
-		// Delete with confirm (mirrors your inventory delete flow)
-		$root.off("click.mgAssetDelete").on("click.mgAssetDelete", ".assets .asset-delete", async (ev) => {
-			ev.preventDefault();
-			const id = ev.currentTarget.dataset.itemId;
-			const item = this.actor.items.get(id);
-			if (!item) return;
-			const ok = await Dialog.confirm({ title: `Delete ${item.name}?`, content: `<p>Remove <strong>${item.name}</strong> from the Crew?</p>` });
-			if (!ok) return;
-			await item.delete();
-		});
-
-		// Post to chat (simple card for now)
-		$root.off("click.mgAssetPost").on("click.mgAssetPost", ".assets .post-asset", async (ev) => {
-			ev.preventDefault();
-			const id = ev.currentTarget.dataset.itemId;
+			const id = ev.currentTarget.dataset.itemId || ev.currentTarget.closest(".inventory-item")?.dataset?.itemId;
 			const item = this.actor.items.get(id);
 			if (!item) return;
 
 			const tagLabels = (item.system.tags || [])
 			.map(t => CONFIG.MidnightGambit?.ASSET_TAGS?.find(def => def.id === t)?.label || t)
 			.join(", ");
-
 			const content = `
-			<div class="chat-item">
-				<h2><i class="fa-solid fa-vault"></i> ${item.name}</h2>
-				${item.system.description ? `<p><em>${item.system.description}</em></p>` : ""}
-				<p><strong>Qty:</strong> ${item.system.qty ?? 0}</p>
-				${tagLabels ? `<p><strong>Tags:</strong> ${tagLabels}</p>` : ""}
-				${item.system.notes ? `<p><strong>Notes:</strong> ${item.system.notes}</p>` : ""}
-			</div>
+				<div class="chat-item">
+					<h2><i class="fa-solid fa-vault"></i> ${ESC(item.name)}</h2>
+					${item.system.description ? `<p><em>${ESC(item.system.description)}</em></p>` : ""}
+					${(item.system.tags?.length)
+					? `<strong>Tags:</strong>
+						<div class="asset-tags chat-tags"> ${
+						item.system.tags
+							.map(t => {
+							const def = CONFIG.MidnightGambit?.ASSET_TAGS?.find(d => d.id === t);
+							const label = def?.label || t;
+							return `<span class="asset-tag tag" data-tag-id="${ESC(t)}">${ESC(label)}</span>`;
+							})
+							.join(" ")
+						}</div>`
+					: ""
+					}
+					${item.system.notes ? `<p><strong>Notes:</strong> ${ESC(item.system.notes)}</p>` : ""}
+				</div>
 			`;
-
 			await ChatMessage.create({
-			user: game.user.id,
-			speaker: ChatMessage.getSpeaker({ actor: this.actor }),
-			content
+				user: game.user.id,
+				speaker: ChatMessage.getSpeaker({ actor: this.actor }),
+				content
 			});
 		});
 
-		// Enable drag-and-drop onto the Assets area and forward to Foundry’s drop handler
-		// (This is exactly how your character sheet forwards drops.)  【sheet.js†:contentReference[oaicite:2]{index=2}】【sheet.js†:contentReference[oaicite:3]{index=3}】
+		// Create new blank asset
+		$root.off("click.mgAssetCreate").on("click.mgAssetCreate", ".assets .asset-create", async (ev) => {
+			ev.preventDefault();
+			await Item.create({
+			name: "New Asset",
+			type: "asset",
+			system: { description: "", tags: [], qty: 1, notes: "" }
+			}, { parent: this.actor });
+			this.render(false);
+		});
+
+		// Qty number direct edit
+		$root.off("change.mgAssetQty").on("change.mgAssetQty", ".assets .asset-qty", async (ev) => {
+			const card = ev.currentTarget.closest(".asset-card");
+			const item = this.actor.items.get(card?.dataset?.itemId);
+			if (!item) return;
+			const qty = Math.max(0, Number(ev.currentTarget.value ?? 0));
+			await item.update({ "system.qty": qty }, { render: false });
+			// mirror badge and input without full rerender
+			card.querySelector(".qty-badge").textContent = qty;
+		});
+
+		// Open sheet on image or Edit button
+		$root.off("click.mgAssetOpenImg").on("click.mgAssetOpenImg", ".assets .open-asset-sheet", async (ev) => {
+		ev.preventDefault();
+		const id = ev.currentTarget.dataset.itemId || ev.currentTarget.closest(".inventory-item")?.dataset?.itemId;
+		const item = this.actor.items.get(id);
+		if (!item) return;
+		item.sheet.render(true);
+		});
+
+		// Double-click the card opens the sheet (quality-of-life)
+		$root.off("dblclick.mgAssetCardOpen").on("dblclick.mgAssetCardOpen", ".assets .asset-card", async (ev) => {
+		const id = ev.currentTarget?.dataset?.itemId;
+		const item = this.actor.items.get(id);
+		if (!item) return;
+		item.sheet.render(true);
+		});
+
+		// Edit notes (simple prompt for now; we can do a nicer popover later)
+		$root.off("click.mgAssetNotes").on("click.mgAssetNotes", ".assets .edit-notes", async (ev) => {
+			ev.preventDefault();
+			const id = ev.currentTarget.dataset.itemId;
+			const item = this.actor.items.get(id);
+			if (!item) return;
+			const prev = item.system?.notes ?? "";
+			const content = `<div class="mg-notes-edit"><textarea rows="5" style="width:100%;">${ESC(prev)}</textarea></div>`;
+			const ok = await Dialog.confirm({
+			title: `Notes — ${item.name}`,
+			content,
+			yes: () => true,
+			no: () => false
+			});
+			if (!ok) return;
+			const textarea = document.querySelector(".mg-notes-edit textarea");
+			const notes = textarea?.value ?? "";
+			await item.update({ "system.notes": notes });
+		});
+
+		// Delete with confirm
+		$root.off("click.mgAssetDelete").on("click.mgAssetDelete", ".assets .asset-delete", async (ev) => {
+			ev.preventDefault();
+			const id = ev.currentTarget.dataset.itemId;
+			const item = this.actor.items.get(id);
+			if (!item) return;
+			const ok = await Dialog.confirm({
+			title: `Delete ${item.name}?`,
+			content: `<p>Remove <strong>${item.name}</strong> from the Crew?</p>`
+			});
+			if (!ok) return;
+			await item.delete();
+		});
+
+		// Search filtering (handles Enter key or button click)
+		{
+			const doAssetSearch = (root, query) => {
+				const q = (query || "").toLowerCase().trim();
+				const cards = root.find(".assets .asset-card");
+				if (!q) { cards.show(); return; }
+				cards.each((_, el) => {
+				const name  = (el.querySelector(".name")?.textContent  || "").toLowerCase();
+				const tags  = (el.querySelector(".tags")?.textContent  || "").toLowerCase();
+				const notes = (el.querySelector(".notes")?.textContent || "").toLowerCase();
+				const hit = name.includes(q) || tags.includes(q) || notes.includes(q);
+				el.style.display = hit ? "" : "none";
+				});
+			};
+
+			// Smooth 0.5s search: all cards slide down, then matches slide up; empty-state + Reset
+			{
+			const $root = html instanceof jQuery ? html : $(html);
+
+			const STAGGER_STEP_MS = 80;   // delay between each card's enter
+			const STAGGER_COUNT   = 3;    // how many cards to stagger (then no delay)
+			const DEBOUNCE_MS = 220;
+			const LEAVE_MS = 500; // must match CSS transition time
+
+			const debounce = (fn, wait = DEBOUNCE_MS) => {
+				let t; return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), wait); };
+			};
+
+			// Helper: compute whether a card matches the query
+			const cardMatches = (el, q) => {
+				const name  = (el.querySelector(".name")?.textContent  || "").toLowerCase();
+				const tags  = (el.querySelector(".tags")?.textContent  || "").toLowerCase();
+				const notes = (el.querySelector(".notes")?.textContent || "").toLowerCase();
+				return !q || name.includes(q) || tags.includes(q) || notes.includes(q);
+			};
+
+			// Phase transitions
+			const enterCard = (el, idx = 0) => {
+			if (!el.classList.contains("is-hidden")) return;
+			el.classList.remove("is-hidden", "is-leaving");
+			el.classList.add("pre-enter");
+
+			// force pre-enter to commit
+			// eslint-disable-next-line no-unused-expressions
+			el.offsetHeight;
+
+			// compute stagger (respect reduced motion)
+			const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+			const slot   = Math.min(idx, STAGGER_COUNT - 1);
+			const delay  = reduce ? 0 : slot * STAGGER_STEP_MS;
+			el.style.transitionDelay = `${delay}ms`;
+
+			requestAnimationFrame(() => {
+				el.classList.add("is-entering");
+				const onEnd = (e) => {
+				if (e && e.target !== el) return;
+				el.classList.remove("is-entering", "pre-enter");
+				el.style.transitionDelay = ""; // cleanup
+				el.removeEventListener("transitionend", onEnd);
+				};
+				el.addEventListener("transitionend", onEnd, { once: true });
+			});
+			};
+
+			const leaveCard = (el) => {
+			el.classList.remove("is-entering", "pre-enter");
+			el.style.transitionDelay = ""; // ensure no leftover delay
+			if (el.classList.contains("is-hidden")) return;
+			el.classList.add("is-leaving");
+			};
+
+			const showEmpty = (show) => {
+				const empty = $root.find(".assets .asset-search-empty")[0];
+				if (!empty) return;
+				empty.style.display = show ? "block" : "none";
+			};
+
+			// Main search routine:
+			// 1) Everyone leaves (slides down)
+			// 2) After LEAVE_MS: non-matches become hidden; matches enter (slide up)
+			const runSearchNow = () => {
+				const input = $root.find(".assets .asset-search")[0];
+				const q = (input?.value || "").toLowerCase().trim();
+				const cards = $root.find(".assets .asset-card").toArray();
+
+				// Pre-calc match set
+				const matchSet = new Set(cards.filter(el => cardMatches(el, q)));
+
+				// Phase 1: all visible cards start leaving
+				for (const el of cards) leaveCard(el);
+
+				// Phase 2 (after leave transition): hide non-matches, enter matches
+				setTimeout(() => {
+				let hits = 0;
+				let enterIndex = 0; // counts only matches for stagger
+				for (const el of cards) {
+					const isMatch = matchSet.has(el);
+					el.classList.remove("is-leaving");
+
+					if (isMatch) {
+					hits++;
+					enterCard(el, enterIndex++);
+					} else {
+					el.classList.add("is-hidden");
+					}
+				}
+				showEmpty(hits === 0);
+				}, LEAVE_MS);
+			};
+
+			const runSearch = debounce(runSearchNow, DEBOUNCE_MS);
+
+			// Bindings: typing, Enter, button click
+			$root.off("input.mgAssetSearch").on("input.mgAssetSearch", ".assets .asset-search", runSearch);
+			$root.off("keydown.mgAssetSearchEnter").on("keydown.mgAssetSearchEnter", ".assets .asset-search", (ev) => {
+				if (ev.key === "Enter") { ev.preventDefault(); runSearch(); }
+			});
+			$root.off("click.mgAssetSearchBtn").on("click.mgAssetSearchBtn", ".assets .asset-search-btn", (ev) => {
+				ev.preventDefault(); runSearch();
+			});
+
+			// Reset button (in empty-state)
+			$root.off("click.mgAssetSearchReset").on("click.mgAssetSearchReset", ".assets .asset-search-reset", (ev) => {
+				ev.preventDefault();
+				const input = $root.find(".assets .asset-search")[0];
+				if (input) input.value = "";
+				showEmpty(false);
+
+				// Nice full reveal animation
+				const cards = $root.find(".assets .asset-card").toArray();
+				// Start leaving everything (for symmetry)
+				for (const el of cards) leaveCard(el);
+				setTimeout(() => {
+				let idx = 0;
+				for (const el of cards) enterCard(el, idx++);
+				}, LEAVE_MS);
+
+			});
+			}
+
+			// Optional: press Enter key in field (for browsers that don't trigger input)
+			$root.off("keydown.mgAssetSearchEnter").on("keydown.mgAssetSearchEnter", ".assets .asset-search", (ev) => {
+				if (ev.key === "Enter") {
+				ev.preventDefault();
+				doAssetSearch($root, ev.currentTarget.value);
+				}
+			});
+		}
+
+		// Click a tag pill on the card to see its meaning
+		$root.off("click.mgTagInfoCard").on("click.mgTagInfoCard", ".asset-tag, .tag", async (ev) => {
+		ev.preventDefault
+		ev.stopPropagation();
+
+		// 1) Find the pill element
+		const el = ev.target.closest(".asset-tag, .tag");
+		if (!el) return;
+
+		// 2) Try tag id from data attribute
+		let tagId = el.dataset?.tagId?.trim();
+
+		// 3) Fallback: derive id from the label text if data-tag-id is missing
+		const tagDefs = (CONFIG.MidnightGambit?.ASSET_TAGS || []);
+		if (!tagId) {
+			const labelText = (el.textContent || "").trim();
+			const byLabel = tagDefs.find(t => (t.label || t.id) === labelText);
+			tagId = byLabel?.id;
+		}
+		if (!tagId) return;
+
+		// 4) Resolve definition by id
+		const def = tagDefs.find(t => t.id === tagId);
+		if (!def) return;
+
+		// 5) Show dialog — decode label; set title as TEXT after render
+		const esc = (s) => Handlebars.escapeExpression(String(s ?? ""));
+		const decodeHTML = (html) => {
+		const div = document.createElement("div");
+		div.innerHTML = html;
+		return div.textContent || div.innerText || "";
+		};
+
+		const titleText = decodeHTML(def.label || tagId); // <- raw readable text with '&'
+		const bodyHtml  = `<div class="mg-tag-dialog"><p>${decodeHTML(def.description || "No description available.")}</p></div>`;
+
+		// Use Dialog so we can touch the instance after render
+		const dlg = new Dialog(
+		{
+			title: titleText,           // will be overwritten to text below (just in case)
+			content: bodyHtml,
+			buttons: { ok: { label: "Close" } }
+		},
+		{ classes: ["mg-tag-dialog"] }
+		);
+
+		// Force the window title as *text* to avoid any escaping weirdness
+		dlg.render(true);
+		dlg.once("renderDialog", (_app, html) => {
+		html.closest(".app.window-app").querySelector(".window-title").textContent = titleText;
+		});
+
+
+		});
+
+		// Drag-hover chrome on the whole asset area; drop flows into _onDrop
 		const $zone = $root.find(".assets .mg-asset-drop");
 		if ($zone.length) {
 			$zone.on("dragenter", (e) => { e.preventDefault(); e.stopPropagation(); $zone.addClass("drag-hover"); });
 			$zone.on("dragover",  (e) => { e.preventDefault(); e.stopPropagation(); });
 			$zone.on("dragleave", (e) => { if (!$zone[0].contains(e.relatedTarget)) $zone.removeClass("drag-hover"); });
-			$zone.on("drop", async (e) => {
-			e.preventDefault(); e.stopPropagation(); $zone.removeClass("drag-hover");
-			// This calls ActorSheet’s drop → creates embedded Item on the Crew
-			return this._onDrop(e.originalEvent);
-			});
+			$zone.on("drop",      (e) => { e.preventDefault(); e.stopPropagation(); $zone.removeClass("drag-hover"); return this._onDrop(e.originalEvent); });
 		}
 		}
-
 
 		// --- Render new tabs (Assets / Gambits / Bio)
-		this._bindAssetsTab(html);
 		this._bindGambitsTab(html);
 		this._bindBioTab(html);
 	}
@@ -820,60 +1063,6 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 	});
 	}
 
-    /* Assets tab bindings
-    ----------------------------------------------------------------------*/  
-	_bindAssetsTab(html) {
-		const root = html.find(".mg-crew-assets");
-		if (!root.length) return;
-
-		// Search (client-only filter; re-render to apply)
-		root.find(".asset-query").on("input", (ev) => {
-			const q = (ev.currentTarget.value || "").toLowerCase();
-			// simple filter by forcing a re-render with a flag stash on the sheet instance
-			this._assetQuery = q;
-			// If you want live filter without data mutation, you can hide/show rows here instead
-			this.render(false);
-		});
-
-		if (!this.isEditable) return;
-
-		// Lux controls
-		root.find(".lux-inc").on("click", () =>
-			this.actor.update({ "system.lux": (this.actor.system.lux || 0) + 1 })
-		);
-		root.find(".lux-dec").on("click", () =>
-			this.actor.update({ "system.lux": Math.max(0, (this.actor.system.lux || 0) - 1) })
-		);
-		root.find(".lux-input")
-			.on("keydown", (ev) => {
-			if (ev.key !== "Enter") return;
-			const v = Number(ev.currentTarget.value);
-			this.actor.update({ "system.lux": Number.isFinite(v) ? v : 0 });
-			})
-			.on("change", (ev) => {
-			const v = Number(ev.currentTarget.value);
-			this.actor.update({ "system.lux": Number.isFinite(v) ? v : 0 });
-			});
-
-		// Edit/Delete Asset
-		root.on("click", ".asset-edit", (ev) => {
-			const id = ev.currentTarget.closest("tr")?.dataset.itemId;
-			this.actor.items.get(id)?.sheet?.render(true);
-		});
-		root.on("click", ".asset-delete", async (ev) => {
-			const id = ev.currentTarget.closest("tr")?.dataset.itemId;
-			if (id) await this.actor.deleteEmbeddedDocuments("Item", [id]);
-		});
-
-		// Qty change
-		root.on("change", "tbody .qty input", async (ev) => {
-			const id = ev.currentTarget.closest("tr")?.dataset.itemId;
-			const v = Number(ev.currentTarget.value);
-			const item = this.actor.items.get(id);
-			if (item) await item.update({ "system.qty": Number.isFinite(v) ? v : 1 });
-		});
-	}
-
     /* Gambits tab bindings
     ----------------------------------------------------------------------*/  
 	_bindGambitsTab(html) {
@@ -993,5 +1182,4 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 		await this.actor.update({ "system.bio.tags": tags });
 	});
 	}
-
 }

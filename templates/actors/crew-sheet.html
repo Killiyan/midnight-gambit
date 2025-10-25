@@ -10,7 +10,7 @@
 	</nav>
 
 	<!-- Splash banner: party portraits -->
-	<header class="mg-crew-header">
+	<div class="mg-crew-header">
 		<!-- Crew Title / Name -->
 		<div class="mg-crew-title">
 			{{#if canEdit}}
@@ -38,158 +38,197 @@
 			<img class="mg-splash-portrait" src="{{img}}" alt="" />
 		{{/each}}
 		</div>
-	</header>
+	</div>
 
 	<section class="sheet-body">
 		<!-- PARTY TAB -->
 		<div class="tab" data-tab="party">
-			<div class="mg-content">
-				{{#if canEdit}}
-				<h2>Party List</h2>
-				<p>Drag characters from the Actors directory onto this sheet to add them to the party</p>
-				{{else}}
-				<h2>View Only</h2>
-				<p>You can view the party. Owners can edit</p>
-				{{/if}}
-			</div>
+			<div class="tab-wrapper">
+				<div class="mg-content">
+					{{#if canEdit}}
+					<h2>Party List</h2>
+					<p>Drag characters from the Actors directory onto this sheet to add them to the party</p>
+					{{else}}
+					<h2>View Only</h2>
+					<p>You can view the party. Owners can edit</p>
+					{{/if}}
+				</div>
 
-			<div class="mg-party-grid">
-				{{#each partyMembers as |m|}}
-				<article class="mg-member-card" data-uuid="{{m.uuid}}">
-					<div class="mg-member-portrait">
-						<img src="{{m.img}}" alt="{{m.name}}" />
-					</div>
-					<div class="mg-member-info">
-						<div class="mg-member-name">{{m.name}}</div>
-						<div class="mg-member-meta">
-							<span class="mg-member-class">{{m.className}}</span>
-							<span class="mg-member-level">Lv {{m.levelText}}</span>
-							{{#if m.missing}}<span class="mg-member-missing">(Missing)</span>{{/if}}
+				<div class="mg-party-grid">
+					{{#each partyMembers as |m|}}
+					<article class="mg-member-card" data-uuid="{{m.uuid}}">
+						<div class="mg-member-portrait">
+							<img src="{{m.img}}" alt="{{m.name}}" />
 						</div>
-					</div>
+						<div class="mg-member-info">
+							<div class="mg-member-name">{{m.name}}</div>
+							<div class="mg-member-meta">
+								<span class="mg-member-class">{{m.className}}</span>
+								<span class="mg-member-level">Lv {{m.levelText}}</span>
+								{{#if m.missing}}<span class="mg-member-missing">(Missing)</span>{{/if}}
+							</div>
+						</div>
 
-					<div class="mg-member-actions">
+						<div class="mg-member-actions">
 
-						<button type="button" class="mg-open-member" title="Open Character Sheet" aria-label="Open Character Sheet">
-							<i class="fa-solid fa-address-card"></i>
-						</button>
+							<button type="button" class="mg-open-member" title="Open Character Sheet" aria-label="Open Character Sheet">
+								<i class="fa-solid fa-address-card"></i>
+							</button>
 
-						{{#if ../canEdit}}
-						<button type="button" class="mg-remove-member" title="Remove from Party">
-							<i class="fas fa-times"></i>
-						</button>
-						{{/if}}
-					</div>
-				</article>
-				{{/each}}
+							{{#if ../canEdit}}
+							<button type="button" class="mg-remove-member" title="Remove from Party">
+								<i class="fas fa-times"></i>
+							</button>
+							{{/if}}
+						</div>
+					</article>
+					{{/each}}
+				</div>
 			</div>
 		</div>
 
 		<!-- INITIATIVE TAB -->
 		<div class="tab" data-tab="initiative">
-			<div class="mg-initiative-note">
-				{{#if canEdit}}
-				<div class="mg-content">
-					<h2>Initiative Order</h2>
-					<p>Reorder party members by dragging a card by it's grip area, or hide a member by clicking the hide from order button. This order is used for turn flow.</p>
+			<div class="tab-wrapper">
+				<div class="mg-initiative-note">
+					{{#if canEdit}}
+					<div class="mg-content">
+						<h2>Initiative Order</h2>
+						<p>Reorder party members by dragging a card by it's grip area, or hide a member by clicking the hide from order button. This order is used for turn flow.</p>
+					</div>
+					{{else}}
+					<h2>View-only initiative. Owners can reorder.</h2>
+					{{/if}}
 				</div>
-				{{else}}
-				<h2>View-only initiative. Owners can reorder.</h2>
-				{{/if}}
-			</div>
 
-			<div class="mg-initiative-list">
-				{{#each initiativeMembers as |m|}}
-				<article class="mg-init-card {{#if m.hidden}}is-muted{{/if}}" data-uuid="{{m.uuid}}" data-hidden="{{m.hidden}}">
-					<div class="mg-init-portrait">
-						<img src="{{m.img}}" alt="{{m.name}}" />
-					</div>
-
-					<div class="mg-init-main">
-						<div class="mg-init-name">{{m.name}}</div>
-						<div class="mg-init-meta">
-						<span class="mg-init-class">{{m.className}}</span>
-						<span class="mg-dot">&middot;</span>
-						<span class="mg-init-level">Lv {{m.levelText}}</span>
-						{{#if m.missing}}<span class="mg-init-missing">(Missing)</span>{{/if}}
+				<div class="mg-initiative-list">
+					{{#each initiativeMembers as |m|}}
+					<article class="mg-init-card {{#if m.hidden}}is-muted{{/if}}" data-uuid="{{m.uuid}}" data-hidden="{{m.hidden}}">
+						<div class="mg-init-portrait">
+							<img src="{{m.img}}" alt="{{m.name}}" />
 						</div>
-					</div>
 
-					<!-- New: eye toggle (works even when you can’t drag) -->
-					<div class="mg-init-actions">
-						<button type="button"
-								class="mg-init-eye"
-								title="{{#if m.hidden}}Include in Initiative{{else}}Hide from Initiative{{/if}}"
-								aria-pressed="{{#unless m.hidden}}true{{/unless}}">
-						{{#if m.hidden}}
-							<i class="fa-regular fa-eye-slash"></i>
-						{{else}}
-							<i class="fa-regular fa-eye"></i>
-						{{/if}}
-						</button>
-
-						<div class="mg-init-grip" aria-hidden="true">
-							<i class="fa-solid fa-grip-lines"></i>
+						<div class="mg-init-main">
+							<div class="mg-init-name">{{m.name}}</div>
+							<div class="mg-init-meta">
+							<span class="mg-init-class">{{m.className}}</span>
+							<span class="mg-dot">&middot;</span>
+							<span class="mg-init-level">Lv {{m.levelText}}</span>
+							{{#if m.missing}}<span class="mg-init-missing">(Missing)</span>{{/if}}
+							</div>
 						</div>
-					</div>
-				</article>
-				{{/each}}
+
+						<!-- New: eye toggle (works even when you can’t drag) -->
+						<div class="mg-init-actions">
+							<button type="button"
+									class="mg-init-eye"
+									title="{{#if m.hidden}}Include in Initiative{{else}}Hide from Initiative{{/if}}"
+									aria-pressed="{{#unless m.hidden}}true{{/unless}}">
+							{{#if m.hidden}}
+								<i class="fa-regular fa-eye-slash"></i>
+							{{else}}
+								<i class="fa-regular fa-eye"></i>
+							{{/if}}
+							</button>
+
+							<div class="mg-init-grip" aria-hidden="true">
+								<i class="fa-solid fa-grip-lines"></i>
+							</div>
+						</div>
+					</article>
+					{{/each}}
+				</div>
 			</div>
 		</div>
 
 		<!-- ASSETS TAB -->
 		<div class="tab assets" data-tab="assets">
+			<div class="tab-wrapper">
+				<div class="assets-toolbar">
+					<div class="asset-search-wrap">
+						<input type="text" class="asset-search" placeholder="Search assets…" />
+						<button type="button" class="asset-search-btn" title="Search">
+						<i class="fa-solid fa-magnifying-glass"></i>
+						</button>
+					</div>
+				</div>
 
-			<!-- This wrapper becomes our drop zone -->
-			<div class="mg-asset-drop">
-				<table class="mg-assets-table">
-				<thead>
-					<tr>
-						<th>Name</th>
-						<th>Qty</th>
-						<th>Tags</th>
-						<th>Notes</th>
-						<th>⚙</th>
-					</tr>
-				</thead>
-				<tbody>
-					{{#each (filterItems actor.items "asset") as |it|}}
-					<tr class="asset-row inventory-item" data-item-id="{{it.id}}">
-					<td class="name clickable-item">
-						<i class="fa-solid fa-box-archive"></i> {{it.name}}
-					</td>
-					<td>
-						<input class="asset-qty" type="number" min="0" value="{{it.system.qty}}" />
-					</td>
-					<td class="asset-tags">
-						{{#if it.system.tags.length}}
-						<div class="tag-pills">
-							{{#each it.system.tags as |tagId|}}
-							<span class="item-tag">{{tagId}}</span>
-							{{/each}}
+				<!-- Drop zone wraps the grid -->
+				<div class="mg-asset-drop">
+					<div class="asset-grid">
+						{{#each assets as |it|}}
+						
+						<article class="asset-card inventory-item" data-item-id="{{it.id}}">
+							<h3 class="name post-asset" data-item-id="{{it.id}}">
+									<i class="fa-solid fa-messages"></i> {{it.name}}
+							</h3>
+
+							<div class="card-media">
+								<img src="{{it.img}}" alt="{{it.name}}">
+								<div class="qty-badge" title="Quantity">{{it.system.qty}}</div>
+							</div>
+
+							<div class="card-wrapper">
+
+								<div class="card-body">
+
+									{{#if it.system.notes}}
+										<p title="{{it.system.notes}}">
+											{{it.system.notes}}
+										</p>
+									{{/if}}
+
+									{{#if it._tags.length}}
+									<div class="asset-tags">
+										{{#each it._tags as |t|}}
+										<span class="asset-tag tag" data-tag-id="{{t.id}}" title="Click for details">
+											{{t.label}}
+										</span>
+										{{/each}}
+									</div>
+									{{/if}}
+								</div>
+
+								<div class="card-actions">
+									
+									<div class="qty-controls" title="Adjust quantity">
+										<label>Quantity</label>
+										<input class="asset-qty" type="number" min="0" value="{{it.system.qty}}" />
+									</div>
+
+									<button class="edit-notes" data-item-id="{{it.id}}" title="Edit Notes">
+										<i class="fa-regular fa-note-sticky"></i>
+									</button>
+
+									<button class="open-asset-sheet" data-item-id="{{it.id}}" title="Open Item (edit tags, values)">
+										<i class="fa-regular fa-pen-to-square"></i>
+									</button>
+
+									<button class="asset-delete" data-item-id="{{it.id}}" title="Delete">
+										<i class="fa-solid fa-trash"></i>
+									</button>
+								</div>
+							</div>
+						</article>
+						{{/each}}
+
+						{{#unless assets.length}}
+						<div class="empty-hint">
+							<p><i class="fa-regular fa-inbox"></i> Drag Assets here from the sidebar, or click **Add Asset**.</p>
 						</div>
-						{{else}}
-						<span class="muted">—</span>
-						{{/if}}
-					</td>
-					<td class="asset-notes">
-						<input class="asset-notes-input" type="text" value="{{it.system.notes}}" placeholder="Notes…" />
-					</td>
-					<td class="asset-actions" style="text-align:center;">
-						<button class="post-asset" data-item-id="{{it.id}}" title="Post to Chat">
-						<i class="fa-regular fa-message"></i>
-						</button>
-						<button class="asset-delete" data-item-id="{{it.id}}" title="Delete">
-						<i class="fa-solid fa-trash"></i>
-						</button>
-					</td>
-					</tr>
-					{{/each}}
-				</tbody>
-				</table>
+						{{/unless}}
+					</div>
+
+					<!-- Empty state for search -->
+					<div class="asset-search-empty" style="display:none;">
+					<p><i class="fa-regular fa-face-frown"></i> Search did not return any matches, try again!</p>
+					<button type="button" class="asset-search-reset">
+						<i class="fa-solid fa-rotate-left"></i> Reset
+					</button>
+					</div>
+				</div>
 			</div>
 		</div>
-
 
 		<!-- GAMBITS TAB -->
 		<div class="tab" data-tab="gambits">

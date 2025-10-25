@@ -2043,3 +2043,105 @@ Hooks.on("renderActorDirectory", (app, html) => {
     }
   });
 });
+
+// Clickable tag pills inside CHAT MESSAGES only
+Hooks.on("renderChatMessage", (_message, html) => {
+  // decode entities like &amp; -> &
+  const decodeHTML = (htmlStr) => {
+    const div = document.createElement("div");
+    div.innerHTML = String(htmlStr ?? "");
+    return div.textContent || div.innerText || "";
+  };
+
+  // Delegate clicks from within this specific message's DOM
+  html.on("click", ".tag, .asset-tag, .item-tag", (ev) => {
+    const el = ev.currentTarget;
+    const cfg = CONFIG.MidnightGambit || {};
+
+    // Build a merged registry across all *TAGS arrays
+    const allDefs = Object.entries(cfg)
+      .filter(([k, v]) => (/_TAGS$|TAGS$|^TAGS$/i).test(k) && Array.isArray(v))
+      .flatMap(([_, arr]) => arr);
+
+    // Prefer data-tag-id; else match by label text
+    let tagId = (el.dataset?.tagId || "").trim();
+    if (!tagId) {
+      const label = (el.textContent || "").trim();
+      const byLabel = allDefs.find(t => (t.label || t.id) === label);
+      tagId = byLabel?.id || "";
+    }
+    if (!tagId) return;
+
+    const def = allDefs.find(t => t.id === tagId);
+    if (!def) return;
+
+    // Decode for clean & in title/body
+    const titleText = `${decodeHTML(def.label || tagId)}`;
+    const bodyHtml  = `<div class="mg-tag-dialog"><p>${decodeHTML(def.description || "No description available.")}</p></div>`;
+
+    // Dialog: set plain-text title post-render to avoid double-escaping
+    const dlg = new Dialog(
+      { title: titleText, content: bodyHtml, buttons: { ok: { label: "Close" } } },
+      { classes: ["mg-tag-dialog"] }
+    );
+
+    dlg.render(true);
+    dlg.once("renderDialog", (_app, $html) => {
+      const titleEl = $html.closest(".app.window-app")[0]?.querySelector(".window-title");
+      if (titleEl) titleEl.textContent = titleText;
+    });
+  });
+});
+
+// Clickable tag pills in ANY SHEET/WINDOW (but NOT in chat)
+Hooks.once("ready", () => {
+  const decodeHTML = (htmlStr) => {
+    const div = document.createElement("div");
+    div.innerHTML = String(htmlStr ?? "");
+    return div.textContent || div.innerText || "";
+  };
+
+  document.body.addEventListener("click", (ev) => {
+    // Ignore chat; handled by renderChatMessage above
+    if (ev.target.closest("#chat-log")) return;
+
+    // Find a tag pill in sheets
+    const el = ev.target.closest?.(".asset-tag.tag, .asset-tag, .tag");
+    if (!el) return;
+
+    // Assets card handler already calls stopPropagation(); respect it
+    if (ev.defaultPrevented) return;
+
+    // Merge registries
+    const cfg = CONFIG.MidnightGambit || {};
+    const allDefs = Object.entries(cfg)
+      .filter(([k, v]) => (/_TAGS$|TAGS$|^TAGS$/i).test(k) && Array.isArray(v))
+      .flatMap(([_, arr]) => arr);
+
+    // Resolve id
+    let tagId = el.dataset?.tagId?.trim();
+    if (!tagId) {
+      const label = (el.textContent || "").trim();
+      const byLabel = allDefs.find(t => (t.label || t.id) === label);
+      tagId = byLabel?.id || "";
+    }
+    if (!tagId) return;
+
+    const def = allDefs.find(t => t.id === tagId);
+    if (!def) return;
+
+    const titleText = `${decodeHTML(def.label || tagId)}`;
+    const bodyHtml  = `<div class="mg-tag-dialog"><p>${decodeHTML(def.description || "No description available.")}</p></div>`;
+
+    const dlg = new Dialog(
+      { title: titleText, content: bodyHtml, buttons: { ok: { label: "Close" } } },
+      { classes: ["mg-tag-dialog"] }
+    );
+
+    dlg.render(true);
+    dlg.once("renderDialog", (_app, $html) => {
+      const titleEl = $html.closest(".app.window-app")[0]?.querySelector(".window-title");
+      if (titleEl) titleEl.textContent = titleText;
+    });
+  });
+});

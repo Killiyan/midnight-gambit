@@ -80,14 +80,21 @@
 		}
 
 		.tab {
-		padding: 2.125rem;
+			padding: 2.125rem;
+
+			.tab-wrapper {
+				display: flex;
+				flex-direction: column;
+				gap: 1.875rem;
+				position: relative;
+				z-index: 10;
+			}
 		}
 
 		.mg-party-grid,
 		.mg-initiative-list {
 			display: flex;
 			flex-direction: column;
-			padding: 2.125rem 0;
 			gap: .5rem;
 
 			.mg-member-card,
@@ -293,30 +300,79 @@
 
 		.assets {
 
-			.mg-assets-table {
-				border-radius: .5rem;
-				overflow: hidden;
-				@include mg-border;
-				border-collapse: unset;
-				border-spacing: 0;
+			.asset-grid {
+				display: grid;
+				grid-template-columns: 1fr 1fr 1fr;
+				gap: 1.25rem;
 
-				thead {
+				.asset-card {
+					border-radius: .5rem;
+					@include mg-border();
 					background: $mg-blue-main;
-					border: none;
-				}
 
-				th {
-					@include oswald();
-					font-size: 1rem;
-					text-transform: uppercase;
-					color: $mg-ivory;
-					border: none;
-					text-align: left;
-					padding: 1.25rem;
-				}
+					h3 {
+						@include oswald();
+						text-transform: uppercase;
+						font-weight: 700;
+						font-style: italic;
+						font-size: 1.25rem;
+						line-height: 1.1;
+						padding:  1.25rem;
+						display: block;
+						background: $mg-blue-main-2;
+						color: $mg-blue-2;
+						border-radius: .5rem .5rem 0 0;
+						transition: color .5s ease, background .5s ease;
+						display: flex;
+						gap: .625rem;
+						align-items: center;
+						margin-bottom: 0;
 
-				td {
-					padding: 1.25rem;
+						&:hover {
+							background: $mg-blue-1;
+							color: $mg-blue-main-2;
+
+							i {
+								color: $mg-blue-3;
+							}
+						}
+
+						i {
+							display: block;
+							font-size: 1.25rem;
+							color: $mg-blue-4;
+							transition: color .5s ease;
+						}
+					}
+
+					.card-media img{
+						border: none;
+						background: $mg-blue-4;
+						backdrop-filter: blur(4px);
+						border-radius: 0;
+						aspect-ratio: 1/1;
+						object-fit: cover;
+						max-height: 8rem;
+						width: 100%;
+					}
+
+					.card-wrapper {
+						padding: 1.25rem;
+						display: flex;
+						flex-direction: column;
+						gap: 1rem;
+
+						.card-actions {
+							display: grid;
+							grid-template-columns: repeat(3, 1fr);
+							gap: .5rem;
+
+							.qty-controls {
+								grid-column-start: 1;
+								grid-column-end: 4;
+							}
+						}
+					}
 				}
 			}
 		}
@@ -381,4 +437,51 @@
 	}
 }
 
+/* 0.5s slide/fade for search filtering */
+.crew-sheet .tab.assets {
+  .asset-card {
+    opacity: 1;
+    transform: translateY(0);
+    transition: opacity .5s ease, transform .5s ease;
+    will-change: opacity, transform;
+
+    &.pre-enter {
+      opacity: 0;
+      transform: translateY(10px); // start slightly below
+    }
+
+    &.is-entering {
+      opacity: 1;
+	  transform: translateY(0);
+    }
+
+    &.is-leaving {
+      opacity: 0;
+      transform: translateY(10px); // slide down while fading out
+      pointer-events: none;
+    }
+
+    &.is-hidden {
+      display: none !important; // applied after leave completes
+    }
+  }
+
+  .asset-search-empty {
+    margin-top: 12px;
+    padding: 12px;
+    text-align: center;
+    opacity: 0.9;
+    border: 1px dashed rgba(255,255,255,.15);
+    border-radius: 10px;
+
+    button.asset-search-reset {
+      margin-top: 8px;
+      padding: 6px 10px;
+      border-radius: 8px;
+      background: rgba(255,255,255,.08);
+      transition: background .15s ease;
+      &:hover { background: rgba(255,255,255,.15); }
+    }
+  }
+}
 

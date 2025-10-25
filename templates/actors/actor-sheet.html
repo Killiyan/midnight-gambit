@@ -318,7 +318,7 @@
 
                 <div class="gambit-title">
                   <button type="button" class="post-gambit" data-item-id="{{_id}}" title="Post to Chat">
-                    <i class="fa-solid fa-message"></i>
+                    <i class="fa-solid fa-messages"></i>
                     {{name}}
                   </button>
                 </div>
@@ -440,12 +440,12 @@
                 <span class="item-tags">
                   {{#each item.system.tags as |tagId|}}
                     {{#with (lookup ../../CONFIG.MidnightGambit.ITEM_TAGS tagId) as |tag|}}
-                      <div class="item-tag" data-item-id="{{item._id}}" data-tag-id="{{tagId}}" title="Right-click to remove">
+                      <div class="item-tag tag" data-item-id="{{item._id}}" data-tag-id="{{tagId}}" title="Right-click to remove">
                         <span data-tooltip="{{tag.description}}">{{tag.label}}</span>
                       </div>
                     {{else}}
 
-                      <div class="item-tag" data-item-id="{{item._id}}" data-tag-id="{{tagId}}" title="Right-click to remove">
+                      <div class="item-tag tag" data-item-id="{{item._id}}" data-tag-id="{{tagId}}" title="Right-click to remove">
                         <span>{{tagId}}</span>
                       </div>
 
@@ -504,11 +504,11 @@
                 <span class="item-tags">
                   {{#each item.system.tags as |tagId|}}
                     {{#with (lookup ../../CONFIG.MidnightGambit.ITEM_TAGS tagId) as |tag|}}
-                      <div class="item-tag" data-item-id="{{item._id}}" data-tag-id="{{tagId}}" title="Right-click to remove">
+                      <div class="item-tag tag" data-item-id="{{item._id}}" data-tag-id="{{tagId}}" title="Right-click to remove">
                         <span data-tooltip="{{tag.description}}">{{tag.label}}</span>
                       </div>
                     {{else}}
-                      <div class="item-tag" data-item-id="{{item._id}}" data-tag-id="{{tagId}}" title="Right-click to remove">
+                      <div class="item-tag tag" data-item-id="{{item._id}}" data-tag-id="{{tagId}}" title="Right-click to remove">
                         <span>{{tagId}}</span>
                       </div>
                     {{/with}}
@@ -608,11 +608,11 @@
                 <span class="item-tags">
                   {{#each item.system.tags as |tagId|}}
                     {{#with (lookup ../../CONFIG.MidnightGambit.ITEM_TAGS tagId) as |tag|}}
-                      <div class="item-tag" data-item-id="{{item._id}}" data-tag-id="{{tagId}}" title="Right-click to remove">
+                      <div class="item-tag tag" data-item-id="{{item._id}}" data-tag-id="{{tagId}}" title="Right-click to remove">
                         <span data-tooltip="{{tag.description}}">{{tag.label}}</span>
                       </div>
                     {{else}}
-                      <div class="item-tag" data-item-id="{{item._id}}" data-tag-id="{{tagId}}" title="Right-click to remove">
+                      <div class="item-tag tag" data-item-id="{{item._id}}" data-tag-id="{{tagId}}" title="Right-click to remove">
                         <span>{{tagId}}</span>
                       </div>
                     {{/with}}

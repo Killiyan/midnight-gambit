@@ -1129,14 +1129,25 @@ export class MidnightGambitActorSheet extends ActorSheet {
         if (!item) return;
 
         const { name, system, type } = item;
+        // Build clickable tag pills for chat: include data-tag-id so hooks can resolve
+        const safe = (s) => String(s ?? "").replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+        const allDefs = [
+          ...(CONFIG.MidnightGambit?.ITEM_TAGS   ?? []),
+          ...(CONFIG.MidnightGambit?.WEAPON_TAGS ?? []),
+          ...(CONFIG.MidnightGambit?.ARMOR_TAGS  ?? []),
+          ...(CONFIG.MidnightGambit?.MISC_TAGS   ?? [])
+        ];
+
         const tagData = (system.tags || [])
           .map(tagId => {
-            const tagDef = CONFIG.MidnightGambit?.ITEM_TAGS?.find(t => t.id === tagId);
-            return tagDef
-              ? `<span class="item-tag" data-tooltip="${tagDef.description}">${tagDef.label}</span>`
-              : `<span class="item-tag">${tagId}</span>`;
+            const def   = allDefs.find(t => t.id === tagId);
+            const label = def?.label || tagId;
+            const desc  = def?.description || "";
+            // NOTE: add both .item-tag and .tag; include data-tag-id for the click handler
+            return `<span class="item-tag tag" data-tag-id="${safe(tagId)}" title="${safe(desc)}">${safe(label)}</span>`;
           })
           .join(" ");
+
 
         let extraInfo = "";
 
