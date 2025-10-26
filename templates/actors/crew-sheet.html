@@ -143,15 +143,37 @@
 
 		<!-- ASSETS TAB -->
 		<div class="tab assets" data-tab="assets">
-			<div class="tab-wrapper">
-				<div class="assets-toolbar">
-					<div class="asset-search-wrap">
-						<input type="text" class="asset-search" placeholder="Search assets…" />
-						<button type="button" class="asset-search-btn" title="Search">
-						<i class="fa-solid fa-magnifying-glass"></i>
+
+			<!-- Crew Lux controls -->
+			<div class="assets-toolbar">
+				<div class="crew-lux">
+					<label for="lux">Lux</label>
+					<div class="field-wrapper">
+						<button type="button" class="lux-dec" data-step="-1" aria-label="Decrease Lux">
+							<i class="fa-solid fa-minus"></i>
+						</button>
+						<input class="lux-value" type="number" min="0" step="1" value="{{actor.system.lux.value}}" />
+						{{#if actor.system.lux.cap}}
+							<span class="lux-cap">/ {{actor.system.lux.cap}}</span>
+						{{/if}}
+						<button type="button" class="lux-inc" data-step="1" aria-label="Increase Lux">
+							<i class="fa-solid fa-plus"></i>
 						</button>
 					</div>
 				</div>
+
+				<div class="asset-search-wrap">
+					<label>Search</label>
+					<div class="field-wrapper">
+						<input type="text" class="asset-search" placeholder="Search assets…" />
+						<button type="button" class="asset-search-btn" title="Search">
+							<i class="fa-solid fa-magnifying-glass"></i>
+						</button>
+					</div>
+				</div>
+			</div>
+
+			<div class="tab-wrapper">
 
 				<!-- Drop zone wraps the grid -->
 				<div class="mg-asset-drop">
@@ -172,19 +194,32 @@
 
 								<div class="card-body">
 
+									{{!-- Description (plain text) --}}
+									{{#if it.system.description}}
+										<div class="desc" title="{{it.system.description}}">
+											{{it.system.description}}
+										</div>
+									{{/if}}
+
 									{{#if it.system.notes}}
 										<p title="{{it.system.notes}}">
 											{{it.system.notes}}
 										</p>
 									{{/if}}
 
+									{{!-- Tags with overflow + "See all" toggle --}}
 									{{#if it._tags.length}}
-									<div class="asset-tags">
+									<div class="tags-wrap" data-item-id="{{it.id}}">
+										<div class="tags asset-tags">
 										{{#each it._tags as |t|}}
-										<span class="asset-tag tag" data-tag-id="{{t.id}}" title="Click for details">
+											<span class="asset-tag tag" data-tag-id="{{t.id}}" title="Click for details">
 											{{t.label}}
-										</span>
+											</span>
 										{{/each}}
+										</div>
+										<span class="tags-toggle" hidden>
+										See all
+										</span>
 									</div>
 									{{/if}}
 								</div>
@@ -214,14 +249,15 @@
 
 						{{#unless assets.length}}
 						<div class="empty-hint">
-							<p><i class="fa-regular fa-inbox"></i> Drag Assets here from the sidebar, or click **Add Asset**.</p>
+							<h3><i class="fa-solid fa-triangle-exclamation"></i> You have no Assets yet!</h3>
+							<p>To get started, drag Assets here from the sidebar.</p>
 						</div>
 						{{/unless}}
 					</div>
 
 					<!-- Empty state for search -->
 					<div class="asset-search-empty" style="display:none;">
-					<p><i class="fa-regular fa-face-frown"></i> Search did not return any matches, try again!</p>
+					<h3><i class="fa-solid fa-triangle-exclamation"></i> Search did not return any matches, try again!</h3>
 					<button type="button" class="asset-search-reset">
 						<i class="fa-solid fa-rotate-left"></i> Reset
 					</button>

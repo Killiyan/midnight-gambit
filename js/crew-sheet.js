@@ -101,7 +101,17 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 		const s = this.actor.system ?? {};
 
 		// Defaults (non-destructive)
-		s.lux = Number.isFinite(Number(s.lux)) ? Number(s.lux) : 0;
+		// Lux: normalize to object shape for the template
+		if (typeof s.lux === "number") {
+		s.lux = { value: Number.isFinite(s.lux) ? Number(s.lux) : 0 };
+		} else if (!s.lux || typeof s.lux !== "object") {
+		s.lux = { value: 0 };
+		} else {
+		s.lux.value = Number.isFinite(Number(s.lux.value)) ? Number(s.lux.value) : 0;
+		}
+		// s.bio etc. stay as-is below
+		s.bio ??= { lookAndFeel: "", weakness: "", location: "", features: "", tags: [] };
+
 		s.bio ??= { lookAndFeel: "", weakness: "", location: "", features: "", tags: [] };
 		s.gambits ??= { deck: [], drawn: [], discard: [], handSize: 3, deckSize: 10 };
 		for (const k of ["deck","drawn","discard"]) s.gambits[k] ??= [];
@@ -723,18 +733,6 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 
 		// Search filtering (handles Enter key or button click)
 		{
-			const doAssetSearch = (root, query) => {
-				const q = (query || "").toLowerCase().trim();
-				const cards = root.find(".assets .asset-card");
-				if (!q) { cards.show(); return; }
-				cards.each((_, el) => {
-				const name  = (el.querySelector(".name")?.textContent  || "").toLowerCase();
-				const tags  = (el.querySelector(".tags")?.textContent  || "").toLowerCase();
-				const notes = (el.querySelector(".notes")?.textContent || "").toLowerCase();
-				const hit = name.includes(q) || tags.includes(q) || notes.includes(q);
-				el.style.display = hit ? "" : "none";
-				});
-			};
 
 			// Smooth 0.5s search: all cards slide down, then matches slide up; empty-state + Reset
 			{
@@ -759,8 +757,16 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 
 			// Phase transitions
 			const enterCard = (el, idx = 0) => {
-			if (!el.classList.contains("is-hidden")) return;
-			el.classList.remove("is-hidden", "is-leaving");
+			// Always normalize to hidden → pre-enter → entering, even if it wasn't hidden yet
+			el.classList.remove("is-entering", "is-leaving", "pre-enter");
+			if (!el.classList.contains("is-hidden")) {
+				el.classList.add("is-hidden");
+				// commit the change so transition states are clean
+				// eslint-disable-next-line no-unused-expressions
+				el.offsetHeight;
+			}
+
+			el.classList.remove("is-hidden");
 			el.classList.add("pre-enter");
 
 			// force pre-enter to commit
@@ -784,6 +790,7 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 				el.addEventListener("transitionend", onEnd, { once: true });
 			});
 			};
+
 
 			const leaveCard = (el) => {
 			el.classList.remove("is-entering", "pre-enter");
@@ -828,6 +835,9 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 					}
 				}
 				showEmpty(hits === 0);
+
+				// re-evaluate tag overflow once cards are in their final places
+				$root.find(".assets .tags-wrap").each((_, w) => updateOneWrap(w));
 				}, LEAVE_MS);
 			};
 
@@ -860,14 +870,6 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 
 			});
 			}
-
-			// Optional: press Enter key in field (for browsers that don't trigger input)
-			$root.off("keydown.mgAssetSearchEnter").on("keydown.mgAssetSearchEnter", ".assets .asset-search", (ev) => {
-				if (ev.key === "Enter") {
-				ev.preventDefault();
-				doAssetSearch($root, ev.currentTarget.value);
-				}
-			});
 		}
 
 		// Click a tag pill on the card to see its meaning
@@ -925,14 +927,194 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 
 		});
 
-		// Drag-hover chrome on the whole asset area; drop flows into _onDrop
-		const $zone = $root.find(".assets .mg-asset-drop");
-		if ($zone.length) {
-			$zone.on("dragenter", (e) => { e.preventDefault(); e.stopPropagation(); $zone.addClass("drag-hover"); });
-			$zone.on("dragover",  (e) => { e.preventDefault(); e.stopPropagation(); });
-			$zone.on("dragleave", (e) => { if (!$zone[0].contains(e.relatedTarget)) $zone.removeClass("drag-hover"); });
-			$zone.on("drop",      (e) => { e.preventDefault(); e.stopPropagation(); $zone.removeClass("drag-hover"); return this._onDrop(e.originalEvent); });
+			// Drag-hover chrome on the whole asset area; drop flows into _onDrop
+			const $zone = $root.find(".assets .mg-asset-drop");
+			if ($zone.length) {
+				$zone.on("dragenter", (e) => { e.preventDefault(); e.stopPropagation(); $zone.addClass("drag-hover"); });
+				$zone.on("dragover",  (e) => { e.preventDefault(); e.stopPropagation(); });
+				$zone.on("dragleave", (e) => { if (!$zone[0].contains(e.relatedTarget)) $zone.removeClass("drag-hover"); });
+				$zone.on("drop",      (e) => { e.preventDefault(); e.stopPropagation(); $zone.removeClass("drag-hover"); return this._onDrop(e.originalEvent); });
+			}
 		}
+
+		/* Tag overflow: clamp to two rows with "See all / See less"
+		--------------------------------------------------------*/
+		const COLLAPSED_MAX = 48;   // px ≈ two rows of chips in your theme
+		const TRANSITION_MS = 500;  // must match CSS transition
+		//---------------------------------------------------------------------
+
+		const updateOneWrap = (wrap) => {
+		if (!wrap || wrap.classList.contains("animating")) return; // don't fight animations
+		const tags = wrap.querySelector(".tags");
+		const toggle = wrap.querySelector(".tags-toggle");
+		if (!tags || !toggle) return;
+
+		// Hide affordances if the list is "short" (under ~3rem)
+		wrap.classList.toggle("short", tags.scrollHeight < 48);
+
+		const isExpanded = wrap.classList.contains("expanded");
+		const overflows  = tags.scrollHeight > COLLAPSED_MAX + 1;
+
+		toggle.hidden = !overflows;
+		toggle.textContent = isExpanded ? "See less" : "See all";
+		};
+
+		const animateTo = (el, targetPx, after) => {
+		// Apply a numeric max-height so it can animate
+		el.style.maxHeight = `${targetPx}px`;
+		const onEnd = (e) => {
+			if (e && e.target !== el) return;
+			el.removeEventListener("transitionend", onEnd);
+			after?.();
+		};
+		// Safety timeout in case transitionend doesn't fire
+		setTimeout(() => after?.(), TRANSITION_MS + 50);
+		el.addEventListener("transitionend", onEnd, { once: true });
+		};
+
+		// Toggle click (smooth 0.5s expand/collapse with gradient fade)
+		$root.off("click.mgTagsToggle").on("click.mgTagsToggle", ".assets .tags-toggle", (ev) => {
+		ev.preventDefault();
+		const wrap = ev.currentTarget.closest(".tags-wrap");
+		if (!wrap || wrap.classList.contains("animating")) return;
+
+		const tags   = wrap.querySelector(".tags");
+		const toggle = wrap.querySelector(".tags-toggle");
+		if (!tags || !toggle) return;
+
+		wrap.classList.add("animating");
+
+		const isExpanded = wrap.classList.contains("expanded");
+
+		if (!isExpanded) {
+			// EXPAND: current → scrollHeight
+			// 1) Start from the current clamped height (ensure numeric)
+			tags.style.maxHeight = `${Math.max(tags.clientHeight, COLLAPSED_MAX)}px`;
+			// 2) Force reflow so the browser commits this starting point
+			// eslint-disable-next-line no-unused-expressions
+			tags.offsetHeight;
+			// 3) Animate up to the content height
+			animateTo(tags, tags.scrollHeight, () => {
+			// After the animation, mark expanded and clear inline style
+			wrap.classList.add("expanded");
+			tags.style.maxHeight = ""; // let CSS (expanded) take over
+			toggle.textContent = "See less";
+			wrap.classList.remove("animating");
+			updateOneWrap(wrap);
+			});
+		} else {
+			// COLLAPSE: scrollHeight → COLLAPSED_MAX
+			// 1) Set current height as the starting point
+			tags.style.maxHeight = `${tags.scrollHeight}px`;
+			// 2) Force reflow
+			// eslint-disable-next-line no-unused-expressions
+			tags.offsetHeight;
+			// 3) Animate down to collapsed height
+			animateTo(tags, COLLAPSED_MAX, () => {
+			wrap.classList.remove("expanded");
+			tags.style.maxHeight = ""; // restore CSS
+			toggle.textContent = "See all";
+			wrap.classList.remove("animating");
+			updateOneWrap(wrap);
+			});
+		}
+		});
+
+		/* Crew Lux controls (shared currency)
+		----------------------------------*/
+		{
+		const $root = html instanceof jQuery ? html : $(html);
+
+		// --- helpers -----------------------------------------------------
+		const readLux = () => {
+		const raw = foundry.utils.getProperty(this.actor, "system.lux");
+		if (typeof raw === "number") return { value: Number.isFinite(raw) ? raw : 0 };
+		if (!raw || typeof raw !== "object") return { value: 0 };
+		const v = Number(raw.value);
+		return { value: Number.isFinite(v) ? v : 0, cap: raw.cap };
+		};
+
+		const ensureLuxObjectOnce = async () => {
+		const raw = foundry.utils.getProperty(this.actor, "system.lux");
+		if (typeof raw === "number") {
+			// migrate number -> object just once
+			await this.actor.update({ "system.lux": { value: raw } }, { render: false });
+		} else if (!raw || typeof raw !== "object") {
+			await this.actor.update({ "system.lux": { value: 0 } }, { render: false });
+		}
+		};
+
+		const saveLux = async (val) => {
+		await ensureLuxObjectOnce();
+		await this.actor.update({ "system.lux.value": val }, { render: false });
+		const input = $root.find(".assets .lux-value")[0];
+		if (input) input.value = val;
+		};
+
+		const getCap = () => {
+		const c = Number(this.actor.system?.lux?.cap);
+		return Number.isFinite(c) && c > 0 ? c : null;
+		};
+
+		// Number field direct edit
+		$root.off("change.mgLuxInput").on("change.mgLuxInput", ".assets .lux-value", async (ev) => {
+		const lux = readLux();
+		const cap = getCap();
+		let next = Number(ev.currentTarget.value ?? lux.value);
+		if (!Number.isFinite(next)) next = lux.value;
+		if (cap != null) next = Math.min(cap, next);
+		next = Math.max(0, next);
+		await saveLux(next);
+		});
+
+		// +/- buttons
+		$root.off("click.mgLuxStep").on("click.mgLuxStep", ".assets .lux-dec, .assets .lux-inc", async (ev) => {
+		ev.preventDefault();
+		const step = Number(ev.currentTarget.dataset.step || 0) || 0;
+		const lux = readLux();
+		const cap = getCap();
+		let next = (lux.value || 0) + step;
+		if (cap != null) next = Math.min(cap, next);
+		next = Math.max(0, next);
+		await saveLux(next);
+		});
+
+
+		// Scroll wheel nudging
+		$root.off("wheel.mgLuxWheel").on("wheel.mgLuxWheel", ".assets .lux-wrap", async (ev) => {
+		if (!ev.ctrlKey && !ev.shiftKey) return;
+		ev.preventDefault();
+		const delta = ev.originalEvent?.deltaY ?? ev.deltaY ?? 0;
+		const step = delta > 0 ? -1 : 1;
+		const lux = readLux();
+		const cap = getCap();
+		let next = (lux.value || 0) + step;
+		if (cap != null) next = Math.min(cap, next);
+		next = Math.max(0, next);
+		await saveLux(next);
+		});
+
+		// Post to chat
+		$root.off("click.mgLuxPost").on("click.mgLuxPost", ".assets .lux-post", async (ev) => {
+		ev.preventDefault();
+		const lux = readLux();
+		const val = Number(lux.value ?? 0);
+		const cap = getCap();
+		const esc = (s) => Handlebars.escapeExpression(String(s ?? ""));
+		const label = esc(this.actor.name || "Crew");
+		const total = cap != null ? `${val} / ${cap}` : `${val}`;
+		const content = `
+			<div class="chat-item">
+			<h2><i class="fa-regular fa-gem"></i> ${label} — Lux</h2>
+			<p><strong>Lux:</strong> ${total}</p>
+			</div>
+		`;
+		await ChatMessage.create({
+			user: game.user.id,
+			speaker: ChatMessage.getSpeaker({ actor: this.actor }),
+			content
+		});
+		});
 		}
 
 		// --- Render new tabs (Assets / Gambits / Bio)

@@ -112,12 +112,12 @@ button:disabled {
 }
 
 .sidebar-tab {
-  background: $mg-blue-main;
+  background: $mg-blue-4;
 }
 
 #sidebar {
   background: $mg-blue-main;
-  @include mg-border();
+  border: 3px solid $mg-blue-main-2;
   position: relative;
   min-width: 21.875rem;
 
@@ -171,11 +171,23 @@ button:disabled {
     background-image: none;
     @include mg-border();
     color: $white;
-    padding: 1.125rem 1.125rem 1.125rem 4.5rem;
-    margin-top: 1.25rem;
+    padding: 3rem 1.125rem 1.125rem 4.5rem;
+    margin: 1.25rem 1.125rem;
     backdrop-filter: blur(3px);
     position: relative;
     overflow: hidden;
+    border-radius: .5rem;
+
+    header {
+      position: relative;
+      background: $mg-blue-4;
+      border-bottom: 1px solid $mg-blue-main-2;
+      padding: .75rem 3.25rem .75rem .75rem;
+      margin: -3rem -1rem 0;
+      top: 0;
+      right: 0;
+      width: 116%;
+    }
 
     hr {
       background: $mg-blue-main-2;
@@ -231,25 +243,18 @@ button:disabled {
     .clock-label {
       text-align: center;
 
-      .title {
-        margin-left: -1.5rem;
+      .headline-wrap {
         display: flex;
-        justify-content: center;
-        align-items: center;
-        gap: 0.25rem;
-
-        i {
-          color: $mg-blue-4;
-        }
+        flex-direction: column;
+        text-align: left;
       }
-      
-      .mg-clock-name {
-        @include oswald();
-        font-size: 1.25rem;
-        text-transform: uppercase;
-        font-style: italic;
-        font-weight: 700;
-        color: $mg-blue-1;
+
+      .clock-text {
+        font-size: .75rem;
+        @include roboto();
+        color: $mg-blue-2;
+        text-transform: lowercase;
+        font-weight: 400;
       }
     }
 
@@ -425,12 +430,41 @@ button:disabled {
     color: $mg-ivory;
   }
 
+  .message-metadata .message-delete {
+    position: absolute;
+    right: 0;
+    top: 0;
+    padding: .5rem .75rem;
+    background: rgba($mg-blue-main-2, .2);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+    transition: background .5s ease, color .5s ease;
+
+    i {
+      color: $mg-blue-3;
+      transition: color .5s ease;
+    }
+
+    &:hover,
+    &:focus {
+      background: $mg-blue-3;
+      color: $mg-blue-4;
+
+      i {
+        color: $mg-blue-4;
+      }
+    }
+  }
+
   .message-sender {
     @include oswald();
     font-weight: 700;
     font-style: italic;
     letter-spacing: .02em;
     text-transform: uppercase;
+    white-space: normal;
   }
 
   .nue {

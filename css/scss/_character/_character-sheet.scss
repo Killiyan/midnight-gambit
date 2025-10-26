@@ -65,9 +65,10 @@ h1,h2,h3,h4 {
   }
 
   .window-content {
-    background: $mg-blue-main;
+    background: $mg-blue-4;
     color: $mg-blue-2;
     @include roboto();
+    padding: 1.125rem;
 
     .notes {
       color: $mg-blue-2;
@@ -132,7 +133,8 @@ h1,h2,h3,h4 {
     }
   }
 
-  &.dialog {
+  &.dialog,
+  &.mg-tag-dialog {
 
     .window-content {
       padding: 0 1.125rem 1.125rem 1.125rem;
@@ -140,6 +142,14 @@ h1,h2,h3,h4 {
 
     .dialog-content {
       gap: 1.125rem;
+
+      .mg-tag-dialog {
+        padding: 1.125rem 0 0 0;
+        
+        p {
+          margin: 0;
+        }
+      }
 
       input {
         padding: 1rem;
@@ -303,6 +313,7 @@ h1,h2,h3,h4 {
 
     .tab {
       padding: 2.125rem;
+      background: $mg-blue-4;
     }
 
     //Setting consisten styling for the over image toggles
@@ -443,6 +454,7 @@ h1,h2,h3,h4 {
       display: flex;
       width: 100%;
       @include mg-border();
+      background: $mg-blue-main;
       border-radius: .625rem;
       margin-bottom: 2.125rem;
 

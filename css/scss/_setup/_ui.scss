@@ -633,13 +633,20 @@
 		color: $mg-blue-1;
 		padding: .5rem;
 		border-radius: .5rem;
+		transition: color .5s ease, background .5s ease, filter .5s ease;
+
+		&:hover,
+		&:focus {
+			background: $mg-blue-1;
+			color: $mg-blue-4;
+			filter: drop-shadow(3px 5px 3px rgba(0,0,0,.5));
+		}
 	}
 }
 
 .chat-tags {
   margin-top: .5rem;
 }
-
 
 
 /* Pointer Event Resets

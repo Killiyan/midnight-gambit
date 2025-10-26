@@ -506,8 +506,7 @@ async function mgAnnounceClockTickDown(name, remaining, total, gmOnly) {
   const content = `
     <div class="mg-clock-chat">
       <div class="clock-label">
-        <span class="title"><i class="fa-solid fa-clock"></i> <span class="mg-clock-name">${title}</span></span>
-        <p>ticks down…</p>
+        <h2 class="title"><i class="fa-solid fa-clock"></i><span class="headline-wrap">${title}<span class="clock-text">ticks down…</span></span></h2>
       </div>
       <div class="mg-clock-count">
         <span class="clock-major">

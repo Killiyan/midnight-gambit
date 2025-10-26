@@ -81,6 +81,7 @@
 
 		.tab {
 			padding: 2.125rem;
+			background: $mg-blue-4;
 
 			.tab-wrapper {
 				display: flex;
@@ -300,15 +301,112 @@
 
 		.assets {
 
+			.asset-search-empty,
+			.empty-hint {
+				padding: 1.125rem;
+				text-align: center;
+				opacity: 0.9;
+				@include mg-border();
+				border-radius: .625rem;
+				
+				h3 {
+					border-bottom: none;
+					margin-bottom: 1rem;
+					padding: 0;
+				}
+			}	
+
+			.assets-toolbar {
+				margin-top: -4.5rem;
+				position: relative;
+				z-index: 20;
+				padding: 0 2.125rem 0 0;
+				@include mg-border;
+				background: $mg-blue-main;
+				display: flex;
+				border-radius: .5rem;
+				gap: 1rem;
+				margin-bottom: 2.125rem;
+
+				.crew-lux {
+					padding: 1.125rem;
+					border-right: 1px solid $mg-blue-main-2;
+					border-radius: .5rem;
+					width: calc(25% - 1rem);
+
+					label {
+						margin-bottom: .5rem;
+						display: block;
+					}
+				}
+
+				.field-wrapper {
+					display: flex;
+					min-height: 3.3125rem;
+					width: 100%;
+					
+					input {
+						height: 100%;
+					}
+				}
+
+				.asset-search-wrap {
+					display: flex;
+					flex-direction: column;
+					align-self: center;
+					width: 100%;
+
+					input {
+						width: 75%;
+						border-radius: .5rem 0 0 .5rem;
+						height: 100%;
+					}
+
+					button {
+						width: 25%;
+						border-radius: 0 .5rem .5rem 0;
+					}
+				}
+			}
+
 			.asset-grid {
 				display: grid;
 				grid-template-columns: 1fr 1fr 1fr;
 				gap: 1.25rem;
 
+				.empty-hint {
+					grid-column-start: 1;
+					grid-column-end: 4;
+				}
+
 				.asset-card {
 					border-radius: .5rem;
 					@include mg-border();
 					background: $mg-blue-main;
+					opacity: 1;
+					transform: translateY(0);
+					transition: opacity .5s ease, transform .5s ease;
+					will-change: opacity, transform;
+
+					&.pre-enter {
+						opacity: 0;
+						transform: translateY(10px); // start slightly below
+					}
+
+					&.is-entering {
+						opacity: 1;
+						transform: translateY(0);
+					}
+
+					&.is-leaving {
+						opacity: 0;
+						transform: translateY(10px); // slide down while fading out
+						pointer-events: none;
+					}
+
+					&.is-hidden {
+						display: none !important; // applied after leave completes
+					}
 
 					h3 {
 						@include oswald();
@@ -366,12 +464,95 @@
 							display: grid;
 							grid-template-columns: repeat(3, 1fr);
 							gap: .5rem;
+							padding: .5rem;
+							@include mg-border();
+							border-radius: .5rem;
 
 							.qty-controls {
 								grid-column-start: 1;
 								grid-column-end: 4;
+
+								label {
+									margin-bottom: .5rem;
+									display: block;
+								}
 							}
 						}
+
+						.desc {
+							font-size: .9rem;
+							opacity: .9;
+							margin: 4px 0 6px;
+							display: -webkit-box;
+							-webkit-line-clamp: 3;
+							-webkit-box-orient: vertical;
+							overflow: hidden;
+						}
+
+						.tags-wrap {
+							position: relative;
+						}
+					}
+
+					.tags {
+						/* two rows of chips; tweak height if your line-height differs */
+						max-height: 3rem;                    /* ~ two chip rows */
+						overflow: hidden;
+						transition: max-height .5s ease;
+						position: relative;
+						border-radius: .5rem;
+						@include mg-border();
+						padding: .5rem;
+
+						&:after {
+							content: "";
+							position: absolute; 
+							left: 0; 
+							right: 0;
+							bottom: 0; 
+							height: .85rem;
+							pointer-events: none;
+							background: linear-gradient(to bottom, rgba(0,0,0,0) 0%, rgba($mg-blue-4, .8) 100%);
+							backdrop-filter: blur(1px);
+							transition: opacity .5s ease;
+						}
+					}
+					
+					.tags-wrap.expanded {
+
+						.tags-toggle {
+							bottom: -1rem;
+						}
+					
+						.tags {
+							max-height: none;
+
+							&:after {
+								opacity: 0;
+							}
+						}
+					}
+
+					.tags-wrap.short {
+						.tags::after { display: none; }
+						.tags-toggle { display: none !important; }
+						.tags { max-height: none; }
+					}
+
+					.tags-toggle {
+						@include oswald();
+						font-size: .75rem;
+						font-weight: 700;
+						font-style: italic;
+						text-transform: uppercase;
+						opacity: .85;
+						padding: .5rem;
+						border-radius: 8px;
+						background: $mg-blue-3;
+						transition: background .15s ease, opacity .15s ease;
+						cursor: pointer;
+						display: inline-block;
+						margin-top: .5rem;
 					}
 				}
 			}
@@ -436,52 +617,3 @@
 		}
 	}
 }
-
-/* 0.5s slide/fade for search filtering */
-.crew-sheet .tab.assets {
-  .asset-card {
-    opacity: 1;
-    transform: translateY(0);
-    transition: opacity .5s ease, transform .5s ease;
-    will-change: opacity, transform;
-
-    &.pre-enter {
-      opacity: 0;
-      transform: translateY(10px); // start slightly below
-    }
-
-    &.is-entering {
-      opacity: 1;
-	  transform: translateY(0);
-    }
-
-    &.is-leaving {
-      opacity: 0;
-      transform: translateY(10px); // slide down while fading out
-      pointer-events: none;
-    }
-
-    &.is-hidden {
-      display: none !important; // applied after leave completes
-    }
-  }
-
-  .asset-search-empty {
-    margin-top: 12px;
-    padding: 12px;
-    text-align: center;
-    opacity: 0.9;
-    border: 1px dashed rgba(255,255,255,.15);
-    border-radius: 10px;
-
-    button.asset-search-reset {
-      margin-top: 8px;
-      padding: 6px 10px;
-      border-radius: 8px;
-      background: rgba(255,255,255,.08);
-      transition: background .15s ease;
-      &:hover { background: rgba(255,255,255,.15); }
-    }
-  }
-}
-
