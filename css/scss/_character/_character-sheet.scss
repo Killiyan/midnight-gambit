@@ -29,6 +29,11 @@ h1,h2,h3,h4 {
 
   .mg-content {
     margin-top: 2rem;
+    @include mg-border();
+    background: $mg-blue-main;
+    padding: 1.125rem;
+    border-radius: .5rem;
+    box-shadow: 5px 5px 10px rgba(0,0,0,0.5);
 
     &:first-of-type {
       margin: 0;
@@ -296,6 +301,7 @@ h1,h2,h3,h4 {
 .sheet .actor {
   .sheet-body {
     position: relative;
+    background: $mg-blue-4;
   }
 
   //The first tab of the character sheet
@@ -314,6 +320,7 @@ h1,h2,h3,h4 {
     .tab {
       padding: 2.125rem;
       background: $mg-blue-4;
+      height: 100%;
     }
 
     //Setting consisten styling for the over image toggles
@@ -417,6 +424,7 @@ h1,h2,h3,h4 {
         text-align: center;
         gap: .625rem;
         width: 100%;
+        box-shadow: 5px 5px 10px rgba(0,0,0,0.5);
         
         label {
           @include oswald();
@@ -457,6 +465,7 @@ h1,h2,h3,h4 {
       background: $mg-blue-main;
       border-radius: .625rem;
       margin-bottom: 2.125rem;
+      box-shadow: 5px 5px 10px rgba(0,0,0,0.5);
 
       label {
         margin-bottom: 0;
@@ -706,6 +715,7 @@ h1,h2,h3,h4 {
       @include mg-border();
       padding: 1.25rem;
       background: $mg-blue-main;
+      box-shadow: 5px 5px 10px rgba(0,0,0,0.5);
 
       h3 {
         border-bottom: 1px solid $mg-blue-main;
@@ -1732,6 +1742,7 @@ h1,h2,h3,h4 {
     background-color: $mg-blue-main;
     @include mg-border();
     border-radius: .625rem;
+		box-shadow: 5px 5px 10px rgba(0,0,0,0.5);
 
     button.disabled {
       background-color: $mg-blue-4;

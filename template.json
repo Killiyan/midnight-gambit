@@ -10,13 +10,27 @@
 		"type": "crew",
 		"name": "New Crew",
 		"system": {
-		"party": {
-			"members": [],
-			"cache": {}
-		},
-		"initiative": {
-			"order": []
-		}
+			"party": {
+				"members": [],
+				"cache": {}
+			},
+			"initiative": {
+				"order": []
+			},
+			"lux": 0,
+			"bio": {
+				"lookAndFeel": "",
+				"weakness": "",
+				"location": "",
+				"features": "",
+				"tags": []
+			},
+			"gambits": {
+				"deck": [],
+				"drawn": [],
+				"discard": [],
+				"handSize": 3
+			}
 		}
 	}
 	},

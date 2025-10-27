@@ -29,7 +29,7 @@
 				<i class="fa-solid fa-link"></i> Apply Initiative Order
 				</button>
 			</div>
-			{{/if}}
+			{{/if}}		
 
 		</div>
 
@@ -42,7 +42,7 @@
 
 	<section class="sheet-body">
 		<!-- PARTY TAB -->
-		<div class="tab" data-tab="party">
+		<div class="tab party-tab" data-tab="party">
 			<div class="tab-wrapper">
 				<div class="mg-content">
 					{{#if canEdit}}
@@ -88,7 +88,7 @@
 		</div>
 
 		<!-- INITIATIVE TAB -->
-		<div class="tab" data-tab="initiative">
+		<div class="tab initiative-tab" data-tab="initiative">
 			<div class="tab-wrapper">
 				<div class="mg-initiative-note">
 					{{#if canEdit}}
@@ -146,21 +146,13 @@
 
 			<!-- Crew Lux controls -->
 			<div class="assets-toolbar">
+
 				<div class="crew-lux">
 					<label for="lux">Lux</label>
 					<div class="field-wrapper">
-						<button type="button" class="lux-dec" data-step="-1" aria-label="Decrease Lux">
-							<i class="fa-solid fa-minus"></i>
-						</button>
-						<input class="lux-value" type="number" min="0" step="1" value="{{actor.system.lux.value}}" />
-						{{#if actor.system.lux.cap}}
-							<span class="lux-cap">/ {{actor.system.lux.cap}}</span>
-						{{/if}}
-						<button type="button" class="lux-inc" data-step="1" aria-label="Increase Lux">
-							<i class="fa-solid fa-plus"></i>
-						</button>
+						<input type="number" class="lux-value" name="system.currency.lux" value="{{system.currency.lux}}" min="0" />
 					</div>
-				</div>
+				</div>	
 
 				<div class="asset-search-wrap">
 					<label>Search</label>
@@ -267,7 +259,7 @@
 		</div>
 
 		<!-- GAMBITS TAB -->
-		<div class="tab" data-tab="gambits">
+		<div class="tab crew-gambits" data-tab="gambits">
 			<div class="mg-crew-gambits">
 				<div class="mg-crew-gb-controls">
 				<div class="left">
@@ -330,7 +322,7 @@
 		</div>
 
 		<!-- BIO TAB -->
-		<div class="tab" data-tab="bio">
+		<div class="tab bio-tab" data-tab="bio">
 			<div class="mg-crew-bio">
 				<div class="bio-grid">
 				<div class="field">
@@ -367,7 +359,7 @@
 		</div>
 
 		<!-- SETTINGS TAB -->
-		<div class="tab" data-tab="settings">
+		<div class="tab settings-tab" data-tab="settings">
 		<div class="mg-crew-settings">
 
 			<div class="mg-diricon-row">

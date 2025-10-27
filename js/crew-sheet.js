@@ -98,17 +98,16 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 		// Splash images across the top (Party portraits)
 		data.splashImages = members.map(m => m.img).filter(Boolean);
 
-		const s = this.actor.system ?? {};
+		// Use a duplicate so we don't mutate the live document while rendering
+		const s = foundry.utils.duplicate(this.actor.system ?? {});
+		s.currency ??= {};
 
-		// Defaults (non-destructive)
-		// Lux: normalize to object shape for the template
-		if (typeof s.lux === "number") {
-		s.lux = { value: Number.isFinite(s.lux) ? Number(s.lux) : 0 };
-		} else if (!s.lux || typeof s.lux !== "object") {
-		s.lux = { value: 0 };
-		} else {
-		s.lux.value = Number.isFinite(Number(s.lux.value)) ? Number(s.lux.value) : 0;
-		}
+		// Currency parity with character Lux
+		s.currency.lux = Number.isFinite(Number(s.currency.lux)) ? Number(s.currency.lux) : 0;
+
+		data.system = s;
+
+
 		// s.bio etc. stay as-is below
 		s.bio ??= { lookAndFeel: "", weakness: "", location: "", features: "", tags: [] };
 
@@ -443,6 +442,9 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 
 		const $root = html instanceof jQuery ? html : $(html);
 
+		// Make every button non-submit unless it opts in explicitly
+		$root.find("button:not([type])").attr("type", "button");
+
 		// Double-click Party/Initiative card => open actor sheet
 		$root.on("dblclick", ".mg-member-card[data-uuid], .mg-init-card[data-uuid]", async (ev) => {
 			const card = ev.currentTarget;
@@ -619,7 +621,6 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 		/* Crew Assets: card grid bindings
 		------------------------------------------------------------------*/
 		{
-			const $root = html instanceof jQuery ? html : $(html);
 
 			// Post to chat on name click (same UX as Moves)
 			$root.off("click.mgAssetPostName").on("click.mgAssetPostName", ".assets .post-asset", async (ev) => {
@@ -809,9 +810,12 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 			// 1) Everyone leaves (slides down)
 			// 2) After LEAVE_MS: non-matches become hidden; matches enter (slide up)
 			const runSearchNow = () => {
-				const input = $root.find(".assets .asset-search")[0];
+				// Narrow the live filtering region to the grid only
+				const input = $root.find(".asset-search")[0];
 				const q = (input?.value || "").toLowerCase().trim();
-				const cards = $root.find(".assets .asset-card").toArray();
+
+				//  Only touch cards inside the grid, not the toolbar
+				const cards = $root.find(".asset-grid .asset-card").toArray();
 
 				// Pre-calc match set
 				const matchSet = new Set(cards.filter(el => cardMatches(el, q)));
@@ -836,20 +840,28 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 				}
 				showEmpty(hits === 0);
 
-				// re-evaluate tag overflow once cards are in their final places
-				$root.find(".assets .tags-wrap").each((_, w) => updateOneWrap(w));
+				// Only touch the card grid, not the toolbar or other .assets children
+				$root.find(".asset-grid .tags-wrap").each((_, w) => updateOneWrap(w));
 				}, LEAVE_MS);
 			};
 
 			const runSearch = debounce(runSearchNow, DEBOUNCE_MS);
 
-			// Bindings: typing, Enter, button click
-			$root.off("input.mgAssetSearch").on("input.mgAssetSearch", ".assets .asset-search", runSearch);
+			// Only run search when Enter is pressed or button is clicked
 			$root.off("keydown.mgAssetSearchEnter").on("keydown.mgAssetSearchEnter", ".assets .asset-search", (ev) => {
-				if (ev.key === "Enter") { ev.preventDefault(); runSearch(); }
+			if (ev.key === "Enter") {
+				ev.preventDefault();
+				ev.stopPropagation();
+				ev.stopImmediatePropagation();
+				runSearch();
+			}
 			});
+
 			$root.off("click.mgAssetSearchBtn").on("click.mgAssetSearchBtn", ".assets .asset-search-btn", (ev) => {
-				ev.preventDefault(); runSearch();
+			ev.preventDefault();
+			ev.stopPropagation();
+			ev.stopImmediatePropagation();
+			runSearch();
 			});
 
 			// Reset button (in empty-state)
@@ -860,7 +872,7 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 				showEmpty(false);
 
 				// Nice full reveal animation
-				const cards = $root.find(".assets .asset-card").toArray();
+				const cards = $root.find(".asset-grid .asset-card").toArray();
 				// Start leaving everything (for symmetry)
 				for (const el of cards) leaveCard(el);
 				setTimeout(() => {
@@ -1019,103 +1031,6 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 			});
 		}
 		});
-
-		/* Crew Lux controls (shared currency)
-		----------------------------------*/
-		{
-		const $root = html instanceof jQuery ? html : $(html);
-
-		// --- helpers -----------------------------------------------------
-		const readLux = () => {
-		const raw = foundry.utils.getProperty(this.actor, "system.lux");
-		if (typeof raw === "number") return { value: Number.isFinite(raw) ? raw : 0 };
-		if (!raw || typeof raw !== "object") return { value: 0 };
-		const v = Number(raw.value);
-		return { value: Number.isFinite(v) ? v : 0, cap: raw.cap };
-		};
-
-		const ensureLuxObjectOnce = async () => {
-		const raw = foundry.utils.getProperty(this.actor, "system.lux");
-		if (typeof raw === "number") {
-			// migrate number -> object just once
-			await this.actor.update({ "system.lux": { value: raw } }, { render: false });
-		} else if (!raw || typeof raw !== "object") {
-			await this.actor.update({ "system.lux": { value: 0 } }, { render: false });
-		}
-		};
-
-		const saveLux = async (val) => {
-		await ensureLuxObjectOnce();
-		await this.actor.update({ "system.lux.value": val }, { render: false });
-		const input = $root.find(".assets .lux-value")[0];
-		if (input) input.value = val;
-		};
-
-		const getCap = () => {
-		const c = Number(this.actor.system?.lux?.cap);
-		return Number.isFinite(c) && c > 0 ? c : null;
-		};
-
-		// Number field direct edit
-		$root.off("change.mgLuxInput").on("change.mgLuxInput", ".assets .lux-value", async (ev) => {
-		const lux = readLux();
-		const cap = getCap();
-		let next = Number(ev.currentTarget.value ?? lux.value);
-		if (!Number.isFinite(next)) next = lux.value;
-		if (cap != null) next = Math.min(cap, next);
-		next = Math.max(0, next);
-		await saveLux(next);
-		});
-
-		// +/- buttons
-		$root.off("click.mgLuxStep").on("click.mgLuxStep", ".assets .lux-dec, .assets .lux-inc", async (ev) => {
-		ev.preventDefault();
-		const step = Number(ev.currentTarget.dataset.step || 0) || 0;
-		const lux = readLux();
-		const cap = getCap();
-		let next = (lux.value || 0) + step;
-		if (cap != null) next = Math.min(cap, next);
-		next = Math.max(0, next);
-		await saveLux(next);
-		});
-
-
-		// Scroll wheel nudging
-		$root.off("wheel.mgLuxWheel").on("wheel.mgLuxWheel", ".assets .lux-wrap", async (ev) => {
-		if (!ev.ctrlKey && !ev.shiftKey) return;
-		ev.preventDefault();
-		const delta = ev.originalEvent?.deltaY ?? ev.deltaY ?? 0;
-		const step = delta > 0 ? -1 : 1;
-		const lux = readLux();
-		const cap = getCap();
-		let next = (lux.value || 0) + step;
-		if (cap != null) next = Math.min(cap, next);
-		next = Math.max(0, next);
-		await saveLux(next);
-		});
-
-		// Post to chat
-		$root.off("click.mgLuxPost").on("click.mgLuxPost", ".assets .lux-post", async (ev) => {
-		ev.preventDefault();
-		const lux = readLux();
-		const val = Number(lux.value ?? 0);
-		const cap = getCap();
-		const esc = (s) => Handlebars.escapeExpression(String(s ?? ""));
-		const label = esc(this.actor.name || "Crew");
-		const total = cap != null ? `${val} / ${cap}` : `${val}`;
-		const content = `
-			<div class="chat-item">
-			<h2><i class="fa-regular fa-gem"></i> ${label} — Lux</h2>
-			<p><strong>Lux:</strong> ${total}</p>
-			</div>
-		`;
-		await ChatMessage.create({
-			user: game.user.id,
-			speaker: ChatMessage.getSpeaker({ actor: this.actor }),
-			content
-		});
-		});
-		}
 
 		// --- Render new tabs (Assets / Gambits / Bio)
 		this._bindGambitsTab(html);
