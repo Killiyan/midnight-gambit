@@ -33,6 +33,9 @@ export class MidnightGambitItemSheet extends ItemSheet {
 		context.item = this.item;
 		context.system = this.item.system ?? {};
 		context.itemType = this.item.type;
+		
+		context.owner = this.item.isOwner;
+		context.editable = this.isEditable;
 
 			// Initialize remainingCapacity for armor once
 			if (context.itemType === "armor") {
@@ -341,6 +344,7 @@ export class MidnightGambitItemSheet extends ItemSheet {
 			this.render(false);
 			this._rerenderOpenTagSheets(isAsset);
 		});
+		
 	}
 
 	/** Re-render all open item sheets of the relevant family so pills update without a full refresh */

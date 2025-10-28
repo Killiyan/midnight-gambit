@@ -10,6 +10,20 @@
       <textarea name="system.description" rows="6">{{system.description}}</textarea>
     </div>
 
+    <div class="form-group stacked">
+      <label for="notes-{{item.id}}">Notes</label>
+      {{!-- Always-on TinyMCE; first arg is the content --}}
+      {{editor
+        system.notes
+        target="system.notes"
+        owner=owner
+        editable=editable
+        engine="tinymce"
+        button=false
+      }}
+    </div>
+
+
     <div class="wrapper">
       <label>Tags</label>
 

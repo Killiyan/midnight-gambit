@@ -85,6 +85,11 @@ h1,h2,h3,h4 {
       font-size: 1rem;
       text-transform: uppercase;
       margin-bottom: .5rem;
+
+      i {
+        color: $mg-blue-3;
+        margin-right: .5rem;
+      }
     }
 
     input,
@@ -491,7 +496,11 @@ h1,h2,h3,h4 {
         label {
           color: $mg-blue-2;
         }
+      }
 
+      .strain-track,
+      .spark-track,
+      .risk-track {
 
         i {
           font-size: 1rem;
@@ -533,7 +542,7 @@ h1,h2,h3,h4 {
         }
 
         &.filled i {
-          color: $mg-blue-3;
+          color: $mg-blue-2;
         }
       }
 
@@ -575,7 +584,7 @@ h1,h2,h3,h4 {
         }
 
         .spark-dot.filled i {
-          color: $mg-blue-3;
+          color: $mg-blue-2;
         }
       }
 
@@ -601,7 +610,7 @@ h1,h2,h3,h4 {
               transform: scale(1.2);
             }
             &.filled i {
-              color: $mg-blue-3;
+              color: $mg-blue-2;
             }
           }
         }
@@ -1402,6 +1411,7 @@ h1,h2,h3,h4 {
     gap: 2.125rem;
     margin-bottom: 2.125rem;
     overflow: hidden;
+    box-shadow: 4px 4px 10px rgba(0,0,0,0.5);
 
     .gambit-card{
       background: rgba(0,0,0,.15);
@@ -1521,6 +1531,7 @@ h1,h2,h3,h4 {
     background-color: $mg-blue-main;
     @include mg-border();
     border-radius: .625rem;
+    box-shadow: 5px 5px 10px rgba(0,0,0,0.5);
   }
 
 }
@@ -1761,6 +1772,7 @@ h1,h2,h3,h4 {
     left: 36%;
     z-index: 10;
     padding: 2rem 1rem;
+    box-shadow: 5px 5px 10px rgba(0,0,0,0.5);
 
     h2 {
       border-bottom: 1px solid $mg-blue-main-2;

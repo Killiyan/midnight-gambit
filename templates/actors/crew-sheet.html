@@ -148,16 +148,27 @@
 			<div class="assets-toolbar">
 
 				<div class="crew-lux">
-					<label for="lux">Lux</label>
-					<div class="field-wrapper">
-						<input type="number" class="lux-value" name="system.currency.lux" value="{{system.currency.lux}}" min="0" />
+					<label for="lux"><i class="fa-solid fa-coins"></i> Lux</label>
+					<div class="field-wrapper lux-controls">
+						<button type="button" class="lux-dec" data-step="-1" title="−1">−</button>
+						<input
+						type="number"
+						class="lux-value"
+						name="system.currency.lux"
+						value="{{system.currency.lux}}"
+						min="0"
+						inputmode="numeric"
+						pattern="[0-9]*"
+						aria-label="Lux"
+						/>
+						<button type="button" class="lux-inc" data-step="1" title="+1">+</button>
 					</div>
-				</div>	
+				</div>
 
 				<div class="asset-search-wrap">
-					<label>Search</label>
+					<label><i class="fa-solid fa-magnifying-glass"></i> Search Crew Assets</label>
 					<div class="field-wrapper">
-						<input type="text" class="asset-search" placeholder="Search assets…" />
+						<input type="text" class="asset-search" placeholder="Search query here..." />
 						<button type="button" class="asset-search-btn" title="Search">
 							<i class="fa-solid fa-magnifying-glass"></i>
 						</button>
@@ -179,62 +190,51 @@
 
 							<div class="card-media">
 								<img src="{{it.img}}" alt="{{it.name}}">
-								<div class="qty-badge" title="Quantity">{{it.system.qty}}</div>
 							</div>
 
 							<div class="card-wrapper">
 
 								<div class="card-body">
 
+								{{!-- Tags with overflow + "See all" toggle --}}
+									{{#if it._tags.length}}
+										<div class="tags-wrap" data-item-id="{{it.id}}">
+											<div class="tags asset-tags">
+											{{#each it._tags as |t|}}
+												<span class="asset-tag tag" data-tag-id="{{t.id}}" title="Click for details">
+													{{t.label}}
+												</span>
+											{{/each}}
+											</div>
+											<span class="tags-toggle" hidden>
+												See all
+											</span>
+										</div>
+									{{/if}}
+
 									{{!-- Description (plain text) --}}
 									{{#if it.system.description}}
 										<div class="desc" title="{{it.system.description}}">
+											<label>Description</label>
 											{{it.system.description}}
 										</div>
 									{{/if}}
 
-									{{#if it.system.notes}}
-										<p title="{{it.system.notes}}">
-											{{it.system.notes}}
-										</p>
-									{{/if}}
-
-									{{!-- Tags with overflow + "See all" toggle --}}
-									{{#if it._tags.length}}
-									<div class="tags-wrap" data-item-id="{{it.id}}">
-										<div class="tags asset-tags">
-										{{#each it._tags as |t|}}
-											<span class="asset-tag tag" data-tag-id="{{t.id}}" title="Click for details">
-											{{t.label}}
-											</span>
-										{{/each}}
+									{{#if it.notesHtml}}
+										<div class="asset-notes">
+											<label>Notes</label>
+											{{{it.notesHtml}}}
 										</div>
-										<span class="tags-toggle" hidden>
-										See all
-										</span>
-									</div>
 									{{/if}}
 								</div>
 
 								<div class="card-actions">
-									
-									<div class="qty-controls" title="Adjust quantity">
-										<label>Quantity</label>
-										<input class="asset-qty" type="number" min="0" value="{{it.system.qty}}" />
-									</div>
-
-									<button class="edit-notes" data-item-id="{{it.id}}" title="Edit Notes">
-										<i class="fa-regular fa-note-sticky"></i>
-									</button>
-
-									<button class="open-asset-sheet" data-item-id="{{it.id}}" title="Open Item (edit tags, values)">
-										<i class="fa-regular fa-pen-to-square"></i>
-									</button>
-
-									<button class="asset-delete" data-item-id="{{it.id}}" title="Delete">
-										<i class="fa-solid fa-trash"></i>
+									<div class="qty-badge" title="Quantity"><label>QTY</label><p>{{it.system.qty}}</p></div>
+									<button type="button" class="asset-edit" data-item-id="{{it.id}}" title="Edit">
+										<i class="fa-regular fa-pen-to-square"></i> Edit
 									</button>
 								</div>
+
 							</div>
 						</article>
 						{{/each}}
@@ -250,9 +250,9 @@
 					<!-- Empty state for search -->
 					<div class="asset-search-empty" style="display:none;">
 					<h3><i class="fa-solid fa-triangle-exclamation"></i> Search did not return any matches, try again!</h3>
-					<button type="button" class="asset-search-reset">
-						<i class="fa-solid fa-rotate-left"></i> Reset
-					</button>
+						<button type="button" class="asset-search-reset">
+							<i class="fa-solid fa-rotate-left"></i> Reset
+						</button>
 					</div>
 				</div>
 			</div>

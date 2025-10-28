@@ -3,9 +3,19 @@
         {
             "format": "compressed",
             "extensionName": ".css",
-            "savePath": "/css",
+            "savePath": "/css"
+        },
+        {
+        "format": "compressed",
+        "extensionName": ".min.css",
+        "savePath": "/assets/tinymce/skins/ui/mg"
         }
     ],
+    "liveSassCompile.settings.includeItems": [
+    "/css/scss/style.scss",
+    "/assets/tinymce/skins/ui/mg/skin.scss"
+    ],
+    "liveSassCompile.settings.includePaths": ["./", "./css/scss"],
     "liveSassCompile.settings.excludeList": [
         "/.vscode/**"
     ],

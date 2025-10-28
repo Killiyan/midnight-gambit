@@ -49,7 +49,6 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 	return buttons;
 	}
 
-
 	/** Limit data based on ownership so players can reorder/add if they are owners of the Crew actor. */
 	get isEditable() {
 		return this.actor?.isOwner ?? false;
@@ -147,6 +146,11 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 			v._tags = ids.map((id) => ({ id, label: labelFor(id) })); // [{id,label}]
 			return v;
 		});
+
+		for (const it of data.assets) {
+		const raw = String(it.system?.notes ?? "");
+		it.notesHtml = await TextEditor.enrichHTML(raw, { async: true }); // sanitize + autolinks
+		}
 
 		return data;
 
@@ -649,7 +653,10 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 						}</div>`
 					: ""
 					}
-					${item.system.notes ? `<p><strong>Notes:</strong> ${ESC(item.system.notes)}</p>` : ""}
+					${item.system.notes
+					? `<div class="asset-notes-chat"><strong>Notes:</strong><br>${await TextEditor.enrichHTML(String(item.system.notes), { async: true })}</div>`
+					: ""
+					}
 				</div>
 			`;
 			await ChatMessage.create({
@@ -659,78 +666,184 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 			});
 		});
 
-		// Create new blank asset
-		$root.off("click.mgAssetCreate").on("click.mgAssetCreate", ".assets .asset-create", async (ev) => {
-			ev.preventDefault();
-			await Item.create({
-			name: "New Asset",
-			type: "asset",
-			system: { description: "", tags: [], qty: 1, notes: "" }
-			}, { parent: this.actor });
-			this.render(false);
-		});
-
-		// Qty number direct edit
-		$root.off("change.mgAssetQty").on("change.mgAssetQty", ".assets .asset-qty", async (ev) => {
-			const card = ev.currentTarget.closest(".asset-card");
-			const item = this.actor.items.get(card?.dataset?.itemId);
-			if (!item) return;
-			const qty = Math.max(0, Number(ev.currentTarget.value ?? 0));
-			await item.update({ "system.qty": qty }, { render: false });
-			// mirror badge and input without full rerender
-			card.querySelector(".qty-badge").textContent = qty;
-		});
-
-		// Open sheet on image or Edit button
-		$root.off("click.mgAssetOpenImg").on("click.mgAssetOpenImg", ".assets .open-asset-sheet", async (ev) => {
+		// Unified Asset Editor modal (Quantity, Notes, Open, Delete)
+		$root.off("click.mgAssetEdit").on("click.mgAssetEdit", ".assets .asset-edit", async (ev) => {
 		ev.preventDefault();
+		ev.stopPropagation();
+
 		const id = ev.currentTarget.dataset.itemId || ev.currentTarget.closest(".inventory-item")?.dataset?.itemId;
 		const item = this.actor.items.get(id);
 		if (!item) return;
-		item.sheet.render(true);
-		});
 
-		// Double-click the card opens the sheet (quality-of-life)
-		$root.off("dblclick.mgAssetCardOpen").on("dblclick.mgAssetCardOpen", ".assets .asset-card", async (ev) => {
-		const id = ev.currentTarget?.dataset?.itemId;
-		const item = this.actor.items.get(id);
-		if (!item) return;
-		item.sheet.render(true);
-		});
+		const qty   = Math.max(0, Number(item.system?.qty ?? 0));
+		const notes = String(item.system?.notes ?? "");
 
-		// Edit notes (simple prompt for now; we can do a nicer popover later)
-		$root.off("click.mgAssetNotes").on("click.mgAssetNotes", ".assets .edit-notes", async (ev) => {
-			ev.preventDefault();
-			const id = ev.currentTarget.dataset.itemId;
-			const item = this.actor.items.get(id);
-			if (!item) return;
-			const prev = item.system?.notes ?? "";
-			const content = `<div class="mg-notes-edit"><textarea rows="5" style="width:100%;">${ESC(prev)}</textarea></div>`;
-			const ok = await Dialog.confirm({
-			title: `Notes — ${item.name}`,
+		const content = `
+			<form class="mg-asset-edit">
+			<div class="field">
+				<label>Quantity</label>
+				<input type="number" class="ae-qty" min="0" value="${qty}" />
+			</div>
+
+			<div class="field">
+			<label>Notes</label>
+			<div class="editor-toolbar" style="display:flex; gap:.25rem; margin-bottom:.25rem;">
+				<button type="button" class="fmt-bullets" title="Bulleted list">• List</button>
+				<button type="button" class="fmt-numbers" title="Numbered list">1. List</button>
+				<span style="flex:1"></span>
+				<button type="button" class="fmt-bold" title="Bold">B</button>
+				<button type="button" class="fmt-italic" title="Italic">I</button>
+			</div>
+			<textarea class="ae-notes" rows="8" style="min-height:8rem;">${ESC(notes)}</textarea>
+			</div>
+
+
+			<div class="row actions-row" style="display:flex; gap:.5rem; justify-content:space-between; margin-top:6px;">
+				<div class="left">
+				<button type="button" class="ae-open"><i class="fa-regular fa-pen-to-square"></i> Open Asset</button>
+				</div>
+				<div class="right">
+				<button type="button" class="ae-delete"><i class="fa-solid fa-trash"></i> Delete</button>
+				</div>
+			</div>
+			</form>
+		`;
+
+		const dlg = new Dialog({
+			title: `Edit “${ESC(item.name)}”`,
 			content,
-			yes: () => true,
-			no: () => false
-			});
-			if (!ok) return;
-			const textarea = document.querySelector(".mg-notes-edit textarea");
-			const notes = textarea?.value ?? "";
-			await item.update({ "system.notes": notes });
+			buttons: {
+			save: {
+				icon: '<i class="fa-solid fa-floppy-disk"></i>',
+				label: "Save",
+				callback: async (html) => {
+				const form = html[0]?.querySelector?.(".mg-asset-edit");
+				if (!form) return;
+
+				const newQty   = Math.max(0, Number(form.querySelector(".ae-qty")?.value ?? 0));
+				const newNotes = String(form.querySelector(".ae-notes")?.value ?? "");
+
+				// Update item, no re-render; we’ll patch the card DOM directly
+				await item.update({ "system.qty": newQty, "system.notes": newNotes }, { render: false });
+
+				// Patch visible card: qty badge text
+				const card = $root.find(`.asset-card[data-item-id="${item.id}"]`)[0];
+				if (card) {
+					const badge = card.querySelector(".qty-badge");
+					if (badge) badge.textContent = String(newQty);
+				}
+				}
+			},
+			cancel: { label: "Cancel" }
+			},
+			default: "save",
+			close: () => {}
 		});
 
-		// Delete with confirm
-		$root.off("click.mgAssetDelete").on("click.mgAssetDelete", ".assets .asset-delete", async (ev) => {
-			ev.preventDefault();
-			const id = ev.currentTarget.dataset.itemId;
-			const item = this.actor.items.get(id);
-			if (!item) return;
+		dlg.render(true);
+
+		// Wait until it’s fully in the DOM
+		Hooks.once("renderDialog", (app, html) => {
+		// Make sure we're targeting the right Dialog
+		if (app !== dlg) return;
+		const $html = html instanceof jQuery ? html : $(html);
+		const ta = $html.find(".ae-notes")[0];
+		if (!ta) return;
+
+		// Utility: wrap selected text
+		const applyAroundSelection = (ta, before, after = before) => {
+			const start = ta.selectionStart ?? 0;
+			const end = ta.selectionEnd ?? 0;
+			const value = ta.value ?? "";
+			const sel = value.slice(start, end);
+			const next =
+			value.slice(0, start) + before + sel + after + value.slice(end);
+			const newPosStart = start + before.length;
+			const newPosEnd = newPosStart + sel.length;
+			ta.value = next;
+			ta.focus();
+			ta.setSelectionRange(newPosStart, newPosEnd);
+		};
+
+		// Utility: convert selected lines to list
+		const applyList = (ta, type) => {
+			const start = ta.selectionStart ?? 0;
+			const end = ta.selectionEnd ?? 0;
+			const value = ta.value ?? "";
+			const lineStart = value.lastIndexOf("\n", start - 1) + 1;
+			const lineEnd = value.indexOf("\n", end);
+			const blockEnd = lineEnd === -1 ? value.length : lineEnd;
+			const block = value.slice(lineStart, blockEnd);
+			const isNum = type === "numbers";
+			const lines = block.split("\n");
+			const out = lines
+			.map((ln, i) => {
+				const stripped = ln.replace(/^\s*([-*]\s|(\d+)\.\s)?/, "");
+				return isNum ? `${i + 1}. ${stripped}` : `- ${stripped}`;
+			})
+			.join("\n");
+			ta.value = value.slice(0, lineStart) + out + value.slice(blockEnd);
+			ta.focus();
+			ta.setSelectionRange(lineStart, lineStart + out.length);
+		};
+
+		// Wire toolbar buttons now that the dialog is real
+		$html.find(".fmt-bold").on("click", () => applyAroundSelection(ta, "**"));
+		$html.find(".fmt-italic").on("click", () => applyAroundSelection(ta, "_"));
+		$html.find(".fmt-bullets").on("click", () => applyList(ta, "bullets"));
+		$html.find(".fmt-numbers").on("click", () => applyList(ta, "numbers"));
+
+		// Also hook up your existing Open / Delete / Enter handlers
+		$html.find(".ae-open").on("click", (e) => {
+			e.preventDefault();
+			item.sheet?.render(true);
+		});
+
+		$html.find(".ae-delete").on("click", async (e) => {
+			e.preventDefault();
 			const ok = await Dialog.confirm({
-			title: `Delete ${item.name}?`,
-			content: `<p>Remove <strong>${item.name}</strong> from the Crew?</p>`
+			title: `Delete ${ESC(item.name)}?`,
+			content: `<p>Remove <strong>${ESC(item.name)}</strong> from the Crew?</p>`,
+			});
+			if (ok) await item.delete();
+			dlg.close({});
+		});
+
+		$html.find(".ae-qty").on("keydown", (e) => {
+			if (e.key === "Enter") {
+			e.preventDefault();
+			dlg.submit();
+			}
+		});
+		});
+
+		// Wire the “Open Asset” and “Delete” inline buttons once the dialog is up
+		dlg.once("renderDialog", (_app, html) => {
+			const $html = html instanceof jQuery ? html : $(html);
+
+			$html.find(".ae-open").on("click", (e) => {
+			e.preventDefault(); e.stopPropagation();
+			item.sheet?.render(true);
+			});
+
+			$html.find(".ae-delete").on("click", async (e) => {
+			e.preventDefault(); e.stopPropagation();
+			const ok = await Dialog.confirm({
+				title: `Delete ${ESC(item.name)}?`,
+				content: `<p>Remove <strong>${ESC(item.name)}</strong> from the Crew?</p>`
 			});
 			if (!ok) return;
 			await item.delete();
+			dlg.close({}); // close modal if it’s still open
+			});
+
+			// Enter in quantity saves (submits the dialog)
+			$html.find(".ae-qty").on("keydown", (e) => {
+			if (e.key === "Enter") { e.preventDefault(); dlg.submit(); }
+			});
 		});
+		});
+
 
 		// Search filtering (handles Enter key or button click)
 		{
@@ -1031,6 +1144,54 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 			});
 		}
 		});
+
+		/* Lux +/- clickers (simple, safe, no re-render) */
+		{
+		const readLux = () => {
+			const el = $root.find(".lux-value")[0];
+			const fromDom = Number(el?.value);
+			if (Number.isFinite(fromDom)) return fromDom;
+			const fromActor = Number(this.actor.system?.currency?.lux);
+			return Number.isFinite(fromActor) ? fromActor : 0;
+		};
+
+		const clamp = (n) => Math.max(0, Number.isFinite(n) ? n : 0);
+
+		const saveLux = async (val) => {
+			const v = clamp(val);
+			await this.actor.update({ "system.currency.lux": v }, { render: false });
+			const el = $root.find(".lux-value")[0];
+			if (el) { el.value = String(v); el.setAttribute("value", String(v)); }
+		};
+
+		// Click: +/- 1 (Shift = +/-10, Alt = +/-5)
+		$root.off("click.mgLuxStep")
+			.on("click.mgLuxStep", ".lux-dec, .lux-inc", async (ev) => {
+			ev.preventDefault(); ev.stopPropagation();
+			const base = Number(ev.currentTarget.dataset.step) || 0;
+			const mult = ev.shiftKey ? 10 : (ev.altKey ? 5 : 1);
+			const step = base * mult;
+			const next = readLux() + step;
+			await saveLux(next);
+			});
+
+		// Keep it sticky on blur / manual edits (lets typing work too)
+		$root.off("change.mgLuxEdit blur.mgLuxEdit")
+			.on("change.mgLuxEdit blur.mgLuxEdit", ".lux-value", async (ev) => {
+			ev.preventDefault(); ev.stopPropagation();
+			await saveLux(Number(ev.currentTarget.value));
+			});
+
+		// Optional nicety: Enter commits without submitting anything weird
+		$root.off("keydown.mgLuxEnter")
+			.on("keydown.mgLuxEnter", ".lux-value", async (ev) => {
+			if (ev.key !== "Enter") return;
+			ev.preventDefault(); ev.stopPropagation();
+			await saveLux(Number(ev.currentTarget.value));
+			ev.currentTarget.blur();
+			});
+		}
+
 
 		// --- Render new tabs (Assets / Gambits / Bio)
 		this._bindGambitsTab(html);
