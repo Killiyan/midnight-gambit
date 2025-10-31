@@ -207,25 +207,39 @@
 											{{/each}}
 											</div>
 											<span class="tags-toggle" hidden>
-												See all
+												<i class="fa-solid fa-angle-down"></i>
 											</span>
 										</div>
 									{{/if}}
 
-									{{!-- Description (plain text) --}}
-									{{#if it.system.description}}
-										<div class="desc" title="{{it.system.description}}">
-											<label>Description</label>
-											{{it.system.description}}
+									{{#if it.descHtml}}
+									<div class="desc-wrap" data-item-id="{{it.id}}">
+										<div class="desc">
+										<label>Description</label>
+										<div class="desc-content">
+											{{{it.descHtml}}}
 										</div>
+										</div>
+										<span class="desc-toggle" hidden>
+										<i class="fa-solid fa-angle-down"></i>
+										</span>
+									</div>
 									{{/if}}
 
 									{{#if it.notesHtml}}
+									<div class="notes-wrap" data-item-id="{{it.id}}">
 										<div class="asset-notes">
-											<label>Notes</label>
+										<label>Notes</label>
+										<div class="notes-content">
 											{{{it.notesHtml}}}
 										</div>
+										</div>
+										<span class="notes-toggle" hidden>
+										<i class="fa-solid fa-angle-down"></i>
+										</span>
+									</div>
 									{{/if}}
+									
 								</div>
 
 								<div class="card-actions">

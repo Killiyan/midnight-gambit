@@ -148,8 +148,11 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 		});
 
 		for (const it of data.assets) {
-		const raw = String(it.system?.notes ?? "");
-		it.notesHtml = await TextEditor.enrichHTML(raw, { async: true }); // sanitize + autolinks
+		const rawDesc  = String(it.system?.description ?? "");
+		const rawNotes = String(it.system?.notes ?? "");
+
+		it.descHtml  = await TextEditor.enrichHTML(rawDesc,  { async: true }); // TinyMCE formatting → safe HTML
+		it.notesHtml = await TextEditor.enrichHTML(rawNotes, { async: true });
 		}
 
 		return data;
@@ -625,269 +628,225 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 		/* Crew Assets: card grid bindings
 		------------------------------------------------------------------*/
 		{
-
-			// Post to chat on name click (same UX as Moves)
-			$root.off("click.mgAssetPostName").on("click.mgAssetPostName", ".assets .post-asset", async (ev) => {
+		// Post to chat on name click (same UX as Moves) — Description as RICH HTML now
+		$root.off("click.mgAssetPostName").on("click.mgAssetPostName", ".assets .post-asset", async (ev) => {
 			ev.preventDefault();
 			const id = ev.currentTarget.dataset.itemId || ev.currentTarget.closest(".inventory-item")?.dataset?.itemId;
 			const item = this.actor.items.get(id);
 			if (!item) return;
 
-			const tagLabels = (item.system.tags || [])
-			.map(t => CONFIG.MidnightGambit?.ASSET_TAGS?.find(def => def.id === t)?.label || t)
-			.join(", ");
+			// Enrich both fields so TinyMCE formatting survives in chat
+			const descHtml  = await TextEditor.enrichHTML(String(item.system?.description ?? ""), { async: true });
+			const notesHtml = item.system?.notes
+			? await TextEditor.enrichHTML(String(item.system.notes), { async: true })
+			: "";
+
 			const content = `
-				<div class="chat-item">
-					<h2><i class="fa-solid fa-vault"></i> ${ESC(item.name)}</h2>
-					${item.system.description ? `<p><em>${ESC(item.system.description)}</em></p>` : ""}
-					${(item.system.tags?.length)
-					? `<strong>Tags:</strong>
-						<div class="asset-tags chat-tags"> ${
-						item.system.tags
-							.map(t => {
-							const def = CONFIG.MidnightGambit?.ASSET_TAGS?.find(d => d.id === t);
-							const label = def?.label || t;
-							return `<span class="asset-tag tag" data-tag-id="${ESC(t)}">${ESC(label)}</span>`;
-							})
-							.join(" ")
-						}</div>`
-					: ""
-					}
-					${item.system.notes
-					? `<div class="asset-notes-chat"><strong>Notes:</strong><br>${await TextEditor.enrichHTML(String(item.system.notes), { async: true })}</div>`
-					: ""
-					}
-				</div>
+			<div class="chat-item">
+				<h2><i class="fa-solid fa-vault"></i> ${ESC(item.name)}</h2>
+				${descHtml ? `<div class="asset-desc-chat">${descHtml}</div>` : ""}
+				${(item.system?.tags?.length)
+				? `<strong>Tags:</strong>
+					<div class="asset-tags chat-tags">${
+					item.system.tags.map(t => {
+						const def = CONFIG.MidnightGambit?.ASSET_TAGS?.find(d => d.id === t);
+						const label = def?.label || t;
+						return `<span class="asset-tag tag" data-tag-id="${ESC(t)}">${ESC(label)}</span>`;
+					}).join(" ")
+					}</div>`
+				: ""
+				}
+				${notesHtml ? `<div class="asset-notes-chat"><strong>Notes:</strong><br>${notesHtml}</div>` : ""}
+			</div>
 			`;
 			await ChatMessage.create({
-				user: game.user.id,
-				speaker: ChatMessage.getSpeaker({ actor: this.actor }),
-				content
+			user: game.user.id,
+			speaker: ChatMessage.getSpeaker({ actor: this.actor }),
+			content
 			});
 		});
 
-		// Unified Asset Editor modal (Quantity, Notes, Open, Delete)
-		$root.off("click.mgAssetEdit").on("click.mgAssetEdit", ".assets .asset-edit", async (ev) => {
-		ev.preventDefault();
-		ev.stopPropagation();
+		// Crew → Asset card "Edit": Quantity + Description (TinyMCE) + Notes (TinyMCE); OPEN/DELETE in header
+		$root.off("click.mgCrewAssetEdit").on("click.mgCrewAssetEdit", ".asset-edit", async (ev) => {
+			ev.preventDefault();
+			ev.stopPropagation();
 
-		const id = ev.currentTarget.dataset.itemId || ev.currentTarget.closest(".inventory-item")?.dataset?.itemId;
-		const item = this.actor.items.get(id);
-		if (!item) return;
+			// Resolve item id from button or ancestor card
+			const card = ev.currentTarget.closest("[data-item-id]") || ev.currentTarget;
+			const itemId = card?.dataset?.itemId;
+			const item = itemId ? this.actor.items.get(itemId) : null;
+			if (!item) return ui.notifications?.warn("Asset not found.");
 
-		const qty   = Math.max(0, Number(item.system?.qty ?? 0));
-		const notes = String(item.system?.notes ?? "");
+			const safeName = (foundry.utils?.escapeHTML?.(item.name) ?? item.name);
+			const qty   = Math.max(0, Number(getProperty(item, "system.qty") ?? 0));
+			const desc  = String(getProperty(item, "system.description") ?? "");
+			const notes = String(getProperty(item, "system.notes") ?? "");
 
-		const content = `
-			<form class="mg-asset-edit">
-			<div class="field">
+			// unique ids for TinyMCE targets
+			const descId  = randomID();
+			const notesId = randomID();
+
+			const content = `
+			<form class="mg-asset-edit" style="margin:0;">
+				<div class="input-wrapper" style="margin-bottom:8px;">
 				<label>Quantity</label>
-				<input type="number" class="ae-qty" min="0" value="${qty}" />
-			</div>
-
-			<div class="field">
-			<label>Notes</label>
-			<div class="editor-toolbar" style="display:flex; gap:.25rem; margin-bottom:.25rem;">
-				<button type="button" class="fmt-bullets" title="Bulleted list">• List</button>
-				<button type="button" class="fmt-numbers" title="Numbered list">1. List</button>
-				<span style="flex:1"></span>
-				<button type="button" class="fmt-bold" title="Bold">B</button>
-				<button type="button" class="fmt-italic" title="Italic">I</button>
-			</div>
-			<textarea class="ae-notes" rows="8" style="min-height:8rem;">${ESC(notes)}</textarea>
-			</div>
-
-
-			<div class="row actions-row" style="display:flex; gap:.5rem; justify-content:space-between; margin-top:6px;">
-				<div class="left">
-				<button type="button" class="ae-open"><i class="fa-regular fa-pen-to-square"></i> Open Asset</button>
+				<input type="number" class="ae-qty" min="0" value="${qty}" style="width:100px;" />
 				</div>
-				<div class="right">
-				<button type="button" class="ae-delete"><i class="fa-solid fa-trash"></i> Delete</button>
+
+				<div class="input-wrapper" style="margin-bottom:10px;">
+				<label>Description</label>
+				<div class="mg-editor-wrap">
+					<textarea id="${descId}" name="system.description" class="mg-rich ae-desc" style="width:100%;"></textarea>
 				</div>
-			</div>
+				</div>
+
+				<div class="input-wrapper">
+				<label>Notes</label>
+				<div class="mg-editor-wrap">
+					<textarea id="${notesId}" name="system.notes" class="mg-rich ae-notes" style="width:100%;"></textarea>
+				</div>
+				</div>
 			</form>
-		`;
+			`;
 
-		const dlg = new Dialog({
-			title: `Edit “${ESC(item.name)}”`,
+			const hdrKey = `mg-hdr-${randomID()}`;
+
+			const dlg = new Dialog({
+			title: `Edit: ${safeName}`,
 			content,
 			buttons: {
-			save: {
+				save: {
 				icon: '<i class="fa-solid fa-floppy-disk"></i>',
 				label: "Save",
 				callback: async (html) => {
-				const form = html[0]?.querySelector?.(".mg-asset-edit");
-				if (!form) return;
+					const form = html[0]?.querySelector?.(".mg-asset-edit");
+					if (!form) return;
 
-				const newQty   = Math.max(0, Number(form.querySelector(".ae-qty")?.value ?? 0));
-				const newNotes = String(form.querySelector(".ae-notes")?.value ?? "");
+					const newQty = Math.max(0, Number(form.querySelector(".ae-qty")?.value ?? 0));
+					// Pull rich HTML from both editors (fallbacks to textarea value if editor failed to mount)
+					const descHTML  = await TextEditor.getContent(form.querySelector(`#${descId}`));
+					const notesHTML = await TextEditor.getContent(form.querySelector(`#${notesId}`));
 
-				// Update item, no re-render; we’ll patch the card DOM directly
-				await item.update({ "system.qty": newQty, "system.notes": newNotes }, { render: false });
+					await item.update({
+					"system.qty": newQty,
+					"system.description": descHTML,
+					"system.notes": notesHTML
+					}, { render: false });
 
-				// Patch visible card: qty badge text
-				const card = $root.find(`.asset-card[data-item-id="${item.id}"]`)[0];
-				if (card) {
-					const badge = card.querySelector(".qty-badge");
+					// Patch visible card qty badge (no full re-render)
+					const cardEl = $root.find(`[data-item-id="${item.id}"]`)[0];
+					if (cardEl) {
+					const badge = cardEl.querySelector(".qty-badge, .asset-qty, [data-role='qty']");
 					if (badge) badge.textContent = String(newQty);
+					}
+
+					ui.notifications.info("Asset updated.");
 				}
-				}
-			},
-			cancel: { label: "Cancel" }
+				},
+				cancel: { label: "Cancel" }
 			},
 			default: "save",
-			close: () => {}
-		});
+			close: () => { $(`.${hdrKey}`).remove(); }
+			}, { classes: ["midnight-gambit", "dialog", "asset-notes-editor"], width: 560 });
 
-		dlg.render(true);
+			dlg.render(true);
 
-		// Wait until it’s fully in the DOM
-		Hooks.once("renderDialog", (app, html) => {
-		// Make sure we're targeting the right Dialog
-		if (app !== dlg) return;
-		const $html = html instanceof jQuery ? html : $(html);
-		const ta = $html.find(".ae-notes")[0];
-		if (!ta) return;
-
-		// Utility: wrap selected text
-		const applyAroundSelection = (ta, before, after = before) => {
-			const start = ta.selectionStart ?? 0;
-			const end = ta.selectionEnd ?? 0;
-			const value = ta.value ?? "";
-			const sel = value.slice(start, end);
-			const next =
-			value.slice(0, start) + before + sel + after + value.slice(end);
-			const newPosStart = start + before.length;
-			const newPosEnd = newPosStart + sel.length;
-			ta.value = next;
-			ta.focus();
-			ta.setSelectionRange(newPosStart, newPosEnd);
-		};
-
-		// Utility: convert selected lines to list
-		const applyList = (ta, type) => {
-			const start = ta.selectionStart ?? 0;
-			const end = ta.selectionEnd ?? 0;
-			const value = ta.value ?? "";
-			const lineStart = value.lastIndexOf("\n", start - 1) + 1;
-			const lineEnd = value.indexOf("\n", end);
-			const blockEnd = lineEnd === -1 ? value.length : lineEnd;
-			const block = value.slice(lineStart, blockEnd);
-			const isNum = type === "numbers";
-			const lines = block.split("\n");
-			const out = lines
-			.map((ln, i) => {
-				const stripped = ln.replace(/^\s*([-*]\s|(\d+)\.\s)?/, "");
-				return isNum ? `${i + 1}. ${stripped}` : `- ${stripped}`;
-			})
-			.join("\n");
-			ta.value = value.slice(0, lineStart) + out + value.slice(blockEnd);
-			ta.focus();
-			ta.setSelectionRange(lineStart, lineStart + out.length);
-		};
-
-		// Wire toolbar buttons now that the dialog is real
-		$html.find(".fmt-bold").on("click", () => applyAroundSelection(ta, "**"));
-		$html.find(".fmt-italic").on("click", () => applyAroundSelection(ta, "_"));
-		$html.find(".fmt-bullets").on("click", () => applyList(ta, "bullets"));
-		$html.find(".fmt-numbers").on("click", () => applyList(ta, "numbers"));
-
-		// Also hook up your existing Open / Delete / Enter handlers
-		$html.find(".ae-open").on("click", (e) => {
-			e.preventDefault();
-			item.sheet?.render(true);
-		});
-
-		$html.find(".ae-delete").on("click", async (e) => {
-			e.preventDefault();
-			const ok = await Dialog.confirm({
-			title: `Delete ${ESC(item.name)}?`,
-			content: `<p>Remove <strong>${ESC(item.name)}</strong> from the Crew?</p>`,
-			});
-			if (ok) await item.delete();
-			dlg.close({});
-		});
-
-		$html.find(".ae-qty").on("keydown", (e) => {
-			if (e.key === "Enter") {
-			e.preventDefault();
-			dlg.submit();
-			}
-		});
-		});
-
-		// Wire the “Open Asset” and “Delete” inline buttons once the dialog is up
-		dlg.once("renderDialog", (_app, html) => {
+			// Initialize TinyMCE + inject header buttons when THIS dialog renders
+			Hooks.once("renderDialog", async (_app, html) => {
+			if (_app !== dlg) return;
 			const $html = html instanceof jQuery ? html : $(html);
 
-			$html.find(".ae-open").on("click", (e) => {
-			e.preventDefault(); e.stopPropagation();
-			item.sheet?.render(true);
+			// ----- Header buttons (Open / Delete) -----
+			const $app = $html.closest(".app.window-app.dialog");
+			const $header = $app.find(".window-header");
+			$header.find(`.${hdrKey}`).remove();
+			const $actions = $(`
+				<div class="mg-header-actions ${hdrKey}">
+				<a class="header-button ae-open" title="Open Asset"><i class="fa-regular fa-pen-to-square"></i></a>
+				<a class="header-button ae-delete" title="Delete Asset"><i class="fa-solid fa-trash"></i></a>
+				</div>
+			`);
+			$header.find(".window-title").after($actions);
+
+			$actions.find(".ae-open").on("click", (e) => {
+				e.preventDefault(); e.stopPropagation();
+				item.sheet?.render(true);
 			});
 
-			$html.find(".ae-delete").on("click", async (e) => {
-			e.preventDefault(); e.stopPropagation();
-			const ok = await Dialog.confirm({
-				title: `Delete ${ESC(item.name)}?`,
-				content: `<p>Remove <strong>${ESC(item.name)}</strong> from the Crew?</p>`
-			});
-			if (!ok) return;
-			await item.delete();
-			dlg.close({}); // close modal if it’s still open
+			$actions.find(".ae-delete").on("click", async (e) => {
+				e.preventDefault(); e.stopPropagation();
+				const ok = await Dialog.confirm({
+				title: `Delete ${safeName}?`,
+				content: `<p>Remove <strong>${safeName}</strong> from the Crew?</p>`
+				});
+				if (!ok) return;
+				await item.delete();
+				dlg.close({});
+				this.render(true);
 			});
 
-			// Enter in quantity saves (submits the dialog)
+			Hooks.once("closeDialog", (app) => { if (app === dlg) $(`.${hdrKey}`).remove(); });
+
+			// ----- Mount TinyMCE: Description + Notes (both awaited) -----
+			const descTarget  = $html.find(`#${descId}`)[0];
+			const notesTarget = $html.find(`#${notesId}`)[0];
+			if (!descTarget || !notesTarget) return;
+
+			// Seed existing HTML before init (so first paint matches)
+			descTarget.value  = desc;
+			notesTarget.value = notes;
+
+			// Clone your global config, give comfy caps, and allow internal scroll at cap
+			const mkCfg = (maxH) => {
+				const t = foundry.utils.deepClone(CONFIG.TinyMCE);
+				t.max_height = maxH;
+				t.min_height = t.min_height ?? 140;
+				t.content_style = (t.content_style ?? "") + `
+				body.mce-content-body { overflow-y: auto; overscroll-behavior: contain; }
+				`;
+				return t;
+			};
+
+			await TextEditor.create({ target: descTarget,  name: "system.description", content: desc,  tinymce: mkCfg(440), height: null });
+			await TextEditor.create({ target: notesTarget, name: "system.notes",       content: notes, tinymce: mkCfg(320), height: null });
+
+			// Enter on qty submits the dialog (save)
 			$html.find(".ae-qty").on("keydown", (e) => {
-			if (e.key === "Enter") { e.preventDefault(); dlg.submit(); }
+				if (e.key !== "Enter") return;
+				e.preventDefault();
+				dlg.submit();
+			});
 			});
 		});
-		});
 
-
-		// Search filtering (handles Enter key or button click)
+		// Search filtering (handles Enter key or button click) — unchanged
 		{
-
-			// Smooth 0.5s search: all cards slide down, then matches slide up; empty-state + Reset
-			{
-			const $root = html instanceof jQuery ? html : $(html);
-
 			const STAGGER_STEP_MS = 80;   // delay between each card's enter
 			const STAGGER_COUNT   = 3;    // how many cards to stagger (then no delay)
 			const DEBOUNCE_MS = 220;
 			const LEAVE_MS = 500; // must match CSS transition time
 
 			const debounce = (fn, wait = DEBOUNCE_MS) => {
-				let t; return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), wait); };
+			let t; return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), wait); };
 			};
 
-			// Helper: compute whether a card matches the query
 			const cardMatches = (el, q) => {
-				const name  = (el.querySelector(".name")?.textContent  || "").toLowerCase();
-				const tags  = (el.querySelector(".tags")?.textContent  || "").toLowerCase();
-				const notes = (el.querySelector(".notes")?.textContent || "").toLowerCase();
-				return !q || name.includes(q) || tags.includes(q) || notes.includes(q);
+			const name  = (el.querySelector(".name")?.textContent  || "").toLowerCase();
+			const tags  = (el.querySelector(".tags")?.textContent  || "").toLowerCase();
+			const notes = (el.querySelector(".notes")?.textContent || "").toLowerCase();
+			return !q || name.includes(q) || tags.includes(q) || notes.includes(q);
 			};
 
-			// Phase transitions
 			const enterCard = (el, idx = 0) => {
-			// Always normalize to hidden → pre-enter → entering, even if it wasn't hidden yet
 			el.classList.remove("is-entering", "is-leaving", "pre-enter");
 			if (!el.classList.contains("is-hidden")) {
 				el.classList.add("is-hidden");
-				// commit the change so transition states are clean
-				// eslint-disable-next-line no-unused-expressions
 				el.offsetHeight;
 			}
-
 			el.classList.remove("is-hidden");
 			el.classList.add("pre-enter");
-
-			// force pre-enter to commit
-			// eslint-disable-next-line no-unused-expressions
 			el.offsetHeight;
 
-			// compute stagger (respect reduced motion)
 			const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
 			const slot   = Math.min(idx, STAGGER_COUNT - 1);
 			const delay  = reduce ? 0 : slot * STAGGER_STEP_MS;
@@ -898,173 +857,79 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 				const onEnd = (e) => {
 				if (e && e.target !== el) return;
 				el.classList.remove("is-entering", "pre-enter");
-				el.style.transitionDelay = ""; // cleanup
+				el.style.transitionDelay = "";
 				el.removeEventListener("transitionend", onEnd);
 				};
 				el.addEventListener("transitionend", onEnd, { once: true });
 			});
 			};
 
-
 			const leaveCard = (el) => {
 			el.classList.remove("is-entering", "pre-enter");
-			el.style.transitionDelay = ""; // ensure no leftover delay
+			el.style.transitionDelay = "";
 			if (el.classList.contains("is-hidden")) return;
 			el.classList.add("is-leaving");
 			};
 
 			const showEmpty = (show) => {
-				const empty = $root.find(".assets .asset-search-empty")[0];
-				if (!empty) return;
-				empty.style.display = show ? "block" : "none";
+			const empty = $root.find(".assets .asset-search-empty")[0];
+			if (!empty) return;
+			empty.style.display = show ? "block" : "none";
 			};
 
-			// Main search routine:
-			// 1) Everyone leaves (slides down)
-			// 2) After LEAVE_MS: non-matches become hidden; matches enter (slide up)
 			const runSearchNow = () => {
-				// Narrow the live filtering region to the grid only
-				const input = $root.find(".asset-search")[0];
-				const q = (input?.value || "").toLowerCase().trim();
+			const input = $root.find(".asset-search")[0];
+			const q = (input?.value || "").toLowerCase().trim();
+			const cards = $root.find(".asset-grid .asset-card").toArray();
+			const matchSet = new Set(cards.filter(el => cardMatches(el, q)));
 
-				//  Only touch cards inside the grid, not the toolbar
-				const cards = $root.find(".asset-grid .asset-card").toArray();
+			for (const el of cards) leaveCard(el);
 
-				// Pre-calc match set
-				const matchSet = new Set(cards.filter(el => cardMatches(el, q)));
-
-				// Phase 1: all visible cards start leaving
-				for (const el of cards) leaveCard(el);
-
-				// Phase 2 (after leave transition): hide non-matches, enter matches
-				setTimeout(() => {
-				let hits = 0;
-				let enterIndex = 0; // counts only matches for stagger
+			setTimeout(() => {
+				let hits = 0, enterIndex = 0;
 				for (const el of cards) {
-					const isMatch = matchSet.has(el);
-					el.classList.remove("is-leaving");
-
-					if (isMatch) {
-					hits++;
-					enterCard(el, enterIndex++);
-					} else {
-					el.classList.add("is-hidden");
-					}
+				const isMatch = matchSet.has(el);
+				el.classList.remove("is-leaving");
+				if (isMatch) { hits++; enterCard(el, enterIndex++); }
+				else el.classList.add("is-hidden");
 				}
 				showEmpty(hits === 0);
-
-				// Only touch the card grid, not the toolbar or other .assets children
 				$root.find(".asset-grid .tags-wrap").each((_, w) => updateOneWrap(w));
-				}, LEAVE_MS);
+			}, LEAVE_MS);
 			};
-
 			const runSearch = debounce(runSearchNow, DEBOUNCE_MS);
 
-			// Only run search when Enter is pressed or button is clicked
 			$root.off("keydown.mgAssetSearchEnter").on("keydown.mgAssetSearchEnter", ".assets .asset-search", (ev) => {
-			if (ev.key === "Enter") {
-				ev.preventDefault();
-				ev.stopPropagation();
-				ev.stopImmediatePropagation();
-				runSearch();
-			}
+			if (ev.key === "Enter") { ev.preventDefault(); ev.stopPropagation(); ev.stopImmediatePropagation(); runSearch(); }
 			});
-
 			$root.off("click.mgAssetSearchBtn").on("click.mgAssetSearchBtn", ".assets .asset-search-btn", (ev) => {
-			ev.preventDefault();
-			ev.stopPropagation();
-			ev.stopImmediatePropagation();
-			runSearch();
+			ev.preventDefault(); ev.stopPropagation(); ev.stopImmediatePropagation(); runSearch();
 			});
-
-			// Reset button (in empty-state)
 			$root.off("click.mgAssetSearchReset").on("click.mgAssetSearchReset", ".assets .asset-search-reset", (ev) => {
-				ev.preventDefault();
-				const input = $root.find(".assets .asset-search")[0];
-				if (input) input.value = "";
-				showEmpty(false);
-
-				// Nice full reveal animation
-				const cards = $root.find(".asset-grid .asset-card").toArray();
-				// Start leaving everything (for symmetry)
-				for (const el of cards) leaveCard(el);
-				setTimeout(() => {
-				let idx = 0;
-				for (const el of cards) enterCard(el, idx++);
-				}, LEAVE_MS);
-
+			ev.preventDefault();
+			const input = $root.find(".assets .asset-search")[0];
+			if (input) input.value = "";
+			showEmpty(false);
+			const cards = $root.find(".asset-grid .asset-card").toArray();
+			for (const el of cards) leaveCard(el);
+			setTimeout(() => { let idx = 0; for (const el of cards) enterCard(el, idx++); }, LEAVE_MS);
 			});
-			}
 		}
 
-		// Click a tag pill on the card to see its meaning
-		$root.off("click.mgTagInfoCard").on("click.mgTagInfoCard", ".asset-tag, .tag", async (ev) => {
-		ev.preventDefault
-		ev.stopPropagation();
-
-		// 1) Find the pill element
-		const el = ev.target.closest(".asset-tag, .tag");
-		if (!el) return;
-
-		// 2) Try tag id from data attribute
-		let tagId = el.dataset?.tagId?.trim();
-
-		// 3) Fallback: derive id from the label text if data-tag-id is missing
-		const tagDefs = (CONFIG.MidnightGambit?.ASSET_TAGS || []);
-		if (!tagId) {
-			const labelText = (el.textContent || "").trim();
-			const byLabel = tagDefs.find(t => (t.label || t.id) === labelText);
-			tagId = byLabel?.id;
+		// Drag-hover chrome on the whole asset area; drop flows into _onDrop
+		const $zone = $root.find(".assets .mg-asset-drop");
+		if ($zone.length) {
+			$zone.on("dragenter", (e) => { e.preventDefault(); e.stopPropagation(); $zone.addClass("drag-hover"); });
+			$zone.on("dragover",  (e) => { e.preventDefault(); e.stopPropagation(); });
+			$zone.on("dragleave", (e) => { if (!$zone[0].contains(e.relatedTarget)) $zone.removeClass("drag-hover"); });
+			$zone.on("drop",      (e) => { e.preventDefault(); e.stopPropagation(); $zone.removeClass("drag-hover"); return this._onDrop(e.originalEvent); });
 		}
-		if (!tagId) return;
-
-		// 4) Resolve definition by id
-		const def = tagDefs.find(t => t.id === tagId);
-		if (!def) return;
-
-		// 5) Show dialog — decode label; set title as TEXT after render
-		const esc = (s) => Handlebars.escapeExpression(String(s ?? ""));
-		const decodeHTML = (html) => {
-		const div = document.createElement("div");
-		div.innerHTML = html;
-		return div.textContent || div.innerText || "";
-		};
-
-		const titleText = decodeHTML(def.label || tagId); // <- raw readable text with '&'
-		const bodyHtml  = `<div class="mg-tag-dialog"><p>${decodeHTML(def.description || "No description available.")}</p></div>`;
-
-		// Use Dialog so we can touch the instance after render
-		const dlg = new Dialog(
-		{
-			title: titleText,           // will be overwritten to text below (just in case)
-			content: bodyHtml,
-			buttons: { ok: { label: "Close" } }
-		},
-		{ classes: ["mg-tag-dialog"] }
-		);
-
-		// Force the window title as *text* to avoid any escaping weirdness
-		dlg.render(true);
-		dlg.once("renderDialog", (_app, html) => {
-		html.closest(".app.window-app").querySelector(".window-title").textContent = titleText;
-		});
-
-
-		});
-
-			// Drag-hover chrome on the whole asset area; drop flows into _onDrop
-			const $zone = $root.find(".assets .mg-asset-drop");
-			if ($zone.length) {
-				$zone.on("dragenter", (e) => { e.preventDefault(); e.stopPropagation(); $zone.addClass("drag-hover"); });
-				$zone.on("dragover",  (e) => { e.preventDefault(); e.stopPropagation(); });
-				$zone.on("dragleave", (e) => { if (!$zone[0].contains(e.relatedTarget)) $zone.removeClass("drag-hover"); });
-				$zone.on("drop",      (e) => { e.preventDefault(); e.stopPropagation(); $zone.removeClass("drag-hover"); return this._onDrop(e.originalEvent); });
-			}
 		}
+
 
 		/* Tag overflow: clamp to two rows with "See all / See less"
 		--------------------------------------------------------*/
-		const COLLAPSED_MAX = 48;   // px ≈ two rows of chips in your theme
+		const COLLAPSED_MAX = 80;   // px ≈ two rows of chips in your theme
 		const TRANSITION_MS = 500;  // must match CSS transition
 		//---------------------------------------------------------------------
 
@@ -1081,7 +946,12 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 		const overflows  = tags.scrollHeight > COLLAPSED_MAX + 1;
 
 		toggle.hidden = !overflows;
-		toggle.textContent = isExpanded ? "See less" : "See all";
+		// only create the icon once
+		if (!toggle.querySelector("i")) {
+		toggle.innerHTML = '<i class="fa-solid fa-angle-down"></i>';
+		}
+		const icon = toggle.querySelector("i");
+		icon.classList.toggle("rotated", isExpanded);
 		};
 
 		const animateTo = (el, targetPx, after) => {
@@ -1115,15 +985,24 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 			// EXPAND: current → scrollHeight
 			// 1) Start from the current clamped height (ensure numeric)
 			tags.style.maxHeight = `${Math.max(tags.clientHeight, COLLAPSED_MAX)}px`;
+
 			// 2) Force reflow so the browser commits this starting point
 			// eslint-disable-next-line no-unused-expressions
 			tags.offsetHeight;
+
 			// 3) Animate up to the content height
 			animateTo(tags, tags.scrollHeight, () => {
+
 			// After the animation, mark expanded and clear inline style
 			wrap.classList.add("expanded");
 			tags.style.maxHeight = ""; // let CSS (expanded) take over
-			toggle.textContent = "See less";
+
+			// only create the icon once
+			if (!toggle.querySelector("i")) {
+			toggle.innerHTML = '<i class="fa-solid fa-angle-down"></i>';
+			}
+			const icon = toggle.querySelector("i");
+			icon.classList.toggle("rotated", isExpanded);
 			wrap.classList.remove("animating");
 			updateOneWrap(wrap);
 			});
@@ -1131,14 +1010,22 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 			// COLLAPSE: scrollHeight → COLLAPSED_MAX
 			// 1) Set current height as the starting point
 			tags.style.maxHeight = `${tags.scrollHeight}px`;
+
 			// 2) Force reflow
 			// eslint-disable-next-line no-unused-expressions
 			tags.offsetHeight;
+
 			// 3) Animate down to collapsed height
 			animateTo(tags, COLLAPSED_MAX, () => {
 			wrap.classList.remove("expanded");
 			tags.style.maxHeight = ""; // restore CSS
-			toggle.textContent = "See all";
+
+			// only create the icon once
+			if (!toggle.querySelector("i")) {
+			toggle.innerHTML = '<i class="fa-solid fa-angle-down"></i>';
+			}
+			const icon = toggle.querySelector("i");
+			icon.classList.toggle("rotated", isExpanded);
 			wrap.classList.remove("animating");
 			updateOneWrap(wrap);
 			});

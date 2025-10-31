@@ -506,7 +506,7 @@
 
 							.desc,
 							.asset-notes {
-								padding: .5rem;
+								padding: 1rem;
 								@include mg-border();
 								font-size: 1rem;
 								color: $mg-blue-2;
@@ -561,8 +561,7 @@
 					}
 
 					.tags {
-						/* two rows of chips; tweak height if your line-height differs */
-						max-height: 3rem;                    /* ~ two chip rows */
+						max-height: 5rem;
 						overflow: hidden;
 						transition: max-height .5s ease;
 						position: relative;
@@ -614,11 +613,23 @@
 						opacity: .85;
 						padding: .5rem;
 						border-radius: 8px;
-						background: $mg-blue-3;
+						background: $mg-blue-main;
 						transition: background .5s ease, opacity .5s ease, color .5s ease;
 						cursor: pointer;
-						display: inline-block;
-						margin-top: .5rem;
+						display: inline-flex;
+						align-items: center;
+						justify-content: center;
+						width: 100%;
+						cursor: pointer;
+
+						i {
+							font-size: 0.9rem;
+							transition: transform 0.3s ease, opacity 0.25s ease;
+
+							&.rotated {
+								transform: rotate(180deg);
+							}
+						}
 
 						&:hover {
 							background: $mg-blue-1;
@@ -692,5 +703,32 @@
 				}
 			}
 		}
+	}
+}
+
+.asset-notes-editor {
+
+	.mg-asset-edit {
+		padding: 2.125rem;
+
+		.input-wrapper {
+			display: flex;
+			flex-direction: column;
+			margin: 0;
+		}
+
+		.actions-row {
+			display: flex;
+			width: 100%;
+
+			.left,
+			.right {
+				width: 50%;
+			}
+		}
+	}
+
+	.dialog-buttons {
+		padding: 0 2.125rem;
 	}
 }

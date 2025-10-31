@@ -7,7 +7,12 @@
   <section class="sheet-body">
     <div class="form-group stacked">
       <label>Description</label>
-      <textarea name="system.description" rows="6">{{system.description}}</textarea>
+      {{editor system.description
+        target="system.description"
+        button=false
+        editable=editable
+        engine="tinymce"
+      }}
     </div>
 
     <div class="form-group stacked">
@@ -22,7 +27,6 @@
         button=false
       }}
     </div>
-
 
     <div class="wrapper">
       <label>Tags</label>
