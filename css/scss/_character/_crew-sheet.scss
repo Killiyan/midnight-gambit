@@ -511,6 +511,11 @@
 								font-size: 1rem;
 								color: $mg-blue-2;
 								border-radius: .5rem;
+								gap: .5rem;
+
+								p {
+									margin: 0;
+								}
 							}
 						}
 

@@ -682,9 +682,9 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 			const desc  = String(getProperty(item, "system.description") ?? "");
 			const notes = String(getProperty(item, "system.notes") ?? "");
 
-			// unique ids for TinyMCE targets
-			const descId  = randomID();
-			const notesId = randomID();
+			// Safe IDs that won't break querySelector
+			const descId  = `desc-${randomID()}`;
+			const notesId = `notes-${randomID()}`;
 
 			const content = `
 			<form class="mg-asset-edit" style="margin:0;">
@@ -722,10 +722,21 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 					const form = html[0]?.querySelector?.(".mg-asset-edit");
 					if (!form) return;
 
+					// 1) Gather values
 					const newQty = Math.max(0, Number(form.querySelector(".ae-qty")?.value ?? 0));
-					// Pull rich HTML from both editors (fallbacks to textarea value if editor failed to mount)
-					const descHTML  = await TextEditor.getContent(form.querySelector(`#${descId}`));
-					const notesHTML = await TextEditor.getContent(form.querySelector(`#${notesId}`));
+
+					// v11-safe: pull HTML from TinyMCE editor if mounted, else fallback to textarea value
+					const readEditorHTML = (el) => {
+					try {
+						const ed = TextEditor.getEditor?.(el) || window.tinyMCE?.get?.(el?.id);
+						if (ed && typeof ed.getContent === "function") return ed.getContent();
+					} catch (_) {}
+					return el?.value ?? "";
+					};
+					const descEl   = form.querySelector(`[id='${descId}']`) || document.getElementById(descId);
+					const notesEl  = form.querySelector(`[id='${notesId}']`) || document.getElementById(notesId);
+					const descHTML = readEditorHTML(descEl);
+					const notesHTML= readEditorHTML(notesEl);
 
 					await item.update({
 					"system.qty": newQty,
@@ -733,14 +744,10 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 					"system.notes": notesHTML
 					}, { render: false });
 
-					// Patch visible card qty badge (no full re-render)
-					const cardEl = $root.find(`[data-item-id="${item.id}"]`)[0];
-					if (cardEl) {
-					const badge = cardEl.querySelector(".qty-badge, .asset-qty, [data-role='qty']");
-					if (badge) badge.textContent = String(newQty);
-					}
-
+					// Refresh the crew sheet so the card updates immediately
+					await this.render(false);
 					ui.notifications.info("Asset updated.");
+					try { dlg.close({}); } catch (_) {}
 				}
 				},
 				cancel: { label: "Cancel" }
@@ -788,8 +795,8 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 			Hooks.once("closeDialog", (app) => { if (app === dlg) $(`.${hdrKey}`).remove(); });
 
 			// ----- Mount TinyMCE: Description + Notes (both awaited) -----
-			const descTarget  = $html.find(`#${descId}`)[0];
-			const notesTarget = $html.find(`#${notesId}`)[0];
+			const descTarget  = $html.find(`[id='${descId}']`)[0];
+			const notesTarget = $html.find(`[id='${notesId}']`)[0];
 			if (!descTarget || !notesTarget) return;
 
 			// Seed existing HTML before init (so first paint matches)
