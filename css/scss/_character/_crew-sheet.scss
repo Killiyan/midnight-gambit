@@ -605,11 +605,6 @@
 					}
 
 					.tags-toggle {
-						@include oswald();
-						font-size: .75rem;
-						font-weight: 700;
-						font-style: italic;
-						text-transform: uppercase;
 						opacity: .85;
 						padding: .5rem;
 						border-radius: 8px;

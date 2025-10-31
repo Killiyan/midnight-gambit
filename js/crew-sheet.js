@@ -1079,6 +1079,118 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 			});
 		}
 
+		/* Global "See All / See Less" utility
+		------------------------------------------------------------*/
+		const bindSeeAll = ($root, {
+		wrapSel = ".mg-seeall-wrap",
+		contentSel = ".mg-seeall-content",
+		toggleSel = ".mg-seeall-toggle",
+		collapsedMax = 140,
+		transitionMs = 500
+		} = {}) => {
+
+		const updateOne = (wrap) => {
+			if (!wrap || wrap.classList.contains("animating")) return;
+			const content = wrap.querySelector(contentSel);
+			const toggle  = wrap.querySelector(toggleSel);
+			if (!content || !toggle) return;
+
+			// Hide affordances if trivially short
+			wrap.classList.toggle("short", content.scrollHeight < 48);
+
+			const isExpanded = wrap.classList.contains("expanded");
+			const overflows  = content.scrollHeight > collapsedMax + 1;
+
+			toggle.hidden = !overflows;
+			if (!toggle.querySelector("i")) toggle.innerHTML = '<i class="fa-solid fa-angle-down"></i>';
+			toggle.querySelector("i").classList.toggle("rotated", isExpanded);
+		};
+
+		const animateTo = (el, targetPx, done) => {
+			el.style.maxHeight = `${targetPx}px`;
+			const onEnd = (e) => {
+			if (e && e.target !== el) return;
+			el.removeEventListener("transitionend", onEnd);
+			done?.();
+			};
+			// safety in case transitionend doesn’t fire
+			setTimeout(() => done?.(), transitionMs + 50);
+			el.addEventListener("transitionend", onEnd, { once: true });
+		};
+
+		// Click toggle (expand/collapse)
+		$root.off("click.mgSeeAllToggle").on("click.mgSeeAllToggle", `${wrapSel} ${toggleSel}`, (ev) => {
+			ev.preventDefault();
+			const wrap = ev.currentTarget.closest(wrapSel);
+			if (!wrap || wrap.classList.contains("animating")) return;
+
+			const content = wrap.querySelector(contentSel);
+			const toggle  = wrap.querySelector(toggleSel);
+			if (!content || !toggle) return;
+
+			wrap.classList.add("animating");
+			const isExpanded = wrap.classList.contains("expanded");
+
+			if (!isExpanded) {
+			// expand
+			content.style.maxHeight = `${Math.max(content.clientHeight, collapsedMax)}px`;
+			content.offsetHeight; // reflow
+			animateTo(content, content.scrollHeight, () => {
+				wrap.classList.add("expanded");
+				content.style.maxHeight = "";
+				const icon = toggle.querySelector("i");
+				if (icon) {
+				requestAnimationFrame(() => {
+					icon.classList.toggle("rotated", !isExpanded);
+				});
+				}
+				wrap.classList.remove("animating");
+				updateOne(wrap);
+			});
+			} else {
+			// collapse
+			content.style.maxHeight = `${content.scrollHeight}px`;
+			content.offsetHeight; // reflow
+			animateTo(content, collapsedMax, () => {
+				wrap.classList.remove("expanded");
+				content.style.maxHeight = "";
+				const icon = toggle.querySelector("i");
+				if (icon) {
+				requestAnimationFrame(() => {
+					icon.classList.toggle("rotated", !isExpanded);
+				});
+				}
+				wrap.classList.remove("animating");
+				updateOne(wrap);
+			});
+			}
+		});
+
+		// Initial measure (will hide toggles if tab is hidden—so we also refresh on tab change)
+		$root.find(wrapSel).each((_, el) => updateOne(el));
+
+		// Re-measure after the Assets tab becomes visible
+		const refreshAll = () => {
+			// allow display changes to apply first
+			setTimeout(() => {
+			$root.find(wrapSel).each((_, el) => updateOne(el));
+			}, 0);
+		};
+
+		// When switching tabs, if Assets is selected, refresh measurements
+		$root.off("click.mgSeeAllTab").on("click.mgSeeAllTab", ".sheet-tabs .item", (ev) => {
+			const tab = ev.currentTarget?.dataset?.tab;
+			if (tab === "assets") refreshAll();
+		});
+
+		// If Assets is the initial tab (rare, but supported), refresh immediately
+		const assetsTabVisible = $root.find('.tab[data-tab="assets"]').is(":visible");
+		if (assetsTabVisible) refreshAll();
+		};
+
+		// Initialize the global see-all toggles (one time per render)
+		bindSeeAll($root);
+
 
 		// --- Render new tabs (Assets / Gambits / Bio)
 		this._bindGambitsTab(html);
