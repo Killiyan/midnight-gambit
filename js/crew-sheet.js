@@ -285,39 +285,50 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 	// === Handle Item drops here so we can force a re-render ===
 	if (data?.type === "Item") {
 		try {
-		const src = await fromUuid(data.uuid);
-		if (!src || src.documentName !== "Item") return false;
+			const src = await fromUuid(data.uuid);
+			if (!src || src.documentName !== "Item") return false;
 
-		// Clone to a plain object and strip _id so it gets a fresh one
-		const obj = (src instanceof Item) ? src.toObject() : src;
-		delete obj._id;
+			// Clone to a plain object and strip _id so it gets a fresh one
+			const obj = (src instanceof Item) ? src.toObject() : src;
+			delete obj._id;
 
-		// Only accept types we care about here
-		const isAsset  = (obj.type || src.type) === "asset";
-		const isGambit = (obj.type || src.type) === "gambit";
-		if (!isAsset && !isGambit) return false;
+			const type = (obj.type || src.type);
+			const isAsset  = type === "asset";
+			const isGambit = type === "gambit";
 
-		// Create the embedded item on the Crew
-		const [created] = await this.actor.createEmbeddedDocuments("Item", [obj]);
+			// Allow Assets; Gate Gambits
+			if (!isAsset && !isGambit) return false;
 
-		// If a Gambit was dropped onto the Crew, add it to the deck immediately
-		if (isGambit && created?.id) {
+			if (isGambit) {
+			// Gate: Crew sheet only accepts Crew-tier Gambits
+			const tier = (obj.system?.tier ?? src.system?.tier ?? "rookie").toLowerCase();
+			if (tier !== "crew") {
+				ui.notifications?.warn("Only Crew-tier Gambits can be added to the Crew.");
+				return false;
+			}
+			}
+
+			// Create the embedded item on the Crew
+			const [created] = await this.actor.createEmbeddedDocuments("Item", [obj]);
+
+			// If it's a Gambit, drop it into the Crew's deck immediately
+			if (isGambit && created?.id) {
 			const g = foundry.utils.deepClone(this.actor.system.gambits ?? {});
 			g.deck = Array.isArray(g.deck) ? g.deck.slice() : [];
 			g.deck.push(created.id);
 			await this.actor.update({ "system.gambits.deck": g.deck }, { render: false });
-		}
+			}
 
-		// Force a sheet refresh so the new row shows up NOW
-		this.render(false);
-		return true;
+			// Force a sheet refresh so the new row shows up NOW
+			this.render(false);
+			return true;
 		} catch (err) {
-		console.warn("MG | _onDrop Item failed:", err);
-		return false;
+			console.warn("MG | _onDrop Item failed:", err);
+			return false;
 		}
 	}
 
-	// === Your existing Party member (Actor) drop logic ===
+	// === Party member (Actor) drop logic ===
 	if (data?.type === "Actor") {
 		const actor = await fromUuid(data.uuid);
 		if (!actor || actor.documentName !== "Actor") return false;
@@ -1191,6 +1202,49 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 
 		// Initialize the global see-all toggles (one time per render)
 		bindSeeAll($root);
+
+		/* Crew Gambits Tab
+		------------------------------------------------------------------*/
+		{
+		const $root = html instanceof jQuery ? html : $(html);
+
+		// Post Gambit to Chat
+		$root.off("click.mgPostGambit").on("click.mgPostGambit", ".post-gambit", async (ev) => {
+			ev.preventDefault();
+			const id = ev.currentTarget.dataset.itemId;
+			const item = this.actor.items.get(id);
+			if (!item) return;
+			const descHtml = await TextEditor.enrichHTML(String(item.system?.description ?? ""), { async: true });
+			await ChatMessage.create({
+			user: game.user.id,
+			speaker: ChatMessage.getSpeaker({ actor: this.actor }),
+			content: `<div class="gambit-chat-card"><h2><i class="fa-solid fa-cards"></i> ${item.name}</h2>${descHtml}</div>`
+			});
+		});
+
+		// Discard Gambit
+		$root.off("click.mgDiscardGambit").on("click.mgDiscardGambit", ".discard-gambit", async (ev) => {
+			ev.preventDefault();
+			const id = ev.currentTarget.closest("[data-item-id]")?.dataset?.itemId;
+			const g = foundry.utils.deepClone(this.actor.system.gambits ?? {});
+			g.deck = (g.deck || []).filter(i => i !== id);
+			g.discard = [...(g.discard || []), id];
+			await this.actor.update({ "system.gambits.deck": g.deck, "system.gambits.discard": g.discard });
+			this.render(false);
+		});
+
+		// Remove Gambit entirely
+		$root.off("click.mgRemoveGambit").on("click.mgRemoveGambit", ".remove-gambit", async (ev) => {
+			ev.preventDefault();
+			const id = ev.currentTarget.closest("[data-item-id]")?.dataset?.itemId;
+			await this.actor.deleteEmbeddedDocuments("Item", [id]);
+			const g = foundry.utils.deepClone(this.actor.system.gambits ?? {});
+			g.deck = (g.deck || []).filter(i => i !== id);
+			g.discard = (g.discard || []).filter(i => i !== id);
+			await this.actor.update({ "system.gambits": g });
+			this.render(false);
+		});
+		}
 
 
 		// --- Render new tabs (Assets / Gambits / Bio)

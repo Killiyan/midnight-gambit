@@ -2245,6 +2245,38 @@ export class MidnightGambitActorSheet extends ActorSheet {
   /* Drag and Drop onto Character Sheet
   ==============================================================================*/
   async _onDropItemCreate(itemData) {
+
+    // --- Guard: block Crew-tier Gambits from being dropped on Character sheets ---
+    try {
+      // Normalize payload (compendiums sometimes nest at system.system)
+      const raw = itemData?.system?.system ? itemData.system : itemData;
+      const type = raw?.type ?? itemData?.type;
+
+      if (type === "gambit") {
+        // Try to read tier directly
+        let tier = String(raw?.system?.tier ?? raw?.tier ?? "").toLowerCase();
+
+        // Fallback 1: resolve by UUID (compendiums, sidebar)
+        if (!tier && itemData?.uuid) {
+          const src = await fromUuid(itemData.uuid).catch(() => null);
+          tier = String(src?.system?.tier ?? "").toLowerCase();
+        }
+
+        // Fallback 2: resolve by core sourceId (world copy of a compendium item)
+        if (!tier && itemData?.flags?.core?.sourceId) {
+          const base = await fromUuid(itemData.flags.core.sourceId).catch(() => null);
+          tier = String(base?.system?.tier ?? "").toLowerCase();
+        }
+
+        if (tier === "crew") {
+          ui.notifications?.warn("Crew-tier Gambits can only be added to the Crew.");
+          return []; // stop the drop cleanly (Actor gets nothing)
+        }
+      }
+    } catch (e) {
+      console.warn("MG | Gambit tier guard failed (non-fatal):", e);
+    }
+
     if (itemData.type === "guise") {
     console.log("✅ Dropped a guise item on actor");
 
@@ -2465,6 +2497,25 @@ export class MidnightGambitActorSheet extends ActorSheet {
       return [];
     }
 
+    // Gate Gambit drops on Character sheets: disallow Crew-tier here
+    try {
+      const data = TextEditor.getDragEventData(event);
+      if (data?.type === "Item") {
+        const src = await fromUuid(data.uuid);
+        if (src?.documentName === "Item") {
+          const type = src.type;
+          if (type === "gambit") {
+            const tier = String(src.system?.tier ?? "rookie").toLowerCase();
+            if (tier === "crew") {
+              ui.notifications?.warn("Crew-tier Gambits can only be added to the Crew.");
+              return false;
+            }
+          }
+        }
+      }
+    } catch (_) {}
+
+
     return super._onDropItemCreate(itemData);
   }
 
@@ -2683,6 +2734,24 @@ export class MidnightGambitActorSheet extends ActorSheet {
   $root.find("[data-requires-guise]").toggle(hasGuise);
   $root.find("[data-hides-with-guise]").toggle(!hasGuise);
 }  
+  async _onDrop(event) {
+    // Hard gate Crew-tier Gambits at the drag event level too
+    try {
+      const data = TextEditor.getDragEventData(event);
+      if (data?.type === "Item" && data?.uuid) {
+        const src = await fromUuid(data.uuid).catch(() => null);
+        if (src?.documentName === "Item" && src.type === "gambit") {
+          const tier = String(src.system?.tier ?? "").toLowerCase();
+          if (tier === "crew") {
+            ui.notifications?.warn("Only Player Gambits can be added to the Actor.");
+            return false; // cancel the drop
+          }
+        }
+      }
+    } catch (_) { /* no-op */ }
+
+    return super._onDrop?.(event) ?? false;
+  }
 
   // Cleanup our temporary hooks when the sheet closes
   async close(options) {
