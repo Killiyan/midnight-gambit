@@ -20,7 +20,10 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 		template: "systems/midnight-gambit/templates/actors/crew-sheet.html",
 		width: 900,
 		height: 720,
-		tabs: [{ navSelector: ".sheet-tabs", contentSelector: ".sheet-body", initial: "party" }]
+		tabs: [
+			{ navSelector: ".sheet-tabs", contentSelector: ".sheet-body", initial: "party" },
+			{ navSelector: ".sheet-tabs", contentSelector: ".sheet-body", group: "crew", initial: "gambits" }
+		]
 	});
 	}
 
@@ -935,109 +938,104 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 
 
 		/* Tag overflow: clamp to two rows with "See all / See less"
-		--------------------------------------------------------*/
+		------------------------------------------------------------*/
+		{
 		const COLLAPSED_MAX = 80;   // px ≈ two rows of chips in your theme
 		const TRANSITION_MS = 500;  // must match CSS transition
-		//---------------------------------------------------------------------
 
+		// Measure one wrapper and set classes/affordances
 		const updateOneWrap = (wrap) => {
-		if (!wrap || wrap.classList.contains("animating")) return; // don't fight animations
-		const tags = wrap.querySelector(".tags");
-		const toggle = wrap.querySelector(".tags-toggle");
-		if (!tags || !toggle) return;
+			if (!wrap || wrap.classList.contains("animating")) return;
+			const tags   = wrap.querySelector(".tags");
+			const toggle = wrap.querySelector(".tags-toggle");
+			if (!tags || !toggle) return;
 
-		// Hide affordances if the list is "short" (under ~3rem)
-		wrap.classList.toggle("short", tags.scrollHeight < 48);
+			const isExpanded = wrap.classList.contains("expanded");
+			const overflows  = tags.scrollHeight > (COLLAPSED_MAX + 1);
 
-		const isExpanded = wrap.classList.contains("expanded");
-		const overflows  = tags.scrollHeight > COLLAPSED_MAX + 1;
+			// "short" means there is NO overflow — hide toggle and (your CSS) hides gradient
+			wrap.classList.toggle("short", !overflows);
+			toggle.hidden = !overflows;
 
-		toggle.hidden = !overflows;
-		// only create the icon once
-		if (!toggle.querySelector("i")) {
-		toggle.innerHTML = '<i class="fa-solid fa-angle-down"></i>';
-		}
-		const icon = toggle.querySelector("i");
-		icon.classList.toggle("rotated", isExpanded);
+			// Ensure an icon exists and rotate it based on expanded state
+			if (!toggle.querySelector("i")) {
+			toggle.innerHTML = '<i class="fa-solid fa-angle-down"></i>';
+			}
+			const icon = toggle.querySelector("i");
+			icon.classList.toggle("rotated", isExpanded);
 		};
 
+		// Animate max-height to a target, then run callback
 		const animateTo = (el, targetPx, after) => {
-		// Apply a numeric max-height so it can animate
-		el.style.maxHeight = `${targetPx}px`;
-		const onEnd = (e) => {
+			el.style.maxHeight = `${targetPx}px`;
+			const onEnd = (e) => {
 			if (e && e.target !== el) return;
 			el.removeEventListener("transitionend", onEnd);
 			after?.();
-		};
-		// Safety timeout in case transitionend doesn't fire
-		setTimeout(() => after?.(), TRANSITION_MS + 50);
-		el.addEventListener("transitionend", onEnd, { once: true });
+			};
+			// Safety in case transitionend doesn’t fire
+			setTimeout(() => after?.(), TRANSITION_MS + 50);
+			el.addEventListener("transitionend", onEnd, { once: true });
 		};
 
-		// Toggle click (smooth 0.5s expand/collapse with gradient fade)
+		// Toggle click (expand/collapse)
 		$root.off("click.mgTagsToggle").on("click.mgTagsToggle", ".assets .tags-toggle", (ev) => {
-		ev.preventDefault();
-		const wrap = ev.currentTarget.closest(".tags-wrap");
-		if (!wrap || wrap.classList.contains("animating")) return;
+			ev.preventDefault();
+			const wrap = ev.currentTarget.closest(".tags-wrap");
+			if (!wrap || wrap.classList.contains("animating")) return;
 
-		const tags   = wrap.querySelector(".tags");
-		const toggle = wrap.querySelector(".tags-toggle");
-		if (!tags || !toggle) return;
+			const tags   = wrap.querySelector(".tags");
+			const toggle = wrap.querySelector(".tags-toggle");
+			if (!tags || !toggle) return;
 
-		wrap.classList.add("animating");
+			wrap.classList.add("animating");
 
-		const isExpanded = wrap.classList.contains("expanded");
-
-		if (!isExpanded) {
+			const wasExpanded = wrap.classList.contains("expanded");
+			if (!wasExpanded) {
 			// EXPAND: current → scrollHeight
-			// 1) Start from the current clamped height (ensure numeric)
 			tags.style.maxHeight = `${Math.max(tags.clientHeight, COLLAPSED_MAX)}px`;
-
-			// 2) Force reflow so the browser commits this starting point
-			// eslint-disable-next-line no-unused-expressions
-			tags.offsetHeight;
-
-			// 3) Animate up to the content height
+			tags.offsetHeight; // reflow
 			animateTo(tags, tags.scrollHeight, () => {
+				wrap.classList.add("expanded");
+				tags.style.maxHeight = ""; // let CSS take over
 
-			// After the animation, mark expanded and clear inline style
-			wrap.classList.add("expanded");
-			tags.style.maxHeight = ""; // let CSS (expanded) take over
+				// smooth icon flip
+				const icon = toggle.querySelector("i");
+				if (icon) requestAnimationFrame(() => icon.classList.add("rotated"));
 
-			// only create the icon once
-			if (!toggle.querySelector("i")) {
-			toggle.innerHTML = '<i class="fa-solid fa-angle-down"></i>';
-			}
-			const icon = toggle.querySelector("i");
-			icon.classList.toggle("rotated", isExpanded);
-			wrap.classList.remove("animating");
-			updateOneWrap(wrap);
+				wrap.classList.remove("animating");
+				updateOneWrap(wrap);
 			});
-		} else {
+			} else {
 			// COLLAPSE: scrollHeight → COLLAPSED_MAX
-			// 1) Set current height as the starting point
 			tags.style.maxHeight = `${tags.scrollHeight}px`;
-
-			// 2) Force reflow
-			// eslint-disable-next-line no-unused-expressions
-			tags.offsetHeight;
-
-			// 3) Animate down to collapsed height
+			tags.offsetHeight; // reflow
 			animateTo(tags, COLLAPSED_MAX, () => {
-			wrap.classList.remove("expanded");
-			tags.style.maxHeight = ""; // restore CSS
+				wrap.classList.remove("expanded");
+				tags.style.maxHeight = "";
 
-			// only create the icon once
-			if (!toggle.querySelector("i")) {
-			toggle.innerHTML = '<i class="fa-solid fa-angle-down"></i>';
-			}
-			const icon = toggle.querySelector("i");
-			icon.classList.toggle("rotated", isExpanded);
-			wrap.classList.remove("animating");
-			updateOneWrap(wrap);
+				// smooth icon flip back
+				const icon = toggle.querySelector("i");
+				if (icon) requestAnimationFrame(() => icon.classList.remove("rotated"));
+
+				wrap.classList.remove("animating");
+				updateOneWrap(wrap);
 			});
-		}
+			}
 		});
+
+		// Initial measure (note: if tab hidden, we also re-measure on tab change below)
+		$root.find(".asset-grid .tags-wrap").each((_, w) => updateOneWrap(w));
+
+		// Re-measure when switching to the Assets tab (hidden tab reports scrollHeight=0)
+		$root.off("click.mgTagsTab").on("click.mgTagsTab", ".sheet-tabs .item", (ev) => {
+			if (ev.currentTarget?.dataset?.tab !== "assets") return;
+			setTimeout(() => {
+			$root.find(".asset-grid .tags-wrap").each((_, w) => updateOneWrap(w));
+			}, 0);
+		});
+		}
+
 
 		/* Lux +/- clickers (simple, safe, no re-render) */
 		{
@@ -1092,9 +1090,15 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 		wrapSel = ".mg-seeall-wrap",
 		contentSel = ".mg-seeall-content",
 		toggleSel = ".mg-seeall-toggle",
-		collapsedMax = 140,
+		collapsedMax = 140,     // default cap if a wrap doesn't specify data-seeall-cap
 		transitionMs = 500
 		} = {}) => {
+
+		// Read per-wrap cap; fall back to the function default
+		const capFor = (wrap) => {
+			const v = Number(wrap?.dataset?.seeallCap);
+			return Number.isFinite(v) ? v : collapsedMax;
+		};
 
 		const updateOne = (wrap) => {
 			if (!wrap || wrap.classList.contains("animating")) return;
@@ -1102,13 +1106,14 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 			const toggle  = wrap.querySelector(toggleSel);
 			if (!content || !toggle) return;
 
-			// Hide affordances if trivially short
-			wrap.classList.toggle("short", content.scrollHeight < 48);
-
+			const cap        = capFor(wrap);
 			const isExpanded = wrap.classList.contains("expanded");
-			const overflows  = content.scrollHeight > collapsedMax + 1;
+			const overflows  = content.scrollHeight > (cap + 1);
 
+			// "short" means NO overflow → hide toggle; your CSS hides gradient on .short
+			wrap.classList.toggle("short", !overflows);
 			toggle.hidden = !overflows;
+
 			if (!toggle.querySelector("i")) toggle.innerHTML = '<i class="fa-solid fa-angle-down"></i>';
 			toggle.querySelector("i").classList.toggle("rotated", isExpanded);
 		};
@@ -1120,8 +1125,7 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 			el.removeEventListener("transitionend", onEnd);
 			done?.();
 			};
-			// safety in case transitionend doesn’t fire
-			setTimeout(() => done?.(), transitionMs + 50);
+			setTimeout(() => done?.(), transitionMs + 50); // safety
 			el.addEventListener("transitionend", onEnd, { once: true });
 		};
 
@@ -1135,54 +1139,44 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 			const toggle  = wrap.querySelector(toggleSel);
 			if (!content || !toggle) return;
 
+			const cap = capFor(wrap);
 			wrap.classList.add("animating");
 			const isExpanded = wrap.classList.contains("expanded");
 
 			if (!isExpanded) {
-			// expand
-			content.style.maxHeight = `${Math.max(content.clientHeight, collapsedMax)}px`;
+			// EXPAND: (current or cap) → natural scroll height
+			content.style.maxHeight = `${Math.max(content.clientHeight, cap)}px`;
 			content.offsetHeight; // reflow
 			animateTo(content, content.scrollHeight, () => {
 				wrap.classList.add("expanded");
 				content.style.maxHeight = "";
 				const icon = toggle.querySelector("i");
-				if (icon) {
-				requestAnimationFrame(() => {
-					icon.classList.toggle("rotated", !isExpanded);
-				});
-				}
+				if (icon) requestAnimationFrame(() => icon.classList.add("rotated"));
 				wrap.classList.remove("animating");
 				updateOne(wrap);
 			});
 			} else {
-			// collapse
+			// COLLAPSE: natural scroll height → cap
 			content.style.maxHeight = `${content.scrollHeight}px`;
 			content.offsetHeight; // reflow
-			animateTo(content, collapsedMax, () => {
+			animateTo(content, cap, () => {
 				wrap.classList.remove("expanded");
 				content.style.maxHeight = "";
 				const icon = toggle.querySelector("i");
-				if (icon) {
-				requestAnimationFrame(() => {
-					icon.classList.toggle("rotated", !isExpanded);
-				});
-				}
+				if (icon) requestAnimationFrame(() => icon.classList.remove("rotated"));
 				wrap.classList.remove("animating");
 				updateOne(wrap);
 			});
 			}
 		});
 
-		// Initial measure (will hide toggles if tab is hidden—so we also refresh on tab change)
+		// Initial measure (hidden tabs will look short here; we refresh on tab switch)
 		$root.find(wrapSel).each((_, el) => updateOne(el));
 
 		// Re-measure after the Assets tab becomes visible
-		const refreshAll = () => {
-			// allow display changes to apply first
-			setTimeout(() => {
+		const refreshAll = () => setTimeout(() => {
 			$root.find(wrapSel).each((_, el) => updateOne(el));
-			}, 0);
-		};
+		}, 0);
 
 		// When switching tabs, if Assets is selected, refresh measurements
 		$root.off("click.mgSeeAllTab").on("click.mgSeeAllTab", ".sheet-tabs .item", (ev) => {
@@ -1190,7 +1184,7 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 			if (tab === "assets") refreshAll();
 		});
 
-		// If Assets is the initial tab (rare, but supported), refresh immediately
+		// If Assets is already visible on first render
 		const assetsTabVisible = $root.find('.tab[data-tab="assets"]').is(":visible");
 		if (assetsTabVisible) refreshAll();
 		};

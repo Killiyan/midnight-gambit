@@ -213,7 +213,7 @@
 									{{/if}}
 
 									{{#if it.descHtml}}
-									<div class="mg-seeall-wrap" data-item-id="{{it.id}}">
+									<div class="mg-seeall-wrap" data-item-id="{{it.id}}" data-seeall-cap="150">
 										<div class="desc">
 											<label>Description</label>
 
@@ -229,25 +229,29 @@
 									{{/if}}
 
 									{{#if it.notesHtml}}
-									<div class="notes-wrap mg-seeall-wrap" data-item-id="{{it.id}}">
-										<div class="asset-notes">
-											<label>Notes</label>
-
-											<div class="notes-content mg-seeall-content">
-												{{{it.notesHtml}}}
-											</div>
+									<div class="notes-wrap mg-seeall-wrap" data-item-id="{{it.id}}" data-seeall-cap="150">
+									<div class="asset-notes">
+										<label>Notes</label>
+										<div class="notes-content mg-seeall-content">
+										{{{it.notesHtml}}}
 										</div>
-
-										<button class="mg-seeall-toggle" type="button">
-											<i class="fa-solid fa-angle-down"></i>
-										</button>
+									</div>
+									<button class="mg-seeall-toggle" type="button">
+										<i class="fa-solid fa-angle-down"></i>
+									</button>
 									</div>
 									{{/if}}
 									
 								</div>
 
 								<div class="card-actions">
-									<div class="qty-badge" title="Quantity"><label>QTY</label><p>{{it.system.qty}}</p></div>
+									{{#if (gt it.system.qty 0)}}
+										<div class="qty-badge" title="Quantity">
+											<label>QTY</label>
+											<p>{{it.system.qty}}</p>
+										</div>
+									{{/if}}
+
 									<button type="button" class="asset-edit" data-item-id="{{it.id}}" title="Edit">
 										<i class="fa-regular fa-pen-to-square"></i> Edit
 									</button>
@@ -277,66 +281,40 @@
 		</div>
 
 		<!-- GAMBITS TAB -->
-		<div class="tab crew-gambits" data-tab="gambits">
-			<div class="mg-crew-gambits">
-				<div class="mg-crew-gb-controls">
-				<div class="left">
-					<button class="gb-draw" {{#unless isEditable}}disabled{{/unless}}><i class="fa-light fa-hand-holding"></i> Draw</button>
-					<span class="hint">Hand {{gb.drawn.length}}/{{gb.handSize}}</span>
-				</div>
-				<div class="right">
-					<button class="gb-shuffle" {{#unless isEditable}}disabled{{/unless}}><i class="fa-light fa-shuffle"></i> Shuffle</button>
-					<button class="gb-recall"  {{#unless isEditable}}disabled{{/unless}}><i class="fa-light fa-rotate-left"></i> Recall Discard</button>
-				</div>
-				</div>
+		<div class="tab gambits" data-tab="gambits">
+		<div class="gambit-header">
+			<h2><i class="fa-solid fa-cards"></i> Crew Gambits</h2>
+			<div class="hint">Drag Gambits here from the compendium or your items. The crew can hold up to 3 active Gambits.</div>
+		</div>
 
-				<div class="mg-crew-gb-drop hint">Drag Gambit items here to add to the Deck.</div>
+		<div class="gambit-hand">
+			{{#each gb.deck}}
+			<article class="gambit-card" data-item-id="{{this.id}}">
+				<header class="card-head">
+				<h3 class="gambit-name post-gambit" data-item-id="{{this.id}}">{{this.name}}</h3>
+				<div class="card-controls">
+					<button class="play-gambit" title="Play to Chat"><i class="fa-solid fa-comment"></i></button>
+					<button class="discard-gambit" title="Move to Discard"><i class="fa-solid fa-trash"></i></button>
+					<button class="remove-gambit" title="Remove from Crew"><i class="fa-solid fa-xmark"></i></button>
+				</div>
+				</header>
+				<div class="gambit-desc">{{{this.system.description}}}</div>
+			</article>
+			{{/each}}
+			{{#unless gb.deck.length}}
+			<p class="empty">No Crew Gambits yet. Drag one from your Compendium.</p>
+			{{/unless}}
+		</div>
 
-				<div class="mg-crew-gb-zones">
-				<div class="zone deck">
-					<h4>Deck ({{gb.deck.length}})</h4>
-					<ul class="deck-list">
-					{{#if gb.deck.length}}
-						{{#each gb.deck}}
-						<li class="card" data-id="{{this.id}}">{{this.name}}</li>
-						{{/each}}
-					{{else}} <li class="empty"><em>Empty</em></li> {{/if}}
-					</ul>
-				</div>
-
-				<div class="zone hand">
-					<h4>Hand ({{gb.drawn.length}}/{{gb.handSize}})</h4>
-					<ul class="hand-list">
-					{{#if gb.drawn.length}}
-						{{#each gb.drawn}}
-						<li class="card drawn" data-id="{{this.id}}">
-							<span class="title">{{this.name}}</span>
-							<div class="actions">
-							<button class="gb-play" data-id="{{this.id}}" {{#unless @root.isEditable}}disabled{{/unless}}>
-								<i class="fa-light fa-sparkles"></i> Play
-							</button>
-							<button class="gb-discard" data-id="{{this.id}}" {{#unless @root.isEditable}}disabled{{/unless}}>
-								<i class="fa-light fa-box-archive"></i>
-							</button>
-							</div>
-						</li>
-						{{/each}}
-					{{else}} <li class="empty"><em>No cards in hand</em></li> {{/if}}
-					</ul>
-				</div>
-
-				<div class="zone discard">
-					<h4>Discard ({{gb.discard.length}})</h4>
-					<ul class="discard-list">
-					{{#if gb.discard.length}}
-						{{#each gb.discard}}
-						<li class="card" data-id="{{this.id}}">{{this.name}}</li>
-						{{/each}}
-					{{else}} <li class="empty"><em>Empty</em></li> {{/if}}
-					</ul>
-				</div>
-				</div>
+		<div class="gambit-footer">
+			<strong>Discard Pile:</strong>
+			<div class="discard-list">
+			{{#each gb.discard}}
+				<span class="discard-name">{{this.name}}</span>
+			{{/each}}
+			{{#unless gb.discard.length}}<em>Empty</em>{{/unless}}
 			</div>
+		</div>
 		</div>
 
 		<!-- BIO TAB -->
