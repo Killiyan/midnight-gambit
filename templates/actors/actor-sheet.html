@@ -12,9 +12,6 @@
   <div class="sheet-body">
 
     <div class="character-info">
-      <div class="profile-image" data-tooltip="Click to Change Profile Image">
-        <img class="mg-profile-img" src="{{actor.img}}" data-edit="img" title="{{actor.name}}" />
-      </div>
 
       <div class="personal-info">
         <div class="name">
@@ -25,31 +22,25 @@
           <div class="crew-field">
             <input type="text" name="system.crew" value="{{actor.system.crew}}" placeholder="Crew/Affiliation Name" />
           </div>
-        </div>
 
-        <div class="guise-display">
-          <span class="guise-name">
-            {{#if guise}}
-            <span class="guise-name" data-tooltip="{{guise.system.description}}">
-              <span class="level">Lv {{actor.system.level}}</span> {{guise.name}}
+          <div class="guise-display">
+            <span class="guise-name">
+              {{#if guise}}
+              <span class="guise-name" data-tooltip="{{guise.system.description}}">
+                <span class="level">Lv {{actor.system.level}}</span> {{guise.name}}
+              </span>
+              {{else}}
+                No Class Assigned
+              {{/if}}
             </span>
-            {{else}}
-              No Class Assigned
-            {{/if}}
-          </span>
+          </div>
         </div>
-      </div>
-    </div>
 
-    <section class="tab-content" data-group="main">
-      
-      <!--This is our General tab where Image, and general gameplay goes-->
-      <div class="tab" data-group="main" data-tab="general" >
-        <div class="over-image">
-          <button type="button" data-tooltip="Recover" class="long-rest-button"><i class="fas fa-bed"></i></button>
+        <div class="side-controls">
+          <button type="button" data-tooltip="Recover" class="long-rest-button">Recover <i class="fas fa-bed"></i></button>
 
           <div class="flashback-track">
-            <label data-tooltip="Use this to spend a flashback during a job.">FB</label>
+            <label data-tooltip="Use this to spend a flashback during a job.">Flashback</label>
             <span class="flashback-dot {{#unless actor.system.flashbackUsed}}filled{{/unless}}" data-action="flashback">
               <i class="fa-solid fa-clock-rotate-left"></i>
             </span>
@@ -64,6 +55,17 @@
             </div>
           </div>
         </div>
+      </div>
+
+      <div class="profile-image" data-tooltip="Click to Change Profile Image">
+        <img class="mg-profile-img" src="{{actor.img}}" data-edit="img" title="{{actor.name}}" />
+      </div>
+    </div>
+
+    <section class="tab-content" data-group="main">
+      
+      <!--This is our General tab where Image, and general gameplay goes-->
+      <div class="tab" data-group="main" data-tab="general" >
         
         <div class="attribute-container">
           {{#each attributeKeys as |key|}}

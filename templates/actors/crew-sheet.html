@@ -13,30 +13,27 @@
 	<div class="mg-crew-header">
 		<!-- Crew Title / Name -->
 		<div class="mg-crew-title">
-			{{#if canEdit}}
-			<input type="text"
-					name="name"
-					value="{{actor.name}}"
-					class="mg-crew-name"
-					placeholder="Crew Name" />
-			{{else}}
-			<h1 class="mg-crew-name-display">{{actor.name}}</h1>
-			{{/if}}
-			
-			{{#if canEdit}}
-			<div class="mg-initiative-actions" style="margin: 8px 0;">
-				<button type="button" class="mg-apply-initiative">
-				<i class="fa-solid fa-link"></i> Apply Initiative Order
-				</button>
+			<div class="title-tier">
+				{{#if canEdit}}
+				<input type="text"
+						name="name"
+						value="{{actor.name}}"
+						class="mg-crew-name"
+						placeholder="Crew Name" />
+				<span class="crew-tier-badge">Tier {{actor.system.tier}}</span>
+
+				{{else}}
+				<h1 class="mg-crew-name-display">{{actor.name}}</h1>
+				<span class="crew-tier-badge">Tier {{actor.system.tier}}</span>
+				{{/if}}
 			</div>
-			{{/if}}		
 
 		</div>
 
 		<div class="mg-splash-strip">
-		{{#each splashImages as |img|}}
-			<img class="mg-splash-portrait" src="{{img}}" alt="" />
-		{{/each}}
+			{{#each splashImages as |img|}}
+				<img class="mg-splash-portrait" src="{{img}}" alt="" />
+			{{/each}}
 		</div>
 	</div>
 
@@ -95,6 +92,11 @@
 					<div class="mg-content">
 						<h2>Initiative Order</h2>
 						<p>Reorder party members by dragging a card by it's grip area, or hide a member by clicking the hide from order button. This order is used for turn flow.</p>
+						<div class="mg-initiative-actions" style="margin: 8px 0;">
+							<button type="button" class="mg-apply-initiative">
+							<i class="fa-solid fa-link"></i> Apply Initiative Order
+							</button>
+						</div>
 					</div>
 					{{else}}
 					<h2>View-only initiative. Owners can reorder.</h2>
@@ -148,7 +150,7 @@
 			<div class="assets-toolbar">
 
 				<div class="crew-lux">
-					<label for="lux"><i class="fa-solid fa-coins"></i> Lux</label>
+					<label for="lux">Lux</label>
 					<div class="field-wrapper lux-controls">
 						<button type="button" class="lux-dec" data-step="-1" title="−1">−</button>
 						<input
@@ -166,7 +168,7 @@
 				</div>
 
 				<div class="asset-search-wrap">
-					<label><i class="fa-solid fa-magnifying-glass"></i> Search Crew Assets</label>
+					<label>Search Crew Assets</label>
 					<div class="field-wrapper">
 						<input type="text" class="asset-search" placeholder="Search query here..." />
 						<button type="button" class="asset-search-btn" title="Search">
@@ -281,75 +283,144 @@
 		</div>
 
 		<!-- GAMBITS TAB -->
-		<div class="tab gambits" data-tab="gambits">
-		<div class="gambit-header">
-			<h2><i class="fa-solid fa-cards"></i> Crew Gambits</h2>
-			<div class="hint">Drag Gambits here from the compendium or your items. The crew can hold up to 3 active Gambits.</div>
-		</div>
-
-		<div class="gambit-hand">
-			{{#each gb.deck}}
-			<article class="gambit-card" data-item-id="{{this.id}}">
-				<header class="card-head">
-				<h3 class="gambit-name post-gambit" data-item-id="{{this.id}}">{{this.name}}</h3>
-				<div class="card-controls">
-					<button class="play-gambit" title="Play to Chat"><i class="fa-solid fa-comment"></i></button>
-					<button class="discard-gambit" title="Move to Discard"><i class="fa-solid fa-trash"></i></button>
-					<button class="remove-gambit" title="Remove from Crew"><i class="fa-solid fa-xmark"></i></button>
+		<div class="tab gambits tab-gambits" data-tab="gambits">
+			<div class="gambit-tab">
+				<div class="gambit-header mg-content">
+					<h2>Crew Gambits</h2>
+					<p>Drag Gambits here from the compendium or your items. The crew can hold up to 3 active Gambits.</p>
+					<button class="gambit-reset" type="button" title="Return all discarded Gambits to hand">
+						<i class="fa-solid fa-rotate-left"></i> Reset Hand
+					</button>
 				</div>
-				</header>
-				<div class="gambit-desc">{{{this.system.description}}}</div>
-			</article>
-			{{/each}}
-			{{#unless gb.deck.length}}
-			<p class="empty">No Crew Gambits yet. Drag one from your Compendium.</p>
-			{{/unless}}
-		</div>
 
-		<div class="gambit-footer">
-			<strong>Discard Pile:</strong>
-			<div class="discard-list">
-			{{#each gb.discard}}
-				<span class="discard-name">{{this.name}}</span>
-			{{/each}}
-			{{#unless gb.discard.length}}<em>Empty</em>{{/unless}}
+				<div class="gambit-hand">
+					<h2 class="gambit-banner">Hand</h2>
+
+					<span class="deck-size gambit-counter" title="Cards in hand / hand capacity">
+						Deck Size: {{gambitCounts.deckCount}}/{{gambitCounts.deckMax}}
+					</span>
+
+					{{#each gb.deck}}
+					<div class="gambit-card" data-item-id="{{this.id}}">
+						<div class="gambit-title">
+						<button type="button" class="post-gambit" data-item-id="{{_id}}" title="Post to Chat">
+							<i class="fa-solid fa-messages"></i>
+							{{this.name}}
+						</button>
+						</div>
+						<div class="gambit-wrapper">
+							<div class="gambit-desc">
+								{{{this.system.description}}}
+							</div>
+
+							<div class="status-buttons">
+								<button class="play-gambit" title="Play Gambit"><i class="fa-solid fa-play"></i></button>
+								<button class="discard-gambit" title="Move to Discard"><i class="fa-solid fa-recycle"></i></button>
+								<button class="remove-gambit" title="Remove from Crew"><i class="fa-solid fa-delete-left"></i></button>
+							</div>
+						</div>
+					</div>
+					{{/each}}
+
+					{{!-- Empty states --}}
+					{{#unless gb.deck.length}}
+						{{#if gb.hasAny}}
+						<h3 class="empty mg-content">Hand is empty. Use <strong>Reset Hand</strong> to recover from Discard.</h3>
+						{{else}}
+						<h3 class="empty mg-content">No Crew Gambits yet. Drag some in from the Compendium.</h3>
+						{{/if}}
+					{{/unless}}
+				</div>
+
+				<div class="gambit-discard">
+					<h2 class="gambit-banner">Discard</h2>
+					{{#each gb.discard}}
+						<div class="gambit-card faded" data-source="discard" draggable="false" data-item-id="{{id}}">
+						<div class="gambit-title">{{name}}</div>
+						<div class="gambit-description">
+							{{{system.description}}}
+						</div>
+						</div>
+					{{/each}}
+				</div>
 			</div>
-		</div>
 		</div>
 
 		<!-- BIO TAB -->
 		<div class="tab bio-tab" data-tab="bio">
 			<div class="mg-crew-bio">
-				<div class="bio-grid">
-				<div class="field">
-					<label>Look &amp; Feel</label>
-					<textarea class="bio-look">{{system.bio.lookAndFeel}}</textarea>
-				</div>
-				<div class="field">
-					<label>Weakness</label>
-					<textarea class="bio-weak">{{system.bio.weakness}}</textarea>
-				</div>
-				<div class="field">
-					<label>Location</label>
-					<input class="bio-location" type="text" value="{{system.bio.location}}">
-				</div>
-				<div class="field">
-					<label>Features</label>
-					<textarea class="bio-features">{{system.bio.features}}</textarea>
-				</div>
+				<div class="bio-grid mg-content">
+					<div class="field">
+						<label>Look &amp; Feel</label>
+						{{editor
+							system.bio.lookAndFeel
+							target="system.bio.lookAndFeel"
+							engine="tinymce"
+							owner=owner
+							editable=editable
+							button=false
+						}}
+					</div>
 
-				<div class="field">
-					<label>Tags (placeholder)</label>
-					<div class="tags-row">
-					<input class="bio-add-tag" type="text" placeholder="Type a tag and press Enter">
-					<div class="tag-list">
-						{{#each system.bio.tags as |t idx|}}
-						<span class="tag" data-idx="{{idx}}">{{t}} <i class="fa-light fa-xmark"></i></span>
-						{{/each}}
+					<div class="field">
+						<label>Weakness</label>
+						{{editor
+							system.bio.weakness
+							target="system.bio.weakness"
+							engine="tinymce"
+							owner=owner
+							editable=editable
+							button=false
+						}}
 					</div>
+
+					<div class="field">
+					<label>Location</label>
+					{{editor
+						system.bio.location
+						target="system.bio.location"
+						engine="tinymce"
+						owner=owner
+						editable=editable
+						button=false
+					}}
 					</div>
-					<small>We’ll wire effectful tags later.</small>
-				</div>
+
+					<div class="field">
+						<label>Features</label>
+						{{editor
+							system.bio.features
+							target="system.bio.features"
+							engine="tinymce"
+							owner=owner
+							editable=editable
+							button=false
+						}}
+					</div>
+
+					<div class="field bio-tags">
+						<label>Tags</label>
+
+						<div class="tags-row">
+							<input
+							class="bio-add-tag"
+							type="text"
+							placeholder="Type a tag and press Enter (or comma)"
+							aria-label="Add a tag"
+							/>
+
+							<div class="tag-list tag-wrapper" role="list">
+							{{#each system.bio.tags as |t idx|}}
+								<div class="tag-pill tag" role="listitem" data-idx="{{idx}}" title="{{t.desc}}">
+									<span class="label">{{t.label}}</span>
+									<button type="button" class="remove" title="Remove tag {{t.label}}" aria-label="Remove tag {{t.label}}">
+										<i class="fa-solid fa-delete-left"></i>
+									</button>
+								</div>
+							{{/each}}
+							</div>
+						</div>
+					</div>
 				</div>
 			</div>
 		</div>
@@ -357,6 +428,22 @@
 		<!-- SETTINGS TAB -->
 		<div class="tab settings-tab" data-tab="settings">
 		<div class="mg-crew-settings">
+
+			<!-- SETTINGS: Crew Tier -->
+			<div class="field crew-tier-settings mg-content">
+				<label>Crew Tier</label>
+				<div class="row">
+					<span class="tier-readout">Tier {{crewTier}}</span>
+					<div class="btns">
+						<button type="button" class="crew-tier-down" title="Undo Tier">
+							<i class="fa-solid fa-rotate-left"></i> Undo Tier
+						</button>
+						<button type="button" class="crew-tier-up" title="Tier Up">
+							<i class="fa-solid fa-arrow-up"></i> Tier Up
+						</button>
+					</div>
+				</div>
+			</div>
 
 			<div class="mg-diricon-row">
 				<div class="mg-content">

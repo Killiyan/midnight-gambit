@@ -2084,11 +2084,15 @@ Hooks.on("renderChatMessage", (_message, html) => {
       { classes: ["mg-tag-dialog"] }
     );
 
-    dlg.render(true);
-    dlg.once("renderDialog", (_app, $html) => {
+    const handler = (app, $html) => {
+      if (app.appId !== dlg.appId) return;          // only for this dialog
       const titleEl = $html.closest(".app.window-app")[0]?.querySelector(".window-title");
-      if (titleEl) titleEl.textContent = titleText;
-    });
+      if (titleEl) titleEl.textContent = titleText; // set plain text title
+      Hooks.off("renderDialog", handler);            // run once
+    };
+    Hooks.on("renderDialog", handler);
+
+    dlg.render(true);
   });
 });
 
@@ -2137,10 +2141,55 @@ Hooks.once("ready", () => {
       { classes: ["mg-tag-dialog"] }
     );
 
-    dlg.render(true);
-    dlg.once("renderDialog", (_app, $html) => {
+    const handler = (app, $html) => {
+      if (app.appId !== dlg.appId) return;          // only for this dialog
       const titleEl = $html.closest(".app.window-app")[0]?.querySelector(".window-title");
-      if (titleEl) titleEl.textContent = titleText;
-    });
+      if (titleEl) titleEl.textContent = titleText; // set plain text title
+      Hooks.off("renderDialog", handler);            // run once
+    };
+    Hooks.on("renderDialog", handler);
+
+    dlg.render(true);
+
   });
+});
+
+Hooks.once("ready", async () => {
+  const crews = game.actors?.filter?.(a => a.type === "crew") ?? [];
+  for (const a of crews) {
+    const sys = a.system ?? {};
+    const up  = {};
+    let needs = false;
+
+    // currency.lux (don’t overwrite if it exists and is a number)
+    const lux = Number(sys?.currency?.lux);
+    if (!sys.currency || typeof sys.currency !== "object") {
+      up["system.currency"] = { lux: Number.isFinite(lux) ? lux : 0 };
+      needs = true;
+    } else if (!Number.isFinite(lux)) {
+      up["system.currency.lux"] = 0;
+      needs = true;
+    }
+
+    // gambits bucket (don’t clobber)
+    const g = sys.gambits;
+    if (!g || typeof g !== "object") {
+      up["system.gambits"] = { deck: [], drawn: [], discard: [], handSize: 3, deckSize: 10 };
+      needs = true;
+    } else {
+      // only repair missing numbers; do not recompute handSize here (sheet handles tier logic)
+      if (!Array.isArray(g.deck))    up["system.gambits.deck"]    = [];
+      if (!Array.isArray(g.drawn))   up["system.gambits.drawn"]   = [];
+      if (!Array.isArray(g.discard)) up["system.gambits.discard"] = [];
+      if (!Number.isFinite(Number(g.handSize))) up["system.gambits.handSize"] = 3;
+      if (!Number.isFinite(Number(g.deckSize))) up["system.gambits.deckSize"] = 10;
+      needs ||= Object.keys(up).some(k => k.startsWith("system.gambits"));
+    }
+
+    if (needs) {
+      try { await a.update(up, { render: false }); } catch (e) {
+        console.warn("MG crew migrate failed:", a, e);
+      }
+    }
+  }
 });

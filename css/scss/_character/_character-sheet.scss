@@ -12,6 +12,7 @@ h1,h2,h3,h4 {
 .sheet-body {
   h2 {
     padding-bottom: .75rem;
+    margin-bottom: 1rem;
     border-bottom: 1px solid $mg-blue-main-2;
     @include oswald();
     font-size: 1.25rem;
@@ -59,12 +60,38 @@ h1,h2,h3,h4 {
     height: 100%;
     width: 100%;
 
-    a {
-      transition: text-shadow .5s ease;
+    .window-title {
+      align-self: center;
+    }
 
+    .header-button {
+      background: $mg-blue-main;
+      border: 2px solid $mg-blue-main-2;
+      color: $mg-ivory;
+      padding: .5rem;
+      border-radius: .5rem;
+      transition: background .5s ease, color .5s ease;
+
+      i {
+        color: $mg-blue-1;
+        padding: 0 .25rem;
+        transition: color .5s ease;
+      }
+
+      &:hover {
+        background: $mg-blue-4;
+        color: $mg-blue-1;
+
+        i {
+          color: $mg-blue-3;
+        }
+      }
+    }
+
+    a {
       &:hover,
       &:focus {
-        text-shadow: 0 0 .5rem $mg-blue-1;
+        text-shadow: none;
       }
     }
   }
@@ -147,7 +174,7 @@ h1,h2,h3,h4 {
   &.mg-tag-dialog {
 
     .window-content {
-      padding: 0 1.125rem 1.125rem 1.125rem;
+      padding: 1.125rem;
     }
 
     .dialog-content {
@@ -222,21 +249,131 @@ h1,h2,h3,h4 {
 
         .character-info {
           position: relative;
+          display: flex;
+          min-height: 31.25rem;
         }
 
         .personal-info {
-          position: absolute;
-          top: 1.25rem;
-          left: 2.5%;
-          width: 95%;
-          background: rgba($mg-blue-main, .8);
+          min-width: 15.625rem;
+          background: $mg-blue-main;
           display: flex;
-          padding: 1.125rem;
-          border-radius: .5rem;
+          flex-direction: column;
+          padding: 2.125rem;
           border: 2px solid $mg-blue-main-2;
-          justify-content: space-between;
+          border-left: 0;
+          border-top: 0;
           color: $mg-ivory;
           z-index: 10;
+          min-width: 15.625rem;
+          background-image: url("../assets/images/gambit-border.png");
+          background-repeat: repeat-y;
+          background-size: 100%;
+          background-blend-mode: soft-light;
+          gap: 1rem;
+
+          &:after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            height: 40%;
+            background: linear-gradient(0deg, rgba(18, 33, 55, 0.00) 46.83%, rgba(18, 33, 55, 0.50) 100%);
+          }
+
+          .side-controls {
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 2rem;
+          }
+
+          .long-rest-button {
+            font-weight: 400;
+            font-style: normal;
+          }
+
+          //Setting consisten styling for the over image toggles
+          .long-rest-button,
+          .flashback-track,
+          .load-toggle {
+            width: 100%;
+            background: $mg-blue-main;
+            border: 2px solid $mg-blue-main-2;
+            display: flex;
+            align-items: center;
+            margin: 0;
+            padding: 1.125rem 1.9375rem 1.125rem 1rem;
+            border-radius: .5rem;
+            gap: 1rem;
+            @include oswald();
+            font-size: 1rem;
+            color: $mg-ivory;
+            text-transform: uppercase;
+
+            label {
+              margin: 0;
+            }
+
+            i {
+              font-size: 1rem;
+              transition: color 0.2s ease;
+              color: $mg-blue-3;
+              display: block;
+            }
+          }
+
+          //Differing Flashback slightly
+          .flashback-track {
+            gap: 1.775rem;
+
+            .flashback-dot {
+              font-size: 1.5em;
+              cursor: pointer;
+              color: $mg-blue-main-2;
+              transition: color 0.5s ease, transform .5s ease;
+
+              &:hover {
+                transform: scale(1.2);
+              }
+
+              i {
+                color: $mg-blue-main-2;
+              }
+
+              &.filled  i {
+                color: $mg-blue-3;
+              }
+            }
+          }
+
+          //Specific Load toggling for the spacing and coloring
+          .load-toggle {
+            .load-options {
+              display: flex;
+              gap: .875rem;
+              
+              .load-icon {
+                cursor: pointer;
+                transform: scale(1);
+                transition: all 0.3s ease;
+                color: $mg-blue-main-2;
+
+                &:hover,
+                &:focus {
+                  color: $mg-blue-3;
+                }
+
+                i {
+                  color: inherit;
+                }
+
+                &.selected {
+                  color: $mg-blue-3;
+                }
+              }
+            }
+          }
 
           h1 {
             border-bottom: 0;
@@ -247,6 +384,9 @@ h1,h2,h3,h4 {
               text-transform: uppercase;
               letter-spacing: -.03rem;
               font-size: 1.5rem;
+              font-style: italic;
+              font-weight: 700;
+              padding-left: 0;
             }
           }
 
@@ -255,6 +395,7 @@ h1,h2,h3,h4 {
             font-size: .875rem;
             text-transform: uppercase;
             letter-spacing: -0.0175rem;
+            padding-left: 0;
           }
 
           input {
@@ -311,101 +452,11 @@ h1,h2,h3,h4 {
 
   //The first tab of the character sheet
   .tab-content {
-    .over-image {
-      position: absolute;
-      top: 9rem;
-      left: -2px;
-      z-index: 10;
-      display: flex;
-      flex-direction: column;
-      align-items: flex-start;
-      gap: 2rem;
-    }
 
     .tab {
       padding: 2.125rem;
       background: $mg-blue-4;
       height: 100%;
-    }
-
-    //Setting consisten styling for the over image toggles
-    .long-rest-button,
-    .flashback-track,
-    .load-toggle {
-      background: $mg-blue-main;
-      border: 2px solid $mg-blue-main-2;
-      display: flex;
-      align-items: center;
-      margin: 0;
-      width: auto;
-      padding: 1.125rem 1.9375rem 1.125rem 1rem;
-      border-radius: 0rem 0.625rem 0.625rem 0rem;
-      gap: 1rem;
-      @include oswald();
-      font-size: 1rem;
-      color: $mg-ivory;
-      text-transform: uppercase;
-
-      label {
-        margin: 0;
-      }
-
-      i {
-        font-size: 1rem;
-        transition: color 0.2s ease;
-        color: $mg-blue-main-2;
-        display: block;
-      }
-    }
-
-    //Differing Flashback slightly
-    .flashback-track {
-      gap: 1.775rem;
-
-      .flashback-dot {
-        font-size: 1.5em;
-        cursor: pointer;
-        color: $mg-blue-main-2;
-        transition: color 0.5s ease, transform .5s ease;
-
-        &:hover {
-          transform: scale(1.2);
-        }
-
-        &.filled  i {
-          color: $mg-blue-3;
-        }
-      }
-    }
-
-    //Specific Load toggling for the spacing and coloring
-    .load-toggle {
-      margin-bottom: 1em;
-
-      .load-options {
-        display: flex;
-        gap: .875rem;
-        
-        .load-icon {
-          cursor: pointer;
-          transform: scale(1);
-          transition: all 0.3s ease;
-          color: $mg-blue-main-2;
-
-          &:hover,
-          &:focus {
-            color: $mg-blue-3;
-          }
-
-          i {
-            color: inherit;
-          }
-
-          &.selected {
-            color: $mg-blue-3;
-          }
-        }
-      }
     }
 
     //Attribute styling
@@ -1378,7 +1429,7 @@ h1,h2,h3,h4 {
 .gambit-tab {
   display: flex;
   flex-direction: column;
-  padding: 1.125rem;
+  gap: 2.125rem;
 
   .gambit-counter {
     position: absolute;
@@ -1409,7 +1460,6 @@ h1,h2,h3,h4 {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 2.125rem;
-    margin-bottom: 2.125rem;
     overflow: hidden;
     box-shadow: 4px 4px 10px rgba(0,0,0,0.5);
 
@@ -1524,7 +1574,6 @@ h1,h2,h3,h4 {
     gap: 2.125rem;
     justify-content: center;
     margin-top: -4.5rem;
-    margin-bottom: 2.125rem;
     position: relative;
     z-index: 10;
     padding: 2rem 1rem;
@@ -1825,7 +1874,7 @@ h1,h2,h3,h4 {
     width: 610px; 
     padding: 1rem; 
     border-radius: 12px;
-    aspect-ratio: 16 / 9;
+    aspect-ratio: 1 / 1;
     background: $mg-blue-4; 
     color: #eee; 
     box-shadow: 0 12px 40px rgba(0,0,0,0.6); 
@@ -1836,7 +1885,7 @@ h1,h2,h3,h4 {
     overflow: hidden; 
     width: auto; 
     height: auto; 
-    aspect-ratio: 13 / 9;
+    aspect-ratio: 1/1;
     margin: 8px auto 12px; 
     background: $mg-blue-main; 
     border-radius: 10px; 

@@ -108,23 +108,51 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 		s.currency.lux = Number.isFinite(Number(s.currency.lux)) ? Number(s.currency.lux) : 0;
 
 		data.system = s;
+		data.owner = this.actor.isOwner;
+		data.editable = this.isEditable;
 
+		const docTier = Number(this.actor.system?.tier ?? 1);
+		data.crewTier = docTier;  // <— add this line
 
 		// s.bio etc. stay as-is below
 		s.bio ??= { lookAndFeel: "", weakness: "", location: "", features: "", tags: [] };
 
-		s.bio ??= { lookAndFeel: "", weakness: "", location: "", features: "", tags: [] };
+		// Ensure tags are objects for the template (migrate old string tags on the fly)
+		if (Array.isArray(s.bio.tags)) {
+		s.bio.tags = s.bio.tags.map(t => (typeof t === "string" ? { label: t, desc: "" } : t));
+		}
+
+		// Replace your current gambits init with this:
 		s.gambits ??= { deck: [], drawn: [], discard: [], handSize: 3, deckSize: 10 };
 		for (const k of ["deck","drawn","discard"]) s.gambits[k] ??= [];
 
-		// Build template-friendly arrays
+		for (const k of ["deck","drawn","discard"]) s.gambits[k] ??= [];
+
+		// Build template-friendly arrays and include a total presence flag
 		const mapItem = id => this.actor.items.get(id);
+
+		const deckArr    = (s.gambits.deck    || []).map(mapItem).filter(Boolean);
+		const drawnArr   = (s.gambits.drawn   || []).map(mapItem).filter(Boolean);
+		const discardArr = (s.gambits.discard || []).map(mapItem).filter(Boolean);
+
 		const gb = {
-		deck:    (s.gambits.deck    || []).map(mapItem).filter(Boolean),
-		drawn:   (s.gambits.drawn   || []).map(mapItem).filter(Boolean),
-		discard: (s.gambits.discard || []).map(mapItem).filter(Boolean),
-		handSize: Number(s.gambits.handSize) || 3
+			deck: deckArr,
+			drawn: drawnArr,
+			discard: discardArr,
+			handSize: Number(s.gambits.handSize) || 3,
+			hasAny: (deckArr.length + discardArr.length) > 0
 		};
+
+		const gambitCounts = {
+		deckCount: deckArr.length,
+		deckMax: Number(s.gambits?.handSize ?? 3),
+		discardCount: discardArr.length
+		};
+
+		gambitCounts.deckCount = Array.isArray(this.actor.system?.gambits?.deck) ? this.actor.system.gambits.deck.length : 0;
+
+		data.gb = gb;
+		data.gambitCounts = gambitCounts;
 
 		// Expose to the template
 		data.assets = this.actor.items.filter(i => i.type === "asset");
@@ -285,47 +313,66 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 	// === Handle Item drops here so we can force a re-render ===
 	if (data?.type === "Item") {
 		try {
-			const src = await fromUuid(data.uuid);
-			if (!src || src.documentName !== "Item") return false;
+		const src = await fromUuid(data.uuid);
+		if (!src || src.documentName !== "Item") return false;
 
-			// Clone to a plain object and strip _id so it gets a fresh one
-			const obj = (src instanceof Item) ? src.toObject() : src;
-			delete obj._id;
+		// Clone to a plain object and strip _id so it gets a fresh one
+		const obj = (src instanceof Item) ? src.toObject() : src;
+		delete obj._id;
 
-			const type = (obj.type || src.type);
-			const isAsset  = type === "asset";
-			const isGambit = type === "gambit";
+		const type = (obj.type || src.type);
+		const isAsset  = type === "asset";
+		const isGambit = type === "gambit";
 
-			// Allow Assets; Gate Gambits
-			if (!isAsset && !isGambit) return false;
+		// Allow Assets; Gate Gambits
+		if (!isAsset && !isGambit) return false;
 
-			if (isGambit) {
-			// Gate: Crew sheet only accepts Crew-tier Gambits
+		if (isGambit) {
+			// Tier gate: Crew sheet only accepts Crew-tier Gambits
 			const tier = (obj.system?.tier ?? src.system?.tier ?? "rookie").toLowerCase();
 			if (tier !== "crew") {
-				ui.notifications?.warn("Only Crew-tier Gambits can be added to the Crew.");
-				return false;
-			}
-			}
-
-			// Create the embedded item on the Crew
-			const [created] = await this.actor.createEmbeddedDocuments("Item", [obj]);
-
-			// If it's a Gambit, drop it into the Crew's deck immediately
-			if (isGambit && created?.id) {
-			const g = foundry.utils.deepClone(this.actor.system.gambits ?? {});
-			g.deck = Array.isArray(g.deck) ? g.deck.slice() : [];
-			g.deck.push(created.id);
-			await this.actor.update({ "system.gambits.deck": g.deck }, { render: false });
-			}
-
-			// Force a sheet refresh so the new row shows up NOW
-			this.render(false);
-			return true;
-		} catch (err) {
-			console.warn("MG | _onDrop Item failed:", err);
+			ui.notifications?.warn("Only Crew-tier Gambits can be added to the Crew.");
 			return false;
+			}
+
+			// Hand-size cap with confirm override
+			const g = this.actor.system?.gambits ?? {};
+			const handSize  = Number(g.handSize ?? 3) || 3;
+			const currentCt = Array.isArray(g.deck) ? g.deck.length : 0;
+
+			if (currentCt >= handSize) {
+			const ok = await Dialog.confirm({
+				title: "Over Hand Limit?",
+				content: `
+				<p>You're going over your max available Crew Gambits for this level
+				(<strong>${currentCt}/${handSize}</strong>).</p>
+				<p><em>Only add this if your Director approves!</em></p>
+				`,
+				defaultYes: false,
+				yes: () => true, no: () => false
+			});
+			if (!ok) return false;
+			}
 		}
+
+		// Create the embedded item on the Crew
+		const [created] = await this.actor.createEmbeddedDocuments("Item", [obj]);
+
+		// If it's a Gambit, drop it into the Crew's hand immediately
+		if (isGambit && created?.id) {
+			const g2 = foundry.utils.deepClone(this.actor.system.gambits ?? {});
+			g2.deck = Array.isArray(g2.deck) ? g2.deck.slice() : [];
+			g2.deck.push(created.id);
+			await this.actor.update({ "system.gambits.deck": g2.deck }, { render: false });
+		}
+
+		this.render(false);
+		return true;
+		} catch (err) {
+		console.warn("MG | _onDrop Item failed:", err);
+		return false;
+		}
+
 	}
 
 	// === Party member (Actor) drop logic ===
@@ -456,6 +503,17 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 		// ignore if not owner
 		}
 	}
+	}
+
+	/** Crew Gambit slots by tier. Base 3 +1 at tiers 1, 2, and 4 = max 6. */
+	_crewGambitSlotsForTier(tier) {
+		const t = Number(tier) || 1;
+		// explicit mapping for clarity & easy tweaks
+		if (t <= 1) return 4; // 3 base +1 at tier 1
+		if (t === 2) return 5; // +1
+		if (t === 3) return 5; // no change
+		if (t === 4) return 6; // +1
+		return 6;              // tier 5 stays 6
 	}
 
 	activateListeners(html) {
@@ -783,8 +841,8 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 			$header.find(`.${hdrKey}`).remove();
 			const $actions = $(`
 				<div class="mg-header-actions ${hdrKey}">
-				<a class="header-button ae-open" title="Open Asset"><i class="fa-regular fa-pen-to-square"></i></a>
-				<a class="header-button ae-delete" title="Delete Asset"><i class="fa-solid fa-trash"></i></a>
+				<a class="header-button ae-open" title="Open Asset"><i class="fa-regular fa-pen-to-square"></i> Open Asset</a>
+				<a class="header-button ae-delete" title="Delete Asset"><i class="fa-solid fa-trash"></i> Delete Asset</a>
 				</div>
 			`);
 			$header.find(".window-title").after($actions);
@@ -1222,16 +1280,125 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 			});
 		});
 
-		// Discard Gambit
-		$root.off("click.mgDiscardGambit").on("click.mgDiscardGambit", ".discard-gambit", async (ev) => {
-			ev.preventDefault();
-			const id = ev.currentTarget.closest("[data-item-id]")?.dataset?.itemId;
-			const g = foundry.utils.deepClone(this.actor.system.gambits ?? {});
-			g.deck = (g.deck || []).filter(i => i !== id);
-			g.discard = [...(g.discard || []), id];
-			await this.actor.update({ "system.gambits.deck": g.deck, "system.gambits.discard": g.discard });
-			this.render(false);
+		// Play Gambit: post to chat, then MOVE from hand → discard
+		$root.off("click.mgPlayGambit").on("click.mgPlayGambit", ".play-gambit", async (ev) => {
+		ev.preventDefault();
+
+		// Resolve item id from the button or ancestor card
+		const card = ev.currentTarget.closest("[data-item-id]") || ev.currentTarget;
+		const id   = card?.dataset?.itemId || ev.currentTarget.dataset.itemId;
+		if (!id) return;
+
+		const item = this.actor.items.get(id);
+		if (!item) return;
+
+		// 1) Post the gambit to chat (enrich description as rich HTML)
+		const descHtml = await TextEditor.enrichHTML(String(item.system?.description ?? ""), { async: true });
+		await ChatMessage.create({
+			user: game.user.id,
+			speaker: ChatMessage.getSpeaker({ actor: this.actor }),
+			content: `<div class="gambit-chat-card"><h2><i class="fa-solid fa-cards"></i> ${Handlebars.escapeExpression(item.name)}</h2>${descHtml}</div>`
 		});
+
+		// 2) Move it from hand (deck) → discard (no deletion)
+		const g       = foundry.utils.deepClone(this.actor.system.gambits ?? {});
+		const hand    = Array.isArray(g.deck)    ? g.deck.slice()    : [];
+		const discard = Array.isArray(g.discard) ? g.discard.slice() : [];
+
+		const nextHand = hand.filter(i => i !== id);
+		const set      = new Set(discard); set.add(id);
+		const nextDiscard = Array.from(set);
+
+		await this.actor.update({
+			"system.gambits.deck": nextHand,
+			"system.gambits.discard": nextDiscard
+		});
+
+		this.render(false);
+		});
+
+		// Discard Gambit (MOVE from hand → discard; do NOT delete)
+		$root.off("click.mgDiscardGambit").on("click.mgDiscardGambit", ".discard-gambit", async (ev) => {
+		ev.preventDefault();
+		const id = ev.currentTarget.closest("[data-item-id]")?.dataset?.itemId;
+		if (!id) return;
+
+		const g = foundry.utils.deepClone(this.actor.system.gambits ?? {});
+		const hand    = Array.isArray(g.deck)    ? g.deck.slice()    : [];
+		const discard = Array.isArray(g.discard) ? g.discard.slice() : [];
+
+		// Remove from hand, add to discard (de-duped)
+		const nextHand = hand.filter(i => i !== id);
+		const set = new Set(discard); set.add(id);
+		const nextDiscard = Array.from(set);
+
+		await this.actor.update({
+			"system.gambits.deck": nextHand,
+			"system.gambits.discard": nextDiscard
+		});
+
+		this.render(false);
+		});
+
+		// Reset Hand: move ALL discard → hand (de-dupe), empty discard
+		$root.off("click.mgResetGambits").on("click.mgResetGambits", ".gambit-reset", async (ev) => {
+		ev.preventDefault();
+
+		const g = foundry.utils.deepClone(this.actor.system.gambits ?? {});
+		const hand    = Array.isArray(g.deck)    ? g.deck.slice()    : [];
+		const discard = Array.isArray(g.discard) ? g.discard.slice() : [];
+
+		// union(hand, discard), then clear discard
+		const set = new Set(hand);
+		for (const id of discard) set.add(id);
+
+		const nextHand = Array.from(set);
+		const nextDiscard = [];
+
+		// Optional clamp to hand limit (you said “start with 3”)
+		// Comment out if you want all to return regardless of limit.
+		const limit = Number(g.handSize ?? 3) || 3;
+		const clampedHand = nextHand.slice(0, limit);
+
+		await this.actor.update({
+			"system.gambits.deck": clampedHand,
+			"system.gambits.discard": nextDiscard
+		});
+
+		this.render(false);
+		ui.notifications?.info("Crew hand reset.");
+		});
+
+		// --- Remember last-opened tab (per user, per crew)
+		{
+		const $root = html instanceof jQuery ? html : $(html);
+		const storeKey = `mgCrewTab.${this.actor.id}`;
+
+		// Save on tab click
+		$root.off("click.mgRememberTab")
+			.on("click.mgRememberTab", ".sheet-tabs .item", (ev) => {
+			const tab = ev.currentTarget?.dataset?.tab;
+			if (!tab) return;
+			try { localStorage.setItem(storeKey, tab); } catch (_) {}
+			});
+
+		// After Foundry initialized tabs, re-activate the stored tab
+		// (do this once per render — belt & suspenders in case something else tried to switch)
+		const validTabs = Array.from($root[0].querySelectorAll(".sheet-tabs .item"))
+			.map(n => n.dataset.tab)
+			.filter(Boolean);
+
+		const saved = (() => {
+			try { return localStorage.getItem(storeKey); } catch (_) { return null; }
+		})();
+
+		// Default: "party" (your Crew's "general" tab). If you rename your general tab, change this.
+		const fallback = "party";
+
+		const target = (saved && validTabs.includes(saved)) ? saved : fallback;
+
+		try { this._tabs?.[0]?.activate(target); } catch (_) {}
+		}
 
 		// Remove Gambit entirely
 		$root.off("click.mgRemoveGambit").on("click.mgRemoveGambit", ".remove-gambit", async (ev) => {
@@ -1435,28 +1602,50 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 		}
 		});
 
-		// Drag/drop: only Item type "gambit"
-		const dropZone = root.find(".mg-crew-gb-drop");
-		dropZone.on("dragover", (ev) => ev.preventDefault());
 		dropZone.on("drop", async (ev) => {
 		ev.preventDefault();
 		const txt = ev.originalEvent?.dataTransfer?.getData("text/plain");
 		if (!txt) return;
+
 		let data; try { data = JSON.parse(txt); } catch { return; }
 		if (data.type !== "Item") return;
 
 		const doc = await fromUuid(data.uuid);
 		if (!doc || doc.documentName !== "Item") return;
+
 		const item = doc instanceof Item ? doc : doc.toObject();
 		if ((item.type || doc.type) !== "gambit") {
-			ui.notifications?.warn("Only Gambit items can be added to the Deck."); return;
+			ui.notifications?.warn("Only Gambit items can be added to the Deck.");
+			return;
 		}
+
+		// Hand-size cap with confirm override
+		const g = this.actor.system?.gambits ?? {};
+		const handSize  = Number(g.handSize ?? 3) || 3;
+		const currentCt = Array.isArray(g.deck) ? g.deck.length : 0;
+
+		if (currentCt >= handSize) {
+			const ok = await Dialog.confirm({
+			title: "Over Hand Limit?",
+			content: `
+				<p>You're going over your max available Crew Gambits for this level
+				(<strong>${currentCt}/${handSize}</strong>).</p>
+				<p><em>Only add this if your Director approves!</em></p>
+			`,
+			defaultYes: false,
+			yes: () => true, no: () => false
+			});
+			if (!ok) return;
+		}
+
 		const obj = item instanceof Item ? item.toObject() : item;
 		delete obj._id;
+
 		const [created] = await this.actor.createEmbeddedDocuments("Item", [obj]);
-		const g = foundry.utils.deepClone(this.actor.system.gambits);
-		g.deck.push(created.id);
-		await this.actor.update({ "system.gambits.deck": g.deck });
+		const g2 = foundry.utils.deepClone(this.actor.system.gambits);
+		g2.deck = Array.isArray(g2.deck) ? g2.deck.slice() : [];
+		g2.deck.push(created.id);
+		await this.actor.update({ "system.gambits.deck": g2.deck });
 		});
 	}
 	}
@@ -1467,31 +1656,241 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 	const root = html.find(".mg-crew-bio");
 	if (!root.length) return;
 
-	const commit = (path, val) => this.actor.update({ [path]: val });
+	// --- Tags (Enter/comma add; dialog for desc; dedupe; instant DOM)
+	{
+	const input = root.find(".bio-add-tag")[0];
+	const list  = root.find(".bio-tags .tag-list")[0];
 
-	root.find(".bio-look").on("change", (ev)=> commit("system.bio.lookAndFeel", ev.currentTarget.value));
-	root.find(".bio-weak").on("change", (ev)=> commit("system.bio.weakness", ev.currentTarget.value));
-	root.find(".bio-location").on("change", (ev)=> commit("system.bio.location", ev.currentTarget.value));
-	root.find(".bio-features").on("change", (ev)=> commit("system.bio.features", ev.currentTarget.value));
+	// Re-entrancy lock so we never open two prompts at the same time
+	this._bioTagPromptOpen ??= false;
 
-	root.find(".bio-add-tag").on("keydown", async (ev) => {
-		if (ev.key !== "Enter") return;
-		ev.preventDefault();
-		const v = ev.currentTarget.value?.trim();
-		if (!v) return;
-		const tags = Array.from(this.actor.system.bio?.tags || []);
-		tags.push(v);
-		await this.actor.update({ "system.bio.tags": tags });
-		ev.currentTarget.value = "";
+	// Read + coerce legacy string tags → objects
+	const readTags = () => {
+		const raw = this.actor.system?.bio?.tags ?? [];
+		return Array.from(raw).map(t => (typeof t === "string" ? { label: t, desc: "" } : t));
+	};
+
+	const normalize = (s) => {
+		const v = String(s).trim();
+		if (!v) return "";
+		return v.split(/\s+/).map(p => p[0] ? p[0].toUpperCase() + p.slice(1) : p).join(" ");
+	};
+
+	const esc = foundry.utils.htmlEscape
+		? foundry.utils.htmlEscape
+		: (str) => String(str)
+			.replace(/&/g,"&amp;").replace(/</g,"&lt;")
+			.replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");
+
+	const addOne = async (raw) => {
+		const label = normalize(raw);
+		if (!label) return;
+
+		// Current tags (objects)
+		const tags = readTags();
+
+		// Dedupe by label (case-insensitive)
+		const exists = tags.some(x => x.label?.toLowerCase() === label.toLowerCase());
+		if (exists) {
+		ui.notifications?.info(`Tag “${label}” already exists.`);
+		return;
+		}
+
+		// Optional cap
+		if (tags.length >= 24) {
+		ui.notifications?.warn("Tag limit reached (24).");
+		return;
+		}
+
+		// Guard: if another prompt is open, ignore this request
+		if (this._bioTagPromptOpen) return;
+		this._bioTagPromptOpen = true;
+
+		let desc = "";
+		try {
+		desc = await Dialog.prompt({
+			title: "Add Tag Description",
+			content: `<p>Describe “${esc(label)}”:</p><textarea rows="3" style="width:100%"></textarea>`,
+			label: "Save",
+			// html is jQuery in v11 — use [0] or .find()
+			callback: (html) => (html?.[0]?.querySelector("textarea")?.value || "").trim()
+		}) || "";
+		} finally {
+		this._bioTagPromptOpen = false;
+		}
+
+		const newTag = { label, desc };
+		tags.push(newTag);
+
+		// Persist (no full render)
+		await this.actor.update({ "system.bio.tags": tags }, { render: false });
+
+		// Optimistic DOM append (matches template classes exactly)
+		if (list) {
+		const pill = document.createElement("div");
+		pill.className = "tag-pill tag is-entering";
+		pill.setAttribute("role", "listitem");
+		pill.title = newTag.desc || "";
+		pill.dataset.label = label.toLowerCase();
+		pill.innerHTML = `
+			<span class="label">${esc(newTag.label)}</span>
+			<button type="button" class="remove" title="Remove tag ${esc(newTag.label)}" aria-label="Remove tag ${esc(newTag.label)}">
+			<i class="fa-light fa-xmark"></i>
+			</button>
+		`;
+		list.appendChild(pill);
+		requestAnimationFrame(() => pill.classList.remove("is-entering"));
+		}
+	};
+
+	// De-duped, namespaced bindings (no stacking across re-renders)
+	// Add on Enter or comma; also support paste of comma-separated on blur
+	root.off("keydown.mgBioAdd").on("keydown.mgBioAdd", ".bio-add-tag", async (ev) => {
+		if (ev.key !== "Enter" && ev.key !== ",") return;
+		ev.preventDefault(); ev.stopPropagation();
+
+		const el = ev.currentTarget;
+		const raw = el.value.replace(/,+$/, "");
+		if (!raw.trim()) return;
+
+		for (const part of raw.split(",").map(s => s.trim()).filter(Boolean)) {
+		await addOne(part);
+		}
+		el.value = "";
 	});
 
-	root.on("click", ".tag i", async (ev) => {
-		const span = ev.currentTarget.closest(".tag");
-		const idx = Number(span?.dataset.idx);
-		if (!Number.isInteger(idx)) return;
-		const tags = Array.from(this.actor.system.bio?.tags || []);
-		tags.splice(idx, 1);
-		await this.actor.update({ "system.bio.tags": tags });
+	root.off("blur.mgBioAdd").on("blur.mgBioAdd", ".bio-add-tag", async (ev) => {
+		const el = ev.currentTarget;
+		const raw = el.value.replace(/,+$/, "");
+		if (!raw.trim()) return;
+
+		for (const part of raw.split(",").map(s => s.trim()).filter(Boolean)) {
+		await addOne(part);
+		}
+		el.value = "";
 	});
+
+	// Remove by label (robust if order changed)
+	root.off("click.mgBioTagRemove")
+		.on("click.mgBioTagRemove", ".bio-tags .tag-pill .remove", async (ev) => {
+			ev.preventDefault();
+			const pill  = ev.currentTarget.closest(".tag-pill");
+			if (!pill) return;
+
+			const label = pill.querySelector(".label")?.textContent ?? "";
+			const tags  = readTags();
+			const idx   = tags.findIndex(x => x.label?.toLowerCase() === label.toLowerCase());
+			if (idx < 0) return;
+
+			pill.classList.add("is-leaving");
+
+			tags.splice(idx, 1);
+			await this.actor.update({ "system.bio.tags": tags }, { render: false });
+
+			setTimeout(() => pill.remove(), 240);
+		});
+	}
+
+	// --- Edit an existing tag (click the pill or label; NOT the remove button)
+	{
+		const esc = foundry.utils.htmlEscape
+			? foundry.utils.htmlEscape
+			: (str) => String(str)
+				.replace(/&/g,"&amp;").replace(/</g,"&lt;")
+				.replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");
+
+		const readTags = () => {
+			const raw = this.actor.system?.bio?.tags ?? [];
+			return Array.from(raw).map(t => (typeof t === "string" ? { label: t, desc: "" } : t));
+		};
+
+		const normalize = (s) => {
+			const v = String(s).trim();
+			if (!v) return "";
+			return v.split(/\s+/).map(p => p[0] ? p[0].toUpperCase() + p.slice(1) : p).join(" ");
+		};
+
+		// Namespaced binding; don’t stack on re-render
+		root.off("click.mgBioTagEdit")
+			.on("click.mgBioTagEdit", ".bio-tags .tag-pill", async (ev) => {
+			// Ignore clicks on the remove button
+			if (ev.target.closest?.(".remove")) return;
+
+			const pill  = ev.currentTarget;
+			const labelEl = pill.querySelector(".label");
+			if (!labelEl) return;
+
+			// Find the tag by label (case-insensitive)
+			const oldLabel = labelEl.textContent ?? "";
+			const tags = readTags();
+			const idx  = tags.findIndex(x => x.label?.toLowerCase() === oldLabel.toLowerCase());
+			if (idx < 0) return;
+
+			const curr = tags[idx];
+			const dlgHtml = `
+				<style>
+				.mg-edit-tag form { display: grid; gap: .5rem; }
+				.mg-edit-tag label { font-weight: 600; }
+				.mg-edit-tag input, .mg-edit-tag textarea {
+					width: 100%; box-sizing: border-box; padding: .5rem .6rem;
+				}
+				</style>
+				<div class="mg-edit-tag">
+				<form>
+					<label>Label</label>
+					<input type="text" name="label" value="${esc(curr.label)}" />
+					<label>Description</label>
+					<textarea name="desc" rows="3">${esc(curr.desc || "")}</textarea>
+				</form>
+				</div>
+			`;
+
+			// Prevent double-open
+			if (this._bioTagPromptOpen) return;
+			this._bioTagPromptOpen = true;
+
+			let result;
+			try {
+				result = await Dialog.prompt({
+				title: `Edit Tag`,
+				content: dlgHtml,
+				label: "Save",
+				callback: (html) => {
+					const root = html?.[0];
+					const newLabel = normalize(root?.querySelector('input[name="label"]')?.value || "");
+					const newDesc  = (root?.querySelector('textarea[name="desc"]')?.value || "").trim();
+					return { newLabel, newDesc };
+				}
+				});
+			} finally {
+				this._bioTagPromptOpen = false;
+			}
+			if (!result) return;
+
+			const { newLabel, newDesc } = result;
+			if (!newLabel) {
+				ui.notifications?.warn("Tag label cannot be empty.");
+				return;
+			}
+
+			// If label changed, dedupe against others (ignore the current index)
+			const exists = tags.some((t, i) => i !== idx && t.label?.toLowerCase() === newLabel.toLowerCase());
+			if (exists) {
+				ui.notifications?.warn(`Another tag named “${newLabel}” already exists.`);
+				return;
+			}
+
+			// Apply changes
+			const updated = [...tags];
+			updated[idx] = { label: newLabel, desc: newDesc || "" };
+
+			await this.actor.update({ "system.bio.tags": updated }, { render: false });
+
+			// Update the pill DOM in place (no full render)
+			labelEl.textContent = newLabel;
+			pill.title = newDesc || "";
+			pill.dataset.label = newLabel.toLowerCase();
+			});
+		}
 	}
 }

@@ -433,12 +433,17 @@ export class MidnightGambitActorSheet extends ActorSheet {
       const TAB_KEY = `mg.tab.${this.actor.id}.${game.user.id}.${group}`;
       const initialTab = localStorage.getItem(TAB_KEY) || "general";
 
+      // Keep the active tab per-actor/per-user
       const tabs = new Tabs({
         navSelector: groupEl ? `nav.sheet-tabs[data-group="${group}"]` : `nav.sheet-tabs`,
-        contentSelector: `.tab-content`,
-        initial: initialTab
+        // Use the standard container that holds your <section class="tab" ...> panes
+        contentSelector: `.sheet-body`,
+        initial: initialTab,
+        // Foundry v11 will call this; make sure it's a function
+        callback: (_tabs, _html, _event) => { /* no-op, but prevents v11 crash */ }
       });
       tabs.bind(html[0]);
+
 
       // Save selection locally (no actor flags = no sync to other users)
       html.find(groupEl ? `nav.sheet-tabs[data-group="${group}"]` : `nav.sheet-tabs`)
@@ -1700,6 +1705,31 @@ export class MidnightGambitActorSheet extends ActorSheet {
   //END EVENT LISTENERS
   //---------------------------------------------------------------------------------------------------------------------------
 
+  /** Compute the player's Gambit deck/hand max from the LEVELS table with robust fallbacks. */
+  _mgGetPlayerGambitMax() {
+    const lvl = Number(this.actor.system?.level) || 1;
+    const LVLS = CONFIG.MidnightGambit?.LEVELS ?? {};
+    const row  = LVLS[lvl] ?? {};
+
+    // Try common schema variants (support your past/future naming)
+    const candidates = [
+      row.gambits?.deckSize,
+      row.gambits?.handSize,
+      row.gambits?.slots,
+      row.deckSize,
+      row.handSize,
+      row.gambitSlots,
+      row.slots
+    ].filter(v => Number.isFinite(Number(v)));
+
+    if (candidates.length) return Number(candidates[0]);
+
+    // Fallbacks to actor/system values if LEVELS row doesn't define it
+    const sys = this.actor.system?.gambits ?? {};
+    return Number(sys.deckSize ?? sys.maxDeckSize ?? sys.maxDrawSize ?? 3) || 3;
+  }
+
+
   /**
    * Centered overlay for a Gambit: shows name + description.
    * Uses your exact HTML structure and styling. No CSS overrides beyond overlay/animation.
@@ -2277,6 +2307,36 @@ export class MidnightGambitActorSheet extends ActorSheet {
       console.warn("MG | Gambit tier guard failed (non-fatal):", e);
     }
 
+    // --- Deck capacity check for Player Gambits (pre-create) ---
+    try {
+      // Normalize payload
+      const raw = itemData?.system?.system ? itemData.system : itemData;
+      const type = raw?.type ?? itemData?.type;
+
+      if (type === "gambit") {
+        // Read current deck + max (fallbacks keep old characters safe)
+        const g = this.actor.system?.gambits ?? {};
+        const deck = Array.isArray(g.deck) ? g.deck : [];
+        const deckMax = this._mgGetPlayerGambitMax();
+
+        if (deck.length >= deckMax) {
+          const ok = await Dialog.confirm({
+            title: "Over Deck Limit?",
+            content: `
+              <p>You're going over your max available Player Gambits for this level
+              (<strong>${deck.length}/${deckMax}</strong>).</p>
+              <p><em>Only add this if your Director approves!</em></p>
+            `,
+            defaultYes: false,
+            yes: () => true, no: () => false
+          });
+          if (!ok) return []; // cancel the add
+        }
+      }
+    } catch (e) {
+      console.warn("MG | Player Gambit deck cap check failed (non-fatal):", e);
+    }
+
     if (itemData.type === "guise") {
     console.log("✅ Dropped a guise item on actor");
 
@@ -2429,7 +2489,7 @@ export class MidnightGambitActorSheet extends ActorSheet {
       // Use level-scaled deck capacity from actor data (not hard-coded 3)
       const g = this.actor.system.gambits ?? {};
       const deck = Array.isArray(g.deck) ? g.deck : [];
-      const maxDeck = Number(g.maxDeckSize ?? 3);
+      const maxDeck = this._mgGetPlayerGambitMax();
 
       // Don’t add duplicates; enforce capacity
       const nextDeck = deck.includes(gambitItem.id) ? deck : [...deck, gambitItem.id];
@@ -2735,16 +2795,36 @@ export class MidnightGambitActorSheet extends ActorSheet {
   $root.find("[data-hides-with-guise]").toggle(!hasGuise);
 }  
   async _onDrop(event) {
-    // Hard gate Crew-tier Gambits at the drag event level too
     try {
       const data = TextEditor.getDragEventData(event);
       if (data?.type === "Item" && data?.uuid) {
         const src = await fromUuid(data.uuid).catch(() => null);
         if (src?.documentName === "Item" && src.type === "gambit") {
           const tier = String(src.system?.tier ?? "").toLowerCase();
+
+          // Block Crew-tier on players
           if (tier === "crew") {
-            ui.notifications?.warn("Only Player Gambits can be added to the Actor.");
-            return false; // cancel the drop
+            ui.notifications?.warn("Crew-tier Gambits can only be added to the Crew.");
+            return false;
+          }
+
+          // Deck capacity confirm (players)
+          const g = this.actor.system?.gambits ?? {};
+          const deck = Array.isArray(g.deck) ? g.deck : [];
+          const deckMax = this._mgGetPlayerGambitMax();
+
+          if (deck.length >= deckMax) {
+            const ok = await Dialog.confirm({
+              title: "Over Deck Limit?",
+              content: `
+                <p>You're going over your max available Player Gambits for this level
+                (<strong>${deck.length}/${deckMax}</strong>).</p>
+                <p><em>Only add this if your Director approves!</em></p>
+              `,
+              defaultYes: false,
+              yes: () => true, no: () => false
+            });
+            if (!ok) return false;
           }
         }
       }
@@ -2752,6 +2832,7 @@ export class MidnightGambitActorSheet extends ActorSheet {
 
     return super._onDrop?.(event) ?? false;
   }
+
 
   // Cleanup our temporary hooks when the sheet closes
   async close(options) {
