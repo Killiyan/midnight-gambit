@@ -70,7 +70,7 @@
         </div>
       </div>
 
-      <div class="profile-image" data-tooltip="Click to Change Profile Image">
+      <div class="profile-image">
         <img class="mg-profile-img" src="{{actor.img}}" data-edit="img" title="{{actor.name}}" />
       </div>
     </div>
@@ -667,39 +667,88 @@
       <!--This is our journal for character information/backstory-->
       <div class="tab  journal-tab" data-group="main" data-tab="journal">
         <div class="journal-fields">
-          <div class="field-pair">
+          <div class="field">
+            <label>Look &amp; Feel</label>
+            {{editor
+              system.bio.lookAndFeel
+              target="system.bio.lookAndFeel"
+              engine="tinymce"
+              owner=owner
+              editable=editable
+              button=false
+            }}
+          </div>
+
+          <div class="field">
             <label>Race</label>
-            <input type="text" name="system.journal.race" value="{{actor.system.journal.race}}" />
+            {{editor
+              system.bio.race
+              target="system.bio.race"
+              engine="tinymce"
+              owner=owner
+              editable=editable
+              button=false
+            }}
           </div>
 
-          <div class="field-pair">
-            <label>Sex</label>
-            <input type="text" name="system.journal.sex" value="{{actor.system.journal.sex}}" />
-          </div>
-
-          <div class="field-pair">
+          <div class="field">
             <label>Appearance</label>
-            <textarea name="system.journal.appearance">{{actor.system.journal.appearance}}</textarea>
+            {{editor
+              system.bio.appearance
+              target="system.bio.appearance"
+              engine="tinymce"
+              owner=owner
+              editable=editable
+              button=false
+            }}
           </div>
 
-          <div class="field-pair">
-            <label>Traits</label>
-            <textarea name="system.journal.traits">{{actor.system.journal.traits}}</textarea>
-          </div>
-
-          <div class="field-pair">
+          <div class="field">
             <label>Ideals</label>
-            <textarea name="system.journal.ideals">{{actor.system.journal.ideals}}</textarea>
+            {{editor
+              system.bio.ideals
+              target="system.bio.ideals"
+              engine="tinymce"
+              owner=owner
+              editable=editable
+              button=false
+            }}
           </div>
 
-          <div class="field-pair">
+          <div class="field">
             <label>Bonds</label>
-            <textarea name="system.journal.bonds">{{actor.system.journal.bonds}}</textarea>
+            {{editor
+              system.bio.bonds
+              target="system.bio.bonds"
+              engine="tinymce"
+              owner=owner
+              editable=editable
+              button=false
+            }}
           </div>
 
-          <div class="field-pair">
+          <div class="field">
             <label>Flaws</label>
-            <textarea name="system.journal.flaws">{{actor.system.journal.flaws}}</textarea>
+            {{editor
+              system.bio.flaws
+              target="system.bio.flaws"
+              engine="tinymce"
+              owner=owner
+              editable=editable
+              button=false
+            }}
+          </div>
+
+          <div class="field">
+            <label>Notes</label>
+            {{editor
+              system.bio.notes
+              target="system.bio.notes"
+              engine="tinymce"
+              owner=owner
+              editable=editable
+              button=false
+            }}
           </div>
         </div>
 

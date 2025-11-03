@@ -293,7 +293,7 @@ export class MidnightGambitActorSheet extends ActorSheet {
 
 
     /** Binds event listeners after rendering. This is the Event listener for most the system*/
-    activateListeners(html) {
+    async activateListeners(html) {
       super.activateListeners(html);
 
       this._mgInitProfileCrop(html);
@@ -1777,6 +1777,36 @@ export class MidnightGambitActorSheet extends ActorSheet {
           if ($label.length) $label.text(doc.system?.crewName || "No Crew");
         };
         Hooks.on("updateActor", this._mgCrewNameHook);
+
+        // --- Journal: mount TinyMCE on all .mg-rich fields ---
+        {
+          const root = html[0];
+          const areas = root.querySelectorAll(".mg-journal textarea.mg-rich");
+          if (areas.length) {
+            for (const ta of areas) {
+              // Seed with existing value so first paint matches
+              const path = ta.name; // e.g., "system.journal.race"
+              const value = getProperty?.(this.actor, path) ?? "";
+              ta.value = String(value);
+
+              // Clone global config; cap height and allow internal scroll
+              const cfg = foundry.utils.deepClone(CONFIG.TinyMCE);
+              cfg.max_height = 320;
+              cfg.min_height = cfg.min_height ?? 140;
+              cfg.content_style = (cfg.content_style ?? "") + `
+                body.mce-content-body { overflow-y:auto; overscroll-behavior:contain; }
+              `;
+
+              await TextEditor.create({
+                target: ta,
+                name: path,
+                content: value,
+                tinymce: cfg,
+                height: null
+              });
+            }
+          }
+        }
     }
     
   //END EVENT LISTENERS
