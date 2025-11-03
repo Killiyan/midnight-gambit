@@ -68,9 +68,13 @@ h1,h2,h3,h4 {
       background: $mg-blue-main;
       border: 2px solid $mg-blue-main-2;
       color: $mg-ivory;
-      padding: .5rem;
+      padding: .5rem .75rem .5rem .5rem;
       border-radius: .5rem;
       transition: background .5s ease, color .5s ease;
+      @include oswald();
+      font-weight: 700;
+      font-style: italic;
+      text-transform: uppercase;
 
       i {
         color: $mg-blue-1;
@@ -231,6 +235,16 @@ h1,h2,h3,h4 {
     border: 3px solid $mg-blue-main-2;
     transition: border .2s ease, border-radius .2s ease;
     border-radius: .5rem;
+
+    .window-title {
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+
+    .close {
+      height: 100%;
+    }
   }
 
   &.sheet .window-content {
@@ -258,18 +272,19 @@ h1,h2,h3,h4 {
           background: $mg-blue-main;
           display: flex;
           flex-direction: column;
-          padding: 2.125rem;
+          padding: 2.125rem 2.125rem 4.125rem 2.125rem;
           border: 2px solid $mg-blue-main-2;
           border-left: 0;
           border-top: 0;
           color: $mg-ivory;
           z-index: 10;
-          min-width: 15.625rem;
+          min-width: 17.875rem;
           background-image: url("../assets/images/gambit-border.png");
           background-repeat: repeat-y;
           background-size: 100%;
           background-blend-mode: soft-light;
           gap: 1rem;
+          justify-content: space-between;
 
           &:after {
             content: '';
@@ -280,12 +295,20 @@ h1,h2,h3,h4 {
             background: linear-gradient(0deg, rgba(18, 33, 55, 0.00) 46.83%, rgba(18, 33, 55, 0.50) 100%);
           }
 
+          .name {
+            background: rgba($black, .2);
+            backdrop-filter: blur(4px);
+            @include mg-border();
+            padding: 1.125rem;
+            border-radius: .5rem;
+          }
+
           .side-controls {
             z-index: 10;
             display: flex;
             flex-direction: column;
             align-items: flex-start;
-            gap: 2rem;
+            gap: 1rem;
           }
 
           .long-rest-button {
@@ -472,11 +495,10 @@ h1,h2,h3,h4 {
       .attribute-row {
         display: flex;
         flex-direction: column;
-        padding: 1.125rem;
+        padding: 1rem;
         border-radius: .625rem;
         background: $mg-blue-main;
         @include mg-border();
-        padding: 1.125rem;
         text-align: center;
         gap: .625rem;
         width: 100%;
@@ -685,9 +707,10 @@ h1,h2,h3,h4 {
       padding: 1.25rem;
       @include mg-border();
       border-radius: 0 0 .5rem .5rem;
+      border-top: 0;
 
       .skill-row {
-        border-bottom: 1px solid $mg-blue-main-2;
+        border-bottom: 2px solid $mg-blue-main-2;
         padding: 1.25rem 0 1.25rem 1.25rem;
         display: flex;
         align-items: center;

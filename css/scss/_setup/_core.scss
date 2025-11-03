@@ -71,7 +71,7 @@ form button,
   letter-spacing: .02em;
   padding: .35rem;
   font-weight: 700;
-  @include mg-border();
+  border: none;
   border-radius: .5rem;
   transition: background 0.5s ease, color 0.5s ease, box-shadow .5s ease;
 
@@ -187,6 +187,25 @@ button:disabled {
       top: 0;
       right: 0;
       width: 116%;
+
+      .flavor-text {
+        color: $mg-blue-2;
+      }
+
+      &.part-header {
+        margin: 0;
+        width: 100%;
+        padding: 1rem;
+        border-radius: .5rem;
+        @include mg-border();
+        align-items: center;
+
+        .part-total {
+          @include mg-border();
+          border-radius: .5rem;
+          padding: .5rem;
+        }
+      }
     }
 
     hr {
@@ -424,10 +443,17 @@ button:disabled {
 
   .message-sender,
   .message-metadata,
-  .whisper-to,
   .nue,
   .flavor-text {
     color: $mg-ivory;
+  }
+
+  .whisper-to {
+    color: $mg-blue-2;
+    font-size: .75rem;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    @include roboto();
   }
 
   .message-metadata .message-delete {
@@ -546,6 +572,28 @@ button:disabled {
       box-shadow: 0 0 .5rem $mg-ivory;
     }
   }
+
+  .jump-to-bottom > a {
+    width: 100%;
+    background: $mg-blue-3;
+    transition: background .5s ease, color .5s ease;
+
+    i {
+      color: $mg-blue-4;
+      transition: inherit;
+    }
+
+    &:hover {
+      box-shadow: none;
+      text-shadow: none;
+      background: $mg-blue-1;
+      color: $mg-blue-4;
+
+      i {
+        color: $mg-blue-3;
+      }
+    }
+  }
 }
 
 .sidebar-popout,
@@ -553,6 +601,7 @@ button:disabled {
   background: $mg-blue-main;
   border: 3px solid $mg-blue-main-2;
   border-radius: .25rem;
+  min-width: 25rem;
 
   #chat-log {
     background-image: url("../assets/images/gambit-border.png");
@@ -569,6 +618,15 @@ button:disabled {
     border: none;
   }
 
+  .message-sender {
+    @include oswald();
+    font-weight: 700;
+    font-style: italic;
+    letter-spacing: .02em;
+    text-transform: uppercase;
+    white-space: normal;
+  }
+
   .chat-message,
   .message,
   .whisper {
@@ -576,9 +634,42 @@ button:disabled {
     background-image: none;
     @include mg-border();
     color: $white;
-    padding: 1.125rem 1.125rem 1.125rem 4.5rem;
-    margin-top: 1.25rem;
+    padding: 3rem 1.125rem 1.125rem 4.5rem;
+    margin: 1.25rem 1.125rem;
     backdrop-filter: blur(3px);
+    position: relative;
+    overflow: hidden;
+    border-radius: .5rem;
+
+    header {
+      position: relative;
+      background: $mg-blue-4;
+      border-bottom: 1px solid $mg-blue-main-2;
+      padding: .75rem 3.25rem .75rem .75rem;
+      margin: -3rem -1rem 0;
+      top: 0;
+      right: 0;
+      width: 113%;
+
+      .flavor-text {
+        color: $mg-blue-2;
+      }
+
+      &.part-header {
+        margin: 0;
+        width: 100%;
+        padding: 1rem;
+        border-radius: .5rem;
+        @include mg-border();
+        align-items: center;
+
+        .part-total {
+          @include mg-border();
+          border-radius: .5rem;
+          padding: .5rem;
+        }
+      }
+    }
 
     hr {
       background: $mg-blue-main-2;
@@ -634,25 +725,18 @@ button:disabled {
     .clock-label {
       text-align: center;
 
-      .title {
-        margin-left: -1.5rem;
+      .headline-wrap {
         display: flex;
-        justify-content: center;
-        align-items: center;
-        gap: 0.25rem;
-
-        i {
-          color: $mg-blue-4;
-        }
+        flex-direction: column;
+        text-align: left;
       }
-      
-      .mg-clock-name {
-        @include oswald();
-        font-size: 1.25rem;
-        text-transform: uppercase;
-        font-style: italic;
-        font-weight: 700;
-        color: $mg-blue-1;
+
+      .clock-text {
+        font-size: .75rem;
+        @include roboto();
+        color: $mg-blue-2;
+        text-transform: lowercase;
+        font-weight: 400;
       }
     }
 
@@ -682,7 +766,6 @@ button:disabled {
         display: flex;
         flex-direction: column;
         gap: .5rem;
-        color: $mg-blue-2;
       }
     }
   }
@@ -749,7 +832,8 @@ button:disabled {
       color: $mg-ivory;
       font-weight: 700;
       font-style: italic;
-      line-height: 1.1;
+      font-size: 1rem;
+      line-height: 1.3;
       @include mg-border();
       padding: .5625rem 1.125rem;
       border-radius: .5rem;
@@ -765,17 +849,113 @@ button:disabled {
         background: $mg-blue-3;
         padding: .625rem;
         border-radius: .5rem;
+        align-self: flex-start;
       }
     }
 
     .dice-formula,
     .dice-total {
-      margin: 0.5rem 0;
       @include mg-border();
+      background: rgba(0,0,0, .1);
+      margin: 0.5rem 0;
       padding: 1.125rem;
       border-radius: .5rem;
       border-color: $mg-blue-main-2;
       box-shadow: none;
+
+      &.risk-result {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        font-size: .75rem;
+        opacity: .8;
+
+        strong {
+          font-size: 1.25rem;
+          font-weight: 700;
+          opacity: 1;
+          color: $mg-blue-1;
+        }
+      }
+    }
+
+    .mg-risk-kept {
+      p {
+        display: flex;
+        flex-direction: column;
+        gap: .5rem;
+        align-items: center;
+        align-content: center;
+        font-size: .75rem;
+        opacity: .8;
+        
+        strong {
+          font-size: 1.25rem;
+          font-weight: 700;
+          opacity: 1;
+        }
+      }
+    }
+
+    .risk-result strong {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .roll-container {
+      @include oswald();
+      font-size: 1rem;
+      color: $mg-blue-2;
+      font-weight: 700;
+      font-style: italic;
+      display: block;
+      position: relative;
+      padding: 1.25rem;
+      @include mg-border();
+      border-radius: .5rem;
+
+      label {
+        font-size: .75rem;
+        @include roboto();
+        color: inherit;
+        display: flex;
+        align-items: center;
+        text-transform: none;
+        gap: 1rem;
+        padding: 0.5rem;
+        position: absolute;
+        top: 0;
+        left: 0;
+        background: $mg-blue-4;
+        border-radius: 0.5rem 0 0.5rem;
+        opacity: .6;
+      }
+
+      .result-label {
+        display: flex;
+        align-items: center;
+        gap: .625rem;
+        margin-top: 1.625rem;
+        text-transform: uppercase;
+
+        strong {
+          color: $mg-ivory;
+        }
+      }
+
+      span {
+        padding-left: 3rem;
+        display: block;
+      }
+
+      i {
+        display: block;
+        color: $mg-blue-4;
+        background: $mg-blue-3;
+        padding: .625rem;
+        border-radius: .5rem;
+      }
     }
   }
 
@@ -786,13 +966,49 @@ button:disabled {
     color: $mg-ivory;
   }
 
+  .whisper-to {
+    color: $mg-blue-2;
+    font-size: .75rem;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    @include roboto();
+  }
+
+  .message-metadata .message-delete {
+    position: absolute;
+    right: 0;
+    top: 0;
+    padding: .5rem .75rem;
+    background: rgba($mg-blue-main-2, .2);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+    transition: background .5s ease, color .5s ease;
+
+    i {
+      color: $mg-blue-3;
+      transition: color .5s ease;
+    }
+
+    &:hover,
+    &:focus {
+      background: $mg-blue-3;
+      color: $mg-blue-4;
+
+      i {
+        color: $mg-blue-4;
+      }
+    }
+  }
+
   .message-sender {
     @include oswald();
     font-weight: 700;
     font-style: italic;
     letter-spacing: .02em;
     text-transform: uppercase;
-    font-weight: 400;
+    white-space: normal;
   }
 
   .nue {
@@ -850,6 +1066,28 @@ button:disabled {
   .combat-sidebar {
     .combat-tracker-header {
       border-bottom: 1px solid $mg-blue-main-2;
+    }
+  }
+
+  .jump-to-bottom > a {
+    width: 100%;
+    background: $mg-blue-3;
+    transition: background .5s ease, color .5s ease;
+
+    i {
+      color: $mg-blue-4;
+      transition: inherit;
+    }
+
+    &:hover {
+      box-shadow: none;
+      text-shadow: none;
+      background: $mg-blue-1;
+      color: $mg-blue-4;
+
+      i {
+        color: $mg-blue-3;
+      }
     }
   }
 }

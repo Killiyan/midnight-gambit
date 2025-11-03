@@ -89,10 +89,11 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 		data.directoryIcon = this.actor.getFlag("midnight-gambit", "directoryIcon") || "";
 
 		const rawDirIcon = this.actor.getFlag("midnight-gambit", "directoryIcon") || "";
-		data.directoryIcon = rawDirIcon;  // raw value as stored
-		data.directoryIconResolved =
-			this._normalizeDirIconPath(rawDirIcon) ||
-			foundry.utils.getRoute("systems/midnight-gambit/assets/images/mg-queen.png");
+		data.directoryIcon = rawDirIcon; // last-picked raw value (for the Settings UI)
+
+		const stored = this._vfsPathForStorage(rawDirIcon) || "systems/midnight-gambit/assets/images/mg-queen.png";
+		data.directoryIconResolved = foundry.utils.getRoute(stored);
+
 
 		// Make actor available to the template (for name binding)
 		data.actor = this.actor;
@@ -111,8 +112,46 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 		data.owner = this.actor.isOwner;
 		data.editable = this.isEditable;
 
-		const docTier = Number(this.actor.system?.tier ?? 1);
-		data.crewTier = docTier;  // <— add this line
+		const docTier = this._readCrewTier();
+		data.crewTier = docTier;
+
+		// ----- Level-pending badge logic using per-tier baseline -----
+		const baselines = await this._getTierBaselines();
+		const base = baselines[String(docTier)] || null;
+		const rewardsForThisTier = this._rewardsForTier(docTier);
+		const hasRequirements = (rewardsForThisTier.assets > 0) || (rewardsForThisTier.gambits > 0) || (rewardsForThisTier.hideoutUp > 0);
+
+
+		// If there are no requirements at this tier, there's nothing to be pending about.
+		const needsAssets  = Number(rewardsForThisTier.assets  || 0);
+		const needsGambits = Number(rewardsForThisTier.gambits || 0);
+		const hasReqs = (needsAssets + needsGambits + Number(rewardsForThisTier.hideoutUp || 0)) > 0;
+
+		let pending = false;
+
+		if (hasReqs) {
+			// If we didn't capture a baseline for this tier (e.g., legacy data), create one now.
+			if (!base) {
+				await this._setTierBaseline(docTier, rewardsForThisTier);
+			}
+
+			const useBase = base || { itemIds: [], need: rewardsForThisTier };
+			const existing = new Set(useBase.itemIds);
+
+			// Count newly created items since entering this tier
+			const newItems = this.actor.items.filter(i => !existing.has(i.id));
+			const newAssetCount  = newItems.filter(i => i.type === "asset").length;
+			const newGambitCount = newItems.filter(i => i.type === "gambit").length;
+
+			const needA = Number(useBase.need?.assets  || 0);
+			const needG = Number(useBase.need?.gambits || 0);
+
+			pending = (newAssetCount < needA) || (newGambitCount < needG);
+		}
+
+		// Expose to template
+		data.levelPending = Boolean(pending);
+
 
 		// s.bio etc. stay as-is below
 		s.bio ??= { lookAndFeel: "", weakness: "", location: "", features: "", tags: [] };
@@ -495,14 +534,11 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 	const raw = this.actor.getFlag("midnight-gambit", "directoryIcon");
 	if (!raw) return;
 
-	const cleaned = this._normalizeDirIconPath(raw);
-	if (cleaned !== raw) {
-		try {
-		await this.actor.setFlag("midnight-gambit", "directoryIcon", cleaned);
-		} catch (_) {
-		// ignore if not owner
-		}
+	const vfs = this._vfsPathForStorage(raw);
+	if (vfs !== raw) {
+		try { await this.actor.setFlag("midnight-gambit", "directoryIcon", vfs); } catch {}
 	}
+
 	}
 
 	/** Crew Gambit slots by tier. Base 3 +1 at tiers 1, 2, and 4 = max 6. */
@@ -649,49 +685,88 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 
 		// Settings tab: Choose directory icon (Actors list thumbnail)
 		$root.off("click.mgPickDirIcon").on("click.mgPickDirIcon", ".mg-pick-diricon", async (ev) => {
-		ev.preventDefault();
+			ev.preventDefault();
 
-		const current = this.actor.getFlag("midnight-gambit", "directoryIcon") || this._initialPickerDir?.();
-		const picker = new FilePicker({
-			type: "image",
-			activeSource: "data",
-			current,
-			callback: async (path) => {
-			// Store exactly what the picker returns (works for worlds/modules/systems/http/data:)
-			await this.actor.setFlag("midnight-gambit", "directoryIcon", path);
+			const current = this.actor.getFlag("midnight-gambit", "directoryIcon") || this._initialPickerDir?.();
+			const picker = new FilePicker({
+				type: "image",
+				activeSource: "data",
+				current,
+				callback: async (path) => {
+					// 0) Remember the raw selection (optional flag)
+					await this.actor.setFlag("midnight-gambit", "directoryIcon", path);
 
-			// Route-safe URL for preview + directory thumb
-			const url = this._normalizeDirIconPath(path);
+					// 1) Normalize to a VFS path (or http/data) for *storage* in actor.img
+					const vfsPath = this._vfsPathForStorage(path);
 
-			// 1) Update the sheet preview
-			this.element.find(".mg-diricon-preview img").attr("src", url);
+					// 2) Store to actor.img so the Actors directory (for everyone) has a valid, Forge-safe src
+					await this.actor.update({ img: vfsPath }, { render: false });
 
-			// 2) Update the directory entry inline (no refresh needed)
-			this._refreshDirectoryThumb(url);
+					// 3) Route it for immediate preview + directory DOM patch
+					const url = foundry.utils.getRoute(vfsPath);
 
-			// 3) Fallback: re-render directory in case it’s closed
-			ui.actors?.render(false);
-			}
-		});
-		picker.render(true);
+					// Sheet preview
+					this.element.find(".mg-diricon-preview img").attr("src", url);
+
+					// Sidebar directory entry (live patch for this client)
+					this._refreshDirectoryThumb(url);
+
+					// Fallback: re-render directory in case it’s closed
+					ui.actors?.render(false);
+				}
+			});
+			
+			picker.render(true);
 		});
 
 		// Settings tab: Clear directory icon
 		$root.off("click.mgClearDirIcon").on("click.mgClearDirIcon", ".mg-clear-diricon", async (ev) => {
+			ev.preventDefault();
+
+			await this.actor.unsetFlag("midnight-gambit", "directoryIcon");
+
+			const fallbackVfs = "systems/midnight-gambit/assets/images/mg-queen.png";
+			await this.actor.update({ img: fallbackVfs }, { render: false });
+
+			const fallbackUrl = foundry.utils.getRoute(fallbackVfs);
+
+			// 1) Sheet preview
+			this.element.find(".mg-diricon-preview img").attr("src", fallbackUrl);
+
+			// 2) Directory entry (inline)
+			this._refreshDirectoryThumb(fallbackUrl);
+
+			// 3) Fallback render
+			ui.actors?.render(false);
+
+		});
+
+		// --- Settings tab: Crew Leveling (Level Up / Undo Last Level)
+		$root.off("click.mgCrewLevelUp").on("click.mgCrewLevelUp", ".mg-crew-levelup", async (ev) => {
+			ev.preventDefault();
+			await this._openCrewLevelWizard();
+		});
+
+		$root.off("click.mgCrewUndo").on("click.mgCrewUndo", ".mg-crew-undo", async (ev) => {
+			ev.preventDefault();
+			await this._undoLastCrewLevel();
+		});
+
+		$root.off("click.mgCrewUndoAll").on("click.mgCrewUndoAll", ".mg-crew-undo-all", async (ev) => {
 		ev.preventDefault();
+			const ok = await Dialog.confirm({
+				title: "Reset Crew to Tier 1?",
+				content: "<p>This will revert the crew back to Tier 1 (hand size 3) and clear level history.</p>"
+			});
+			if (!ok) return;
+		await this._undoToTierOne();
+		});
 
-		await this.actor.unsetFlag("midnight-gambit", "directoryIcon");
-
-		const fallback = this._normalizeDirIconPath("systems/midnight-gambit/assets/images/mg-queen.png");
-
-		// 1) Sheet preview
-		this.element.find(".mg-diricon-preview img").attr("src", fallback);
-
-		// 2) Directory entry (inline)
-		this._refreshDirectoryThumb(fallback);
-
-		// 3) Fallback render
-		ui.actors?.render(false);
+		// Header "Review Level Requirements" → open non-mutating checklist dialog
+		$root.off("click.mgCrewReview")
+		.on("click.mgCrewReview", ".mg-crew-review-level", async (ev) => {
+			ev.preventDefault();
+			await this._openCrewReviewDialog(); // <-- new, read-only dialog
 		});
 
 		// Initiative drag-reorder (full card draggable)
@@ -788,40 +863,12 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 			content,
 			buttons: {
 				save: {
-				icon: '<i class="fa-solid fa-floppy-disk"></i>',
-				label: "Save",
-				callback: async (html) => {
-					const form = html[0]?.querySelector?.(".mg-asset-edit");
-					if (!form) return;
-
-					// 1) Gather values
-					const newQty = Math.max(0, Number(form.querySelector(".ae-qty")?.value ?? 0));
-
-					// v11-safe: pull HTML from TinyMCE editor if mounted, else fallback to textarea value
-					const readEditorHTML = (el) => {
-					try {
-						const ed = TextEditor.getEditor?.(el) || window.tinyMCE?.get?.(el?.id);
-						if (ed && typeof ed.getContent === "function") return ed.getContent();
-					} catch (_) {}
-					return el?.value ?? "";
-					};
-					const descEl   = form.querySelector(`[id='${descId}']`) || document.getElementById(descId);
-					const notesEl  = form.querySelector(`[id='${notesId}']`) || document.getElementById(notesId);
-					const descHTML = readEditorHTML(descEl);
-					const notesHTML= readEditorHTML(notesEl);
-
-					await item.update({
-					"system.qty": newQty,
-					"system.description": descHTML,
-					"system.notes": notesHTML
-					}, { render: false });
-
-					// Refresh the crew sheet so the card updates immediately
-					await this.render(false);
-					ui.notifications.info("Asset updated.");
-					try { dlg.close({}); } catch (_) {}
-				}
+					label: "Finish Level",
+					icon: '<i class="fa-solid fa-flag-checkered"></i>',
+					cssClass: "mg-lvl-save",
+					callback: () => true
 				},
+
 				cancel: { label: "Cancel" }
 			},
 			default: "save",
@@ -1410,7 +1457,7 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 			g.discard = (g.discard || []).filter(i => i !== id);
 			await this.actor.update({ "system.gambits": g });
 			this.render(false);
-		});
+			});
 		}
 
 
@@ -1474,73 +1521,560 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 	}
 
 	_bindInitiativeDrag($root) {
-	const $list = $root.find(".mg-initiative-list");
-	if (!$list.length) return;
+		const $list = $root.find(".mg-initiative-list");
+		if (!$list.length) return;
 
-	let dragUuid = null;
-	let dragEl = null;
-	const placeholder = document.createElement("div");
-	placeholder.className = "mg-init-placeholder";
+		let dragUuid = null;
+		let dragEl = null;
+		const placeholder = document.createElement("div");
+		placeholder.className = "mg-init-placeholder";
 
-	// Cards are draggable
-	$list.find(".mg-init-card").attr("draggable", "true");
+		// Cards are draggable
+		$list.find(".mg-init-card").attr("draggable", "true");
 
-	// dragstart
-	$list.on("dragstart", ".mg-init-card", (ev) => {
-		const el = ev.currentTarget;
-		dragEl = el;
-		dragUuid = el.dataset.uuid;
-		el.classList.add("mg-dragging");
-		ev.originalEvent?.dataTransfer?.setData("text/plain", dragUuid);
-		ev.originalEvent?.dataTransfer?.setDragImage?.(el, 16, 16);
-		el.after(placeholder);
-	});
+		// dragstart
+		$list.on("dragstart", ".mg-init-card", (ev) => {
+			const el = ev.currentTarget;
+			dragEl = el;
+			dragUuid = el.dataset.uuid;
+			el.classList.add("mg-dragging");
+			ev.originalEvent?.dataTransfer?.setData("text/plain", dragUuid);
+			ev.originalEvent?.dataTransfer?.setDragImage?.(el, 16, 16);
+			el.after(placeholder);
+		});
 
-	// dragover
-	$list.on("dragover", ".mg-init-card, .mg-init-placeholder", (ev) => {
-		ev.preventDefault();
-		const target = ev.currentTarget;
-		const isPlaceholder = target.classList.contains("mg-init-placeholder");
-		const refEl = isPlaceholder ? placeholder : target;
+		// dragover
+		$list.on("dragover", ".mg-init-card, .mg-init-placeholder", (ev) => {
+			ev.preventDefault();
+			const target = ev.currentTarget;
+			const isPlaceholder = target.classList.contains("mg-init-placeholder");
+			const refEl = isPlaceholder ? placeholder : target;
 
-		if (!refEl.parentElement) return;
-		const bounds = refEl.getBoundingClientRect();
-		const midY = bounds.top + bounds.height / 2;
-		if (ev.originalEvent.clientY < midY) {
-		refEl.parentElement.insertBefore(placeholder, refEl);
-		} else {
-		refEl.parentElement.insertBefore(placeholder, refEl.nextSibling);
-		}
-	});
+			if (!refEl.parentElement) return;
+			const bounds = refEl.getBoundingClientRect();
+			const midY = bounds.top + bounds.height / 2;
+			if (ev.originalEvent.clientY < midY) {
+			refEl.parentElement.insertBefore(placeholder, refEl);
+			} else {
+			refEl.parentElement.insertBefore(placeholder, refEl.nextSibling);
+			}
+		});
 
-	// drop / dragend finalize
-	const finalize = async () => {
-		if (!dragUuid) return;
-		const parent = placeholder.parentElement;
-		if (parent && dragEl) parent.insertBefore(dragEl, placeholder);
-		placeholder.remove();
-		dragEl?.classList.remove("mg-dragging");
+		// drop / dragend finalize
+		const finalize = async () => {
+			if (!dragUuid) return;
+			const parent = placeholder.parentElement;
+			if (parent && dragEl) parent.insertBefore(dragEl, placeholder);
+			placeholder.remove();
+			dragEl?.classList.remove("mg-dragging");
 
-		// Persist new order
-		const newOrder = Array.from($list[0].querySelectorAll(".mg-init-card"))
-		.map(el => el.dataset.uuid)
-		.filter(Boolean);
+			// Persist new order
+			const newOrder = Array.from($list[0].querySelectorAll(".mg-init-card"))
+			.map(el => el.dataset.uuid)
+			.filter(Boolean);
 
-		await this.actor.update({ "system.initiative.order": newOrder });
-		dragUuid = null;
-		dragEl = null;
-	};
+			await this.actor.update({ "system.initiative.order": newOrder });
+			dragUuid = null;
+			dragEl = null;
+		};
 
-	$list.on("drop", ".mg-init-card, .mg-init-placeholder", async (ev) => {
-		ev.preventDefault();
-		await finalize();
-	});
+		$list.on("drop", ".mg-init-card, .mg-init-placeholder", async (ev) => {
+			ev.preventDefault();
+			await finalize();
+		});
 
-	$list.on("dragend", async (ev) => {
-		ev.preventDefault();
-		await finalize();
-	});
+		$list.on("dragend", async (ev) => {
+			ev.preventDefault();
+			await finalize();
+		});
 	}
+
+	/** -----------------------
+	 *  Tier Baseline Utilities
+	 *  -----------------------
+	 *  We store, per tier, the itemIds that existed immediately after entering that tier,
+	 *  and the requirements for that tier. "Pending" is computed by counting items created
+	 *  since that baseline.
+	 */
+	async _getTierBaselines() {
+		const map = this.actor.getFlag("midnight-gambit", "crewTierBaselines");
+		return (map && typeof map === "object") ? { ...map } : {};
+	}
+
+	async _setTierBaselines(map) {
+		await this.actor.setFlag("midnight-gambit", "crewTierBaselines", map && typeof map === "object" ? map : {});
+	}
+
+	/** Record a baseline for a tier (overwrite if it already exists). */
+	async _setTierBaseline(tier, need) {
+		const baselines = await this._getTierBaselines();
+		const itemIds   = this.actor.items.map(i => i.id);
+		baselines[String(tier)] = {
+			tier: Number(tier) || 1,
+			itemIds,
+			need: {
+			assets:  Number(need?.assets  ?? 0),
+			gambits: Number(need?.gambits ?? 0),
+			hideoutUp: Number(need?.hideoutUp ?? 0)
+			},
+			ts: Date.now()
+		};
+	await this._setTierBaselines(baselines);
+	}
+
+	/** Remove baselines for tiers strictly above `tier` (used on undo). */
+	async _pruneBaselinesAbove(tier) {
+		const t = Number(tier) || 1;
+		const baselines = await this._getTierBaselines();
+		let dirty = false;
+		for (const k of Object.keys(baselines)) {
+			if (Number(k) > t) { delete baselines[k]; dirty = true; }
+		}
+		if (dirty) await this._setTierBaselines(baselines);
+	}
+
+
+	/** Crew Tier → required rewards and resulting hand size.
+	 *  Table:
+	 *   Tier 1: Base (3 hand) — creation time
+	 *   Tier 2: +1 Asset, +1 Crew Gambit → hand 4
+	 *   Tier 3: +1 Hideout Upgrade       → hand 4
+	 *   Tier 4: +1 Asset, +1 Crew Gambit → hand 5
+	 *   Tier 5: +1 Hideout Upgrade       → hand 5
+	 */
+	_handSizeForTier(t) {
+	const tier = Number(t) || 1;
+		if (tier <= 1) return 3;
+		if (tier <= 3) return 4;
+		if (tier <= 5) return 5;
+		return 5;
+	}
+
+	_rewardsForTier(t) {
+	// Returns what's gained WHEN ENTERING this tier.
+	const tier = Number(t) || 1;
+		if (tier === 2) return { assets: 1, gambits: 1, hideoutUp: 0 };
+		if (tier === 3) return { assets: 0, gambits: 0, hideoutUp: 1 };
+		if (tier === 4) return { assets: 1, gambits: 1, hideoutUp: 0 };
+		if (tier === 5) return { assets: 0, gambits: 0, hideoutUp: 1 };
+		return { assets: 0, gambits: 0, hideoutUp: 0 }; // tier 1 baseline handled at creation
+	}
+
+	/** Canonical crew tier storage helpers.
+	 *  We use a flag as the source of truth and mirror to system.tier for templates.
+	 */
+	_readCrewTier() {
+	const flagVal = Number(this.actor.getFlag("midnight-gambit", "crewTier"));
+	if (Number.isFinite(flagVal) && flagVal >= 1) return Math.min(5, flagVal);
+
+	const sysVal = Number(getProperty(this.actor, "system.tier"));
+	if (Number.isFinite(sysVal) && sysVal >= 1) return Math.min(5, sysVal);
+
+	return 1;
+	}
+
+	async _writeCrewTier(nextTier, nextHand) {
+	const tier = Math.max(1, Math.min(5, Number(nextTier) || 1));
+	const hand = Math.max(1, Number(nextHand) || 3);
+	// Mirror to both places so templates and other code see the same thing
+	await this.actor.update({
+		"system.tier": tier,
+		"system.gambits.handSize": hand
+	}, { render: false });
+	await this.actor.setFlag("midnight-gambit", "crewTier", tier);
+	return { tier, hand };
+	}
+
+
+	/** Open the Crew Level-Up wizard. Steps are simple & live:
+	 *  - Determine next tier (max 5)
+	 *  - Compute required rewards for that new tier
+	 *  - Bump tier + hand size immediately (so caps are right)
+	 *  - Live-track items created while the dialog is open
+	 *  - Finish enabled only when required items are satisfied
+	 *  - Persist an undo snapshot so we can revert
+	 */
+	async _openCrewLevelWizard() {
+
+		// --- Normalize current tier safely (1–5) ---
+		const currentTier = this._readCrewTier();
+		const nextTier    = Math.min(5, currentTier + 1);
+			if (nextTier === currentTier) {
+				ui.notifications?.info("Crew is already at maximum Tier.");
+				return;
+		}
+
+		// --- Snapshot for Undo (push to history stack) ---
+		await this._pushUndoSnapshot(`Level to Tier ${nextTier}`);
+
+		// --- Resolve rewards & hand size for NEXT tier (what you gain now) ---
+		const rewards  = this._rewardsForTier(nextTier);
+		const nextHand = this._handSizeForTier(nextTier);
+
+		// --- Snapshot for Undo ---
+		const before = {
+			tier: currentTier,
+			handSize: Number(this.actor.system?.gambits?.handSize ?? 3) || 3,
+			itemIds: this.actor.items.map(i => i.id)
+		};
+		await this.actor.setFlag("midnight-gambit", "crewLevelUndo", before);
+
+		// --- Apply core changes immediately (so caps/limits are right) ---
+		await this._writeCrewTier(nextTier, nextHand);
+
+		await this._setTierBaseline(nextTier, rewards);
+
+		// --- Wizard UI scaffold ---
+		const fmt = (n, w) => n === 1 ? `1 ${w}` : `${n} ${w}s`;
+		const needsAssets  = rewards.assets;
+		const needsGambits = rewards.gambits;
+		const needsUpg     = rewards.hideoutUp;
+
+		const countNow = () => {
+			const idsNow = this.actor.items.map(i => i.id);
+			const newIds = idsNow.filter(id => !before.itemIds.includes(id));
+			const created = newIds.map(id => this.actor.items.get(id)).filter(Boolean);
+			return {
+			assets:  created.filter(i => i.type === "asset").length,
+			gambits: created.filter(i => i.type === "gambit").length,
+			createdIds: newIds
+			};
+		};
+
+		const wrapId = `lvl-${randomID()}`;
+		const content = `
+		<style>
+			.mg-level-wizard { line-height:1.4; }
+			.mg-level-wizard .req { display:flex; gap:.5rem; align-items:center; margin:.25rem 0; }
+			.mg-level-wizard .req .ok { color:var(--color-text-success, #47c972); display:none; }
+			.mg-level-wizard .req.done .ok { display:inline; }
+			.mg-level-wizard .hint { opacity:.8; font-size:.95em; margin:.25rem 0 .5rem; }
+			.mg-level-wizard .counts { margin-top:.5rem; font-size:.95em; opacity:.9; }
+			.mg-level-wizard .small { opacity:.75; font-size:.9em; }
+		</style>
+		<div id="${wrapId}" class="mg-level-wizard">
+			<p><strong>Tier ${currentTier} → Tier ${nextTier}</strong></p>
+			<p class="hint">Drag required items onto the Crew sheet as usual. This wizard auto-detects when you’ve added them.</p>
+			<div class="req req-assets" data-need="${needsAssets}">
+			<i class="fa-regular fa-box"></i>
+			<span>${needsAssets ? ("Add " + fmt(needsAssets, "Asset")) : "No Assets at this tier"}</span>
+			<i class="ok fa-solid fa-check"></i>
+			</div>
+			<div class="req req-gambits" data-need="${needsGambits}">
+			<i class="fa-solid fa-cards"></i>
+			<span>${needsGambits ? ("Add " + fmt(needsGambits, "Crew Gambit")) : "No Gambits at this tier"}</span>
+			<i class="ok fa-solid fa-check"></i>
+			</div>
+			<div class="req req-upg ${needsUpg ? "" : "done"}" data-need="${needsUpg}">
+			<i class="fa-regular fa-warehouse"></i>
+			<span>${needsUpg
+				? ("Apply " + fmt(needsUpg, "Hideout Upgrade") + " (note it manually for now)")
+				: "No Hideout upgrade at this tier"}</span>
+			<i class="ok fa-solid fa-check"></i>
+			</div>
+			<div class="counts small">Hand size is now <strong>${nextHand}</strong>.</div>
+		</div>`;
+
+		let resolver = null;
+		const donePromise = new Promise(r => resolver = r);
+
+		const updateUI = (dlg) => {
+			const live = countNow();
+			const root = document.getElementById(wrapId);
+			if (!root) return;
+
+			const rA = root.querySelector(".req-assets");
+			const rG = root.querySelector(".req-gambits");
+
+			if (rA) rA.classList.toggle("done", (needsAssets === 0) || (live.assets  >= needsAssets));
+			if (rG) rG.classList.toggle("done", (needsGambits === 0) || (live.gambits >= needsGambits));
+
+			const allDone =
+			((needsAssets  === 0) || (live.assets  >= needsAssets)) &&
+			((needsGambits === 0) || (live.gambits >= needsGambits)) &&
+			((needsUpg     === 0) || true); // manual note for now
+
+			const $dlg  = dlg?.element || $(".app.dialog");
+			const $save = $dlg.find(".dialog-buttons .mg-lvl-save");
+			$save.prop("disabled", !allDone);
+
+			if (allDone) resolver?.(true);
+		};
+
+		const hookId = Hooks.on("createItem", (item) => {
+			if (item?.parent?.id !== this.actor.id) return;
+			if (!document.getElementById(wrapId)) return;
+			updateUI(dlgRef);
+		});
+
+		const dlgRef = new Dialog({
+			title: `Crew Level-Up: Tier ${nextTier}`,
+			content,
+			buttons: {
+				save: {
+				label: "Finish Level",
+				icon: '<i class="fa-solid fa-flag-checkered"></i>',
+				cssClass: "mg-lvl-save",
+				callback: () => true
+				},
+
+
+				cancel: {
+					label: "Cancel (Undo Changes)",
+					icon: '<i class="fa-regular fa-circle-xmark"></i>',
+					callback: async () => { await this._undoLastCrewLevel(); return false; }
+				}
+			},
+			default: "save",
+			close: async () => { try { Hooks.off("createItem", hookId); } catch {} }
+		}, { classes: ["midnight-gambit","dialog","mg-level-dialog"], width: 520 });
+
+		dlgRef.render(true);
+		setTimeout(() => {
+			dlgRef.element.find(".mg-lvl-save").prop("disabled", true);
+			updateUI(dlgRef);
+		}, 30);
+
+		try { await Promise.race([donePromise, new Promise(r => setTimeout(r, 10*60*1000))]); } catch {}
+	}
+
+	/** Revert the last level operation:
+	 *  - Restore previous tier and hand size
+	 *  - Remove any items created during the level dialog
+	 *  - Clear the undo flag
+	 */
+	async _undoLastCrewLevel() {
+		const hist = await this._getLevelHistory();
+		if (!hist.length) {
+			ui.notifications?.warn("No level history found to undo.");
+			return;
+		}
+
+		const snap = hist.pop();
+		await this._setLevelHistory(hist);
+		await this._restoreFromSnapshot(snap);
+
+		// NEW: prune baselines above the restored tier
+		const cur = this._readCrewTier();
+		await this._pruneBaselinesAbove(cur);
+
+		this.render(false);
+		ui.notifications?.info("Undid the last crew level.");
+	}
+
+
+	/** Roll back to the earliest snapshot (or hard reset if none), Tier 1 + hand 3. */
+	async _undoToTierOne() {
+		let hist = await this._getLevelHistory();
+		if (hist.length) {
+			// Restore the earliest snapshot (first level taken)
+			const first = hist[0];
+			await this._restoreFromSnapshot(first);
+			hist = []; // clear history after hard reset to base
+			await this._setLevelHistory(hist);
+		} else {
+			// No history yet → just hard set to base
+			await this._writeCrewTier(1, 3);
+			// Optional: you can also wipe gambits/assets here if you want a true blank slate.
+		}
+
+		// Clear all completion flags
+		await this.actor.setFlag("midnight-gambit", "crewLevelComplete", { "1": true });
+		await this._setTierBaselines({});
+
+	this.render(false);
+		ui.notifications?.info("Crew reset to Tier 1 (base).");
+	}
+
+	/** Compute current level-pending status + remaining requirements. */
+	async _computeLevelPending() {
+		const tier = this._readCrewTier();
+		const rewards = this._rewardsForTier(tier);
+
+		const needA = Number(rewards.assets  || 0);
+		const needG = Number(rewards.gambits || 0);
+		const needU = Number(rewards.hideoutUp || 0);
+		const hasReqs = (needA + needG + needU) > 0;
+
+		if (!hasReqs) return { pending:false, needA:0, needG:0, needU:0 };
+
+		const baselines = await this._getTierBaselines();
+		const base = baselines[String(tier)] || { itemIds: [], need: rewards };
+		const existing = new Set(base.itemIds);
+
+		// Count items created since entering this tier
+		const newItems = this.actor.items.filter(i => !existing.has(i.id));
+		const gotA = newItems.filter(i => i.type === "asset").length;
+		const gotG = newItems.filter(i => i.type === "gambit").length;
+
+		const needAssets  = Number(base.need?.assets  ?? needA);
+		const needGambits = Number(base.need?.gambits ?? needG);
+		const pending = (gotA < needAssets) || (gotG < needGambits);
+
+		return {
+			pending,
+			needA: Math.max(0, needAssets  - gotA),
+			needG: Math.max(0, needGambits - gotG),
+			needU // informational only right now
+		};
+	}
+
+	/** -----------------------
+	 *  Level History Utilities
+	 *  -----------------------
+	 *  We keep a stack of snapshots so you can undo repeatedly or jump to Tier 1.
+	 *  Each snapshot is taken BEFORE we apply a level. It stores:
+	 *    - tierBefore, handBefore
+	 *    - itemIds (to detect items created after this point)
+	 *    - ts (timestamp), note (optional)
+	 */
+	async _getLevelHistory() {
+		const arr = this.actor.getFlag("midnight-gambit", "crewLevelHistory");
+		return Array.isArray(arr) ? arr.slice() : [];
+	}
+
+	async _setLevelHistory(arr) {
+		await this.actor.setFlag("midnight-gambit", "crewLevelHistory", Array.isArray(arr) ? arr : []);
+	}
+
+	async _pushUndoSnapshot(note = "") {
+		const tierBefore = this._readCrewTier();
+		const handBefore = Number(this.actor.system?.gambits?.handSize ?? 3) || 3;
+		const itemIds    = this.actor.items.map(i => i.id);
+
+		const hist = await this._getLevelHistory();
+		hist.push({ tierBefore, handBefore, itemIds, ts: Date.now(), note });
+		await this._setLevelHistory(hist);
+		return hist.length;
+	}
+
+	/** Restore a snapshot (core fields + delete any items created after it). */
+	async _restoreFromSnapshot(snap) {
+		if (!snap) return false;
+
+		// Restore core values (no re-render)
+		const tier = Number(snap.tierBefore) || 1;
+		const hand = Number(snap.handBefore) || 3;
+		await this._writeCrewTier(tier, hand);
+
+		// Remove items that were created after the snapshot (best-effort)
+		const idsNow   = this.actor.items.map(i => i.id);
+		const toRemove = idsNow.filter(id => !snap.itemIds.includes(id));
+		if (toRemove.length) {
+			try { await this.actor.deleteEmbeddedDocuments("Item", toRemove, { render: false }); }
+			catch (e) { console.warn("MG | history restore: delete created items failed", e); }
+		}
+
+		// Keep baselines consistent (anything above the restored tier is stale)
+		await this._pruneBaselinesAbove(tier);
+
+		return true;
+	}
+
+
+	/** Read-only checklist for the CURRENT tier's pending requirements.
+ *  - Does NOT change tier, hand size, baselines, or history.
+ *  - Live-updates checkmarks while the dialog is open (on createItem).
+	*/
+	async _openCrewReviewDialog() {
+		const tier     = this._readCrewTier();
+		const rewards  = this._rewardsForTier(tier);
+		const needA    = Number(rewards.assets || 0);
+		const needG    = Number(rewards.gambits || 0);
+		const needU    = Number(rewards.hideoutUp || 0);
+		const hasReqs  = (needA + needG + needU) > 0;
+
+		// If nothing is required at this tier, just inform and bail.
+		if (!hasReqs) {
+			ui.notifications?.info(`Tier ${tier} has no outstanding requirements.`);
+			return;
+		}
+
+		// Get (or synthesize) the baseline used for pending logic
+		const baselines = await this._getTierBaselines();
+		const base      = baselines[String(tier)] || { itemIds: [], need: rewards };
+		const baselineSet = new Set(base.itemIds);
+
+		// Live counters based on items created since entering this tier
+		const countNow = () => {
+			const newItems = this.actor.items.filter(i => !baselineSet.has(i.id));
+			const haveA = newItems.filter(i => i.type === "asset").length;
+			const haveG = newItems.filter(i => i.type === "gambit").length;
+			return { haveA, haveG };
+		};
+
+		const wrapId = `review-${randomID()}`;
+		const fmt = (n, w) => n === 1 ? `1 ${w}` : `${n} ${w}s`;
+
+		const content = `
+			<style>
+			.mg-review { line-height:1.4; }
+			.mg-review .req { display:flex; gap:.5rem; align-items:center; margin:.25rem 0; }
+			.mg-review .req .ok { color:var(--color-text-success,#47c972); display:none; }
+			.mg-review .req.done .ok { display:inline; }
+			.mg-review .hint { opacity:.8; font-size:.95em; margin:.25rem 0 .5rem; }
+			.mg-review .counts { margin-top:.5rem; font-size:.95em; opacity:.9; }
+			</style>
+			<div id="${wrapId}" class="mg-review">
+			<p><strong>Tier ${tier} requirements</strong></p>
+			<p class="hint">Drag the required items onto the Crew sheet. This checklist updates automatically.</p>
+			<div class="req req-assets" data-need="${needA}">
+				<i class="fa-regular fa-box"></i>
+				<span>${needA ? `Add ${fmt(needA, "Asset")} (<span class="countA">0</span>/${needA})` : "No Assets at this tier"}</span>
+				<i class="ok fa-solid fa-check"></i>
+			</div>
+			<div class="req req-gambits" data-need="${needG}">
+				<i class="fa-solid fa-cards"></i>
+				<span>${needG ? `Add ${fmt(needG, "Crew Gambit")} (<span class="countG">0</span>/${needG})` : "No Gambits at this tier"}</span>
+				<i class="ok fa-solid fa-check"></i>
+			</div>
+			<div class="req req-upg ${needU ? "" : "done"}" data-need="${needU}">
+				<i class="fa-regular fa-warehouse"></i>
+				<span>${needU ? `Apply ${fmt(needU, "Hideout Upgrade")} (note it manually)` : `No Hideout upgrade at this tier`}</span>
+				<i class="ok fa-solid fa-check"></i>
+			</div>
+			</div>
+		`;
+
+		const updateUI = (dlg) => {
+			const { haveA, haveG } = countNow();
+			const root = document.getElementById(wrapId);
+			if (!root) return;
+
+			const needAssets  = Number(root.querySelector(".req-assets")?.dataset.need || 0);
+			const needGambits = Number(root.querySelector(".req-gambits")?.dataset.need || 0);
+
+			if (root.querySelector(".countA")) root.querySelector(".countA").textContent = String(Math.min(haveA, needAssets));
+			if (root.querySelector(".countG")) root.querySelector(".countG").textContent = String(Math.min(haveG, needGambits));
+
+
+			// No enable/disable of buttons; this is purely a reminder dialog.
+		};
+
+		const hookId = Hooks.on("createItem", (item) => {
+			if (item?.parent?.id !== this.actor.id) return;
+			if (!document.getElementById(wrapId)) return;
+			updateUI(dlgRef);
+		});
+
+		const dlgRef = new Dialog({
+			title: `Crew Level Review: Tier ${tier}`,
+			content,
+			buttons: {
+			close: {
+				label: "Close",
+				icon: '<i class="fa-regular fa-circle-xmark"></i>',
+				callback: () => true
+			}
+			},
+			default: "close",
+			close: async () => { try { Hooks.off("createItem", hookId); } catch {} }
+		}, { classes: ["midnight-gambit","dialog","mg-review-dialog"], width: 520 });
+
+		dlgRef.render(true);
+		setTimeout(() => updateUI(dlgRef), 30);
+	}
+
 
     /* Gambits tab bindings
     ----------------------------------------------------------------------*/  
@@ -1893,4 +2427,31 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 			});
 		}
 	}
+
+	/** Normalize a picker-returned path to a *VFS path* suitable for actor.img.
+	 *  - Leaves https:// and data: as-is (Foundry supports external URLs).
+	 *  - Strips leading "/" (FVTT VFS paths are relative, e.g. "systems/..." not "/systems/...").
+	 *  - Anchors bare/relative and "assets/..." paths to this system.
+	 */
+	_vfsPathForStorage(url) {
+	if (!url) return "";
+	let u = String(url).trim().replace(/\\/g, "/");
+
+	// External or data URIs: keep as-is
+	if (/^(?:https?:|data:)/i.test(u)) return u;
+
+	// Drop a single leading slash so it's a VFS-relative path
+	if (u.startsWith("/")) u = u.replace(/^\/+/, "");
+
+	// Known VFS roots are fine as-is
+	if (/^(systems|modules|worlds|icons|ui)\b/i.test(u)) return u;
+
+	// If it begins with "assets/", anchor to system
+	if (/^assets\//i.test(u)) return `systems/${game.system.id}/${u}`;
+
+	// Otherwise treat as system-relative (e.g., "assets/images/foo.png" or "./assets/images/foo.png")
+	u = u.replace(/^\.\//, "");
+	return `systems/${game.system.id}/${u}`;
+	}
+
 }

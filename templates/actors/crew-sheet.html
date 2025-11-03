@@ -20,11 +20,11 @@
 						value="{{actor.name}}"
 						class="mg-crew-name"
 						placeholder="Crew Name" />
-				<span class="crew-tier-badge">Tier {{actor.system.tier}}</span>
+				<span class="crew-tier-badge">Tier {{crewTier}}</span>
 
 				{{else}}
 				<h1 class="mg-crew-name-display">{{actor.name}}</h1>
-				<span class="crew-tier-badge">Tier {{actor.system.tier}}</span>
+				<span class="crew-tier-badge">Tier {{crewTier}}</span>
 				{{/if}}
 			</div>
 
@@ -431,17 +431,34 @@
 
 			<!-- SETTINGS: Crew Tier -->
 			<div class="field crew-tier-settings mg-content">
-				<label>Crew Tier</label>
-				<div class="row">
-					<span class="tier-readout">Tier {{crewTier}}</span>
-					<div class="btns">
-						<button type="button" class="crew-tier-down" title="Undo Tier">
-							<i class="fa-solid fa-rotate-left"></i> Undo Tier
-						</button>
-						<button type="button" class="crew-tier-up" title="Tier Up">
-							<i class="fa-solid fa-arrow-up"></i> Tier Up
-						</button>
+
+				<div class="crew-row">
+					<div class="tier-container">
+						<label>Crew Tier</label>
+						<span>Tier {{crewTier}}</span>
 					</div>
+
+					{{#if levelPending}}
+					<button type="button" class="mg-pending-glow mg-crew-review-level" title="Review crew level requirements">
+						<i class="fa-solid fa-bolt"></i>
+						Review Level Requirements
+					</button>
+					{{/if}}
+				</div>
+
+				<div class="btns">
+					<button type="button" class="mg-crew-levelup">
+						<i class="fa-solid fa-arrow-up"></i> Level Up
+					</button>
+					
+					<button type="button" class="mg-crew-undo">
+						<i class="fa-solid fa-rotate-left"></i> Undo Last Level
+					</button>
+
+					<button type="button" class="mg-crew-undo-all">
+						<i class="fa-solid fa-arrow-rotate-left"></i> Undo to Tier 1
+					</button>
+
 				</div>
 			</div>
 
