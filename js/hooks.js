@@ -2193,3 +2193,18 @@ Hooks.once("ready", async () => {
     }
   }
 });
+
+Hooks.on("updateActor", async (crew, data) => {
+  if (crew.type !== "crew") return;
+  if (!("name" in data)) return;
+
+  const crewId = crew.id;
+  const newName = crew.name;
+
+  // Find all characters that reference this crew
+  const chars = game.actors?.filter(a => a.type === "character" && a.system?.crewId === crewId) || [];
+  for (const a of chars) {
+    try { await a.update({ "system.crewName": newName }, { render: false }); }
+    catch (e) { console.warn("MG | crew rename propagate failed for", a, e); }
+  }
+});

@@ -1700,6 +1700,83 @@ export class MidnightGambitActorSheet extends ActorSheet {
             }
           );
         });
+
+        // Header pencil → open modal to edit top-of-card fields (currently: Name)
+        {
+          const $root = html instanceof jQuery ? html : $(html);
+
+          $root.off("click.mgEditHeader").on("click.mgEditHeader", ".mg-edit-name", async (ev) => {
+            ev.preventDefault();
+
+            // --- Safe HTML escaper compatible with v11 ---
+            const esc = (s) => {
+              const str = String(s ?? "");
+              if (window?.Handlebars?.escapeExpression) return Handlebars.escapeExpression(str);
+              return str
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#39;");
+            };
+
+            // Current values (expand later if you add more header fields)
+            const currentName = this.actor.name ?? "";
+
+            const content = `
+              <form class="mg-form">
+                <div class="form-group">
+                  <label>Name</label>
+                  <input type="text" name="name" value="${esc(currentName)}" />
+                </div>
+              </form>
+            `;
+
+            const result = await Dialog.wait({
+              title: "Edit Character Header",
+              content,
+              buttons: {
+                ok: {
+                  label: this._mgBtn("Save", "fa-floppy-disk"),
+                  callback: (dlgHtml) => {
+                    const $dlg = $(dlgHtml);
+                    return {
+                      name: String($dlg.find('input[name="name"]').val() ?? "").trim()
+                    };
+                  }
+                },
+                cancel: { label: this._mgBtn("Cancel", "fa-circle-xmark"), callback: () => null }
+              },
+              default: "ok"
+            });
+
+            if (!result) return;
+
+            const updates = {};
+            if (result.name && result.name !== this.actor.name) updates["name"] = result.name;
+
+            if (Object.keys(updates).length) {
+              await this.actor.update(updates);
+              // Soft refresh headline text without full re-render
+              const wrap = this.element.find("[data-mg-nameblock] .mg-name-view");
+              if (wrap.length) wrap.text(this.actor.name);
+            }
+          });
+        }
+
+        // Keep crew affiliation label in sync with data updates (v11-safe)
+        if (this._mgCrewNameHook) Hooks.off("updateActor", this._mgCrewNameHook);
+        this._mgCrewNameHook = (doc, diff) => {
+          if (!doc || doc.id !== this.actor.id) return;
+
+          // Only react if crewName changed
+          const changed = foundry.utils.getProperty(diff, "system.crewName");
+          if (changed === undefined) return;
+
+          const $label = this.element.find(".mg-crew-affiliation .crew-name");
+          if ($label.length) $label.text(doc.system?.crewName || "No Crew");
+        };
+        Hooks.on("updateActor", this._mgCrewNameHook);
     }
     
   //END EVENT LISTENERS
@@ -2779,21 +2856,21 @@ export class MidnightGambitActorSheet extends ActorSheet {
   }
 
   _mgRefreshGuiseVisibility(html = this.element) {
-  const hasSystemGuise =
-    Boolean(getProperty(this.actor, "system.guise")) ||
-    Boolean(getProperty(this.actor, "system.guiseId")) ||
-    Boolean(getProperty(this.actor, "system.guise.active"));
+    const hasSystemGuise =
+      Boolean(getProperty(this.actor, "system.guise")) ||
+      Boolean(getProperty(this.actor, "system.guiseId")) ||
+      Boolean(getProperty(this.actor, "system.guise.active"));
 
-  const hasItemGuise = Array.isArray(this.actor.items)
-    ? this.actor.items.some(i => i.type === "guise")
-    : false;
+    const hasItemGuise = Array.isArray(this.actor.items)
+      ? this.actor.items.some(i => i.type === "guise")
+      : false;
 
-  const hasGuise = hasSystemGuise || hasItemGuise;
+    const hasGuise = hasSystemGuise || hasItemGuise;
 
-  const $root = html instanceof jQuery ? html : $(html);
-  $root.find("[data-requires-guise]").toggle(hasGuise);
-  $root.find("[data-hides-with-guise]").toggle(!hasGuise);
-}  
+    const $root = html instanceof jQuery ? html : $(html);
+    $root.find("[data-requires-guise]").toggle(hasGuise);
+    $root.find("[data-hides-with-guise]").toggle(!hasGuise);
+  }  
   async _onDrop(event) {
     try {
       const data = TextEditor.getDragEventData(event);
@@ -2842,6 +2919,12 @@ export class MidnightGambitActorSheet extends ActorSheet {
       this._mgMoveCreateHook = null;
       this._mgMoveDeleteHook = null;
     } catch (_) {}
+
+    try {
+      if (this._mgCrewNameHook) Hooks.off("updateActor", this._mgCrewNameHook);
+      this._mgCrewNameHook = null;
+    } catch (_) {}
+
     return super.close(options);
   }
 }

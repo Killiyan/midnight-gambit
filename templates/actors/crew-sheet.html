@@ -72,11 +72,15 @@
 								<i class="fa-solid fa-address-card"></i>
 							</button>
 
-							{{#if ../canEdit}}
-							<button type="button" class="mg-remove-member" title="Remove from Party">
-								<i class="fas fa-times"></i>
-							</button>
-							{{/if}}
+							<div class="mg-member" data-actor-id="{{actorId}}">
+								<!-- avatar, name, etc. -->
+								{{#if ../canEdit}}
+									<button type="button" class="mg-remove-member" title="Remove from Party">
+									<i class="fas fa-times"></i>
+									</button>
+								{{/if}}
+							</div>
+
 						</div>
 					</article>
 					{{/each}}
@@ -427,72 +431,66 @@
 
 		<!-- SETTINGS TAB -->
 		<div class="tab settings-tab" data-tab="settings">
-		<div class="mg-crew-settings">
+			<div class="mg-crew-settings">
 
-			<!-- SETTINGS: Crew Tier -->
-			<div class="field crew-tier-settings mg-content">
+				<!-- SETTINGS: Crew Tier -->
+				<div class="field crew-tier-settings mg-content">
 
-				<div class="crew-row">
-					<div class="tier-container">
-						<label>Crew Tier</label>
-						<span>Tier {{crewTier}}</span>
-					</div>
+					<div class="crew-row">
+						<div class="tier-container">
+							<label>Crew Tier</label>
+							<span>Tier {{crewTier}}</span>
+						</div>
 
-					{{#if levelPending}}
-					<button type="button" class="mg-pending-glow mg-crew-review-level" title="Review crew level requirements">
-						<i class="fa-solid fa-bolt"></i>
-						Review Level Requirements
-					</button>
-					{{/if}}
-				</div>
-
-				<div class="btns">
-					<button type="button" class="mg-crew-levelup">
-						<i class="fa-solid fa-arrow-up"></i> Level Up
-					</button>
-					
-					<button type="button" class="mg-crew-undo">
-						<i class="fa-solid fa-rotate-left"></i> Undo Last Level
-					</button>
-
-					<button type="button" class="mg-crew-undo-all">
-						<i class="fa-solid fa-arrow-rotate-left"></i> Undo to Tier 1
-					</button>
-
-				</div>
-			</div>
-
-			<div class="mg-diricon-row">
-				<div class="mg-content">
-					<h2>Directory Icon</h2>
-					<p>This image only changes how the Crew appears in the <em>actors</em> sidebar.
-					It does not change the Crew’s portrait or any tokens.</p>
-				</div>
-
-				<div class="diricon-settings">
-					<div class="mg-diricon-preview" title="Directory Icon Preview">
-						{{#if directoryIconResolved}}
-							<img src="{{directoryIconResolved}}"
-							alt="Directory Icon Preview" />
-						{{else}}
-							<img src="systems/midnight-gambit/assets/images/mg-queen.png"
-							alt="Directory Icon Preview" />
+						{{#if levelPending}}
+						<button type="button" class="mg-pending-glow mg-crew-review-level" title="Review crew level requirements">
+							<i class="fa-solid fa-bolt"></i>
+							Review Level Requirements
+						</button>
 						{{/if}}
 					</div>
 
-					{{#if canEdit}}
-					<div class="mg-diricon-actions">
-						<button type="button" class="mg-pick-diricon">
-						<i class="fa-regular fa-image"></i> Choose Icon
+					<div class="btns">
+						<button type="button" class="mg-crew-levelup">
+							<i class="fa-solid fa-arrow-up"></i> Level Up
 						</button>
-						<button type="button" class="mg-clear-diricon">
-						<i class="fa-solid fa-ban"></i> Clear
+						
+						<button type="button" class="mg-crew-undo">
+							<i class="fa-solid fa-rotate-left"></i> Undo Last Level
 						</button>
+
+						<button type="button" class="mg-crew-undo-all">
+							<i class="fa-solid fa-arrow-rotate-left"></i> Undo to Tier 1
+						</button>
+
 					</div>
-					{{/if}}
+				</div>
+
+				<div class="mg-diricon-row">
+					<div class="mg-content">
+						<h2>Directory Icon</h2>
+						<p>This image only changes how the Crew appears in the <em>actors</em> sidebar.
+						It does not change the Crew’s portrait or any tokens.</p>
+					</div>
+
+					<div class="diricon-settings">
+						<div class="mg-diricon-preview" title="Directory Icon Preview">
+							<img src="{{directoryIconResolved}}" alt="Directory Icon Preview" />
+						</div>
+
+						{{#if canEdit}}
+						<div class="mg-diricon-actions">
+							<button type="button" class="mg-pick-diricon">
+							<i class="fa-regular fa-image"></i> Choose Icon
+							</button>
+							<button type="button" class="mg-clear-diricon">
+							<i class="fa-solid fa-ban"></i> Clear
+							</button>
+						</div>
+						{{/if}}
+					</div>
 				</div>
 			</div>
-		</div>
 		</div>
 
 	</section>

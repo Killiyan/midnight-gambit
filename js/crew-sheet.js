@@ -91,8 +91,13 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 		const rawDirIcon = this.actor.getFlag("midnight-gambit", "directoryIcon") || "";
 		data.directoryIcon = rawDirIcon; // last-picked raw value (for the Settings UI)
 
-		const stored = this._vfsPathForStorage(rawDirIcon) || "systems/midnight-gambit/assets/images/mg-queen.png";
+		// Prefer the flag when present; otherwise use actor.img (already sanitized elsewhere)
+		const stored = rawDirIcon
+			? (this._vfsPathForStorage(rawDirIcon) || "systems/midnight-gambit/assets/images/mg-queen.png")
+			: (this.actor.img || "systems/midnight-gambit/assets/images/mg-queen.png");
+
 		data.directoryIconResolved = foundry.utils.getRoute(stored);
+
 
 
 		// Make actor available to the template (for name binding)
@@ -324,7 +329,6 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 		if (cache?.[uuid]?.level != null) levelText = String(cache[uuid].level);
 		}
 
-
       out.push({
         uuid,
         name,
@@ -345,122 +349,136 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 	 *  - For anything else: defer to base class.
 	 */
 	async _onDrop(event) {
-	if (!this.isEditable) return false;
+		if (!this.isEditable) return false;
 
-	const data = TextEditor.getDragEventData(event);
+		const data = TextEditor.getDragEventData(event);
 
-	// === Handle Item drops here so we can force a re-render ===
-	if (data?.type === "Item") {
-		try {
-		const src = await fromUuid(data.uuid);
-		if (!src || src.documentName !== "Item") return false;
+		// === Handle Item drops here so we can force a re-render ===
+		if (data?.type === "Item") {
+			try {
+			const src = await fromUuid(data.uuid);
+			if (!src || src.documentName !== "Item") return false;
 
-		// Clone to a plain object and strip _id so it gets a fresh one
-		const obj = (src instanceof Item) ? src.toObject() : src;
-		delete obj._id;
+			// Clone to a plain object and strip _id so it gets a fresh one
+			const obj = (src instanceof Item) ? src.toObject() : src;
+			delete obj._id;
 
-		const type = (obj.type || src.type);
-		const isAsset  = type === "asset";
-		const isGambit = type === "gambit";
+			const type = (obj.type || src.type);
+			const isAsset  = type === "asset";
+			const isGambit = type === "gambit";
 
-		// Allow Assets; Gate Gambits
-		if (!isAsset && !isGambit) return false;
+			// Allow Assets; Gate Gambits
+			if (!isAsset && !isGambit) return false;
 
-		if (isGambit) {
-			// Tier gate: Crew sheet only accepts Crew-tier Gambits
-			const tier = (obj.system?.tier ?? src.system?.tier ?? "rookie").toLowerCase();
-			if (tier !== "crew") {
-			ui.notifications?.warn("Only Crew-tier Gambits can be added to the Crew.");
+			if (isGambit) {
+				// Tier gate: Crew sheet only accepts Crew-tier Gambits
+				const tier = (obj.system?.tier ?? src.system?.tier ?? "rookie").toLowerCase();
+				if (tier !== "crew") {
+				ui.notifications?.warn("Only Crew-tier Gambits can be added to the Crew.");
+				return false;
+				}
+
+				// Hand-size cap with confirm override
+				const g = this.actor.system?.gambits ?? {};
+				const handSize  = Number(g.handSize ?? 3) || 3;
+				const currentCt = Array.isArray(g.deck) ? g.deck.length : 0;
+
+				if (currentCt >= handSize) {
+				const ok = await Dialog.confirm({
+					title: "Over Hand Limit?",
+					content: `
+					<p>You're going over your max available Crew Gambits for this level
+					(<strong>${currentCt}/${handSize}</strong>).</p>
+					<p><em>Only add this if your Director approves!</em></p>
+					`,
+					defaultYes: false,
+					yes: () => true, no: () => false
+				});
+				if (!ok) return false;
+				}
+			}
+
+			// Create the embedded item on the Crew
+			const [created] = await this.actor.createEmbeddedDocuments("Item", [obj]);
+
+			// If it's a Gambit, drop it into the Crew's hand immediately
+			if (isGambit && created?.id) {
+				const g2 = foundry.utils.deepClone(this.actor.system.gambits ?? {});
+				g2.deck = Array.isArray(g2.deck) ? g2.deck.slice() : [];
+				g2.deck.push(created.id);
+				await this.actor.update({ "system.gambits.deck": g2.deck }, { render: false });
+			}
+
+			this.render(false);
+			return true;
+			} catch (err) {
+			console.warn("MG | _onDrop Item failed:", err);
 			return false;
 			}
 
-			// Hand-size cap with confirm override
-			const g = this.actor.system?.gambits ?? {};
-			const handSize  = Number(g.handSize ?? 3) || 3;
-			const currentCt = Array.isArray(g.deck) ? g.deck.length : 0;
+		}
 
-			if (currentCt >= handSize) {
-			const ok = await Dialog.confirm({
-				title: "Over Hand Limit?",
-				content: `
-				<p>You're going over your max available Crew Gambits for this level
-				(<strong>${currentCt}/${handSize}</strong>).</p>
-				<p><em>Only add this if your Director approves!</em></p>
-				`,
-				defaultYes: false,
-				yes: () => true, no: () => false
-			});
-			if (!ok) return false;
+		// === Party member (Actor) drop logic ===
+		if (data?.type === "Actor") {
+			const actor = await fromUuid(data.uuid);
+			if (!actor || actor.documentName !== "Actor") return false;
+			if (actor.type !== "character") {
+			ui.notifications?.warn("Only player characters can join the Crew (for now).");
+			return false;
 			}
+
+			const sys = this.actor.system ?? {};
+			const party = sys.party ?? {};
+			const members = Array.isArray(party.members) ? party.members.slice() : [];
+
+			if (members.includes(actor.uuid)) {
+			ui.notifications?.info(`${actor.name} is already in the party.`);
+			return false;
+			}
+
+			members.push(actor.uuid);
+
+			// Build/merge a small cache snapshot
+			const cache = foundry.utils.duplicate(party.cache ?? {});
+			cache[actor.uuid] = {
+			name: actor.name,
+			img: actor.img,
+			type: actor.type,
+			className: await this._peekClassName(actor),
+			level: await this._peekLevel(actor)
+			};
+
+			// Also append to initiative if not present
+			const initiative = sys.initiative ?? {};
+			const order = Array.isArray(initiative.order) ? initiative.order.slice() : [];
+			if (!order.includes(actor.uuid)) order.push(actor.uuid);
+
+			await this.actor.update({
+				"system.party.members": members,
+				"system.party.cache": cache,
+				"system.initiative.order": order
+			});
+
+			// Also set a back-reference on the dropped character (no re-render)
+			try {
+			await actor.update({
+				"system.crewId": this.actor.id,
+				"system.crewName": this.actor.name
+			}, { render: false });
+
+			// Optional: toast for feedback
+			ui.notifications?.info(`${actor.name} assigned to Crew: ${this.actor.name}`);
+			} catch (err) {
+				console.warn("MG | Could not set crew fields on member actor:", err);
+			}
+
+
+			this.render(false);
+			return true;
 		}
 
-		// Create the embedded item on the Crew
-		const [created] = await this.actor.createEmbeddedDocuments("Item", [obj]);
-
-		// If it's a Gambit, drop it into the Crew's hand immediately
-		if (isGambit && created?.id) {
-			const g2 = foundry.utils.deepClone(this.actor.system.gambits ?? {});
-			g2.deck = Array.isArray(g2.deck) ? g2.deck.slice() : [];
-			g2.deck.push(created.id);
-			await this.actor.update({ "system.gambits.deck": g2.deck }, { render: false });
-		}
-
-		this.render(false);
-		return true;
-		} catch (err) {
-		console.warn("MG | _onDrop Item failed:", err);
-		return false;
-		}
-
-	}
-
-	// === Party member (Actor) drop logic ===
-	if (data?.type === "Actor") {
-		const actor = await fromUuid(data.uuid);
-		if (!actor || actor.documentName !== "Actor") return false;
-		if (actor.type !== "character") {
-		ui.notifications?.warn("Only player characters can join the Crew (for now).");
-		return false;
-		}
-
-		const sys = this.actor.system ?? {};
-		const party = sys.party ?? {};
-		const members = Array.isArray(party.members) ? party.members.slice() : [];
-
-		if (members.includes(actor.uuid)) {
-		ui.notifications?.info(`${actor.name} is already in the party.`);
-		return false;
-		}
-
-		members.push(actor.uuid);
-
-		// Build/merge a small cache snapshot
-		const cache = foundry.utils.duplicate(party.cache ?? {});
-		cache[actor.uuid] = {
-		name: actor.name,
-		img: actor.img,
-		type: actor.type,
-		className: await this._peekClassName(actor),
-		level: await this._peekLevel(actor)
-		};
-
-		// Also append to initiative if not present
-		const initiative = sys.initiative ?? {};
-		const order = Array.isArray(initiative.order) ? initiative.order.slice() : [];
-		if (!order.includes(actor.uuid)) order.push(actor.uuid);
-
-		await this.actor.update({
-		"system.party.members": members,
-		"system.party.cache": cache,
-		"system.initiative.order": order
-		});
-
-		this.render(false);
-		return true;
-	}
-
-	// Fallback: let the base class handle anything else
-	return super._onDrop?.(event);
+		// Fallback: let the base class handle anything else
+		return super._onDrop?.(event);
 	}
 
 	async _peekClassName(actor) {
@@ -636,23 +654,74 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 		// Everything below this should only bind for owners (reorder/remove)
 		if (!this.isEditable) return;
 
-		// Remove member (from Party => also remove from Initiative)
-		$root.on("click", ".mg-remove-member", async (ev) => {
-			ev.preventDefault();
-			const card = ev.currentTarget.closest(".mg-member-card");
-			const uuid = card?.dataset?.uuid;
-			if (!uuid) return;
+			// --- Remove member from this Crew (UUID-based, does both sides cleanly) ---
+			$root.off("click.mgRemoveMember").on("click.mgRemoveMember", ".mg-remove-member", async (ev) => {
+				ev.preventDefault();
+				ev.stopPropagation();
 
-			const sys = this.actor.system ?? {};
-			const members = (sys.party?.members ?? []).filter(u => u !== uuid);
-			const order = (sys.initiative?.order ?? []).filter(u => u !== uuid);
+				// Find the card and its UUID (your HTML sets data-uuid on .mg-member-card)
+				const card = ev.currentTarget.closest(".mg-member-card[data-uuid]");
+				const uuid = card?.dataset?.uuid;
+				if (!uuid) {
+					ui.notifications?.warn("Couldn’t determine which member to remove.");
+					return;
+				}
 
-			await this.actor.update({
-			"system.party.members": members,
-			"system.initiative.order": order
+				// Resolve the actual Actor from UUID (supports Token/other UUIDs too)
+				let doc = null;
+				try { doc = await fromUuid(uuid); } catch {}
+				const member = (doc?.documentName === "Actor") ? doc
+							: (doc?.actor) ? doc.actor
+							: null;
+				if (!member) {
+					ui.notifications?.warn("Member actor not found from UUID.");
+					return;
+				}
+
+				// v11-safe esc
+				const esc = (s) => (window?.Handlebars?.escapeExpression)
+					? Handlebars.escapeExpression(String(s ?? ""))
+					: String(s ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;")
+									.replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");
+
+				const ok = await Dialog.confirm({
+					title: "Remove from Party?",
+					content: `<p>Remove <strong>${esc(member.name)}</strong> from this Crew?</p>`,
+					defaultYes: false
+				});
+				if (!ok) return;
+
+				try {
+					// 1) Remove member UUID from Crew party + initiative
+					const sys = this.actor.system ?? {};
+					const nextMembers = (sys.party?.members ?? []).filter(u => u !== uuid);
+					const nextOrder   = (sys.initiative?.order ?? []).filter(u => u !== uuid);
+
+					await this.actor.update({
+					"system.party.members": nextMembers,
+					"system.initiative.order": nextOrder
+					}, { render: false });
+
+					// 2) Clear back-reference on the character if it pointed to THIS crew
+					if (member.system?.crewId === this.actor.id) {
+					await member.update({
+						"system.crewId": null,
+						"system.crewName": ""
+					}, { render: false });
+					}
+
+					// 3) Soft refresh: this sheet + that actor’s open sheets
+					this.render(false);
+					Object.values(member.apps ?? {}).forEach(app => app?.render?.(false));
+
+					ui.notifications?.info(`${member.name} removed from the Crew.`);
+				} catch (err) {
+					console.error("MG | remove member failed:", err);
+					ui.notifications?.error("Failed to remove member. See console.");
+				}
 			});
-			this.render(false);
-		});
+
+
 
 		// Link this Crew to the Initiative Bar AND persist current order to the bar's flag
 		$root
@@ -667,16 +736,18 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 
 		// (Optional) If you add a tab button like ".mg-apply-initiative", hook it too:
 		$root
-		.off("click.mgApplyIni")
-		.on("click.mgApplyIni", ".mg-apply-initiative", async (ev) => {
-			ev.preventDefault();
-			await this._applyInitiativeFromDOM($root);
-			ui.notifications?.info("Initiative order applied.");
-		});
-		
-		// Fix any previously saved double-prefixed value on open
-		if (this.isEditable) {
-		this._sanitizeDirIconFlagOnce();
+			.off("click.mgApplyIni")
+			.on("click.mgApplyIni", ".mg-apply-initiative", async (ev) => {
+				ev.preventDefault();
+				await this._applyInitiativeFromDOM($root);
+				ui.notifications?.info("Initiative order applied.");
+			});
+			
+			// Fix any previously saved double-prefixed value on open
+			if (this.isEditable) {
+			this._sanitizeDirIconFlagOnce();
+			// Also fix any previously-saved img that missed /assets/images/
+			this._sanitizeActorImgOnce();
 		}
 
 		// Ensure any old non-namespaced handlers are removed
@@ -2075,6 +2146,33 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 		setTimeout(() => updateUI(dlgRef), 30);
 	}
 
+	/** One-time fix: if actor.img looks like "systems/<id>/<file>" (no assets/),
+	 *  rewrite it to "systems/<id>/assets/images/<file>".
+	 */
+	async _sanitizeActorImgOnce() {
+	const img = String(this.actor.img || "");
+	const sysId = game.system.id;
+
+	// Match "systems/<sysId>/<basename.ext>" with no further slashes
+	const m = img.match(new RegExp(`^systems/${sysId}/([^/]+\\.[a-z0-9]+)$`, "i"));
+	if (!m) return;
+
+	const file = m[1];
+	const fixed = `systems/${sysId}/assets/images/${file}`;
+	if (fixed !== img) {
+		try {
+		await this.actor.update({ img: fixed }, { render: false });
+		// live-patch the directory entry too
+		const url = foundry.utils.getRoute(fixed);
+		this._refreshDirectoryThumb(url);
+		// and any local preview on the sheet
+		this.element.find(".mg-diricon-preview img").attr("src", url);
+		} catch (e) {
+		console.warn("MG | _sanitizeActorImgOnce failed", e);
+		}
+	}
+	}
+
 
     /* Gambits tab bindings
     ----------------------------------------------------------------------*/  
@@ -2428,30 +2526,38 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 		}
 	}
 
-	/** Normalize a picker-returned path to a *VFS path* suitable for actor.img.
-	 *  - Leaves https:// and data: as-is (Foundry supports external URLs).
-	 *  - Strips leading "/" (FVTT VFS paths are relative, e.g. "systems/..." not "/systems/...").
-	 *  - Anchors bare/relative and "assets/..." paths to this system.
+	/** Normalize a picker-entered path to a VFS path we can safely save to actor.img.
+	 *  Rules:
+	 *   - Keep http(s) and data: as-is
+	 *   - Strip a single leading "/" (FVTT VFS is relative)
+	 *   - If it starts with known roots (systems/modules/worlds/icons/ui) -> keep as-is
+	 *   - If it starts with "assets/" -> anchor to this system
+	 *   - If it's a bare filename (no "/") -> assume assets/images/<file> in this system
+	 *   - Otherwise treat as system-relative (e.g. "assets/images/foo.png")
 	 */
 	_vfsPathForStorage(url) {
-	if (!url) return "";
-	let u = String(url).trim().replace(/\\/g, "/");
+		if (!url) return "";
+		let u = String(url).trim().replace(/\\/g, "/");
 
-	// External or data URIs: keep as-is
-	if (/^(?:https?:|data:)/i.test(u)) return u;
+		// External or data URIs: keep as-is
+		if (/^(?:https?:|data:)/i.test(u)) return u;
 
-	// Drop a single leading slash so it's a VFS-relative path
-	if (u.startsWith("/")) u = u.replace(/^\/+/, "");
+		// Drop leading slash so it's a VFS-relative path
+		if (u.startsWith("/")) u = u.replace(/^\/+/, "");
 
-	// Known VFS roots are fine as-is
-	if (/^(systems|modules|worlds|icons|ui)\b/i.test(u)) return u;
+		// Known roots are fine as-is
+		if (/^(systems|modules|worlds|icons|ui)\b/i.test(u)) return u;
 
-	// If it begins with "assets/", anchor to system
-	if (/^assets\//i.test(u)) return `systems/${game.system.id}/${u}`;
+		// If it begins with "assets/", anchor to this system
+		if (/^assets\//i.test(u)) return `systems/${game.system.id}/${u}`;
 
-	// Otherwise treat as system-relative (e.g., "assets/images/foo.png" or "./assets/images/foo.png")
-	u = u.replace(/^\.\//, "");
-	return `systems/${game.system.id}/${u}`;
+		// If it's a bare filename (no slash), assume assets/images/<file> in this system
+		if (!u.includes("/")) return `systems/${game.system.id}/assets/images/${u}`;
+
+		// Otherwise treat as system-relative (e.g., "assets/images/foo.png")
+		u = u.replace(/^\.\//, "");
+		return `systems/${game.system.id}/${u}`;
 	}
+
 
 }

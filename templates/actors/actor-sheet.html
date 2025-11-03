@@ -15,13 +15,26 @@
 
       <div class="personal-info">
         <div class="name">
-          <h1>
-            <input type="text" name="name" value="{{actor.name}}" placeholder="Character Name" />
-          </h1>
-
-          <div class="crew-field">
-            <input type="text" name="system.crew" value="{{actor.system.crew}}" placeholder="Crew/Affiliation Name" />
+          <!-- Character header title with edit button -->
+          <div class="mg-name-wrap" data-mg-nameblock>
+            <h1 class="mg-name-view">{{actor.name}}</h1>
           </div>
+
+          <button type="button" class="mg-edit-name" title="Edit name">
+            <i class="fa-solid fa-pen-to-square"></i>
+          </button>
+
+          <!-- Crew affiliation -->
+          {{#if system.crewName}}
+            <div class="mg-crew-affiliation">
+              <span class="crew-name">{{system.crewName}}</span>
+            </div>
+          {{else}}
+            <div class="mg-crew-affiliation is-empty">
+              <span class="crew-name">No Crew</span>
+            </div>
+          {{/if}}
+
 
           <div class="guise-display">
             <span class="guise-name">

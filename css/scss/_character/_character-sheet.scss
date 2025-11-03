@@ -75,6 +75,10 @@ h1,h2,h3,h4 {
       font-weight: 700;
       font-style: italic;
       text-transform: uppercase;
+      display: flex;
+      align-items: center;
+      align-self: flex-start;
+      height: auto;
 
       i {
         color: $mg-blue-1;
@@ -279,6 +283,7 @@ h1,h2,h3,h4 {
           color: $mg-ivory;
           z-index: 10;
           min-width: 17.875rem;
+          max-width: 17.875rem;
           background-image: url("../assets/images/gambit-border.png");
           background-repeat: repeat-y;
           background-size: 100%;
@@ -301,6 +306,119 @@ h1,h2,h3,h4 {
             @include mg-border();
             padding: 1.125rem;
             border-radius: .5rem;
+            display: flex;
+            flex-direction: column;
+            gap: .5rem;
+
+            h1 {
+              border-bottom: 0;
+              margin: 0;
+              @include oswald();
+              text-transform: uppercase;
+              letter-spacing: -.03rem;
+              font-size: 1.5rem;
+              font-style: italic;
+              font-weight: 700;
+              padding-left: 0;
+            }
+
+            .mg-edit-name {
+              position: absolute;
+              right: -.125rem;
+              top: -.125rem;
+              padding: .5rem .75rem;
+              background: rgba($mg-blue-main-2, .75);
+              border-radius: 0 0 0 .5rem;
+              display: flex;
+              justify-content: center;
+              align-items: center;
+              height: auto;
+              width: auto;
+              transition: background .5s ease, color .5s ease;
+
+              i {
+                color: $mg-blue-3;
+                transition: color .5s ease;
+                margin: 0;
+              }
+
+              &:hover,
+              &:focus {
+                background: $mg-blue-3;
+                color: $mg-blue-4;
+
+                i {
+                  color: $mg-blue-4;
+                }
+              }
+            }
+
+            .mg-name-view {
+              padding-right: 1rem;
+              margin: 0;
+              font-size: 1.8rem;
+              line-height: 1.15;
+              font-weight: 700;
+              white-space: normal;
+              word-break: break-word;
+              color: $mg-ivory;
+            }
+
+            .mg-edit-header {
+              padding: .4rem .6rem;
+              border-radius: .5rem;
+              line-height: 1;
+              opacity: .9;
+            }
+
+            .crew-field input {
+              color: $mg-blue-2;
+              font-size: .875rem;
+              text-transform: uppercase;
+              letter-spacing: -0.0175rem;
+              padding-left: 0;
+            }
+
+            .crew-field {
+              input {
+                border-bottom: .125rem solid transparent;
+                border-radius: 0;
+                border-top: 0;
+                border-left: 0;
+                border-right: 0;
+                background: none;
+                color: $mg-ivory;
+                transition: border 0.2s ease;
+
+                  &:hover,
+                  &:focus {
+                    border-bottom-color: $mg-ivory;
+                  }
+
+                &::placeholder {
+                  color: $mg-ivory !important;
+                }
+              }
+            }
+
+            .guise-display {
+              display: flex;
+              flex-direction: column;
+
+              .guise-name {
+                @include roboto();
+                font-size: 1.125rem;
+                letter-spacing: -0.0225rem;
+                font-weight: 700;
+                font-style: italic;
+                color: $mg-blue-1;
+
+                .level {
+                  font-size: .75rem;
+                  color: $mg-blue-2;
+                }
+              }
+            }
           }
 
           .side-controls {
@@ -394,68 +512,6 @@ h1,h2,h3,h4 {
                 &.selected {
                   color: $mg-blue-3;
                 }
-              }
-            }
-          }
-
-          h1 {
-            border-bottom: 0;
-            margin: 0;
-
-            input {
-              @include oswald();
-              text-transform: uppercase;
-              letter-spacing: -.03rem;
-              font-size: 1.5rem;
-              font-style: italic;
-              font-weight: 700;
-              padding-left: 0;
-            }
-          }
-
-          .crew-field input {
-            color: $mg-blue-2;
-            font-size: .875rem;
-            text-transform: uppercase;
-            letter-spacing: -0.0175rem;
-            padding-left: 0;
-          }
-
-          input {
-            border-bottom: .125rem solid transparent;
-            border-radius: 0;
-            border-top: 0;
-            border-left: 0;
-            border-right: 0;
-            background: none;
-            color: $mg-ivory;
-            transition: border 0.2s ease;
-
-              &:hover,
-              &:focus {
-                border-bottom-color: $mg-ivory;
-              }
-
-            &::placeholder {
-              color: $mg-ivory !important;
-            }
-          }
-
-          .guise-display {
-            display: flex;
-            flex-direction: column;
-
-            .guise-name {
-              @include roboto();
-              font-size: 1.125rem;
-              letter-spacing: -0.0225rem;
-              font-weight: 700;
-              font-style: italic;
-              color: $mg-blue-1;
-
-              .level {
-                font-size: .75rem;
-                color: $mg-blue-2;
               }
             }
           }
@@ -982,7 +1038,7 @@ h1,h2,h3,h4 {
     position: relative;
 
       &:before {
-        background:radial-gradient(80.16% 80.16% at 50% 76.69%, rgba(37, 66, 108, 0.00) 41.35%, #25426C 100%), url(<path-to-image>) transparent 50% / cover no-repeat;
+        background:radial-gradient(80.16% 80.16% at 50% 64.69%, rgba(37, 66, 108, 0.00) 41.35%, #25426C 100%), url(<path-to-image>) transparent 50% / cover no-repeat;
         content: '';
         position: absolute;
         top: 0;
@@ -990,6 +1046,7 @@ h1,h2,h3,h4 {
         width: 100%;
         height: 100%;
         pointer-events: none;
+        z-index: 20;
       }
 
       img {
