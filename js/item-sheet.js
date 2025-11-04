@@ -114,8 +114,57 @@ export class MidnightGambitItemSheet extends ItemSheet {
 		return context;
 	}
 
+	// Mount TinyMCE editors on description/notes fields in item sheets
+	async _initRichEditors(html) {
+		const $root = html instanceof jQuery ? html : $(html);
+
+		// Clone global config and tweak per-field caps
+		const mkCfg = (maxH = 360) => {
+			const cfg = foundry.utils.deepClone(CONFIG.TinyMCE);
+			cfg.max_height = maxH;
+			cfg.min_height = cfg.min_height ?? 140;
+			cfg.resize = false; // disable manual resize handles (clean UI)
+			const extra = `
+			body.mce-content-body {
+				overflow-y: auto;
+				overscroll-behavior: contain;
+			}
+			`;
+			cfg.content_style = (cfg.content_style ? cfg.content_style + "\n" : "") + extra;
+			return cfg;
+		};
+
+		// Description (all item types have system.description)
+		const desc = $root.find("textarea[name='system.description']")[0];
+		if (desc) {
+			await TextEditor.create({
+			target: desc,
+			name: "system.description",
+			content: desc.value ?? "",
+			tinymce: mkCfg(440),
+			height: null
+			});
+		}
+
+		// Notes (currently used by Asset items)
+		const notes = $root.find("textarea[name='system.notes']")[0];
+		if (notes) {
+			await TextEditor.create({
+			target: notes,
+			name: "system.notes",
+			content: notes.value ?? "",
+			tinymce: mkCfg(320),
+			height: null
+			});
+		}
+	}
+
+
 	activateListeners(html) {
 		super.activateListeners(html);
+		// Mount rich text editors on this sheet’s textareas
+		this._initRichEditors(html).catch(console.error);
+
 
 		// Toggle tag on item
 		html.off("click.mgTag", ".tag-pill").on("click.mgTag", ".tag-pill", async (ev) => {

@@ -254,35 +254,37 @@
 
       <!--This is our Moves tab. It shows Signature Perk, and moves on the character sheet-->
       <div class="tab tab-moves" data-tab="moves">
-        {{#if guise}}
-          <div class="signature-perk">
-            <h3>
-              <span class="post-signature" data-perk-name="{{guise.system.signaturePerk}}" data-perk-description="{{guise.system.signatureDescription}}">
-                <i class="fa-solid fa-messages"></i>Signature Perk: {{guise.system.signaturePerk}}
-              </span>
-            </h3>
-            <p>{{guise.system.signatureDescription}}</p>
-          </div>
-
-
-          <div class="basic-moves">
-            <h3>Basic Moves</h3>
-            <div class="move-container">
-              {{#each guise.system.moves}}
-                <div class="move-block" data-move-index="{{@index}}">
-                  <strong class="post-move" data-move-name="{{this.name}}" data-move-description="{{this.description}}">
-                    <i class="fa-solid fa-messages"></i>{{this.name}}
-                  </strong>
-                  <p>{{this.description}}</p>
-                </div>
-              {{/each}}
+        <div class="mg-content">
+          {{#if guise}}
+            <div class="signature-perk">
+              <h3>
+                <span class="post-signature" data-perk-name="{{guise.system.signaturePerk}}" data-perk-description="{{guise.system.signatureDescription}}">
+                  <i class="fa-solid fa-messages"></i>Signature Perk: {{guise.system.signaturePerk}}
+                </span>
+              </h3>
+              <p>{{guise.system.signatureDescription}}</p>
             </div>
-          </div>
-        {{else}}
-          <p>No guise assigned. Assign one to gain moves.</p>
-        {{/if}}
 
-      <div class="moves-section">
+
+            <div class="basic-moves">
+              <h3>Basic Moves</h3>
+              <div class="move-container">
+                {{#each guise.system.moves}}
+                  <div class="move-block" data-move-index="{{@index}}">
+                    <strong class="post-move" data-move-name="{{this.name}}" data-move-description="{{this.description}}">
+                      <i class="fa-solid fa-messages"></i>{{this.name}}
+                    </strong>
+                    <p>{{this.description}}</p>
+                  </div>
+                {{/each}}
+              </div>
+            </div>
+          {{else}}
+            <p>No guise assigned. Assign one to gain moves.</p>
+          {{/if}}
+        </div>
+
+      <div class="moves-section mg-content">
         <h3>Learned Moves</h3>
         <div class="moves-grid" data-move-list>
           {{#each actor.items as |item|}}
@@ -666,7 +668,7 @@
 
       <!--This is our journal for character information/backstory-->
       <div class="tab  journal-tab" data-group="main" data-tab="journal">
-        <div class="journal-fields">
+        <div class="journal-fields mg-content">
           <div class="field">
             <label>Look &amp; Feel</label>
             {{editor

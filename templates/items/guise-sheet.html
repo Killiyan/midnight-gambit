@@ -5,8 +5,15 @@
 
   <div class="sheet-body">
     <div class="desription-group">
-      <label for="system.description">Description</label>
-      <textarea name="system.description" rows="3">{{system.description}}</textarea>
+      <label>Description</label>
+      {{editor
+        system.description
+        target="system.description"
+        engine="tinymce"
+        owner=owner
+        editable=editable
+        button=false
+      }}
     </div>
 
     <div class="guise-strain">
@@ -62,8 +69,15 @@
         <input type="text" name="system.signaturePerk" value="{{system.signaturePerk}}" />
 
         <div class="desription-group">
-          <label for="system.signatureDescription">Signature Description</label>
-          <textarea name="system.signatureDescription" rows="3">{{system.signatureDescription}}</textarea>
+          <label>Signature Description</label>
+          {{editor
+            system.signatureDescription
+            target="system.signatureDescription"
+            engine="tinymce"
+            owner=owner
+            editable=editable
+            button=false
+          }}
         </div>
       </div>
 
@@ -72,14 +86,25 @@
         {{#each system.moves as |move idx|}}
           <div class="move-block" data-index="{{idx}}">
             <label>Move Name</label>
-            <input type="text" class="move-name" value="{{move.name}}" data-index="{{idx}}" />
+            <input
+              type="text"
+              class="move-name"
+              name="system.moves.{{idx}}.name"
+              value="{{move.name}}"
+              data-index="{{idx}}"
+            />
 
             <label>Move Description</label>
-            <textarea class="move-description" data-index="{{idx}}">{{move.description}}</textarea>
+            <textarea
+              class="move-description"
+              name="system.moves.{{idx}}.description"
+              data-index="{{idx}}"
+            >{{move.description}}</textarea>
 
             <button type="button" class="remove-move" data-index="{{idx}}">Remove</button>
           </div>
         {{/each}}
+
 
         <button type="button" class="add-move">+ Add Move</button>
       </div>

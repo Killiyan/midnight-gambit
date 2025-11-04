@@ -346,6 +346,7 @@ h1,h2,h3,h4 {
               &:focus {
                 background: $mg-blue-3;
                 color: $mg-blue-4;
+                box-shadow: none;
 
                 i {
                   color: $mg-blue-4;

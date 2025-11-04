@@ -7,7 +7,14 @@
   <section class="sheet-body">
     <div class="item-description">
       <label>Description</label>
-      <textarea name="system.description">{{system.description}}</textarea>
+      {{editor
+        system.description
+        target="system.description"
+        engine="tinymce"
+        owner=owner
+        editable=editable
+        button=false
+      }}
     </div>
 
     <div class="wrapper">

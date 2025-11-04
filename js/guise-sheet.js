@@ -30,15 +30,10 @@ export class GuiseSheet extends ItemSheet {
     return data;
   }
 
-
-
-
-
   activateListeners(html) {
     super.activateListeners(html);
-    const sheet = this;
 
-    // Add Move
+    // ---------- Add Move ----------
     html.find(".add-move").on("click", async () => {
       const moves = duplicate(this.item.system.moves ?? []);
       moves.push({ name: "", description: "" });
@@ -46,8 +41,7 @@ export class GuiseSheet extends ItemSheet {
       this.render(true);
     });
 
-
-    // Remove Move
+    // ---------- Remove Move ----------
     html.find(".remove-move").on("click", async (event) => {
       const idx = Number(event.currentTarget.dataset.index);
       const moves = duplicate(this.item.system.moves ?? []);
@@ -56,24 +50,42 @@ export class GuiseSheet extends ItemSheet {
       this.render(true);
     });
 
-    // Manual Move Name Update
-    html.find(".move-name").on("change", async (event) => {
-      const idx = Number(event.currentTarget.dataset.index);
-      const value = event.currentTarget.value;
-      const moves = duplicate(this.item.system.moves ?? []);
-      moves[idx].name = value;
-      await this.item.update({ "system.moves": moves });
-    });
-    
-    // Manual Move Description Update
-    html.find(".move-description").on("change", async (event) => {
-      const idx = Number(event.currentTarget.dataset.index);
-      const value = event.currentTarget.value;
-      const moves = duplicate(this.item.system.moves ?? []);
-      moves[idx].description = value;
-      await this.item.update({ "system.moves": moves });
+    // ❌ REMOVE this; it was causing flicker & lost data on blur
+    // html.find(".move-name").on("change", async (event) => { ... });
+
+    // ---------- UPGRADE move textareas to TinyMCE on every render ----------
+    const $root = html instanceof jQuery ? html : $(html);
+
+    const mkCfg = (maxH = 420) => {
+      const cfg = foundry.utils.deepClone(CONFIG.TinyMCE);
+      cfg.max_height = maxH;
+      cfg.min_height = cfg.min_height ?? 160;
+      cfg.resize = false;
+      // safety so the iframe never starts at 0px
+      const extra = `
+        .tox.tox-tinymce{min-height:180px;width:100%}
+        .tox .tox-edit-area__iframe{min-height:160px}
+      `;
+      cfg.content_style = (cfg.content_style ? cfg.content_style + "\n" : "") + extra;
+      return cfg;
+    };
+
+    // Find all move description areas every time the sheet renders.
+    $root.find("textarea.move-description[name^='system.moves.'][name$='.description']").each((_, el) => {
+      if (el.dataset.tiny === "1") return; // guard against double init
+
+      TextEditor.create({
+        target: el,
+        name: el.name,
+        content: el.value ?? "",
+        tinymce: mkCfg(),
+        height: null
+      })
+        .then(() => { el.dataset.tiny = "1"; })
+        .catch(console.error);
     });
   }
+
 
   async _updateObject(event, formData) {
     // Expand dot syntax from the form into an object
@@ -91,4 +103,12 @@ export class GuiseSheet extends ItemSheet {
     return await this.item.update(expanded);
   }
 
+  static get defaultOptions() {
+    return foundry.utils.mergeObject(super.defaultOptions, {
+      template: "systems/midnight-gambit/templates/items/guise-sheet.html",
+      width: 500,
+      height: 400,
+      submitOnChange: false
+    });
+  }
 }
