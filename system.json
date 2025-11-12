@@ -47,32 +47,36 @@
   },
   "packs": [
     {
-      "name": "items",
-      "label": "Midnight Gambit Items",
-      "system": "midnight-gambit",
-      "path": "./packs/items",
-      "type": "Item"
-    },
-    {
       "name": "guises",
       "label": "Midnight Gambit Guises",
       "system": "midnight-gambit",
-      "path": "./packs/guises",
-      "type": "Item"
+      "path": "packs/guises.db",
+      "type": "Item",
+      "private": false
     },
     {
       "name": "gambits",
       "label": "Midnight Gambit Gambits",
       "system": "midnight-gambit",
-      "path": "./packs/gambits",
-      "type": "Item"
+      "path": "packs/gambits.db",
+      "type": "Item",
+      "private": false
     },
     {
       "name": "moves",
       "label": "Midnight Gambit Moves",
       "system": "midnight-gambit",
-      "path": "./packs/moves",
-      "type": "Item"
+      "path": "packs/moves.db",
+      "type": "Item",
+      "private": false
+    },
+    {
+      "name": "items",
+      "label": "Midnight Gambit Items",
+      "system": "midnight-gambit",
+      "path": "packs/items.db",
+      "type": "Item",
+      "private": false
     }
   ]
 }

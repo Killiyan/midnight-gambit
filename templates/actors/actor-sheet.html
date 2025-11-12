@@ -258,23 +258,30 @@
           {{#if guise}}
             <div class="signature-perk">
               <h3>
-                <span class="post-signature" data-perk-name="{{guise.system.signaturePerk}}" data-perk-description="{{guise.system.signatureDescription}}">
+                <span class="post-signature"
+                      data-perk-name="{{guise.system.signaturePerk}}"
+                      data-perk-description="{{guise.system.signatureDescription}}">
                   <i class="fa-solid fa-messages"></i>Signature Perk: {{guise.system.signaturePerk}}
                 </span>
               </h3>
-              <p>{{guise.system.signatureDescription}}</p>
+              <div class="move-content">
+                {{{signatureHtml}}}
+              </div>
             </div>
-
 
             <div class="basic-moves">
               <h3>Basic Moves</h3>
               <div class="move-container">
-                {{#each guise.system.moves}}
+                {{#each enrichedMoves}}
                   <div class="move-block" data-move-index="{{@index}}">
-                    <strong class="post-move" data-move-name="{{this.name}}" data-move-description="{{this.description}}">
+                    <strong class="post-move"
+                            data-move-name="{{this.name}}"
+                            data-move-description="{{this.description}}">
                       <i class="fa-solid fa-messages"></i>{{this.name}}
                     </strong>
-                    <p>{{this.description}}</p>
+                    <div class="move-content">
+                      {{{this.html}}}
+                    </div>
                   </div>
                 {{/each}}
               </div>
@@ -284,33 +291,33 @@
           {{/if}}
         </div>
 
-      <div class="moves-section mg-content">
-        <h3>Learned Moves</h3>
-        <div class="moves-grid" data-move-list>
-          {{#each actor.items as |item|}}
-            {{#if (eq item.type "move")}}
-            <div class="move-block" data-item-id="{{item._id}}" draggable="true">
-              <header class="move-header">
-                <span
-                  class="move-name post-move"
-                  data-move-name="{{item.name}}"
-                  data-move-description="{{item.system.description}}"
-                >
-                  <i class="fa-solid fa-messages"></i>
-                  {{item.name}}
-                </span>
-              </header>
-              <div class="moves-wrapper">
-                <div class="move-desc">{{{item.system.description}}}</div>
-                <button type="button" class="delete-move" title="Remove Move">
-                  <i class="fas fa-times"></i>
-                </button>
+        <div class="moves-section mg-content">
+          <h3>Learned Moves</h3>
+          <div class="moves-grid" data-move-list>
+            {{#each actor.items as |item|}}
+              {{#if (eq item.type "move")}}
+              <div class="move-block" data-item-id="{{item._id}}" draggable="true">
+                <header class="move-header">
+                  <span
+                    class="move-name post-move"
+                    data-move-name="{{item.name}}"
+                    data-move-description="{{item.system.description}}"
+                  >
+                    <i class="fa-solid fa-messages"></i>
+                    {{item.name}}
+                  </span>
+                </header>
+                <div class="moves-wrapper">
+                  <div class="move-desc">{{{item.system.description}}}</div>
+                  <button type="button" class="delete-move" title="Remove Move">
+                    <i class="fas fa-times"></i>
+                  </button>
+                </div>
               </div>
-            </div>
-            {{/if}}
-          {{/each}}
+              {{/if}}
+            {{/each}}
+          </div>
         </div>
-      </div>
 
       </div>
 

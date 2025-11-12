@@ -1,4 +1,6 @@
 import { MGInitiativeBar } from "./initiative-bar.js";
+import { MidnightGambitCrewSheet } from "./crew-sheet.js";
+
 
 // After Hooks.once("ready", ...) or add a new one
 Hooks.once("ready", () => {

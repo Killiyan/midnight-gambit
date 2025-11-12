@@ -1,0 +1,5 @@
+2025/11/12-00:09:15.592 be7c Recovering log #13
+2025/11/12-00:09:15.593 be7c Level-0 table #15: started
+2025/11/12-00:09:15.597 be7c Level-0 table #15: 55611 bytes OK
+2025/11/12-00:09:15.605 be7c Delete type=0 #13
+2025/11/12-00:09:15.605 be7c Delete type=3 #12

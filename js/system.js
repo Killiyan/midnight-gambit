@@ -155,6 +155,20 @@ Hooks.once("init", async () => {
     CONFIG.TinyMCE = cfg;
   }
 
+  // --- Server-side file writer for dev exports ---
+  Hooks.once("ready", () => {
+    if (game.user.isGM) {
+      game.socket.on("system.midnight-gambit", async (data) => {
+        if (data.action !== "writeDB") return;
+        const fs = require("fs");
+        const path = require("path");
+        const fullPath = path.join(foundry.utils.getBasePath("data"), data.path);
+        fs.mkdirSync(path.dirname(fullPath), { recursive: true });
+        fs.writeFileSync(fullPath, data.content, "utf8");
+        console.log(`[Midnight Gambit] Exported pack to ${data.path}`);
+      });
+    }
+  });
 
   try {
     const { ITEM_TAGS, ASSET_TAGS, LEVEL_TABLE } = await import("../config.js");

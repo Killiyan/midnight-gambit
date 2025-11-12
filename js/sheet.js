@@ -162,6 +162,24 @@ export class MidnightGambitActorSheet extends ActorSheet {
       };
       context.hasPending = Object.values(context.pending).some(n => Number(n) > 0);
 
+      // --- Enrich TinyMCE HTML for Signature + Moves (safe → HTML) ---
+      if (context.guise) {
+        const sig = String(context.guise.system?.signatureDescription ?? "");
+        context.signatureHtml = await TextEditor.enrichHTML(sig, { async: true });
+
+        const rawMoves = Array.isArray(context.guise.system?.moves) ? context.guise.system.moves : [];
+        context.enrichedMoves = await Promise.all(
+          rawMoves.map(async m => ({
+            ...m,
+            html: await TextEditor.enrichHTML(String(m.description ?? ""), { async: true })
+          }))
+        );
+      } else {
+        context.signatureHtml = "";
+        context.enrichedMoves = [];
+      }
+
+
       context.data = context;  // <- this makes all context vars available to the template root
       context.tags = CONFIG.MidnightGambit?.ITEM_TAGS ?? [];
       return context;
@@ -397,14 +415,15 @@ export class MidnightGambitActorSheet extends ActorSheet {
         /**This tracks how much Risk you have used, and calculates it with your current*/
         console.log(`Risk click: ${clicked} → riskUsed: ${newUsed} (was ${currentUsed})`);
 
-        await this.actor.update({ "system.riskUsed": newUsed });
+        await this.actor.update({ "system.riskUsed": newUsed }, { render: false });
+
         this.render(false);
       });
 
       /**This is the listener for clicking the Flashback Resource */
       html.find(".flashback-dot").on("click", async (event) => {
         const current = this.actor.system.flashbackUsed ?? false;
-        await this.actor.update({ "system.flashbackUsed": !current });
+        await this.actor.update({ "system.flashbackUsed": !current }, { render: false });
         this.render(false);
       });
 
@@ -498,6 +517,8 @@ export class MidnightGambitActorSheet extends ActorSheet {
 
       // Drawing button for Gambits
       html.find(".draw-gambit").on("click", async () => {
+        event.preventDefault();
+        event.stopPropagation();
         const { deck = [], drawn = [], maxDrawSize = 3, locked = false } = this.actor.system.gambits;
 
         if (locked || drawn.length >= maxDrawSize || deck.length === 0) {
@@ -550,17 +571,16 @@ export class MidnightGambitActorSheet extends ActorSheet {
         const itemId = event.currentTarget.dataset.itemId;
         const parent = event.currentTarget.closest(".gambit-card");
         const source = parent?.dataset.source;
-
         if (!itemId || !source) return;
 
         const update = {};
         const list = this.actor.system.gambits[source] ?? [];
-
         update[`system.gambits.${source}`] = list.filter(id => id !== itemId);
 
-        await this.actor.update(update);
+        await this.actor.update(update, { render: false });
         this.render(false);
       });
+
 
 
       //Making it so if you click moves in the Character sheet they post to chat!
@@ -603,19 +623,24 @@ export class MidnightGambitActorSheet extends ActorSheet {
 
       // Returning Gambits to Deck when removed
       html.find('.return-to-deck').on('click', async (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+
         const itemId = event.currentTarget.dataset.itemId;
         if (!itemId) return;
 
         const { deck = [], drawn = [] } = this.actor.system.gambits;
-
         const updatedDeck = [...deck, itemId];
         const updatedDrawn = drawn.filter(id => id !== itemId);
 
         await this.actor.update({
           "system.gambits.deck": updatedDeck,
           "system.gambits.drawn": updatedDrawn
-        });
+        }, { render: false });
+
+        this.render(false);
       });
+
 
       // Handle dragstart
       html.find(".gambit-card").on("dragstart", event => {
@@ -777,9 +802,12 @@ export class MidnightGambitActorSheet extends ActorSheet {
 
       //Capacity Boxes add on Click, and remove on Shift click
       html.find(".capacity-box input").on("click", async (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+
         const input = event.currentTarget;
         const name = input.name; // e.g., "system.strain.mortal capacity"
-        const path = input.name; // e.g. "system.strain.mortal capacity"
+        const path = input.name;
         const current = foundry.utils.getProperty(this.actor.system, path.replace("system.", ""));
         const type = name.includes("mortal") ? "mortal" : "soul";
 
@@ -793,7 +821,7 @@ export class MidnightGambitActorSheet extends ActorSheet {
           [`system.strain.manualOverride.${type} capacity`]: true
         };
 
-        await this.actor.update(updates);
+        await this.actor.update(updates, { render: false });
         this.render(false);
       });
 
@@ -1808,6 +1836,20 @@ export class MidnightGambitActorSheet extends ActorSheet {
           }
         }
     }
+
+  /** Preserve scroll position across re-renders + fix header paint glitches. */
+  async _render(force, options = {}) {
+    const bodyBefore = this.element?.[0]?.querySelector?.(".window-content");
+    const scrollTop = bodyBefore?.scrollTop ?? 0;
+
+    await super._render(force, options);
+
+    const bodyAfter = this.element?.[0]?.querySelector?.(".window-content");
+    if (bodyAfter) bodyAfter.scrollTop = scrollTop;
+
+    // After Foundry finishes painting, nudge the header so text is always visible
+    this._mgRepaintHeader();
+  }
     
   //END EVENT LISTENERS
   //---------------------------------------------------------------------------------------------------------------------------
@@ -2029,6 +2071,24 @@ export class MidnightGambitActorSheet extends ActorSheet {
     if (!el) return;
     el.style.transition = "opacity 160ms ease";
     el.style.opacity = isActive ? "0.15" : "1";
+  }
+
+  /** Nudge the header name text so Chrome repaints it (fixes rare invisibility bug). */
+  _mgRepaintHeader() {
+    const root = this.element?.[0];
+    if (!root) return;
+
+    const el = root.querySelector("[data-mg-nameblock] .mg-name-view");
+    if (!el) return;
+
+    // Tiny transform dance to force a repaint without changing layout
+    el.style.willChange = "transform";
+    el.style.transform = "translateZ(0.001px)";
+    // Force reflow so the browser commits the new layer
+    void el.getBoundingClientRect();
+    // Clear hints again
+    el.style.transform = "";
+    el.style.willChange = "";
   }
 
   // --- Read-only mode for non-owners: block clicks, rolls, inputs, drags ---
@@ -2684,6 +2744,20 @@ export class MidnightGambitActorSheet extends ActorSheet {
 
 
     return super._onDropItemCreate(itemData);
+  }
+
+  /** Preserve scroll position across re-renders + fix header paint glitches. */
+  async _render(force, options = {}) {
+    const bodyBefore = this.element?.[0]?.querySelector?.(".window-content");
+    const scrollTop = bodyBefore?.scrollTop ?? 0;
+
+    await super._render(force, options);
+
+    const bodyAfter = this.element?.[0]?.querySelector?.(".window-content");
+    if (bodyAfter) bodyAfter.scrollTop = scrollTop;
+
+    // After Foundry finishes painting, nudge the header so text is always visible
+    this._mgRepaintHeader();
   }
 
   //END DRAG AND DROP

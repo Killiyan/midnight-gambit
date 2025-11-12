@@ -309,6 +309,7 @@ h1,h2,h3,h4 {
             display: flex;
             flex-direction: column;
             gap: .5rem;
+            position: static;
 
             h1 {
               border-bottom: 0;
@@ -908,12 +909,17 @@ h1,h2,h3,h4 {
         }
       }
 
-      p {
+      .move-content {
         padding: 0 1.25rem;
         margin: 1.25rem 0;
         @include roboto();
         font-size: 1rem;
         line-height: 1.5;
+
+        p {
+          padding: 0;
+          margin: 0;
+        }
       }
     }
 
@@ -972,12 +978,17 @@ h1,h2,h3,h4 {
           }
         }
 
-        p {
+        .move-content {
           padding: 0 1.25rem;
           margin: 1.25rem 0;
           @include roboto();
           font-size: 1rem;
           line-height: 1.5;
+
+          p {
+            margin: 0;
+            padding: 0;
+          }
         }
       }
 
@@ -987,6 +998,7 @@ h1,h2,h3,h4 {
         .post-move {
           background: $mg-blue-main-2;
           color: $mg-blue-2;
+          border-radius: 0;
         }
 
         .move-block {
@@ -995,6 +1007,12 @@ h1,h2,h3,h4 {
 
           .move-desc {
             line-height: 1.8;
+
+            p {
+              margin: 0;
+              padding: 0;
+              font-size: .875rem;
+            }
           }
         }
 
@@ -1551,6 +1569,7 @@ h1,h2,h3,h4 {
       display: flex;
       flex-direction: column;
       transition: transform .5s ease, background .5s ease, color .5s ease, font-size .5s ease, box-shadow .5s ease;
+      overflow: hidden;
 
       .gambit-wrapper {
         padding: 1.125rem 3rem;
@@ -1592,12 +1611,12 @@ h1,h2,h3,h4 {
           font-weight: 700;
           font-style: italic;
           font-size: 1.25rem;
+          border-radius: 0;
           line-height: 1.1;
           padding:  1.25rem;
-          border-radius: .5rem .5rem 0 0;
           display: flex;
           gap: .625rem;
-          transition: color .5s ease, background .5s ease;
+          transition: color .5s ease, background .5s ease, border .5s ease;
           border: none;
           margin: 0;
           background: $mg-blue-main-2;

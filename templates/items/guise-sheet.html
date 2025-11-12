@@ -86,20 +86,13 @@
         {{#each system.moves as |move idx|}}
           <div class="move-block" data-index="{{idx}}">
             <label>Move Name</label>
-            <input
-              type="text"
-              class="move-name"
-              name="system.moves.{{idx}}.name"
-              value="{{move.name}}"
-              data-index="{{idx}}"
-            />
+              <input type="text"
+                name="system.moves.{{@index}}.name"
+                value="{{this.name}}"
+                class="move-name" />
 
             <label>Move Description</label>
-            <textarea
-              class="move-description"
-              name="system.moves.{{idx}}.description"
-              data-index="{{idx}}"
-            >{{move.description}}</textarea>
+            <textarea name="system.moves.{{@index}}.description" class="mg-rich move-description">{{this.description}}</textarea>
 
             <button type="button" class="remove-move" data-index="{{idx}}">Remove</button>
           </div>

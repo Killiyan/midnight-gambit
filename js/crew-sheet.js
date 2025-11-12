@@ -96,7 +96,10 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 			? (this._vfsPathForStorage(rawDirIcon) || "systems/midnight-gambit/assets/images/mg-queen.png")
 			: (this.actor.img || "systems/midnight-gambit/assets/images/mg-queen.png");
 
-		data.directoryIconResolved = foundry.utils.getRoute(stored);
+			let resolved = foundry.utils.getRoute(stored);
+			if (resolved.startsWith("/https://")) resolved = resolved.slice(1);
+			data.directoryIconResolved = resolved;
+
 
 
 

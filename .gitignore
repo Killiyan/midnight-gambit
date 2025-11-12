@@ -48,7 +48,13 @@ Thumbs.db
 *.mov
 *.wmv
 
-
-# Ignore LevelDB files
-*/*
-!*.db
+# === Include FoundryVTT compendium files (LevelDB) ===
+!systems/midnight-gambit/packs/
+!systems/midnight-gambit/packs/**/
+!systems/midnight-gambit/packs/**/*.ldb
+!systems/midnight-gambit/packs/**/*.log
+!systems/midnight-gambit/packs/**/LOG
+!systems/midnight-gambit/packs/**/LOG.old
+!systems/midnight-gambit/packs/**/CURRENT
+!systems/midnight-gambit/packs/**/LOCK
+!systems/midnight-gambit/packs/**/MANIFEST-*
