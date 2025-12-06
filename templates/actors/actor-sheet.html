@@ -415,260 +415,283 @@
       <div class="tab tab-inventory" data-group="main" data-tab="inventory">
         <div class="inventory-tab">
 
-          <div class="currency-field">
-            <label for="lux"><i class="fa-solid fa-coins"></i>Lux</label>
-            <input type="number" name="system.currency.lux" value="{{actor.system.currency.lux}}" min="0" />
-          </div>
-
-          <!--We will add search back in the future
-          <div class="search-field">
-            <input type="text" id="item-search" placeholder="Search items..." />
-          </div>-->
-
-          <!-- Weapons -->
-          <div class="inventory-section weapons">
-            <div class="inventory-wrapper">
-              <h3>Weapons</h3>
-              <div class="inventory-header">
-                <span>Name</span>
-                <span>DMG</span>
-                <span>Qty</span>
-                <span>Equipped</span>
-                <span>Tags</span>
-              </div>
+          <div class="inventory-toolbar">
+            <div class="currency-field">
+              <label for="lux">Lux</label>
+              <input
+                type="number"
+                name="system.currency.lux"
+                value="{{actor.system.currency.lux}}"
+                min="0"
+              />
             </div>
 
-            <!-- Weapons - Item -->
-            {{#each (filterItems @root.actor.items "weapon") as |item|}}
-              <div class="inventory-item" data-item-id="{{item._id}}">
-                <span class="item-name">
-                  <span class="clickable-item">{{item.name}}</span>
-                  <button class="post-weapon-tags" data-item-id="{{item._id}}" title="Post Weapon Tags to Chat">
-                    <i class="fas fa-tags"></i>
-                  </button>
-                </span>
+            <!-- Inventory search -->
+            <div class="search-wrap">
+              <label>Search Items</label>
+              <div class="field-wrapper">
+                <input
+                  type="text"
+                  class="item-search"
+                  placeholder="Search by name, tags, or notes..."
+                />
+                <button type="button" class="item-search-btn" title="Search">
+                  <i class="fa-solid fa-magnifying-glass"></i>
+                </button>
+              </div>
+            </div>
+          </div>
 
-                {{#if item.system.strainDamage}}
-                  <div class="item-capacity" title="Strain Damage">
-                    <p class="strain-damage">
-                      <span>SD</span> 
-                      <span class="remaining-number">{{item.system.strainDamage}}</span>
-                    </p>
+
+          <!-- Unified Inventory List -->
+          <div class="inventory-section">
+            <div class="inventory-list inventory-grid">
+
+              {{!-- Weapons --}}
+              {{#each (filterItems @root.actor.items "weapon") as |item|}}
+                <div class="inventory-item inventory-item--weapon inventory-card" data-item-id="{{item._id}}">
+                  <span class="name-wrapper">
+                    <span class="item-type"><i class="fa-solid fa-sword"></i></span>
+                    <h3 class="item-name post-item" data-item-id="{{item._id}}">
+                      <i class="fa-solid fa-messages"></i>
+                      <span class="clickable-item">{{item.name}}</span>
+                    </h3>
+                  </span>
+
+                  <div class="card-media">
+                    <img class="item-card-img" src="{{item.img}}" alt="{{item.name}}" />
                   </div>
-                {{/if}}
 
-                <span><input type="number" class="item-quantity" value="{{item.system.quantity}}" min="0" /></span>
-
-                <span><input type="checkbox" class="item-equipped" {{#if item.system.equipped}}checked{{/if}} /></span>
-
-                <span class="item-tags">
-                  {{#each item.system.tags as |tagId|}}
-                    {{#with (lookup ../../CONFIG.MidnightGambit.ITEM_TAGS tagId) as |tag|}}
-                      <div class="item-tag tag" data-item-id="{{item._id}}" data-tag-id="{{tagId}}" title="Right-click to remove">
-                        <span data-tooltip="{{tag.description}}">{{tag.label}}</span>
+                  <div class="card-wrapper">
+                    {{#if item.system.strainDamage}}
+                      <div class="item-capacity" title="Strain Damage">
+                        <label>Strain Damage</label>
+                        <div class="strain-wrapper">
+                          <p class="strain-damage">
+                            <span>SD</span>
+                            <span class="remaining-number">{{item.system.strainDamage}}</span>
+                          </p>
+                        </div>
                       </div>
                     {{else}}
+                      <div class="item-capacity"></div>
+                    {{/if}}
 
-                      <div class="item-tag tag" data-item-id="{{item._id}}" data-tag-id="{{tagId}}" title="Right-click to remove">
-                        <span>{{tagId}}</span>
-                      </div>
+                    <div class="info-wrapper">
+                      <label>Quantity</label>
+                      <input type="number" class="item-quantity" value="{{item.system.quantity}}" min="0" />
+                    </div>
 
-                    {{/with}}
-                  {{/each}}
-                </span>
+                    <div class="info-wrapper">
+                      <label>Equip Item</label>
+                      <input type="checkbox" class="item-equipped" {{#if item.system.equipped}}checked{{/if}} />
+                    </div>
 
-                <div class="status-buttons">
+                    <span class="item-tags">
+                      {{#each item.system.tags as |tagId|}}
+                        {{#with (lookup ../../CONFIG.MidnightGambit.ITEM_TAGS tagId) as |tag|}}
+                          <div class="item-tag tag" data-item-id="{{item._id}}" data-tag-id="{{tagId}}" title="Right-click to remove">
+                            <span data-tooltip="{{tag.description}}">{{tag.label}}</span>
+                          </div>
+                        {{else}}
+                          <div class="item-tag tag" data-item-id="{{item._id}}" data-tag-id="{{tagId}}" title="Right-click to remove">
+                            <span>{{tagId}}</span>
+                          </div>
+                        {{/with}}
+                      {{/each}}
+                    </span>
 
-                  <button class="sync-tags" data-item-id="{{_id}}" title="Sync tags with global list">
-                    <i class="fa-solid fa-arrows-rotate"></i>
-                  </button>
+                    <div class="status-buttons">
+                      <button class="sync-tags" data-item-id="{{_id}}" title="Sync tags with global list">
+                        <i class="fa-solid fa-arrows-rotate"></i>
+                      </button>
 
-                  <button class="item-delete" data-item-id="{{item._id}}" title="Delete Item">
-                    <i class="fas fa-trash"></i>
-                  </button>
+                      <button class="item-delete" data-item-id="{{item._id}}" title="Delete Item">
+                        <i class="fas fa-trash"></i>
+                      </button>
+                    </div>
+                  </div>
                 </div>
+              {{/each}}
 
-              </div>
-            {{/each}}
-          </div>
+              {{!-- Armor --}}
+              {{#each (filterItems @root.actor.items "armor") as |item|}}
+                <div class="inventory-item inventory-item--armor inventory-card" data-item-id="{{item._id}}">
+                  <span class="name-wrapper">
+                    <span class="item-type"><i class="fa-solid fa-shield"></i></span>
+                    <h3 class="item-name post-item" data-item-id="{{item._id}}">
+                      <i class="fa-solid fa-messages"></i>
+                      <span class="clickable-item">{{item.name}}</span>
+                    </h3>
+                  </span>
 
-          <!-- Armor -->
-          <div class="inventory-section armor">
+                  <div class="card-media">
+                    <img class="item-card-img" src="{{item.img}}" alt="{{item.name}}" />
+                  </div>
 
-            <div class="inventory-wrapper">
+                  <div class="card-wrapper">
+                    <div class="item-capacity" title="Remaining Strain Capacity">
+                      <p class="mortal-remain">
+                        <span>MC</span>
+                        <span class="remaining-number">{{item.system.remainingCapacity.mortal}}</span>
+                      </p>
+                      <p class="soul-remain">
+                        <span>SC</span>
+                        <span class="remaining-number">{{item.system.remainingCapacity.soul}}</span>
+                      </p>
+                    </div>
 
-              <h3>Armor</h3>
+                    <div class="info-wrapper">
+                      <label>Quantity</label>
+                      <input type="number" class="item-quantity" value="{{item.system.quantity}}" min="0" />
+                    </div>
 
-              <div class="inventory-header">
-                <span>Name</span>
-                <span>Capacity</span>
-                <span>Qty</span>
-                <span>Equipped</span>
-                <span>Tags</span>
-              </div>
+                    <div class="info-wrapper">
+                      <label>Equip Item</label>
+                      <input type="checkbox" class="item-equipped" {{#if item.system.equipped}}checked{{/if}} />
+                    </div>
+
+                    <span class="item-tags">
+                      {{#each item.system.tags as |tagId|}}
+                        {{#with (lookup ../../CONFIG.MidnightGambit.ITEM_TAGS tagId) as |tag|}}
+                          <div class="item-tag tag" data-item-id="{{item._id}}" data-tag-id="{{tagId}}" title="Right-click to remove">
+                            <span data-tooltip="{{tag.description}}">{{tag.description}}</span>
+                          </div>
+                        {{else}}
+                          <div class="item-tag tag" data-item-id="{{item._id}}" data-tag-id="{{tagId}}" title="Right-click to remove">
+                            <span>{{tagId}}</span>
+                          </div>
+                        {{/with}}
+                      {{/each}}
+                    </span>
+
+                    <div class="status-buttons">
+                      {{#if (or item.system.mortalCapacity item.system.soulCapacity)}}
+                        {{#if item.system.isFullyRepaired}}
+                          <button class="repair-armor disabled" data-item-id="{{item._id}}" title="Fully Repaired" disabled>
+                            <i class="fa-solid fa-hammer"></i>
+                          </button>
+                        {{else}}
+                          <button class="repair-armor" data-item-id="{{item._id}}" title="Repair Item">
+                            <i class="fa-solid fa-hammer"></i>
+                          </button>
+                        {{/if}}
+                      {{/if}}
+
+                      <button class="sync-tags" data-item-id="{{_id}}" title="Sync tags with global list">
+                        <i class="fa-solid fa-arrows-rotate"></i>
+                      </button>
+
+                      <button class="item-delete" data-item-id="{{item._id}}" title="Delete Item">
+                        <i class="fas fa-trash"></i>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              {{/each}}
+
+              {{!-- Misc --}}
+              {{#each (filterItems @root.actor.items "misc") as |item|}}
+                <div class="inventory-item inventory-item--misc inventory-card" data-item-id="{{item._id}}">
+                  <span class="name-wrapper">
+                    <span class="item-type">M<i class="fa-solid fa-rectangles-mixed"></i></span>
+                    <h3 class="item-name post-item" data-item-id="{{item._id}}">
+                      <i class="fa-solid fa-messages"></i>
+                      <span class="clickable-item">{{item.name}}</span>
+                    </h3>
+                  </span>
+
+                  <div class="card-media">
+                    <img class="item-card-img" src="{{item.img}}" alt="{{item.name}}" />
+                  </div>
+
+                  <div class="card-wrapper">
+                    <span class="item-capacity" title="Strain Effects">
+                      <p class="strain-damage">
+                        <span>SD</span>
+                        <span class="remaining-number">
+                          {{#if (ne item.system.strainDamage undefined)}}
+                            {{item.system.strainDamage}}
+                          {{else}} -
+                          {{/if}}
+                        </span>
+                      </p>
+
+                      <p class="mortal-remain">
+                        <span>MC</span>
+                        <span class="remaining-number">
+                          {{#if (ne item.system.remainingCapacity.mortal undefined)}}
+                            {{item.system.remainingCapacity.mortal}}
+                          {{else}} -
+                          {{/if}}
+                        </span>
+                      </p>
+
+                      <p class="soul-remain">
+                        <span>SC</span>
+                        <span class="remaining-number">
+                          {{#if (ne item.system.remainingCapacity.soul undefined)}}
+                            {{item.system.remainingCapacity.soul}}
+                          {{else}} -
+                          {{/if}}
+                        </span>
+                      </p>
+                    </span>
+
+                    <div class="info-wrapper">
+                      <label>Quantity</label>
+                      <input type="number" class="item-quantity" value="{{item.system.quantity}}" min="0" />
+                    </div>
+
+                    <div class="info-wrapper">
+                      <label>Equip Item</label>
+                      <input type="checkbox" class="item-equipped" {{#if item.system.equipped}}checked{{/if}} />
+                    </div>
+
+                    <span class="item-tags">
+                      {{#each item.system.tags as |tagId|}}
+                        {{#with (lookup ../../CONFIG.MidnightGambit.ITEM_TAGS tagId) as |tag|}}
+                          <div class="item-tag tag" data-item-id="{{item._id}}" data-tag-id="{{tagId}}" title="Right-click to remove">
+                            <span data-tooltip="{{tag.description}}">{{tag.label}}</span>
+                          </div>
+                        {{else}}
+                          <div class="item-tag tag" data-item-id="{{item._id}}" data-tag-id="{{tagId}}" title="Right-click to remove">
+                            <span>{{tagId}}</span>
+                          </div>
+                        {{/with}}
+                      {{/each}}
+                    </span>
+
+                    <div class="status-buttons">
+                      {{#if (or item.system.mortalCapacity item.system.soulCapacity)}}
+                        {{#if item.system.isFullyRepaired}}
+                          <button class="repair-armor disabled" data-item-id="{{item._id}}" title="Fully Repaired" disabled>
+                            <i class="fa-solid fa-hammer"></i>
+                          </button>
+                        {{else}}
+                          <button class="repair-armor" data-item-id="{{item._id}}" title="Repair Item">
+                            <i class="fa-solid fa-hammer"></i>
+                          </button>
+                        {{/if}}
+                      {{/if}}
+
+                      <button class="sync-tags" data-item-id="{{_id}}" title="Sync tags with global list">
+                        <i class="fa-solid fa-arrows-rotate"></i>
+                      </button>
+
+                      <button class="item-delete" data-item-id="{{item._id}}" title="Delete Item">
+                        <i class="fas fa-trash"></i>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              {{/each}}
 
             </div>
 
-            <!-- Armor - Item -->
-            {{#each (filterItems @root.actor.items "armor") as |item|}}
-              <div class="inventory-item" data-item-id="{{item._id}}">
-                <span class="item-name">
-                  <span class="clickable-item">{{item.name}}</span>
-                  <button class="post-armor-tags" data-item-id="{{item._id}}" title="Post Armor Tags to Chat">
-                    <i class="fas fa-tags"></i>
-                  </button>
-                </span>
-
-                <div class="item-capacity" title="Remaining Strain Capacity">
-                  <p class="mortal-remain"><span>MC</span><span class="remaining-number">{{item.system.remainingCapacity.mortal}}</span></p><p class="soul-remain"><span>SC</span><span class="remaining-number">{{item.system.remainingCapacity.soul}}</span></p>
-                </div>
-
-                <span><input type="number" class="item-quantity" value="{{item.system.quantity}}" min="0" /></span>
-                <span><input type="checkbox" class="item-equipped" {{#if item.system.equipped}}checked{{/if}} /></span>
-                <span class="item-tags">
-                  {{#each item.system.tags as |tagId|}}
-                    {{#with (lookup ../../CONFIG.MidnightGambit.ITEM_TAGS tagId) as |tag|}}
-                      <div class="item-tag tag" data-item-id="{{item._id}}" data-tag-id="{{tagId}}" title="Right-click to remove">
-                        <span data-tooltip="{{tag.description}}">{{tag.label}}</span>
-                      </div>
-                    {{else}}
-                      <div class="item-tag tag" data-item-id="{{item._id}}" data-tag-id="{{tagId}}" title="Right-click to remove">
-                        <span>{{tagId}}</span>
-                      </div>
-                    {{/with}}
-                  {{/each}}
-                </span>
-
-                <div class="status-buttons">
-                  {{#if (or item.system.mortalCapacity item.system.soulCapacity)}}
-
-                    {{#if item.system.isFullyRepaired}}
-                      <button class="repair-armor disabled" data-item-id="{{item._id}}" title="Fully Repaired" disabled>
-                        <i class="fa-solid fa-hammer"></i>
-                      </button>
-                    {{else}}
-                      <button class="repair-armor" data-item-id="{{item._id}}" title="Repair Item">
-                        <i class="fa-solid fa-hammer"></i>
-                      </button>
-                    {{/if}}
-                  {{/if}}
-
-                  <button class="sync-tags" data-item-id="{{_id}}" title="Sync tags with global list">
-                    <i class="fa-solid fa-arrows-rotate"></i>
-                  </button>
-
-                  <button class="item-delete" data-item-id="{{item._id}}" title="Delete Item">
-                    <i class="fas fa-trash"></i>
-                  </button>
-                </div>
-
-              </div>
-            {{/each}}
-
-          </div>
-
-          <!-- Misc -->
-          <div class="inventory-section misc">
-            <div class="inventory-wrapper">
-              <h3>Misc</h3>
-              <div class="inventory-header">
-                <span>Name</span>
-                <span>DMG / Capacity</span>
-                <span>Qty</span>
-                <span>Equipped</span>
-                <span>Tags</span>
-              </div>
-            </div>
-
-            <!-- Misc - Item -->
-            {{#each (filterItems @root.actor.items "misc") as |item|}}
-              <div class="inventory-item" data-item-id="{{item._id}}">
-                <span class="item-name">
-                  <span class="clickable-item">{{item.name}}</span>
-
-                  <button class="post-misc-tags" data-item-id="{{item._id}}" title="Post Misc Tags to Chat">
-                    <i class="fas fa-tags"></i>
-                  </button>
-                </span>
-
-                <span class="item-capacity" title="Strain Effects">
-
-                  <p class="strain-damage">
-                    <span>SD</span> 
-                    <span class="remaining-number">
-                      {{#if (ne item.system.strainDamage undefined)}}
-                        {{item.system.strainDamage}}
-                      {{else}} -
-                      {{/if}}
-                    </span>
-                  </p>
-
-                  <p class="mortal-remain">
-                    <span>MC</span>
-                    <span class="remaining-number">
-                      {{#if (ne item.system.remainingCapacity.mortal undefined)}}
-                        {{item.system.remainingCapacity.mortal}}
-                      {{else}} -
-                      {{/if}}
-                    </span>
-                  </p>
-
-                  <p class="soul-remain">
-                    <span>SC</span>
-                    <span class="remaining-number">
-                      {{#if (ne item.system.remainingCapacity.soul undefined)}}
-                        {{item.system.remainingCapacity.soul}}
-                      {{else}} -
-                      {{/if}}
-                    </span>
-                  </p>
-
-                </span>
-
-
-                <span><input type="number" class="item-quantity" value="{{item.system.quantity}}" min="0" /></span>
-                <span><input type="checkbox" class="item-equipped" {{#if item.system.equipped}}checked{{/if}} /></span>
-
-                <span class="item-tags">
-                  {{#each item.system.tags as |tagId|}}
-                    {{#with (lookup ../../CONFIG.MidnightGambit.ITEM_TAGS tagId) as |tag|}}
-                      <div class="item-tag tag" data-item-id="{{item._id}}" data-tag-id="{{tagId}}" title="Right-click to remove">
-                        <span data-tooltip="{{tag.description}}">{{tag.label}}</span>
-                      </div>
-                    {{else}}
-                      <div class="item-tag tag" data-item-id="{{item._id}}" data-tag-id="{{tagId}}" title="Right-click to remove">
-                        <span>{{tagId}}</span>
-                      </div>
-                    {{/with}}
-                  {{/each}}
-                </span>
-
-                <div class="status-buttons">
-                  {{#if (or item.system.mortalCapacity item.system.soulCapacity)}}
-
-                    {{#if item.system.isFullyRepaired}}
-                      <button class="repair-armor disabled" data-item-id="{{item._id}}" title="Fully Repaired" disabled>
-                        <i class="fa-solid fa-hammer"></i>
-                      </button>
-                    {{else}}
-                      <button class="repair-armor" data-item-id="{{item._id}}" title="Repair Item">
-                        <i class="fa-solid fa-hammer"></i>
-                      </button>
-                    {{/if}}
-                  {{/if}}
-
-                  <button class="sync-tags" data-item-id="{{_id}}" title="Sync tags with global list">
-                    <i class="fa-solid fa-arrows-rotate"></i>
-                  </button>
-
-                  <button class="item-delete" data-item-id="{{item._id}}" title="Delete Item">
-                    <i class="fas fa-trash"></i>
-                  </button>
-                </div>
-
-              </div>
-            {{/each}}
-
+            <p class="empty-hint" hidden>
+              No items match that search.
+            </p>
           </div>
         </div>
       </div>

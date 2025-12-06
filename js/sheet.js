@@ -1007,31 +1007,37 @@ export class MidnightGambitActorSheet extends ActorSheet {
         el.textContent = String(next);              // or: (next >= 0 ? `+${next}` : `${next}`)
       });
 
-
-
-      //Setting values before Foundry Sheet refresh - Fixes Mortal and Soul Capacity
+      // Setting values before Foundry Sheet refresh - Fixes Mortal and Soul Capacity
       html.find("input").on("keydown", async (event) => {
-        if (event.key === "Enter") {
-          event.preventDefault();
-          const input = event.currentTarget;
-          const name = input.name;
-          const value = parseInt(input.value);
+        if (event.key !== "Enter") return;
 
-          const updates = {};
+        const input = event.currentTarget;
 
-          if (name === "system.strain.mortal capacity") {
-            updates["system.strain.manualOverride.mortal capacity"] = true;
-            updates["system.strain.mortal capacity"] = value;
-          } else if (name === "system.strain.soul capacity") {
-            updates["system.strain.manualOverride.soul capacity"] = true;
-            updates["system.strain.soul capacity"] = value;
-          }
+        if (input.classList.contains("item-search")) return;
 
-          await this.actor.update(updates);
-          this.render(false);
-          input.blur();
+        const name  = input.name ?? "";
+        const value = parseInt(input.value, 10);
+
+        const updates = {};
+
+        if (name === "system.strain.mortal capacity") {
+          updates["system.strain.manualOverride.mortal capacity"] = true;
+          updates["system.strain.mortal capacity"] = value;
+        } else if (name === "system.strain.soul capacity") {
+          updates["system.strain.manualOverride.soul capacity"] = true;
+          updates["system.strain.soul capacity"] = value;
         }
+
+        // If this input doesn't map to a known override, don't do anything
+        if (Object.keys(updates).length === 0) return;
+
+        event.preventDefault();
+
+        await this.actor.update(updates, { render: false });
+        this.render(false);
+        input.blur();
       });
+
 
       // Handle quantity changes
       html.find(".item-quantity").on("change", async (event) => {
@@ -1138,32 +1144,26 @@ export class MidnightGambitActorSheet extends ActorSheet {
         }
       });
 
-      // Open item sheet when clicking the inventory item
-      html.find(".clickable-item").on("click", async (event) => {
+      // Posting Inventory Items to Chat (Weapons / Armor / Misc) via header click
+      html.find(".tab-inventory .post-item").on("click", async (event) => {
         event.preventDefault();
         event.stopPropagation();
 
-        // Go up to the inventory-item div
-        const parent = event.currentTarget.closest(".inventory-item");
-        if (!parent) return;
-
-        const itemId = parent.dataset.itemId;
-        const item = this.actor.items.get(itemId);
-        if (item) item.sheet.render(true);
-      });
-
-      //Posting Item Tags listener
-      html.find(".post-weapon-tags, .post-armor-tags, .post-misc-tags").on("click", async (event) => {
-        event.preventDefault();
-        event.stopPropagation();
-
-        const itemId = event.currentTarget.dataset.itemId;
-        const item = this.actor.items.get(itemId);
+        // Resolve item from the header or parent card
+        const header   = event.currentTarget;
+        const itemId   = header.dataset.itemId
+          || header.closest(".inventory-item")?.dataset?.itemId;
+        const item     = this.actor.items.get(itemId);
         if (!item) return;
 
         const { name, system, type } = item;
-        // Build clickable tag pills for chat: include data-tag-id so hooks can resolve
-        const safe = (s) => String(s ?? "").replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+        // Safe HTML escape for labels/ids
+        const safe = (s) => String(s ?? "").replace(/[&<>"']/g, c =>
+          ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])
+        );
+
+        // Merge all known tag definitions so we get labels + descriptions
         const allDefs = [
           ...(CONFIG.MidnightGambit?.ITEM_TAGS   ?? []),
           ...(CONFIG.MidnightGambit?.WEAPON_TAGS ?? []),
@@ -1176,11 +1176,9 @@ export class MidnightGambitActorSheet extends ActorSheet {
             const def   = allDefs.find(t => t.id === tagId);
             const label = def?.label || tagId;
             const desc  = def?.description || "";
-            // NOTE: add both .item-tag and .tag; include data-tag-id for the click handler
             return `<span class="item-tag tag" data-tag-id="${safe(tagId)}" title="${safe(desc)}">${safe(label)}</span>`;
           })
           .join(" ");
-
 
         let extraInfo = "";
 
@@ -1213,25 +1211,210 @@ export class MidnightGambitActorSheet extends ActorSheet {
 
         const content = `
           <div class="chat-item">
-            <h2><i class="fa-solid fa-shield"></i> ${name}</h2>
-            ${system.description ? `<p><em>${system.description}</em></p>` : ""}
+            <h2><i class="fa-solid fa-shield"></i> ${safe(name)}</h2>
+            ${system.description ? `<p><em>${safe(system.description)}</em></p>` : ""}
             ${extraInfo}
             ${tagData ? `<strong>Tags:</strong><div class="chat-tags">${tagData}</div>` : ""}
           </div>
         `;
 
-        ChatMessage.create({
+        await ChatMessage.create({
           user: game.user.id,
           speaker: ChatMessage.getSpeaker({ actor: this.actor }),
           content
         });
 
-        // Tooltip fallback (redundant, but safe)
+        // Re-apply tooltips as a safety net
         html.find(".item-tag").each(function () {
           const tooltip = this.dataset.tooltip;
           if (tooltip) this.setAttribute("title", tooltip);
         });
       });
+
+      // Inventory Search (character sheet)
+      {
+        const $root = html instanceof jQuery ? html : $(html);
+        const $tab  = $root.find(".tab-inventory");
+
+        if (!$tab.length) return;
+
+        const STAGGER_STEP_MS = 80;   // delay between each card's enter
+        const STAGGER_COUNT   = 3;    // how many cards get staggered
+        const DEBOUNCE_MS     = 220;
+        const LEAVE_MS        = 500;  // must match your CSS transition time
+
+        const debounce = (fn, wait = DEBOUNCE_MS) => {
+          let t;
+          return (...args) => {
+            clearTimeout(t);
+            t = setTimeout(() => fn(...args), wait);
+          };
+        };
+
+        // Decide if a given inventory card matches the query
+        const cardMatches = (el, q) => {
+          const norm = (s) => String(s ?? "").toLowerCase();
+
+          // We prefer .name (h3.name) like the Crew Assets,
+          // but fall back to any .clickable-item text just in case.
+          const nameEl =
+            el.querySelector(".name") ||
+            el.querySelector(".clickable-item");
+          const name  = norm(nameEl?.textContent || "");
+
+          // Tags: either .item-tags or generic .tags wrapper
+          const tagsEl =
+            el.querySelector(".item-tags") ||
+            el.querySelector(".tags");
+          const tags = norm(tagsEl?.textContent || "");
+
+          // Optional notes/description area if you wire that up later
+          const notesEl = el.querySelector(".notes");
+          const notes   = norm(notesEl?.textContent || "");
+
+          return !q || name.includes(q) || tags.includes(q) || notes.includes(q);
+        };
+
+        // Animate a card entering (visible)
+        const enterCard = (el, idx = 0) => {
+          el.classList.remove("is-entering", "is-leaving", "pre-enter");
+
+          // If it's currently visible, briefly hide to restart animation
+          if (!el.classList.contains("is-hidden")) {
+            el.classList.add("is-hidden");
+            // force reflow so the browser sees the class change
+            // eslint-disable-next-line no-unused-expressions
+            el.offsetHeight;
+          }
+
+          el.classList.remove("is-hidden");
+          el.classList.add("pre-enter");
+          // another reflow to lock in starting state
+          // eslint-disable-next-line no-unused-expressions
+          el.offsetHeight;
+
+          const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+          const slot   = Math.min(idx, STAGGER_COUNT - 1);
+          const delay  = reduce ? 0 : slot * STAGGER_STEP_MS;
+          el.style.transitionDelay = `${delay}ms`;
+
+          requestAnimationFrame(() => {
+            el.classList.add("is-entering");
+            const onEnd = (e) => {
+              if (e && e.target !== el) return;
+              el.classList.remove("is-entering", "pre-enter");
+              el.style.transitionDelay = "";
+              el.removeEventListener("transitionend", onEnd);
+            };
+            el.addEventListener("transitionend", onEnd, { once: true });
+          });
+        };
+
+        // Animate a card leaving (fading out + sliding down)
+        const leaveCard = (el) => {
+          el.classList.remove("is-entering", "pre-enter");
+          el.style.transitionDelay = "";
+          if (el.classList.contains("is-hidden")) return;
+          el.classList.add("is-leaving");
+        };
+
+        // Show / hide the "no results" message
+        const showEmpty = (show) => {
+          const empty =
+            $tab.find(".inventory-search-empty")[0] ||
+            $tab.find(".inventory-empty")[0];
+          if (!empty) return;
+          empty.style.display = show ? "block" : "none";
+        };
+
+        // Core search routine (no events, just logic)
+        const runSearchNow = () => {
+          const input = $tab.find(".item-search")[0];
+          const q = (input?.value || "").toLowerCase().trim();
+
+          // Support both .inventory-card and legacy .inventory-item classes
+          const cards = $tab.find(".inventory-card, .inventory-item").toArray();
+          const matchSet = new Set(cards.filter((el) => cardMatches(el, q)));
+
+          // Start the leave animation for everything
+          for (const el of cards) leaveCard(el);
+
+          // After leave animation finishes, finalize which ones show / hide
+          setTimeout(() => {
+            let hits = 0;
+            let enterIndex = 0;
+
+            for (const el of cards) {
+              const isMatch = matchSet.has(el);
+              el.classList.remove("is-leaving");
+              if (isMatch) {
+                hits++;
+                enterCard(el, enterIndex++);
+              } else {
+                el.classList.add("is-hidden");
+              }
+            }
+
+            showEmpty(hits === 0 && !!q);
+          }, LEAVE_MS);
+        };
+
+        const runSearch = debounce(runSearchNow, DEBOUNCE_MS);
+
+        // ----- Event wiring: Enter key + Search + Reset -----
+
+        // Enter in the search input
+        $root
+          .off("keydown.mgInvSearchEnter")
+          .on("keydown.mgInvSearchEnter", ".tab-inventory .item-search", (ev) => {
+            if (ev.key !== "Enter") return;
+            ev.preventDefault();
+            ev.stopPropagation();
+            ev.stopImmediatePropagation();
+            runSearch();
+          });
+
+        // Click the Search button
+        $root
+          .off("click.mgInvSearchBtn")
+          .on("click.mgInvSearchBtn", ".tab-inventory .item-search-btn", (ev) => {
+            ev.preventDefault();
+            ev.stopPropagation();
+            ev.stopImmediatePropagation();
+            runSearch();
+          });
+
+        // Click the Reset button
+        $root
+          .off("click.mgInvSearchReset")
+          .on("click.mgInvSearchReset", ".tab-inventory .item-search-reset", (ev) => {
+            ev.preventDefault();
+
+            const input = $tab.find(".item-search")[0];
+            if (input) input.value = "";
+
+            showEmpty(false);
+
+            const cards = $tab.find(".inventory-card, .inventory-item").toArray();
+            for (const el of cards) leaveCard(el);
+
+            setTimeout(() => {
+              let idx = 0;
+              for (const el of cards) {
+                el.classList.remove("is-leaving");
+                enterCard(el, idx++);
+              }
+            }, LEAVE_MS);
+          });
+
+        // Initial state: everything visible, no animations, no empty message
+        const initialCards = $tab.find(".inventory-card, .inventory-item").toArray();
+        for (const el of initialCards) {
+          el.classList.remove("is-hidden", "is-entering", "is-leaving", "pre-enter");
+          el.style.transitionDelay = "";
+        }
+        showEmpty(false);
+      }
 
       // Enable tooltips manually after rendering the sheet
       html.find(".sync-tags").on("click", async (event) => {
@@ -2120,7 +2303,6 @@ export class MidnightGambitActorSheet extends ActorSheet {
       ".skill-name", ".skill-value",
       ".repair-armor",
       ".item-delete",
-      ".clickable-item",
       ".post-weapon-tags", ".post-armor-tags", ".post-misc-tags",
       ".sync-tags",
       ".reset-gambit-deck",

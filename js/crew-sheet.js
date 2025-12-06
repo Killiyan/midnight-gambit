@@ -1136,16 +1136,33 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 		// Measure one wrapper and set classes/affordances
 		const updateOneWrap = (wrap) => {
 			if (!wrap || wrap.classList.contains("animating")) return;
+
 			const tags   = wrap.querySelector(".tags");
 			const toggle = wrap.querySelector(".tags-toggle");
 			if (!tags || !toggle) return;
 
 			const isExpanded = wrap.classList.contains("expanded");
-			const overflows  = tags.scrollHeight > (COLLAPSED_MAX + 1);
+
+			// Count how many tag chips we actually have
+			const chipCount = tags.querySelectorAll(".asset-tag, .item-tag, .tag-pill, .tag").length;
+
+			// Old behaviour: height-based overflow
+			const overflowsByHeight = tags.scrollHeight > (COLLAPSED_MAX + 1);
+
+			// New: treat "4+ chips" as overflow regardless of exact pixel math
+			const overflows = chipCount > 2 || overflowsByHeight;
 
 			// "short" means there is NO overflow — hide toggle and (your CSS) hides gradient
 			wrap.classList.toggle("short", !overflows);
 			toggle.hidden = !overflows;
+
+			// Enforce collapsed max-height when not expanded so the clamp actually happens
+			if (!isExpanded) {
+			tags.style.maxHeight = overflows ? `${COLLAPSED_MAX}px` : "";
+			} else {
+			// Let expanded state grow naturally
+			tags.style.maxHeight = "";
+			}
 
 			// Ensure an icon exists and rotate it based on expanded state
 			if (!toggle.querySelector("i")) {
@@ -1154,6 +1171,7 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 			const icon = toggle.querySelector("i");
 			icon.classList.toggle("rotated", isExpanded);
 		};
+
 
 		// Animate max-height to a target, then run callback
 		const animateTo = (el, targetPx, after) => {
