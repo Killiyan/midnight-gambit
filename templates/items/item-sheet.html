@@ -17,6 +17,19 @@
       }}
     </div>
 
+    <div class="item-notes">
+      <label>Notes</label>
+      {{editor
+        system.notes
+        target="system.notes"
+        engine="tinymce"
+        owner=owner
+        editable=editable
+        button=false
+      }}
+    </div>
+
+
     <div class="wrapper">
       <label>Tags</label>
       <div class="tag-selector">

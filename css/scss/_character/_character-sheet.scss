@@ -1524,23 +1524,34 @@ h1,h2,h3,h4 {
         flex-direction: column;
         gap: 1rem;
 
-        .card-body {
+        .desc,
+        .item-capacity,
+        .info-wrapper {
+          padding: 1rem;
+          @include mg-border();
+          font-size: 1rem;
+          color: $mg-blue-2;
+          border-radius: .5rem;
+          gap: .5rem;
+
+          p {
+            margin: 0;
+          }
+        }
+
+        .info-wrapper,
+        .item-capacity {
           display: flex;
           flex-direction: column;
-          gap: 1rem;
+          gap: 0;
 
-          .desc,
-          .asset-notes {
-            padding: 1rem;
-            @include mg-border();
-            font-size: 1rem;
-            color: $mg-blue-2;
-            border-radius: .5rem;
+          label:nth-of-type(2) {
+            margin-top: .5rem;
+          }
+
+          .wrapper {
+            display: flex;
             gap: .5rem;
-
-            p {
-              margin: 0;
-            }
           }
         }
 
@@ -1583,86 +1594,87 @@ h1,h2,h3,h4 {
         .desc {
           font-size: .9rem;
           opacity: .9;
-          margin: 4px 0 6px;
           display: -webkit-box;
           -webkit-box-orient: vertical;
           overflow: hidden;
-        }
-
-        .tags-wrap {
+          transition: max-height .5s ease;
           position: relative;
+          border-radius: .5rem;
+          @include mg-border();
+          padding: .5rem;
+          margin: 0;
         }
-      }
 
-      .tags {
-        max-height: 5rem;
-        overflow: hidden;
-        transition: max-height .5s ease;
-        position: relative;
-        border-radius: .5rem;
-        @include mg-border();
-        padding: .5rem;
-
-        &:after {
-          content: "";
-          position: absolute; 
-          left: 0; 
-          right: 0;
-          bottom: 0; 
-          height: .85rem;
-          pointer-events: none;
-          background: linear-gradient(to bottom, rgba(0,0,0,0) 0%, rgba($mg-blue-4, .8) 100%);
-          backdrop-filter: blur(1px);
-          transition: opacity .5s ease;
-        }
-      }
-      
-      .tags-wrap.expanded {
-
-        .tags-toggle {
-          bottom: -1rem;
-        }
-      
-        .tags {
-          max-height: none;
+        .item-tags {
+          max-height: 5rem;
+          overflow: hidden;
+          transition: max-height .5s ease;
+          position: relative;
+          border-radius: .5rem;
+          @include mg-border();
+          padding: .5rem;
 
           &:after {
-            opacity: 0;
-          }
-        }
-      }
-
-      .tags-wrap.short {
-        .tags::after { display: none; }
-        .tags-toggle { display: none !important; }
-        .tags { max-height: none; }
-      }
-
-      .tags-toggle {
-        opacity: .85;
-        padding: .5rem;
-        border-radius: 8px;
-        background: $mg-blue-main;
-        transition: background .5s ease, opacity .5s ease, color .5s ease;
-        cursor: pointer;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        width: 100%;
-        cursor: pointer;
-
-        i {
-          font-size: 0.9rem;
-          transition: transform 0.3s ease, opacity 0.25s ease;
-
-          &.rotated {
-            transform: rotate(180deg);
+            content: "";
+            position: absolute; 
+            left: 0; 
+            right: 0;
+            bottom: 0; 
+            height: .85rem;
+            pointer-events: none;
+            background: linear-gradient(to bottom, rgba(0,0,0,0) 0%, rgba($mg-blue-4, .8) 100%);
+            backdrop-filter: blur(1px);
+            transition: opacity .5s ease;
           }
         }
 
-        &:hover {
-          background: $mg-blue-1;
-          color: $mg-blue-4;
+        .tags-wrap.expanded {
+        
+          .item-tags {
+            max-height: none;
+
+              &:after {
+                opacity: 0;
+              }
+          }
+
+          .tags-toggle {
+            bottom: -1rem;
+          }
+        }
+
+        .tags-wrap.short {
+          .item-tags::after { display: none; }
+          .tags-toggle { display: none !important; }
+          .item-tags { max-height: none; }
+        }
+
+        .tags-toggle {
+          opacity: .85;
+          padding: .5rem;
+          border-radius: 8px;
+          background: $mg-blue-main;
+          transition: background .5s ease, opacity .5s ease, color .5s ease;
+          cursor: pointer;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 100%;
+          cursor: pointer;
+
+          i {
+            font-size: 0.9rem;
+            transition: transform 0.3s ease, opacity 0.25s ease;
+
+            &.rotated {
+              transform: rotate(180deg);
+            }
+          }
+
+          &:hover {
+            background: $mg-blue-1;
+            color: $mg-blue-4;
+          }
         }
       }
     }

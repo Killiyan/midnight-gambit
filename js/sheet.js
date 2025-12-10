@@ -1184,7 +1184,14 @@ export class MidnightGambitActorSheet extends ActorSheet {
 
         // Weapon: Strain Damage
         if (type === "weapon" && system.strainDamage) {
-          extraInfo += `<p><strong>Strain Damage:</strong> ${system.strainDamage}</p>`;
+          extraInfo += `
+            <label>Strain Damage</label>
+            <div class="bubble-wrapper">
+              <p class="strain-bubble">
+                <i class="fa-solid fa-dagger"></i>
+                <span class="remaining-number">${system.strainDamage}</span>
+              </p>
+            </div>`;
         }
 
         // Armor: MC / SC
@@ -1192,27 +1199,65 @@ export class MidnightGambitActorSheet extends ActorSheet {
           const mc = system.mortalCapacity ?? 0;
           const sc = system.soulCapacity ?? 0;
           if (mc || sc) {
-            extraInfo += `<p><strong>Strain Capacity:</strong> MC ${mc} / SC ${sc}</p>`;
+            extraInfo += `
+              <label>Capacity</label>
+              <div class="bubble-wrapper">
+                <p class="strain-bubble">
+                  <i class="fa-solid fa-dagger"></i>
+                  <span class="remaining-number">${mc}</span>
+                </p>
+                <p class="strain-bubble">
+                  <i class="fa-solid fa-moon-over-sun"></i>
+                  <span class="remaining-number">${sc}</span>
+                </p>
+              </div>`;
           }
         }
 
         // Misc: Strain Damage + Capacity
         if (type === "misc") {
           if (system.strainDamage) {
-            extraInfo += `<p><strong>Strain Damage:</strong> ${system.strainDamage}</p>`;
+            extraInfo += `
+              <label>Capacity</label>
+              <div class="bubble-wrapper">
+                <p class="strain-bubble">
+                  <i class="fa-solid fa-dagger"></i>
+                  <span class="remaining-number">${mc}</span>
+                </p>
+                <p class="strain-bubble">
+                  <i class="fa-solid fa-moon-over-sun"></i>
+                  <span class="remaining-number">${sc}</span>
+                </p>
+              </div>`;
           }
 
           const mc = system.mortalCapacity ?? 0;
           const sc = system.soulCapacity ?? 0;
           if (mc || sc) {
-            extraInfo += `<p><strong>Strain Capacity:</strong> MC ${mc} / SC ${sc}</p>`;
+            extraInfo += `
+              <label>Capacity</label>
+              <div class="bubble-wrapper">
+                <p class="strain-bubble">
+                  <i class="fa-solid fa-dagger"></i>
+                  <span class="remaining-number">${mc}</span>
+                </p>
+                <p class="strain-bubble">
+                  <i class="fa-solid fa-moon-over-sun"></i>
+                  <span class="remaining-number">${sc}</span>
+                </p>
+              </div>`;
           }
         }
+
+        // Enrich the TinyMCE HTML for chat so formatting (lists, bold, etc.) is preserved
+        const descHtml = system.description
+          ? await TextEditor.enrichHTML(String(system.description ?? ""), { async: true, secrets: false })
+          : "";
 
         const content = `
           <div class="chat-item">
             <h2><i class="fa-solid fa-shield"></i> ${safe(name)}</h2>
-            ${system.description ? `<p><em>${safe(system.description)}</em></p>` : ""}
+            ${descHtml ? `<div class="chat-item-desc">${descHtml}</div>` : ""}
             ${extraInfo}
             ${tagData ? `<strong>Tags:</strong><div class="chat-tags">${tagData}</div>` : ""}
           </div>
@@ -1415,6 +1460,247 @@ export class MidnightGambitActorSheet extends ActorSheet {
         }
         showEmpty(false);
       }
+
+      // "See All / See Less" for inventory descriptions (reuse mg-seeall-wrap)
+      {
+        const $root = html instanceof jQuery ? html : $(html);
+
+        const bindSeeAll = (
+          $ctx,
+          {
+            wrapSel      = ".mg-seeall-wrap",
+            contentSel   = ".mg-seeall-content",
+            toggleSel    = ".mg-seeall-toggle",
+            collapsedMax = 140,
+            transitionMs = 500
+          } = {}
+        ) => {
+          // Read per-wrap cap; fall back to the function default
+          const capFor = (wrap) => {
+            const v = Number(wrap?.dataset?.seeallCap);
+            return Number.isFinite(v) ? v : collapsedMax;
+          };
+
+          const updateOne = (wrap) => {
+            if (!wrap || wrap.classList.contains("animating")) return;
+            const content = wrap.querySelector(contentSel);
+            const toggle  = wrap.querySelector(toggleSel);
+            if (!content || !toggle) return;
+
+            const cap        = capFor(wrap);
+            const isExpanded = wrap.classList.contains("expanded");
+            const overflows  = content.scrollHeight > (cap + 1);
+
+            // "short" = no overflow → hide toggle and gradient
+            wrap.classList.toggle("short", !overflows);
+            toggle.hidden = !overflows;
+
+            if (!toggle.querySelector("i")) {
+              toggle.innerHTML = '<i class="fa-solid fa-angle-down"></i>';
+            }
+            const icon = toggle.querySelector("i");
+            if (icon) icon.classList.toggle("rotated", isExpanded);
+
+            // Clamp when not expanded
+            if (!isExpanded && overflows) {
+              content.style.maxHeight = `${cap}px`;
+            } else if (!isExpanded) {
+              content.style.maxHeight = "";
+            }
+          };
+
+          const animateTo = (el, targetPx, done) => {
+            el.style.maxHeight = `${targetPx}px`;
+
+            const onEnd = (e) => {
+              if (e && e.target !== el) return;
+              el.removeEventListener("transitionend", onEnd);
+              done?.();
+            };
+
+            setTimeout(() => done?.(), transitionMs + 50); // safety
+            el.addEventListener("transitionend", onEnd, { once: true });
+          };
+
+          // Click toggle (expand / collapse)
+          $ctx
+            .off("click.mgInvSeeAllToggle")
+            .on("click.mgInvSeeAllToggle", `${wrapSel} ${toggleSel}`, (ev) => {
+              ev.preventDefault();
+              const wrap = ev.currentTarget.closest(wrapSel);
+              if (!wrap || wrap.classList.contains("animating")) return;
+
+              const content = wrap.querySelector(contentSel);
+              const toggle  = wrap.querySelector(toggleSel);
+              if (!content || !toggle) return;
+
+              const cap        = capFor(wrap);
+              const isExpanded = wrap.classList.contains("expanded");
+
+              wrap.classList.add("animating");
+
+              if (!isExpanded) {
+                // EXPAND: (current or cap) → natural scroll height
+                content.style.maxHeight = `${Math.max(content.clientHeight, cap)}px`;
+                // force reflow
+                // eslint-disable-next-line no-unused-expressions
+                content.offsetHeight;
+                animateTo(content, content.scrollHeight, () => {
+                  wrap.classList.add("expanded");
+                  content.style.maxHeight = "";
+                  const icon = toggle.querySelector("i");
+                  if (icon) requestAnimationFrame(() => icon.classList.add("rotated"));
+                  wrap.classList.remove("animating");
+                  updateOne(wrap);
+                });
+              } else {
+                // COLLAPSE: natural scroll height → cap
+                content.style.maxHeight = `${content.scrollHeight}px`;
+                // eslint-disable-next-line no-unused-expressions
+                content.offsetHeight;
+                animateTo(content, cap, () => {
+                  wrap.classList.remove("expanded");
+                  content.style.maxHeight = "";
+                  const icon = toggle.querySelector("i");
+                  if (icon) requestAnimationFrame(() => icon.classList.remove("rotated"));
+                  wrap.classList.remove("animating");
+                  updateOne(wrap);
+                });
+              }
+            });
+
+          // Initial measure (hidden tabs may look short; we refresh on tab switch)
+          $ctx.find(wrapSel).each((_, el) => updateOne(el));
+
+          const refreshAll = () =>
+            setTimeout(() => {
+              $ctx.find(wrapSel).each((_, el) => updateOne(el));
+            }, 0);
+
+          // Re-measure when the Inventory tab becomes visible
+          $ctx
+            .off("click.mgInvSeeAllTab")
+            .on("click.mgInvSeeAllTab", ".sheet-tabs .item", (ev) => {
+              const tab = ev.currentTarget?.dataset?.tab;
+              if (tab === "inventory") refreshAll();
+            });
+
+          // If Inventory is already visible on first render
+          const inventoryVisible = $ctx.find('.tab[data-tab="inventory"]').is(":visible");
+          if (inventoryVisible) refreshAll();
+        };
+
+        // Bind "See All" behavior, scoped to the inventory tab
+        bindSeeAll($root, {
+          wrapSel: ".tab-inventory .mg-seeall-wrap",
+          collapsedMax: 140,
+          transitionMs: 500
+        });
+      }
+
+      // Inventory Tag Overflow (character sheet – same behavior as Crew Assets)
+      {
+        const $root = html instanceof jQuery ? html : $(html);
+
+        const COLLAPSED_MAX = 80;   // px of tag-stack height before clamping
+        const TRANSITION_MS = 280;  // keep in sync with your CSS transition
+
+        // Measure one wrapper and decide if it needs a toggle
+        const updateOne = (wrap) => {
+          if (!wrap) return;
+          const tags =
+            wrap.querySelector(".item-tags") ||   // inventory cards
+            wrap.querySelector(".tags");          // future-proof / shared styles
+          const toggle = wrap.querySelector(".tags-toggle");
+          if (!tags || !toggle) return;
+
+          const overflows = tags.scrollHeight > (COLLAPSED_MAX + 1);
+
+          toggle.hidden = !overflows;
+          wrap.classList.toggle("short", !overflows);
+
+          // Make sure we have an icon and its rotation matches expanded state
+          if (!toggle.querySelector("i")) {
+            toggle.innerHTML = '<i class="fa-solid fa-angle-down"></i>';
+          }
+          const icon     = toggle.querySelector("i");
+          const expanded = wrap.classList.contains("expanded");
+          if (icon) icon.classList.toggle("rotated", expanded);
+
+          // If it's not expanded, clamp the height
+          if (!expanded && overflows) {
+            tags.style.maxHeight = `${COLLAPSED_MAX}px`;
+          } else {
+            tags.style.maxHeight = "";
+          }
+        };
+
+        const refreshAll = () => {
+          const wraps = $root[0]?.querySelectorAll(".tab-inventory .tags-wrap") || [];
+          wraps.forEach(updateOne);
+        };
+
+        // Click handler for the chevron on the inventory tab
+        $root
+          .off("click.mgInvTagsToggle")
+          .on("click.mgInvTagsToggle", ".tab-inventory .tags-toggle", (ev) => {
+            ev.preventDefault();
+            ev.stopPropagation();
+
+            const wrap = ev.currentTarget.closest(".tags-wrap");
+            const tags =
+              wrap?.querySelector(".item-tags") ||
+              wrap?.querySelector(".tags");
+            const icon = ev.currentTarget.querySelector("i");
+            if (!wrap || !tags) return;
+
+            const wasExpanded = wrap.classList.contains("expanded");
+            const startHeight = tags.clientHeight;
+
+            // Target height: full scroll height if expanding, clamped if collapsing
+            const targetHeight = wasExpanded
+              ? COLLAPSED_MAX
+              : Math.max(tags.scrollHeight, startHeight);
+
+            // Prepare animation: set current height, then animate to target
+            tags.style.maxHeight = `${startHeight}px`;
+            // force reflow
+            // eslint-disable-next-line no-unused-expressions
+            tags.offsetHeight;
+            tags.style.maxHeight = `${targetHeight}px`;
+
+            wrap.classList.add("animating");
+            wrap.classList.toggle("expanded", !wasExpanded);
+            if (icon) icon.classList.toggle("rotated", !wasExpanded);
+
+            const onEnd = (e) => {
+              if (e && e.target !== tags) return;
+
+              tags.removeEventListener("transitionend", onEnd);
+              wrap.classList.remove("animating");
+
+              // When collapsed, keep the clamp; when expanded, let it auto-size
+              if (wrap.classList.contains("expanded")) {
+                tags.style.maxHeight = "";
+              } else if (tags.scrollHeight > COLLAPSED_MAX + 1) {
+                tags.style.maxHeight = `${COLLAPSED_MAX}px`;
+              } else {
+                tags.style.maxHeight = "";
+              }
+
+              updateOne(wrap);
+            };
+
+            tags.addEventListener("transitionend", onEnd, { once: true });
+
+            // Failsafe in case transitionend doesn’t fire
+            setTimeout(onEnd, TRANSITION_MS + 100);
+          });
+
+        // Initial measurement when the sheet renders
+        refreshAll();
+      }
+
 
       // Enable tooltips manually after rendering the sheet
       html.find(".sync-tags").on("click", async (event) => {
@@ -3196,6 +3482,12 @@ export class MidnightGambitActorSheet extends ActorSheet {
     return super._onDrop?.(event) ?? false;
   }
 
+  /** Ensure inline TinyMCE saves don't close/reopen the actor sheet */
+  async _onSubmit(event, { updateData = null, preventClose = false } = {}) {
+    event.preventDefault();
+    // Always prevent close for this sheet; X / Esc still close it manually
+    return super._onSubmit(event, { updateData, preventClose: true });
+  }
 
   // Cleanup our temporary hooks when the sheet closes
   async close(options) {

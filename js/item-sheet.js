@@ -3,7 +3,7 @@ export class MidnightGambitItemSheet extends ItemSheet {
     return mergeObject(super.defaultOptions, {
       classes: ["midnight-gambit", "sheet", "item"],
       width: 500,
-      height: "auto",
+      height: 700,
       resizable: true
     });
   }
@@ -111,8 +111,13 @@ export class MidnightGambitItemSheet extends ItemSheet {
 		context.tags       = [...flaggedGlobal, ...localOnly];
 		context.tagsMap    = Object.fromEntries(context.tags.map(tag => [tag.id, tag]));
 
+		// Cache tag metadata on the sheet instance for live UI updates
+		this._tagsMap = context.tagsMap;
+
 		return context;
 	}
+
+
 
 	// Mount TinyMCE editors on description/notes fields in item sheets
 	async _initRichEditors(html) {
@@ -165,17 +170,89 @@ export class MidnightGambitItemSheet extends ItemSheet {
 		// Mount rich text editors on this sheet’s textareas
 		this._initRichEditors(html).catch(console.error);
 
-
-		// Toggle tag on item
+		// Toggle tag on the item without re-rendering, and live-update both the
+		// top tag buttons and the bottom “selected tags” row.
 		html.off("click.mgTag", ".tag-pill").on("click.mgTag", ".tag-pill", async (ev) => {
 		ev.preventDefault();
-		ev.stopPropagation(); // ← avoid double fires when clicking near controls
-		const tagId = ev.currentTarget.dataset.tagId;
-		const set = new Set(this.item.system?.tags || []);
-		set.has(tagId) ? set.delete(tagId) : set.add(tagId);
-		await this.item.update({ "system.tags": Array.from(set) });
-		this.render(false);
+		ev.stopPropagation();
+
+		const pill  = ev.currentTarget;
+		const tagId = pill.dataset.tagId;
+		if (!tagId) return;
+
+		// --- 1) Toggle in the document data ---------------------------------
+		const currentTags = Array.isArray(this.item.system?.tags)
+			? [...this.item.system.tags]
+			: [];
+		const set = new Set(currentTags);
+
+		if (set.has(tagId)) {
+			set.delete(tagId);
+		} else {
+			set.add(tagId);
+		}
+
+		// Persist tags to the Item document but DO NOT re-render the sheet
+		await this.item.update(
+			{ "system.tags": Array.from(set) },
+			{ render: false }
+		);
+
+		// --- 2) Update the top tag button states ----------------------------
+		const has = set.has.bind(set);
+		html.find(".tag-pill").each((_, el) => {
+			const id = el.dataset.tagId;
+			if (!id) return;
+			const on = has(id);
+			el.classList.toggle("selected", on);
+			el.classList.toggle("active",   on); // if you also use .active in your CSS
 		});
+
+		// --- 3) Live-update the bottom tag grid without touching the
+		//         "+ ADD CUSTOM TAG" button, and without duplication ----------
+		const root    = html[0];
+		const tagsMap = this._tagsMap || {};
+
+		// We assume your bottom layout is something like:
+		// <div class="...">
+		//   <span class="item-tag tag" data-tag-id="notorious">Notorious</span>
+		//   ...
+		//   <button class="add-custom-tag">+ ADD CUSTOM TAG</button>
+		// </div>
+		//
+		// The button is our anchor; its parent is the wrapper for both pills + button.
+		const addBtn = root.querySelector(".add-custom-tag");
+		if (!addBtn) return;
+
+		const wrapper = addBtn.parentElement;
+		if (!wrapper) return;
+
+		// Hide the original static tags (first render) but keep them in DOM
+		// so your template structure is intact until a full refresh.
+		wrapper
+			.querySelectorAll(".item-tag.tag:not(.mg-live-tag)")
+			.forEach((el) => {
+			el.style.display = "none";
+			});
+
+		// Remove any previously generated live pills
+		wrapper.querySelectorAll(".mg-live-tag").forEach((el) => el.remove());
+
+		// Build a fresh live list for the current tag set
+		for (const id of set) {
+			const meta = tagsMap[id] || { label: id };
+
+			const livePill = document.createElement("span");
+			// Use your styling classes + a marker for future cleanup
+			livePill.className     = "item-tag tag mg-live-tag";
+			livePill.dataset.tagId = id;
+			livePill.textContent   = meta.label || id;
+
+			// Insert each live pill before the "+ ADD CUSTOM TAG" button
+			wrapper.insertBefore(livePill, addBtn);
+		}
+		});
+
 
 		// Add custom tag
 		html.find(".add-custom-tag").on("click", async () => {
@@ -396,6 +473,51 @@ export class MidnightGambitItemSheet extends ItemSheet {
 		
 	}
 
+	/**
+	 * Rebuild the “selected tags” row under the grid WITHOUT
+	 * touching the "+ ADD CUSTOM TAG" button.
+	 *
+	 * @param {jQuery} html        The sheet root
+	 * @param {Set<string>} tagSet Current active tag IDs
+	 */
+	_refreshActiveTagList(html, tagSet) {
+		const tagsMap = this._tagsMap || {};
+		const root    = html instanceof jQuery ? html[0] : html;
+		if (!root) return;
+
+		// Wrapper that holds both the pills and the "+ ADD CUSTOM TAG" button
+		const wrapper = root.querySelector(".tag-wrapper");
+		if (!wrapper) {
+		console.warn("Midnight Gambit | _refreshActiveTagList: no .tag-wrapper found");
+		return;
+		}
+
+		// 1) Remove ONLY the previously rendered active-tag pills
+		wrapper.querySelectorAll(".mg-active-tag-pill").forEach((el) => el.remove());
+
+		// 2) Find the "+ ADD CUSTOM TAG" button so we can always keep it last
+		const addBtn = wrapper.querySelector(".add-custom-tag");
+
+		// 3) Rebuild pills from the current active tag set
+		for (const id of tagSet) {
+		const meta = tagsMap[id] || { label: id };
+
+		const pill = document.createElement("span");
+		pill.className     = "item-tag tag";
+		pill.dataset.tagId = id;
+		pill.textContent   = meta.label || id;
+
+		// Insert pills BEFORE the add-custom-tag button, if present
+		if (addBtn) {
+			wrapper.insertBefore(pill, addBtn);
+		} else {
+			// Fallback: if somehow no button, just append
+			wrapper.appendChild(pill);
+		}
+		}
+	}
+
+
 	/** Re-render all open item sheets of the relevant family so pills update without a full refresh */
 	_rerenderOpenTagSheets(isAsset) {
 	for (const app of Object.values(ui.windows)) {
@@ -407,4 +529,10 @@ export class MidnightGambitItemSheet extends ItemSheet {
 		}
 	}
 	}
+
+  /** Ensure inline TinyMCE saves don't close/reopen the item sheet */
+  async _onSubmit(event, { updateData = null, preventClose = false } = {}) {
+    event.preventDefault();
+    return super._onSubmit(event, { updateData, preventClose: true });
+  }
 }

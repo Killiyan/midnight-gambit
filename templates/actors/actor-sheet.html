@@ -463,18 +463,68 @@
                   </div>
 
                   <div class="card-wrapper">
-                    {{#if item.system.strainDamage}}
+                    {{#if (gt item.system.strainDamage 0)}}
                       <div class="item-capacity" title="Strain Damage">
                         <label>Strain Damage</label>
-                        <div class="strain-wrapper">
-                          <p class="strain-damage">
-                            <span>SD</span>
+                        <div class="bubble-wrapper">
+                          <p class="strain-bubble">
+                            <i class="fa-solid fa-dagger"></i>
                             <span class="remaining-number">{{item.system.strainDamage}}</span>
                           </p>
                         </div>
                       </div>
-                    {{else}}
-                      <div class="item-capacity"></div>
+                    {{/if}}
+
+                    {{#if item.system.tags.length}}
+                      <div class="tags-wrap" data-item-id="{{item._id}}">
+                        <div class="item-tags">
+                          {{#each item.system.tags as |tagId|}}
+                            {{#with (lookup ../../CONFIG.MidnightGambit.ITEM_TAGS tagId) as |tag|}}
+                              <div class="item-tag tag" data-item-id="{{item._id}}" data-tag-id="{{tagId}}" title="Right-click to remove">
+                                <span data-tooltip="{{tag.description}}">{{tag.label}}</span>
+                              </div>
+                            {{else}}
+                              <div class="item-tag tag" data-item-id="{{item._id}}" data-tag-id="{{tagId}}" title="Right-click to remove">
+                                <span>{{tagId}}</span>
+                              </div>
+                            {{/with}}
+                          {{/each}}
+                        </div>
+
+                        <div class="tags-toggle" hidden>
+                          <i class="fa-solid fa-angle-down"></i>
+                        </div>
+                      </div>
+                    {{/if}}
+
+                    {{#if (stripHTML item.system.description)}}
+                      <div class="mg-seeall-wrap" data-item-id="{{item._id}}" data-seeall-cap="140">
+                        <div class="desc">
+                          <label>Description</label>
+                          <div class="desc-content mg-seeall-content">
+                            {{{item.system.description}}}
+                          </div>
+                        </div>
+
+                        <button class="mg-seeall-toggle" type="button">
+                          <i class="fa-solid fa-angle-down"></i>
+                        </button>
+                      </div>
+                    {{/if}}
+
+                    {{#if (stripHTML item.system.notes)}}
+                      <div class="mg-seeall-wrap" data-item-id="{{item._id}}" data-seeall-cap="140">
+                        <div class="desc">
+                          <label>Notes</label>
+                          <div class="desc-content mg-seeall-content">
+                            {{{item.system.notes}}}
+                          </div>
+                        </div>
+
+                        <button class="mg-seeall-toggle" type="button">
+                          <i class="fa-solid fa-angle-down"></i>
+                        </button>
+                      </div>
                     {{/if}}
 
                     <div class="info-wrapper">
@@ -486,20 +536,6 @@
                       <label>Equip Item</label>
                       <input type="checkbox" class="item-equipped" {{#if item.system.equipped}}checked{{/if}} />
                     </div>
-
-                    <span class="item-tags">
-                      {{#each item.system.tags as |tagId|}}
-                        {{#with (lookup ../../CONFIG.MidnightGambit.ITEM_TAGS tagId) as |tag|}}
-                          <div class="item-tag tag" data-item-id="{{item._id}}" data-tag-id="{{tagId}}" title="Right-click to remove">
-                            <span data-tooltip="{{tag.description}}">{{tag.label}}</span>
-                          </div>
-                        {{else}}
-                          <div class="item-tag tag" data-item-id="{{item._id}}" data-tag-id="{{tagId}}" title="Right-click to remove">
-                            <span>{{tagId}}</span>
-                          </div>
-                        {{/with}}
-                      {{/each}}
-                    </span>
 
                     <div class="status-buttons">
                       <button class="sync-tags" data-item-id="{{_id}}" title="Sync tags with global list">
@@ -530,16 +566,73 @@
                   </div>
 
                   <div class="card-wrapper">
-                    <div class="item-capacity" title="Remaining Strain Capacity">
-                      <p class="mortal-remain">
-                        <span>MC</span>
-                        <span class="remaining-number">{{item.system.remainingCapacity.mortal}}</span>
-                      </p>
-                      <p class="soul-remain">
-                        <span>SC</span>
-                        <span class="remaining-number">{{item.system.remainingCapacity.soul}}</span>
-                      </p>
-                    </div>
+                    {{#if (or (gt item.system.remainingCapacity.mortal 0) (gt item.system.remainingCapacity.soul 0))}}
+                      <div class="item-capacity" title="Remaining Strain Capacity">
+                        <label>Capacity</label>
+                        <div class="bubble-wrapper">
+                          <p class="strain-bubble">
+                            <i class="fa-solid fa-dagger"></i>
+                            <span class="remaining-number">{{item.system.remainingCapacity.mortal}}</span>
+                          </p>
+                          <p class="strain-bubble">
+                            <i class="fa-solid fa-moon-over-sun"></i>
+                            <span class="remaining-number">{{item.system.remainingCapacity.soul}}</span>
+                          </p>
+                        </div>
+                      </div>
+                    {{/if}}
+
+                    {{#if item.system.tags.length}}
+                      <div class="tags-wrap" data-item-id="{{item._id}}">
+                        <div class="item-tags">
+                          {{#each item.system.tags as |tagId|}}
+                            {{#with (lookup ../../CONFIG.MidnightGambit.ITEM_TAGS tagId) as |tag|}}
+                              <div class="item-tag tag" data-item-id="{{item._id}}" data-tag-id="{{tagId}}" title="Right-click to remove">
+                                <span data-tooltip="{{tag.description}}">{{tag.description}}</span>
+                              </div>
+                            {{else}}
+                              <div class="item-tag tag" data-item-id="{{item._id}}" data-tag-id="{{tagId}}" title="Right-click to remove">
+                                <span>{{tagId}}</span>
+                              </div>
+                            {{/with}}
+                          {{/each}}
+                        </div>
+
+                        <span class="tags-toggle" hidden>
+                          <i class="fa-solid fa-angle-down"></i>
+                        </span>
+                      </div>
+                    {{/if}}
+
+                    {{#if (stripHTML item.system.description)}}
+                      <div class="mg-seeall-wrap" data-item-id="{{item._id}}" data-seeall-cap="140">
+                        <div class="desc">
+                          <label>Description</label>
+                          <div class="desc-content mg-seeall-content">
+                            {{{item.system.description}}}
+                          </div>
+                        </div>
+
+                        <button class="mg-seeall-toggle" type="button">
+                          <i class="fa-solid fa-angle-down"></i>
+                        </button>
+                      </div>
+                    {{/if}}
+
+                    {{#if (stripHTML item.system.notes)}}
+                      <div class="mg-seeall-wrap" data-item-id="{{item._id}}" data-seeall-cap="140">
+                        <div class="desc">
+                          <label>Notes</label>
+                          <div class="desc-content mg-seeall-content">
+                            {{{item.system.notes}}}
+                          </div>
+                        </div>
+
+                        <button class="mg-seeall-toggle" type="button">
+                          <i class="fa-solid fa-angle-down"></i>
+                        </button>
+                      </div>
+                    {{/if}}
 
                     <div class="info-wrapper">
                       <label>Quantity</label>
@@ -550,20 +643,6 @@
                       <label>Equip Item</label>
                       <input type="checkbox" class="item-equipped" {{#if item.system.equipped}}checked{{/if}} />
                     </div>
-
-                    <span class="item-tags">
-                      {{#each item.system.tags as |tagId|}}
-                        {{#with (lookup ../../CONFIG.MidnightGambit.ITEM_TAGS tagId) as |tag|}}
-                          <div class="item-tag tag" data-item-id="{{item._id}}" data-tag-id="{{tagId}}" title="Right-click to remove">
-                            <span data-tooltip="{{tag.description}}">{{tag.description}}</span>
-                          </div>
-                        {{else}}
-                          <div class="item-tag tag" data-item-id="{{item._id}}" data-tag-id="{{tagId}}" title="Right-click to remove">
-                            <span>{{tagId}}</span>
-                          </div>
-                        {{/with}}
-                      {{/each}}
-                    </span>
 
                     <div class="status-buttons">
                       {{#if (or item.system.mortalCapacity item.system.soulCapacity)}}
@@ -594,7 +673,7 @@
               {{#each (filterItems @root.actor.items "misc") as |item|}}
                 <div class="inventory-item inventory-item--misc inventory-card" data-item-id="{{item._id}}">
                   <span class="name-wrapper">
-                    <span class="item-type">M<i class="fa-solid fa-rectangles-mixed"></i></span>
+                    <span class="item-type"><i class="fa-solid fa-rectangles-mixed"></i></span>
                     <h3 class="item-name post-item" data-item-id="{{item._id}}">
                       <i class="fa-solid fa-messages"></i>
                       <span class="clickable-item">{{item.name}}</span>
@@ -606,37 +685,102 @@
                   </div>
 
                   <div class="card-wrapper">
-                    <span class="item-capacity" title="Strain Effects">
-                      <p class="strain-damage">
-                        <span>SD</span>
-                        <span class="remaining-number">
-                          {{#if (ne item.system.strainDamage undefined)}}
-                            {{item.system.strainDamage}}
-                          {{else}} -
-                          {{/if}}
-                        </span>
-                      </p>
+                    {{!-- Only show this block if any strain/capacity value is actually meaningful --}}
+                    {{#if (or
+                      (gt item.system.strainDamage 0)
+                      (gt item.system.remainingCapacity.mortal 0)
+                      (gt item.system.remainingCapacity.soul 0)
+                    )}}
+                      <div class="item-capacity" title="Strain Effects">
+                        <label>Strain Damage</label>
+                        <div class="bubble-wrapper">
+                          <p class="strain-bubble">
+                            <i class="fa-solid fa-dagger"></i>
+                            <span class="remaining-number">
+                              {{#if (ne item.system.strainDamage undefined)}}
+                                {{item.system.strainDamage}}
+                              {{else}} -
+                              {{/if}}
+                            </span>
+                          </p>
+                        </div>
 
-                      <p class="mortal-remain">
-                        <span>MC</span>
-                        <span class="remaining-number">
-                          {{#if (ne item.system.remainingCapacity.mortal undefined)}}
-                            {{item.system.remainingCapacity.mortal}}
-                          {{else}} -
-                          {{/if}}
-                        </span>
-                      </p>
+                        <label>Capacity</label>
+                        <div class="bubble-wrapper">
+                          <p class="strain-bubble">
+                            <i class="fa-solid fa-dagger"></i>
+                            <span class="remaining-number">
+                              {{#if (ne item.system.remainingCapacity.mortal undefined)}}
+                                {{item.system.remainingCapacity.mortal}}
+                              {{else}} -
+                              {{/if}}
+                            </span>
+                          </p>
 
-                      <p class="soul-remain">
-                        <span>SC</span>
-                        <span class="remaining-number">
-                          {{#if (ne item.system.remainingCapacity.soul undefined)}}
-                            {{item.system.remainingCapacity.soul}}
-                          {{else}} -
-                          {{/if}}
+                          <p class="strain-bubble">
+                            <i class="fa-solid fa-moon-over-sun"></i>
+                            <span class="remaining-number">
+                              {{#if (ne item.system.remainingCapacity.soul undefined)}}
+                                {{item.system.remainingCapacity.soul}}
+                              {{else}} -
+                              {{/if}}
+                            </span>
+                          </p>
+                        </div>
+                      </div>
+                    {{/if}}
+
+                    {{#if item.system.tags.length}}
+                      <div class="tags-wrap" data-item-id="{{item._id}}">
+                        <div class="item-tags">
+                          {{#each item.system.tags as |tagId|}}
+                            {{#with (lookup ../../CONFIG.MidnightGambit.ITEM_TAGS tagId) as |tag|}}
+                              <div class="item-tag tag" data-item-id="{{item._id}}" data-tag-id="{{tagId}}" title="Right-click to remove">
+                                <span data-tooltip="{{tag.description}}">{{tag.label}}</span>
+                              </div>
+                            {{else}}
+                              <div class="item-tag tag" data-item-id="{{item._id}}" data-tag-id="{{tagId}}" title="Right-click to remove">
+                                <span>{{tagId}}</span>
+                              </div>
+                            {{/with}}
+                          {{/each}}
+                        </div>
+
+                        <span class="tags-toggle" hidden>
+                          <i class="fa-solid fa-angle-down"></i>
                         </span>
-                      </p>
-                    </span>
+                      </div>
+                    {{/if}}
+
+                    {{#if (stripHTML item.system.description)}}
+                      <div class="mg-seeall-wrap" data-item-id="{{item._id}}" data-seeall-cap="140">
+                        <div class="desc">
+                          <label>Description</label>
+                          <div class="desc-content mg-seeall-content">
+                            {{{item.system.description}}}
+                          </div>
+                        </div>
+
+                        <button class="mg-seeall-toggle" type="button">
+                          <i class="fa-solid fa-angle-down"></i>
+                        </button>
+                      </div>
+                    {{/if}}
+
+                    {{#if (stripHTML item.system.notes)}}
+                      <div class="mg-seeall-wrap" data-item-id="{{item._id}}" data-seeall-cap="140">
+                        <div class="desc">
+                          <label>Notes</label>
+                          <div class="desc-content mg-seeall-content">
+                            {{{item.system.notes}}}
+                          </div>
+                        </div>
+
+                        <button class="mg-seeall-toggle" type="button">
+                          <i class="fa-solid fa-angle-down"></i>
+                        </button>
+                      </div>
+                    {{/if}}
 
                     <div class="info-wrapper">
                       <label>Quantity</label>
@@ -647,20 +791,6 @@
                       <label>Equip Item</label>
                       <input type="checkbox" class="item-equipped" {{#if item.system.equipped}}checked{{/if}} />
                     </div>
-
-                    <span class="item-tags">
-                      {{#each item.system.tags as |tagId|}}
-                        {{#with (lookup ../../CONFIG.MidnightGambit.ITEM_TAGS tagId) as |tag|}}
-                          <div class="item-tag tag" data-item-id="{{item._id}}" data-tag-id="{{tagId}}" title="Right-click to remove">
-                            <span data-tooltip="{{tag.description}}">{{tag.label}}</span>
-                          </div>
-                        {{else}}
-                          <div class="item-tag tag" data-item-id="{{item._id}}" data-tag-id="{{tagId}}" title="Right-click to remove">
-                            <span>{{tagId}}</span>
-                          </div>
-                        {{/with}}
-                      {{/each}}
-                    </span>
 
                     <div class="status-buttons">
                       {{#if (or item.system.mortalCapacity item.system.soulCapacity)}}

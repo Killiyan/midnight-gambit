@@ -155,6 +155,102 @@ Hooks.once("init", async () => {
     CONFIG.TinyMCE = cfg;
   }
 
+  // --- MG TinyMCE: add a prominent "Save" icon + autosave on blur, NO sheet re-render
+  {
+    const cfg = CONFIG.TinyMCE ?? {};
+    const existingSetup = typeof cfg.setup === "function" ? cfg.setup : null;
+
+    // Make sure the toolbar string exists and put mgSave FIRST
+    const rawTb = String(cfg.toolbar || "").trim();
+    if (!rawTb) {
+      cfg.toolbar = "mgSave";
+    } else if (!rawTb.includes("mgSave")) {
+      // Put Save at the *front* so it never gets shoved under "More"
+      cfg.toolbar = `mgSave | ${rawTb}`;
+    } else {
+      cfg.toolbar = rawTb;
+    }
+
+    // Keep primary buttons visible
+    if (!cfg.toolbar_mode) {
+      cfg.toolbar_mode = "sliding";
+    }
+
+    cfg.setup = (editor) => {
+      if (existingSetup) existingSetup(editor);
+
+      // Save just THIS field to the underlying document, without re-render
+      const doInlineSave = async (fromBlur = false) => {
+        try {
+          // On blur, if nothing changed, skip work
+          if (
+            fromBlur &&
+            typeof editor.isDirty === "function" &&
+            !editor.isDirty()
+          ) {
+            return;
+          }
+
+          // Sync iframe → hidden textarea
+          if (typeof editor.save === "function") editor.save();
+
+          // TinyMCE binds to a real <textarea> / input
+          const target = editor.targetElm || editor.getElement?.();
+          if (!target) return;
+
+          const name = target.getAttribute("name");
+          if (!name) return;
+
+          // Find the parent <form>
+          const form = target.closest("form");
+          if (!form) return;
+
+          // Resolve the sheet via data-appid → ui.windows
+          const appEl = form.closest(".app");
+          if (!appEl) return;
+
+          const appId = appEl.dataset.appid;
+          if (!appId || !ui?.windows) return;
+
+          const sheet = ui.windows[appId];
+          if (!sheet) return;
+
+          // ActorSheet / ItemSheet: document/object holds the data
+          const doc = sheet.document || sheet.object;
+          if (!doc) return;
+
+          // Build partial update: { "system.description": "<html>" }, etc.
+          const update = {};
+          foundry.utils.setProperty(update, name, target.value);
+
+          // Update WITHOUT re-rendering the sheet
+          await doc.update(update, { render: false, diff: false });
+
+          // Optionally clear TinyMCE dirty flag, if available
+          if (typeof editor.setDirty === "function") editor.setDirty(false);
+        } catch (err) {
+          console.error("Midnight Gambit | TinyMCE inline save failed:", err);
+        }
+      };
+
+      // Toolbar button – save icon
+      editor.ui.registry.addButton("mgSave", {
+        icon: "save", // TinyMCE's built-in save icon
+        tooltip: "Save this text to the sheet",
+        onAction: () => {
+          void doInlineSave(false);
+        }
+      });
+
+      // Autosave when editor loses focus (clicking any other control)
+      editor.on("blur", () => {
+        void doInlineSave(true);
+      });
+    };
+
+    CONFIG.TinyMCE = cfg;
+  }
+
   // --- Server-side file writer for dev exports ---
   Hooks.once("ready", () => {
     if (game.user.isGM) {

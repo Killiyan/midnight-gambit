@@ -611,6 +611,33 @@
 	}
 }
 
+/* Player's Box Styling
+----------------------------------------------------------------------*/
+
+#players {
+	background: rgba($mg-blue-4, .5);
+	@include mg-border();
+
+	h3 {
+		@include oswald();
+		border-bottom: 2px solid $mg-blue-main-2;
+		text-transform: uppercase;
+		font-style: italic;
+	}
+
+	ol {
+
+		.player-name {
+			@include roboto();
+			color: $mg-blue-2;
+
+			&.self {
+				color: $mg-blue-1;
+			}
+		}
+	}
+}
+
 
 /* Global Tag Styling
 ----------------------------------------------------------------------*/
@@ -647,6 +674,35 @@
 
 .chat-tags {
   margin-top: .5rem;
+}
+
+/* Global Strain Bubble Styling
+----------------------------------------------------------------------*/
+.bubble-wrapper {
+	display: flex;
+	gap: .5rem;
+
+	.strain-bubble {
+		display: flex;
+		background: rgba($mg-blue-4, .5);
+		align-items: center;
+		width: calc(50% - .25rem);
+		border-radius: .5rem;
+		padding: .5rem;
+		justify-content: space-between;
+
+		i {
+		color: $mg-blue-2;
+		font-size: .85rem;
+		}
+
+		.remaining-number {
+		@include oswald();
+		font-size: 1rem;
+		font-weight: 700;
+		color: $mg-blue-1;
+		}
+	}
 }
 
 /* Overflow Arrow styling

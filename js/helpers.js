@@ -94,3 +94,10 @@ if (!Handlebars.helpers.and) {
   Handlebars.registerHelper("and", (a, b) => !!a && !!b);
 }
 
+Handlebars.registerHelper("stripHTML", function (value) {
+  if (typeof value !== "string") return "";
+  return value
+    .replace(/<[^>]+>/g, "")   // remove tags
+    .replace(/&nbsp;/g, " ")    // remove non-breaking spaces
+    .trim();
+});
