@@ -384,7 +384,7 @@ export class MidnightGambitActorSheet extends ActorSheet {
         const newValue = Math.max(0, clickedValue === currentValue ? clickedValue - 1 : clickedValue);
 
         // 1) Update the doc WITHOUT triggering a render
-        await actor.update({ [`system.strain.${strainType}`]: newValue }, { render: false });
+        await actor.update({ [`system.strain.${strainType}`]: newValue });
 
         // 2) Manually reflect the change in the currently open sheet
         const $track = html.find(`.strain-track[data-strain="${strainType}"]`);
@@ -415,7 +415,7 @@ export class MidnightGambitActorSheet extends ActorSheet {
         /**This tracks how much Risk you have used, and calculates it with your current*/
         console.log(`Risk click: ${clicked} → riskUsed: ${newUsed} (was ${currentUsed})`);
 
-        await this.actor.update({ "system.riskUsed": newUsed }, { render: false });
+        await this.actor.update({ "system.riskUsed": newUsed });
 
         this.render(false);
       });
@@ -423,7 +423,7 @@ export class MidnightGambitActorSheet extends ActorSheet {
       /**This is the listener for clicking the Flashback Resource */
       html.find(".flashback-dot").on("click", async (event) => {
         const current = this.actor.system.flashbackUsed ?? false;
-        await this.actor.update({ "system.flashbackUsed": !current }, { render: false });
+        await this.actor.update({ "system.flashbackUsed": !current });
         this.render(false);
       });
 
@@ -821,7 +821,7 @@ export class MidnightGambitActorSheet extends ActorSheet {
           [`system.strain.manualOverride.${type} capacity`]: true
         };
 
-        await this.actor.update(updates, { render: false });
+        await this.actor.update(updates);
         this.render(false);
       });
 
@@ -1461,141 +1461,167 @@ export class MidnightGambitActorSheet extends ActorSheet {
         showEmpty(false);
       }
 
-      // "See All / See Less" for inventory descriptions (reuse mg-seeall-wrap)
+      // "See All / See Less" for inventory cards
+      // Uniform collapsed height + infinite expand/collapse using CSS transition on max-height
       {
         const $root = html instanceof jQuery ? html : $(html);
 
-        const bindSeeAll = (
-          $ctx,
-          {
-            wrapSel      = ".mg-seeall-wrap",
-            contentSel   = ".mg-seeall-content",
-            toggleSel    = ".mg-seeall-toggle",
-            collapsedMax = 140,
-            transitionMs = 500
-          } = {}
-        ) => {
-          // Read per-wrap cap; fall back to the function default
-          const capFor = (wrap) => {
-            const v = Number(wrap?.dataset?.seeallCap);
-            return Number.isFinite(v) ? v : collapsedMax;
-          };
+        const DEFAULT_CAP   = 340; // px fallback if no data-seeall-cap
+        const TRANSITION_MS = 500; // match your CSS max-height transition (~.5s)
 
-          const updateOne = (wrap) => {
-            if (!wrap || wrap.classList.contains("animating")) return;
-            const content = wrap.querySelector(contentSel);
-            const toggle  = wrap.querySelector(toggleSel);
-            if (!content || !toggle) return;
-
-            const cap        = capFor(wrap);
-            const isExpanded = wrap.classList.contains("expanded");
-            const overflows  = content.scrollHeight > (cap + 1);
-
-            // "short" = no overflow → hide toggle and gradient
-            wrap.classList.toggle("short", !overflows);
-            toggle.hidden = !overflows;
-
-            if (!toggle.querySelector("i")) {
-              toggle.innerHTML = '<i class="fa-solid fa-angle-down"></i>';
+        // Capture-phase listener to bump card height even if inner toggles stopPropagation()
+        {
+          const rootEl = $root[0];
+          if (rootEl) {
+            // Remove prior copy if this sheet re-renders
+            if (rootEl._mgInvCardBumpCapture) {
+              rootEl.removeEventListener("click", rootEl._mgInvCardBumpCapture, true);
             }
-            const icon = toggle.querySelector("i");
-            if (icon) icon.classList.toggle("rotated", isExpanded);
 
-            // Clamp when not expanded
-            if (!isExpanded && overflows) {
-              content.style.maxHeight = `${cap}px`;
-            } else if (!isExpanded) {
-              content.style.maxHeight = "";
-            }
-          };
+            rootEl._mgInvCardBumpCapture = (ev) => {
+              const btn = ev.target?.closest?.(
+                ".tab-inventory .mg-seeall-toggle, .tab-inventory .tags-toggle"
+              );
+              if (!btn) return;
 
-          const animateTo = (el, targetPx, done) => {
-            el.style.maxHeight = `${targetPx}px`;
+              const card = btn.closest(".inventory-item.mg-card-wrap, .inventory-card.mg-card-wrap");
+              if (!card) return;
 
-            const onEnd = (e) => {
-              if (e && e.target !== el) return;
-              el.removeEventListener("transitionend", onEnd);
-              done?.();
+              // Let the inner toggle update its own max-height first, then measure
+              setTimeout(() => bumpExpandedCard(card), 0);
             };
 
-            setTimeout(() => done?.(), transitionMs + 50); // safety
-            el.addEventListener("transitionend", onEnd, { once: true });
-          };
+            rootEl.addEventListener("click", rootEl._mgInvCardBumpCapture, true);
+          }
+        }
 
-          // Click toggle (expand / collapse)
-          $ctx
-            .off("click.mgInvSeeAllToggle")
-            .on("click.mgInvSeeAllToggle", `${wrapSel} ${toggleSel}`, (ev) => {
-              ev.preventDefault();
-              const wrap = ev.currentTarget.closest(wrapSel);
-              if (!wrap || wrap.classList.contains("animating")) return;
+        // Initialize all inventory cards to the same collapsed height
+        const initCards = () => {
+          const cards =
+            $root[0]?.querySelectorAll(
+              ".tab-inventory .inventory-item.mg-card-wrap, .tab-inventory .inventory-card.mg-card-wrap"
+            ) || [];
 
-              const content = wrap.querySelector(contentSel);
-              const toggle  = wrap.querySelector(toggleSel);
-              if (!content || !toggle) return;
+          cards.forEach((card) => {
+            const capAttr = Number(card.dataset.seeallCap) || DEFAULT_CAP;
+            card.dataset.mgCollapsedPx = String(capAttr);
 
-              const cap        = capFor(wrap);
-              const isExpanded = wrap.classList.contains("expanded");
+            // If not expanded, force the collapsed height so they all match
+            if (!card.classList.contains("expanded")) {
+              card.style.overflow = "hidden";
+              card.style.maxHeight = `${capAttr}px`;
+            } else {
+              // If somehow already expanded on render, lock it to its real height
+              card.style.overflow = "visible";
+              card.style.maxHeight = `${card.scrollHeight}px`;
+            }
 
-              wrap.classList.add("animating");
-
-              if (!isExpanded) {
-                // EXPAND: (current or cap) → natural scroll height
-                content.style.maxHeight = `${Math.max(content.clientHeight, cap)}px`;
-                // force reflow
-                // eslint-disable-next-line no-unused-expressions
-                content.offsetHeight;
-                animateTo(content, content.scrollHeight, () => {
-                  wrap.classList.add("expanded");
-                  content.style.maxHeight = "";
-                  const icon = toggle.querySelector("i");
-                  if (icon) requestAnimationFrame(() => icon.classList.add("rotated"));
-                  wrap.classList.remove("animating");
-                  updateOne(wrap);
-                });
-              } else {
-                // COLLAPSE: natural scroll height → cap
-                content.style.maxHeight = `${content.scrollHeight}px`;
-                // eslint-disable-next-line no-unused-expressions
-                content.offsetHeight;
-                animateTo(content, cap, () => {
-                  wrap.classList.remove("expanded");
-                  content.style.maxHeight = "";
-                  const icon = toggle.querySelector("i");
-                  if (icon) requestAnimationFrame(() => icon.classList.remove("rotated"));
-                  wrap.classList.remove("animating");
-                  updateOne(wrap);
-                });
-              }
-            });
-
-          // Initial measure (hidden tabs may look short; we refresh on tab switch)
-          $ctx.find(wrapSel).each((_, el) => updateOne(el));
-
-          const refreshAll = () =>
-            setTimeout(() => {
-              $ctx.find(wrapSel).each((_, el) => updateOne(el));
-            }, 0);
-
-          // Re-measure when the Inventory tab becomes visible
-          $ctx
-            .off("click.mgInvSeeAllTab")
-            .on("click.mgInvSeeAllTab", ".sheet-tabs .item", (ev) => {
-              const tab = ev.currentTarget?.dataset?.tab;
-              if (tab === "inventory") refreshAll();
-            });
-
-          // If Inventory is already visible on first render
-          const inventoryVisible = $ctx.find('.tab[data-tab="inventory"]').is(":visible");
-          if (inventoryVisible) refreshAll();
+            const icon = card.querySelector(".card-seeall-toggle i");
+            if (icon) icon.classList.toggle("rotated", card.classList.contains("expanded"));
+          });
         };
 
-        // Bind "See All" behavior, scoped to the inventory tab
-        bindSeeAll($root, {
-          wrapSel: ".tab-inventory .mg-seeall-wrap",
-          collapsedMax: 140,
-          transitionMs: 500
-        });
+        // While a card is expanded, its contents (Description/Notes toggles) can change height.
+        // This bumps the card's maxHeight to match so it "grows" instead of overflowing/clipping.
+        const bumpExpandedCard = (card) => {
+          if (!card?.classList?.contains("expanded")) return;
+          // lock current px, then animate to new scrollHeight
+          const start = Math.ceil(card.getBoundingClientRect().height);
+          const target = card.scrollHeight;
+
+          card.style.overflow = "hidden";
+          card.style.maxHeight = `${start}px`;
+          // force reflow
+          // eslint-disable-next-line no-unused-expressions
+          card.offsetHeight;
+
+          card.style.maxHeight = `${target}px`;
+
+          // once it settles, allow overflow visible again (but KEEP a px maxHeight!)
+          setTimeout(() => {
+            if (!card.classList.contains("expanded")) return;
+            card.style.overflow = "visible";
+            card.style.maxHeight = `${card.scrollHeight}px`;
+          }, TRANSITION_MS + 50);
+        };
+
+        const toggleCard = (btn) => {
+          const card = btn.closest(".inventory-item.mg-card-wrap, .inventory-card.mg-card-wrap");
+          if (!card) return;
+
+          const icon        = btn.querySelector("i");
+          const collapsedPx = Number(card.dataset.mgCollapsedPx) || DEFAULT_CAP;
+          const isExpanded  = card.classList.contains("expanded");
+
+          if (!isExpanded) {
+            // ===== EXPAND (collapsed px -> full px) =====
+            const start  = Math.ceil(card.getBoundingClientRect().height) || collapsedPx;
+            const target = card.scrollHeight;
+
+            card.style.overflow  = "hidden";
+            card.style.maxHeight = `${start}px`;
+            // force reflow
+            // eslint-disable-next-line no-unused-expressions
+            card.offsetHeight;
+
+            card.style.maxHeight = `${target}px`;
+            card.classList.add("expanded");
+            if (icon) icon.classList.add("rotated");
+
+            // After expand completes: allow overflow, but KEEP a pixel maxHeight so collapse can animate later
+            setTimeout(() => {
+              if (!card.classList.contains("expanded")) return;
+              card.style.overflow = "visible";
+              card.style.maxHeight = `${card.scrollHeight}px`;
+            }, TRANSITION_MS + 50);
+
+            return;
+          }
+
+          // ===== COLLAPSE (full px -> collapsed px) =====
+          // Critical: establish a *pixel* start height (NOT "auto") so CSS can animate.
+          const start = Math.ceil(card.getBoundingClientRect().height) || card.scrollHeight;
+
+          card.style.overflow  = "hidden";
+          card.style.maxHeight = `${start}px`;
+
+          // force reflow so the browser commits the start value
+          // eslint-disable-next-line no-unused-expressions
+          card.offsetHeight;
+
+          // animate down
+          card.style.maxHeight = `${collapsedPx}px`;
+          card.classList.remove("expanded");
+          if (icon) icon.classList.remove("rotated");
+
+          // keep the clamp in collapsed state
+          setTimeout(() => {
+            if (card.classList.contains("expanded")) return;
+            card.style.overflow = "hidden";
+            card.style.maxHeight = `${collapsedPx}px`;
+          }, TRANSITION_MS + 50);
+        };
+
+        // Card toggle button
+        $root
+          .off("click.mgInvCardToggle")
+          .on("click.mgInvCardToggle", ".tab-inventory .card-seeall-toggle", (ev) => {
+            ev.preventDefault();
+            ev.stopPropagation();
+            toggleCard(ev.currentTarget);
+          });
+
+        // When Description/Notes expands/collapses inside a card, bump the card height if it’s expanded
+        $root
+          .off("click.mgInvCardInnerBump")
+          .on("click.mgInvCardInnerBump", ".tab-inventory .mg-seeall-toggle", (ev) => {
+            const card = ev.currentTarget.closest(".inventory-item.mg-card-wrap, .inventory-card.mg-card-wrap");
+            if (!card) return;
+            // let the inner seeall logic run first, then measure
+            setTimeout(() => bumpExpandedCard(card), 0);
+          });
+
+        initCards();
       }
 
       // Inventory Tag Overflow (character sheet – same behavior as Crew Assets)
@@ -1603,35 +1629,35 @@ export class MidnightGambitActorSheet extends ActorSheet {
         const $root = html instanceof jQuery ? html : $(html);
 
         const COLLAPSED_MAX = 80;   // px of tag-stack height before clamping
-        const TRANSITION_MS = 280;  // keep in sync with your CSS transition
+        const TRANSITION_MS = 500;  // keep in sync with your CSS transition
 
         // Measure one wrapper and decide if it needs a toggle
         const updateOne = (wrap) => {
-          if (!wrap) return;
-          const tags =
-            wrap.querySelector(".item-tags") ||   // inventory cards
-            wrap.querySelector(".tags");          // future-proof / shared styles
-          const toggle = wrap.querySelector(".tags-toggle");
-          if (!tags || !toggle) return;
+          if (!wrap || wrap.classList.contains("animating")) return;
 
-          const overflows = tags.scrollHeight > (COLLAPSED_MAX + 1);
+          const content = wrap.querySelector(".mg-seeall-content");
+          const toggle  = wrap.querySelector(".mg-seeall-toggle");
+          if (!content || !toggle) return;
 
-          toggle.hidden = !overflows;
+          const cap        = capFor(wrap);
+          const isExpanded = wrap.classList.contains("expanded");
+          const overflows  = content.scrollHeight > (cap + 1);
+
           wrap.classList.toggle("short", !overflows);
 
-          // Make sure we have an icon and its rotation matches expanded state
+          toggle.hidden = !overflows;
+
           if (!toggle.querySelector("i")) {
             toggle.innerHTML = '<i class="fa-solid fa-angle-down"></i>';
           }
-          const icon     = toggle.querySelector("i");
-          const expanded = wrap.classList.contains("expanded");
-          if (icon) icon.classList.toggle("rotated", expanded);
 
-          // If it's not expanded, clamp the height
-          if (!expanded && overflows) {
-            tags.style.maxHeight = `${COLLAPSED_MAX}px`;
+          toggle.querySelector("i")?.classList.toggle("rotated", isExpanded);
+
+          // Clamp only when collapsed AND overflowing
+          if (!isExpanded && overflows) {
+            content.style.maxHeight = `${cap}px`;
           } else {
-            tags.style.maxHeight = "";
+            content.style.maxHeight = "";
           }
         };
 
@@ -1701,6 +1727,107 @@ export class MidnightGambitActorSheet extends ActorSheet {
         refreshAll();
       }
 
+      // Description / Notes inner "See All" (mg-seeall-wrap)
+      {
+        const $root = html instanceof jQuery ? html : $(html);
+
+        const DEFAULT_CAP   = 140;  // px fallback if data-seeall-cap is missing
+        const TRANSITION_MS = 500;  // keep in sync with CSS max-height transition
+
+        const setupOne = (wrap) => {
+          if (!wrap) return;
+
+          const capAttr  = Number(wrap.dataset.seeallCap) || DEFAULT_CAP;
+          const content  = wrap.querySelector(".mg-seeall-content");
+          const toggle   = wrap.querySelector(".mg-seeall-toggle");
+          if (!content || !toggle) return;
+
+          const overflows = content.scrollHeight > (capAttr + 1);
+
+          // Hide toggle if no overflow, remove clamp
+          wrap.classList.toggle("short", !overflows);
+
+          if (!toggle.querySelector("i")) {
+            toggle.innerHTML = '<i class="fa-solid fa-angle-down"></i>';
+          }
+          const icon = toggle.querySelector("i");
+
+          const expanded = wrap.classList.contains("expanded");
+
+          if (!expanded && overflows) {
+            content.style.maxHeight = `${capAttr}px`;
+          } else {
+            content.style.maxHeight = "";
+          }
+
+          if (icon) icon.classList.toggle("rotated", expanded);
+        };
+
+        const refreshAll = () => {
+          const wraps =
+            $root[0]?.querySelectorAll('.tab[data-tab="inventory"] .mg-seeall-wrap, .tab.inventory .mg-seeall-wrap') || [];
+
+          wraps.forEach(setupOne);
+        };
+
+        $root
+          .off("click.mgInnerSeeall")
+          .on("click.mgInnerSeeall", '.tab[data-tab="inventory"] .mg-seeall-toggle, .tab.inventory .mg-seeall-toggle', (ev) => {
+            ev.preventDefault();
+            ev.stopPropagation();
+
+            const wrap = ev.currentTarget.closest(".mg-seeall-wrap");
+            const content = wrap?.querySelector(".mg-seeall-content");
+            const icon = ev.currentTarget.querySelector("i");
+            if (!wrap || !content) return;
+
+            const capAttr    = Number(wrap.dataset.seeallCap) || DEFAULT_CAP;
+            const wasExpanded = wrap.classList.contains("expanded");
+
+            const startHeight = content.clientHeight;
+            const targetHeight = wasExpanded
+              ? capAttr
+              : Math.max(content.scrollHeight, startHeight);
+
+            // Start from current height
+            content.style.maxHeight = `${startHeight}px`;
+            // force reflow so browser commits it
+            // eslint-disable-next-line no-unused-expressions
+            content.offsetHeight;
+            content.style.maxHeight = `${targetHeight}px`;
+
+            wrap.classList.add("animating");
+            wrap.classList.toggle("expanded", !wasExpanded);
+            if (icon) icon.classList.toggle("rotated", !wasExpanded);
+
+            const onEnd = (e) => {
+              if (e && e.target !== content) return;
+
+              content.removeEventListener("transitionend", onEnd);
+              wrap.classList.remove("animating");
+
+              const nowExpanded = wrap.classList.contains("expanded");
+
+              if (nowExpanded) {
+                // Let it auto-size after the expand transition
+                content.style.maxHeight = "";
+              } else {
+                // Re-apply clamp if it still overflows
+                if (content.scrollHeight > capAttr + 1) {
+                  content.style.maxHeight = `${capAttr}px`;
+                } else {
+                  content.style.maxHeight = "";
+                }
+              }
+            };
+
+            content.addEventListener("transitionend", onEnd, { once: true });
+            setTimeout(onEnd, TRANSITION_MS + 100); // failsafe
+          });
+
+        // Initial clamp / toggle visibility on render
+        refreshAll();
+      }
 
       // Enable tooltips manually after rendering the sheet
       html.find(".sync-tags").on("click", async (event) => {

@@ -1244,6 +1244,258 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 		});
 		}
 
+		// Crew Assets: Description/Notes "See All" (mg-seeall-wrap)
+		{
+		const $root = html instanceof jQuery ? html : $(html);
+
+		const DEFAULT_CAP = 140;
+		const TRANSITION_MS = 500;
+
+		const capFor = (wrap) => {
+			const v = Number(wrap?.dataset?.seeallCap);
+			return Number.isFinite(v) ? v : DEFAULT_CAP;
+		};
+
+		// Measure a wrap and decide if it's short / needs toggle
+		const setupOne = (wrap) => {
+			if (!wrap || wrap.classList.contains("animating")) return;
+
+			const content = wrap.querySelector(".mg-seeall-content");
+			const toggle  = wrap.querySelector(".mg-seeall-toggle");
+			if (!content || !toggle) return;
+
+			const cap      = capFor(wrap);
+			const expanded = wrap.classList.contains("expanded");
+
+			// IMPORTANT: remove clamp before measuring, otherwise scrollHeight lies
+			const prevMax = content.style.maxHeight;
+			content.style.maxHeight = "";
+			// force reflow
+			// eslint-disable-next-line no-unused-expressions
+			content.offsetHeight;
+
+			const overflows = content.scrollHeight > (cap + 1);
+
+			// restore clamp state
+			if (!expanded && overflows) content.style.maxHeight = `${cap}px`;
+			else content.style.maxHeight = "";
+
+			// (if something left a value behind, don't keep it)
+			if (expanded && prevMax) content.style.maxHeight = "";
+
+			wrap.classList.toggle("short", !overflows);
+			toggle.hidden = !overflows;
+
+			if (!toggle.querySelector("i")) {
+			toggle.innerHTML = '<i class="fa-solid fa-angle-down"></i>';
+			}
+			toggle.querySelector("i")?.classList.toggle("rotated", expanded);
+		};
+
+		const refreshAll = () => {
+			const wraps =
+			$root[0]?.querySelectorAll(
+				'.tab[data-tab="assets"] .mg-seeall-wrap, .tab.assets .mg-seeall-wrap'
+			) || [];
+			wraps.forEach(setupOne);
+		};
+
+		// Click handler (expand/collapse)
+		$root
+			.off("click.mgCrewAssetSeeAll")
+			.on(
+			"click.mgCrewAssetSeeAll",
+			'.tab[data-tab="assets"] .mg-seeall-toggle, .tab.assets .mg-seeall-toggle',
+			(ev) => {
+				ev.preventDefault();
+				ev.stopPropagation();
+
+				const wrap = ev.currentTarget.closest(".mg-seeall-wrap");
+				const content = wrap?.querySelector(".mg-seeall-content");
+				if (!wrap || !content || wrap.classList.contains("animating")) return;
+
+				const cap = capFor(wrap);
+				const icon = ev.currentTarget.querySelector("i");
+				const wasExpanded = wrap.classList.contains("expanded");
+
+				// make sure we start from a numeric px height so transitions work
+				content.style.maxHeight = "";
+				// eslint-disable-next-line no-unused-expressions
+				content.offsetHeight;
+
+				const startPx = content.scrollHeight;
+				content.style.maxHeight = `${startPx}px`;
+				// eslint-disable-next-line no-unused-expressions
+				content.offsetHeight;
+
+				const targetPx = wasExpanded ? cap : content.scrollHeight;
+
+				wrap.classList.add("animating");
+				wrap.classList.toggle("expanded", !wasExpanded);
+				if (icon) icon.classList.toggle("rotated", !wasExpanded);
+
+				content.style.maxHeight = `${targetPx}px`;
+
+				const onEnd = (e) => {
+				if (e && e.target !== content) return;
+				content.removeEventListener("transitionend", onEnd);
+
+				wrap.classList.remove("animating");
+
+				// After expand: clear so it can grow naturally
+				// After collapse: keep clamped to cap
+				if (wrap.classList.contains("expanded")) content.style.maxHeight = "";
+				else content.style.maxHeight = `${cap}px`;
+
+				setupOne(wrap);
+				};
+
+				content.addEventListener("transitionend", onEnd, { once: true });
+				setTimeout(onEnd, TRANSITION_MS + 80); // safety
+			}
+			);
+
+		// Re-measure when switching to Assets tab
+		$root
+			.off("click.mgCrewAssetSeeAllTab")
+			.on("click.mgCrewAssetSeeAllTab", ".sheet-tabs .item", (ev) => {
+			const tab = ev.currentTarget?.dataset?.tab;
+			if (tab === "assets") setTimeout(refreshAll, 0);
+			});
+
+		// Initial
+		setTimeout(refreshAll, 0);
+		}
+
+		/* Crew Assets: FULL CARD collapse/expand (like inventory)
+		------------------------------------------------------------*/
+		{
+		const TRANSITION_MS = 500;         // must match CSS
+		const DEFAULT_CAP = 380;           // <-- tweak collapsed height here
+
+		const capFor = (card) => {
+			const v = Number(card?.dataset?.cardCap);
+			return Number.isFinite(v) ? v : DEFAULT_CAP;
+		};
+
+		const setIcon = (card) => {
+			const btn  = card.querySelector(".mg-card-toggle");
+			const icon = btn?.querySelector("i");
+			if (!btn) return;
+			if (!icon) btn.innerHTML = '<i class="fa-solid fa-angle-down"></i>';
+			btn.querySelector("i")?.classList.toggle("rotated", card.classList.contains("expanded"));
+		};
+
+		// IMPORTANT: we DO keep a px maxHeight when expanded,
+		// so collapse can animate smoothly from that value.
+		const setCollapsed = (card) => {
+			const cap = capFor(card);
+			card.classList.remove("expanded");
+			card.style.maxHeight = `${cap}px`;
+			setIcon(card);
+		};
+
+		const setExpanded = (card) => {
+			card.classList.add("expanded");
+			// lock to scrollHeight in px (don’t clear!) so collapse animates later
+			card.style.maxHeight = `${card.scrollHeight}px`;
+			setIcon(card);
+		};
+
+		const initOne = (card) => {
+			if (!card) return;
+			// Default state = collapsed & equal height
+			setCollapsed(card);
+		};
+
+		const refreshExpandedHeight = (card) => {
+			if (!card?.classList.contains("expanded")) return;
+			// If inner content expands (desc/tags), keep the card's px maxHeight in sync
+			card.style.maxHeight = `${card.scrollHeight}px`;
+		};
+
+		// Initialize all cards (on render / tab open)
+		const initAll = () => {
+			const cards = $root.find('.tab[data-tab="assets"] .asset-card').toArray();
+			for (const c of cards) initOne(c);
+		};
+
+		// Toggle button click
+		$root.off("click.mgAssetCardToggle").on(
+			"click.mgAssetCardToggle",
+			'.tab[data-tab="assets"] .asset-card .mg-card-toggle',
+			(ev) => {
+			ev.preventDefault();
+			ev.stopPropagation();
+
+			const card = ev.currentTarget.closest(".asset-card");
+			if (!card || card.classList.contains("animating")) return;
+
+			const cap = capFor(card);
+			const isExpanded = card.classList.contains("expanded");
+
+			card.classList.add("animating");
+
+			if (!isExpanded) {
+				// EXPAND: cap -> scrollHeight
+				card.style.maxHeight = `${cap}px`;
+				card.offsetHeight; // reflow
+				const target = card.scrollHeight;
+				card.style.maxHeight = `${target}px`;
+
+				const done = () => {
+				card.classList.remove("animating");
+				card.classList.add("expanded");
+				// KEEP px height so collapse animates later
+				card.style.maxHeight = `${card.scrollHeight}px`;
+				setIcon(card);
+				};
+
+				card.addEventListener("transitionend", done, { once: true });
+				setTimeout(done, TRANSITION_MS + 80);
+			} else {
+				// COLLAPSE: current scrollHeight -> cap
+				const start = card.scrollHeight;
+				card.style.maxHeight = `${start}px`;
+				card.offsetHeight; // reflow
+				card.style.maxHeight = `${cap}px`;
+
+				const done = () => {
+				card.classList.remove("animating");
+				card.classList.remove("expanded");
+				card.style.maxHeight = `${cap}px`;
+				setIcon(card);
+				};
+
+				card.addEventListener("transitionend", done, { once: true });
+				setTimeout(done, TRANSITION_MS + 80);
+			}
+			}
+		);
+
+		// When inner mg-seeall expands/collapses, bump card height if card is expanded
+		// (This is what fixes "desc opens but card doesn't grow")
+		$root.off("click.mgAssetCardBumpOnInnerSeeAll").on(
+			"click.mgAssetCardBumpOnInnerSeeAll",
+			'.tab[data-tab="assets"] .mg-seeall-toggle, .tab[data-tab="assets"] .tags-toggle',
+			(ev) => {
+			const card = ev.currentTarget.closest(".asset-card");
+			if (!card) return;
+			// Let inner handler run first, then measure
+			setTimeout(() => refreshExpandedHeight(card), 0);
+			}
+		);
+
+		// Hidden tab issue: init when switching to assets
+		$root.off("click.mgAssetCardTabInit").on("click.mgAssetCardTabInit", ".sheet-tabs .item", (ev) => {
+			if (ev.currentTarget?.dataset?.tab !== "assets") return;
+			setTimeout(initAll, 0);
+		});
+
+		// If assets is already visible on first render
+		setTimeout(initAll, 0);
+		}
+
 
 		/* Lux +/- clickers (simple, safe, no re-render) */
 		{
@@ -1396,9 +1648,6 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 		const assetsTabVisible = $root.find('.tab[data-tab="assets"]').is(":visible");
 		if (assetsTabVisible) refreshAll();
 		};
-
-		// Initialize the global see-all toggles (one time per render)
-		bindSeeAll($root);
 
 		/* Crew Gambits Tab
 		------------------------------------------------------------------*/

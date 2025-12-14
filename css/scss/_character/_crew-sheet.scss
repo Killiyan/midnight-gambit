@@ -471,9 +471,11 @@
 					background: $mg-blue-main;
 					opacity: 1;
 					transform: translateY(0);
-					transition: opacity .5s ease, transform .5s ease;
+					transition: opacity .5s ease, transform .5s ease, max-height .5s ease;
+					position: relative;
 					will-change: opacity, transform;
 					box-shadow: 4px 4px 10px rgba(0,0,0,0.5);
+					overflow: hidden;
 
 					&.pre-enter {
 						opacity: 0;
@@ -506,7 +508,6 @@
 						display: block;
 						background: $mg-blue-main-2;
 						color: $mg-blue-2;
-						border-radius: .5rem .5rem 0 0;
 						transition: color .5s ease, background .5s ease;
 						display: flex;
 						gap: .625rem;
@@ -546,6 +547,7 @@
 						display: flex;
 						flex-direction: column;
 						gap: 1rem;
+						padding-bottom: 3.875rem;
 
 						.card-body {
 							display: flex;
@@ -560,6 +562,10 @@
 								color: $mg-blue-2;
 								border-radius: .5rem;
 								gap: .5rem;
+
+								label {
+									margin-bottom: .5rem;
+								}
 
 								p {
 									margin: 0;
@@ -601,15 +607,6 @@
 								width: calc(75% - 1rem);
 								flex-grow: 1;
 							}
-						}
-
-						.desc {
-							font-size: .9rem;
-							opacity: .9;
-							margin: 4px 0 6px;
-							display: -webkit-box;
-							-webkit-box-orient: vertical;
-							overflow: hidden;
 						}
 
 						.tags-wrap {

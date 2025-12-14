@@ -189,7 +189,7 @@
 					<div class="asset-grid">
 						{{#each assets as |it|}}
 						
-						<article class="asset-card inventory-item" data-item-id="{{it.id}}">
+						<div class="asset-card inventory-item" data-item-id="{{it.id}}">
 							<h3 class="name post-asset" data-item-id="{{it.id}}">
 									<i class="fa-solid fa-messages"></i> {{it.name}}
 							</h3>
@@ -219,35 +219,36 @@
 									{{/if}}
 
 									{{#if it.descHtml}}
-									<div class="mg-seeall-wrap" data-item-id="{{it.id}}" data-seeall-cap="150">
-										<div class="desc">
+										<div class="mg-seeall-wrap" data-item-id="{{it.id}}" data-seeall-cap="150">
+											<div class="desc asset-desc">
 											<label>Description</label>
-
 											<div class="desc-content mg-seeall-content">
 												{{{it.descHtml}}}
 											</div>
-										</div>
+											</div>
 
-										<button class="mg-seeall-toggle" type="button">
+											<button class="mg-seeall-toggle" type="button">
 											<i class="fa-solid fa-angle-down"></i>
-										</button>
-									</div>
+											</button>
+										</div>
 									{{/if}}
 
 									{{#if it.notesHtml}}
-									<div class="notes-wrap mg-seeall-wrap" data-item-id="{{it.id}}" data-seeall-cap="150">
-										<div class="asset-notes">
+										<div class="mg-seeall-wrap notes-wrap" data-item-id="{{it.id}}" data-seeall-cap="150">
+											<div class="desc asset-notes">
 											<label>Notes</label>
-											<div class="notes-content mg-seeall-content">
-											{{{it.notesHtml}}}
+											<div class="desc-content notes-content mg-seeall-content">
+												{{{it.notesHtml}}}
 											</div>
-										</div>
-										<button class="mg-seeall-toggle" type="button">
+											</div>
+
+											<button class="mg-seeall-toggle" type="button">
 											<i class="fa-solid fa-angle-down"></i>
-										</button>
-									</div>
+											</button>
+										</div>
 									{{/if}}
-									
+
+								
 								</div>
 
 								<div class="card-actions">
@@ -264,7 +265,12 @@
 								</div>
 
 							</div>
-						</article>
+							
+							<button class="mg-card-toggle" type="button" title="Expand / collapse card">
+								<i class="fa-solid fa-angle-down"></i>
+							</button>
+
+						</div>
 						{{/each}}
 
 						{{#unless assets.length}}

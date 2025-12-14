@@ -162,6 +162,16 @@ button:disabled {
       background: $mg-blue-1;
       border-color: $mg-blue-2;
     }
+
+    .chat-item {
+      label {
+        margin-bottom: 0;
+        @include oswald();
+        color: $mg-ivory;
+        font-size: 1rem;
+        text-transform: uppercase;
+      }
+    }
   }
 
   .chat-message,
