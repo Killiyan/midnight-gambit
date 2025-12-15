@@ -1876,7 +1876,48 @@ Hooks.on("renderChatMessage", (message, html) => {
   }
 });
 
+// --- Edge: click a box to reveal its kept dice (chat only) ---
+Hooks.on("renderChatMessage", (_message, html) => {
+  html.on("click", ".mg-edge-box", (ev) => {
+    const box = ev.currentTarget;
+    const panel = box.closest(".chat-roll")?.querySelector(".mg-edge-dice-panel");
+    if (!panel) return;
 
+    const raw = (box.dataset.dice || "").trim();
+    let dice = [];
+    try { dice = JSON.parse(raw); } catch (e) { return; }
+    if (!Array.isArray(dice) || !dice.length) return;
+
+    const edgeLabel = box.dataset.edge || "";
+
+    const already = panel.dataset.openFor === edgeLabel && panel.classList.contains("is-open");
+    if (already) {
+      panel.classList.remove("is-open");
+      panel.dataset.openFor = "";
+      return;
+    }
+
+    panel.dataset.openFor = edgeLabel;
+    panel.innerHTML = `
+      <div class="dice-tooltip">
+        <ol class="dice-rolls">
+          ${dice.map(d => `
+            <li class="roll die d6 ${d.a ? "" : "discarded"}">${d.r}</li>
+          `).join("")}
+        </ol>
+      </div>
+    `;
+    panel.classList.add("is-open");
+  });
+
+  // Optional: keyboard accessibility (Enter/Space)
+  html.on("keydown", ".mg-edge-box", (ev) => {
+    if (ev.key === "Enter" || ev.key === " ") {
+      ev.preventDefault();
+      ev.currentTarget.click();
+    }
+  });
+});
 
 /* Move Learn Spenders Global
 ------------------------------------------------------------------*/

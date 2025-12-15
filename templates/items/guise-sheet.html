@@ -1,10 +1,11 @@
 <form class="guise-sheet">
   <header class="sheet-header">
+    <img class="profile" src="{{item.img}}" data-edit="img" title="{{item.name}}" />
     <h1><input type="text" name="name" value="{{item.name}}" /></h1>
   </header>
 
   <div class="sheet-body">
-    <div class="desription-group">
+    <div class="desription-group mg-content">
       <label>Description</label>
       {{editor
         system.description
@@ -16,7 +17,7 @@
       }}
     </div>
 
-    <div class="guise-strain">
+    <div class="guise-strain mg-content">
       <div class="guise-capacity">
         <label>Mortal Strain Cap</label>
         <input type="number" name="system.mortalCap" value="{{system.mortalCap}}" />
@@ -28,7 +29,7 @@
       </div>
     </div>
 
-    <div class="guise-consumables">
+    <div class="guise-consumables mg-content">
       <div class="guise-consumable-single">
         <label for="sparkSlots">Spark Slots</label>
         <input type="number" name="system.sparkSlots" value="{{system.sparkSlots}}" />
@@ -40,7 +41,7 @@
       </div>
     </div>
 
-    <div class="guise-caster">
+    <div class="guise-caster mg-content">
       <label for="casterType">Caster Type</label>
       <select name="system.casterType">
         <option value="none" {{#if (eq system.casterType "none")}}selected{{/if}}>No Caster</option>
@@ -49,7 +50,7 @@
       </select>
     </div>
 
-    <div class="attribute-modifiers">
+    <div class="attribute-modifiers mg-content">
       <label>Attribute Modifiers</label>
       <div class="grid">
         {{#each attributeKeys}}
@@ -62,7 +63,7 @@
     </div>
 
     <!--This is rendering the Guise Basic moves/Signature Perk-->
-    <div class="guise-moves">
+    <div class="guise-moves mg-content">
 
       <div class="guise-signature">
         <label>Signature Perk</label>

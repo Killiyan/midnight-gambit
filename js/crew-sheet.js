@@ -724,6 +724,48 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 				}
 			});
 
+		// Crew header pencil → edit Name via dialog (no inline input)
+		$root.off("click.mgCrewEditHeader").on("click.mgCrewEditHeader", ".mg-edit-name", async (ev) => {
+			ev.preventDefault();
+
+			const currentName = this.actor.name ?? "";
+
+			const content = `
+			<form class="mg-form">
+				<div class="form-group">
+				<label>Name</label>
+				<input type="text" name="name" value="${ESC(currentName)}" />
+				</div>
+			</form>
+			`;
+
+			const result = await Dialog.wait({
+			title: "Edit Crew Name",
+			content,
+			buttons: {
+				ok: {
+				label: "Save",
+				callback: (dlgHtml) => {
+					const $dlg = $(dlgHtml);
+					return { name: String($dlg.find('input[name="name"]').val() ?? "").trim() };
+				}
+				},
+				cancel: { label: "Cancel", callback: () => null }
+			},
+			default: "ok"
+			});
+
+			if (!result) return;
+
+			const next = result.name;
+			if (!next || next === this.actor.name) return;
+
+			await this.actor.update({ name: next });
+
+			// Soft refresh headline text without full re-render (matches actor sheet behavior)
+			const $wrap = this.element.find("[data-mg-nameblock] .mg-name-view");
+			if ($wrap.length) $wrap.text(this.actor.name);
+		});
 
 
 		// Link this Crew to the Initiative Bar AND persist current order to the bar's flag

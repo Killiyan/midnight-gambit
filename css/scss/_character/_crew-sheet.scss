@@ -70,14 +70,62 @@
 					padding: 1.125rem 1.125rem 1.125rem 0;
 					position: relative;
 					z-index: 3;
+				}
 
-					&:hover,
-					&:focus {
-						box-shadow: none;
-						border: 2px solid $mg-blue-1;
-						border-left: 0;
-						border-top: 0;
-						border-right: 0;
+				.title-tier {
+					background: rgba($black, .2);
+					backdrop-filter: blur(4px);
+					@include mg-border();
+					padding: 1.125rem;
+					border-radius: .5rem;
+					display: flex;
+					flex-direction: column;
+					gap: .5rem;
+					position: static;
+					overflow: hidden;
+
+					h1 {
+						border-bottom: 0;
+						margin: 0;
+						@include oswald();
+						text-transform: uppercase;
+						letter-spacing: -.03rem;
+						font-size: 1.5rem;
+						font-style: italic;
+						font-weight: 700;
+						padding-left: 0;
+					}
+
+					.mg-edit-name {
+						position: absolute;
+						right: -.125rem;
+						top: -.125rem;
+						padding: .5rem .75rem;
+						background: rgba($mg-blue-main-2, .75);
+						border-radius: 0 0 0 .5rem;
+						display: flex;
+						justify-content: center;
+						align-items: center;
+						height: auto;
+						width: auto;
+						transition: background .5s ease, color .5s ease;
+
+						i {
+							color: $mg-blue-3;
+							transition: color .5s ease;
+							margin: 0;
+						}
+
+						&:hover,
+						&:focus {
+							background: $mg-blue-3;
+							color: $mg-blue-4;
+							box-shadow: none;
+
+							i {
+							color: $mg-blue-4;
+							}
+						}
 					}
 				}
 

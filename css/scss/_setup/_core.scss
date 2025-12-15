@@ -366,7 +366,8 @@ button:disabled {
     }
 
     .dice-formula,
-    .dice-total {
+    .dice-total,
+    .mg-edge-box {
       @include mg-border();
       background: rgba(0,0,0, .1);
       margin: 0.5rem 0;
@@ -465,6 +466,81 @@ button:disabled {
         background: $mg-blue-3;
         padding: .625rem;
         border-radius: .5rem;
+      }
+    }
+
+    .dice {
+      display: flex;
+      flex-direction: column;
+      gap: .5rem;
+      
+      .dice-rolls {
+        display: flex;
+        gap: .5rem;
+        background: $mg-blue-4;
+        @include mg-border();
+        border-radius: 0.5rem;
+        padding: .5rem;
+        margin: 0 0 .5rem 0;
+
+        .die {
+          background: $mg-blue-2;
+          color: $mg-blue-4;
+          border-radius: .5rem;
+          @include mg-border();
+
+          &.discarded {
+            background: rgba($black, 0.5);
+          }
+        }
+      }
+    }
+
+    .mg-edge-dice-panel {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height .5s ease;
+
+      &.is-open {
+        max-height: 10rem;
+      }
+    }
+
+    .edge-label {
+      font-size: .75rem;
+      @include roboto();
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      padding: 0.5rem;
+      margin: 1.625rem 0 -7px 0;
+      background: $mg-blue-4;
+      border-radius: 0.5rem 0.5rem 0 0;
+      opacity: .6;
+    }
+
+    .mg-edge {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      text-align: center;
+      gap: .5rem;
+
+      .mg-edge-box {
+        display: flex;
+        flex-direction: column;
+        gap: .5rem;
+
+        i {
+          color: $mg-blue-2;
+          opacity: .5;
+          font-size: 1rem;
+        }
+
+        .mg-edge-total {
+          font-size: 1.25rem;
+          font-weight: 700;
+          margin: 0;
+        }
       }
     }
   }
@@ -882,7 +958,8 @@ button:disabled {
     }
 
     .dice-formula,
-    .dice-total {
+    .dice-total,
+    .mg-edge-box {
       @include mg-border();
       background: rgba(0,0,0, .1);
       margin: 0.5rem 0;

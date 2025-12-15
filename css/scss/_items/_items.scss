@@ -28,25 +28,55 @@
   }
 }
 
-.item-sheet,
-.asset-sheet {
-  .wrapper {
-    display: flex;
-    gap: .5rem;
-    flex-direction: column;
-  }
+.sheet {
+  .item-sheet,
+  .asset-sheet,
+  .guise-sheet {
+    .sheet-header {
+      display: flex;
+      @include mg-border();
+      flex-direction: column;
+      border-radius: .5rem;
+      overflow: hidden;
+      margin-bottom: 2.125rem;
 
-  .item-tag {
-    width: auto;
-  }
+      img {
+        width: 100%;
+        aspect-ratio: 1 / 1;
+        height: auto;
+        border: none;
+        object-fit: cover;
+        transition: background .5s ease, opacity .5s ease;
 
-  .tag-wrapper {
-    flex-direction: row;
-    gap: .5rem;
-    flex-wrap: wrap;
+        &:hover {
+          opacity: .5;
+          background: $mg-blue-1;
+        }
+      }
 
-    .add-custom-tag {
-      width: 100%;
+      h1 {
+        width: 100%;
+      }
+    }
+
+    .wrapper {
+      display: flex;
+      gap: .5rem;
+      flex-direction: column;
+    }
+
+    .item-tag {
+      width: auto;
+    }
+
+    .tag-wrapper {
+      flex-direction: row;
+      gap: .5rem;
+      flex-wrap: wrap;
+
+      .add-custom-tag {
+        width: 100%;
+      }
     }
   }
 }
@@ -56,11 +86,12 @@
 .asset-sheet {
   padding: 2.125rem;
   background: $mg-blue-4;
+  display: flex;
+  flex-direction: column;
 
   .sheet-body {
     display: flex;
     flex-direction: column;
-    gap: 2.125rem;
 
     .tag-selector {
       display: grid;

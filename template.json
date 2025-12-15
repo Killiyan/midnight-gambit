@@ -44,6 +44,8 @@
 				"tags": [],
 				"quantity": 1,
 				"equipped": false,
+				"mortalStrainDamage": 0,
+				"soulStrainDamage": 0,
 				"strainDamage": 0
 			}
 		},
@@ -63,6 +65,8 @@
 				"tags": [],
 				"quantity": 1,
 				"equipped": false,
+				"mortalStrainDamage": 0,
+				"soulStrainDamage": 0,
 				"strainDamage": 0,
 				"mortalCapacity": 0,
 				"soulCapacity": 0
@@ -93,6 +97,7 @@
 	"type": "character",
 	"name": "New Character",
 	"system": {
+		"edgeNext": false,
 		"attributes": {
 			"tenacity": 0,
 			"finesse": 0,

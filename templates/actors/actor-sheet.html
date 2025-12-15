@@ -49,6 +49,7 @@
           </div>
         </div>
 
+        <!--Removing Flashbacks and Load for now until I find their home in the system.
         <div class="side-controls">
           <button type="button" data-tooltip="Recover" class="long-rest-button">Recover <i class="fas fa-bed"></i></button>
 
@@ -68,7 +69,16 @@
             </div>
           </div>
         </div>
+        -->
       </div>
+
+      <button
+        type="button"
+        class="edge-button mg-edge-toggle {{#if system.edgeNext}}is-active{{/if}}"
+        title="Edge: your next Skill or Attribute roll is rolled twice">
+        <span>Edge</span>
+        <i class="fa-solid fa-scythe"></i>
+      </button>
 
       <div class="profile-image">
         <img class="mg-profile-img" src="{{actor.img}}" data-edit="img" title="{{actor.name}}" />
@@ -463,14 +473,24 @@
                   </div>
 
                   <div class="card-wrapper">
-                    {{#if (gt item.system.strainDamage 0)}}
+                    {{#if (or (gt item.system.mortalStrainDamage 0) (gt item.system.soulStrainDamage 0))}}
                       <div class="item-capacity" title="Strain Damage">
                         <label>Strain Damage</label>
+
                         <div class="bubble-wrapper">
+                          {{#if (gt item.system.mortalStrainDamage 0)}}
                           <p class="strain-bubble">
                             <i class="fa-solid fa-dagger"></i>
-                            <span class="remaining-number">{{item.system.strainDamage}}</span>
+                            <span class="remaining-number">{{item.system.mortalStrainDamage}}</span>
                           </p>
+                          {{/if}}
+
+                          {{#if (gt item.system.soulStrainDamage 0)}}
+                          <p class="strain-bubble">
+                            <i class="fa-solid fa-moon-over-sun"></i>
+                            <span class="remaining-number">{{item.system.soulStrainDamage}}</span>
+                          </p>
+                          {{/if}}
                         </div>
                       </div>
                     {{/if}}
@@ -702,22 +722,43 @@
                   <div class="card-wrapper">
                     {{!-- Only show this block if any strain/capacity value is actually meaningful --}}
                     {{#if (or
+                      (gt item.system.mortalStrainDamage 0)
+                      (gt item.system.soulStrainDamage 0)
                       (gt item.system.strainDamage 0)
                       (gt item.system.remainingCapacity.mortal 0)
                       (gt item.system.remainingCapacity.soul 0)
                     )}}
                       <div class="item-capacity" title="Strain Effects">
+
                         <label>Strain Damage</label>
                         <div class="bubble-wrapper">
+
+                          {{!-- Mortal strain: prefer new field; fallback to legacy strainDamage --}}
                           <p class="strain-bubble">
                             <i class="fa-solid fa-dagger"></i>
                             <span class="remaining-number">
-                              {{#if (ne item.system.strainDamage undefined)}}
-                                {{item.system.strainDamage}}
+                              {{#if (ne item.system.mortalStrainDamage undefined)}}
+                                {{item.system.mortalStrainDamage}}
+                              {{else}}
+                                {{#if (ne item.system.strainDamage undefined)}}
+                                  {{item.system.strainDamage}}
+                                {{else}} -
+                                {{/if}}
+                              {{/if}}
+                            </span>
+                          </p>
+
+                          {{!-- Soul strain: new field only --}}
+                          <p class="strain-bubble">
+                            <i class="fa-solid fa-moon-over-sun"></i>
+                            <span class="remaining-number">
+                              {{#if (ne item.system.soulStrainDamage undefined)}}
+                                {{item.system.soulStrainDamage}}
                               {{else}} -
                               {{/if}}
                             </span>
                           </p>
+
                         </div>
 
                         <label>Capacity</label>
@@ -742,8 +783,10 @@
                             </span>
                           </p>
                         </div>
+
                       </div>
                     {{/if}}
+
 
                     {{#if item.system.tags.length}}
                       <div class="tags-wrap" data-item-id="{{item._id}}">

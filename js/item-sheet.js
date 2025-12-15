@@ -53,6 +53,37 @@ export class MidnightGambitItemSheet extends ItemSheet {
 			}
 		}
 
+		// ---- Weapon strainDamage migration (legacy -> mortal/soul) ----
+		if (context.itemType === "weapon") {
+			const sys = context.system ?? {};
+
+			const hasNew =
+				sys.mortalStrainDamage !== undefined ||
+				sys.soulStrainDamage !== undefined;
+
+			const hasLegacy = sys.strainDamage !== undefined && sys.strainDamage !== null;
+
+			if (!hasNew && hasLegacy) {
+				const legacy = Number(sys.strainDamage) || 0;
+
+				// Update once on open: legacy strainDamage becomes Mortal strain by default
+				context.system.mortalStrainDamage = legacy;
+				context.system.soulStrainDamage = 0;
+
+				// Persist it (don’t delete legacy yet; safe deprecation)
+				if (this.item?.isOwner) {
+				await this.item.update({
+					"system.mortalStrainDamage": legacy,
+					"system.soulStrainDamage": 0
+				});
+				}
+			} else {
+				// Ensure defaults exist for rendering
+				context.system.mortalStrainDamage ??= 0;
+				context.system.soulStrainDamage ??= 0;
+			}
+		}
+
 		// Load global tags (type-aware, with dynamic fallback)
 		let globalTags;
 			if (this.item.type === "asset") {

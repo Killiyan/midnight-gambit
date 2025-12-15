@@ -120,6 +120,7 @@ h1,h2,h3,h4 {
       font-size: 1rem;
       text-transform: uppercase;
       margin-bottom: .5rem;
+      display: block;
 
       i {
         color: $mg-blue-3;
@@ -250,6 +251,10 @@ h1,h2,h3,h4 {
     border: 3px solid $mg-blue-main-2;
     transition: border .2s ease, border-radius .2s ease;
     border-radius: .5rem;
+
+    .window-header {
+      height: 100%;
+    }
 
     .window-title {
       overflow: hidden;
@@ -1057,6 +1062,116 @@ h1,h2,h3,h4 {
     }
   }
 
+  .edge-button {
+    background: $mg-blue-4;
+    color: $mg-blue-2;
+    border: 3px solid $mg-blue-main-2;
+    border-left: 0;
+    position: absolute;
+    bottom: 4.175rem;
+    left: 17rem;
+    padding: .875rem .875rem .875rem 1.625rem;
+    border-radius: 0 .5rem .5rem 0;
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    align-items: center;
+    z-index: 9;
+    width: auto;
+    overflow: hidden;
+    opacity: .6;
+    transition: color .5s ease, transform .5s ease, background .5s ease, box-shadow .5s ease, transform .5s ease, box-shadow .5s ease, border-color .5s ease, opacity .5s ease;
+
+    span {
+      transition: color .5s ease;
+    }
+
+    &:active {
+      transform: translateY(1px);
+    }
+
+    &.is-active {
+      background: $mg-blue-main-2;
+      border-color: $mg-blue-main-2;
+      opacity: 1;
+
+        span {
+          color: $mg-blue-1;
+        }
+
+      // Sheen sweep (matches lead initiative member)
+      &:after {
+        content: "";
+        position: absolute;
+        pointer-events: none;
+
+        // Keep it mostly top area like your initiative sheen
+        inset: -10% -20% auto -20%;
+        height: 200%;
+
+        // Match the tab shape so it doesn't look like a floating rectangle
+        border-radius: 0 .5rem .5rem 0;
+        overflow: hidden;
+
+        transform: rotate(var(--mg-gleam-tilt, -12deg)) translateX(-120%);
+        mix-blend-mode: screen;
+        opacity: var(--mg-gleam-opacity, 0.9);
+        z-index: 2;
+
+        background: linear-gradient(
+          90deg,
+          transparent 0%,
+          rgba($mg-blue-4, 0.0) 30%,
+          rgba($mg-blue-3, 0.35) 45%,
+          rgba($mg-blue-1, 0.90) 50%,
+          rgba($mg-blue-3, 0.35) 55%,
+          rgba($mg-blue-4, 0.0) 70%,
+          transparent 100%
+        );
+
+        filter: blur(0.6px);
+        animation: mg-gleam var(--mg-gleam-speed, 1.9s) ease-in-out infinite;
+      }
+
+      i {
+        animation: mg-edge-pulse 800ms ease-in-out infinite alternate;
+        color: $mg-blue-1;
+      }
+    }
+
+    @keyframes mg-gleam {
+      0%   { transform: rotate(var(--mg-gleam-tilt, -12deg)) translateX(-120%); opacity: 0; }
+      10%  { opacity: var(--mg-gleam-opacity, 0.9); }
+      45%  { transform: rotate(var(--mg-gleam-tilt, -12deg)) translateX(120%); opacity: var(--mg-gleam-opacity, 0.9); }
+      60%  { opacity: 0; }
+      100% { transform: rotate(var(--mg-gleam-tilt, -12deg)) translateX(120%); opacity: 0; }
+    }
+
+    i {
+      color: $mg-blue-3;
+    }
+
+    span {
+      color: $mg-blue-2;
+      @include oswald();
+      font-style: italic;
+      text-transform: uppercase;
+      font-size: .75rem;
+      pointer-events: none;
+      transition: color .5s ease;
+    }
+
+    &:hover,
+    &:focus {
+      transform: translateX(0.75rem);
+
+      span,
+      i {
+        color: $mg-ivory;
+      }
+    }
+  }
+
   //Styling the profile image on all tabs
   .profile-image {
     top: 0;
@@ -1064,7 +1179,7 @@ h1,h2,h3,h4 {
     width: 100%;
     height: auto;
     aspect-ratio: 16 / 9;
-    z-index: 10;
+    z-index: 8;
     position: relative;
 
       &:before {
@@ -1086,18 +1201,6 @@ h1,h2,h3,h4 {
         cursor: pointer;
         border: none;
       }
-  }
-
-  //Styling Name input to get rid of the form styling that makes it look weird
-  .name input{
-
-    &:hover,
-    &:focus {
-      box-shadow: none;
-      border-left: none;
-      border-top: none;
-      border-right: none;
-    }
   }
 
   /*Adding Responsive

@@ -5,7 +5,7 @@
   </header>
 
   <section class="sheet-body">
-    <div class="item-description">
+    <div class="item-description wrapper mg-content">
       <label>Description</label>
       {{editor
         system.description
@@ -17,7 +17,7 @@
       }}
     </div>
 
-    <div class="item-notes">
+    <div class="item-notes wrapper mg-content">
       <label>Notes</label>
       {{editor
         system.notes
@@ -30,7 +30,7 @@
     </div>
 
 
-    <div class="wrapper">
+    <div class="wrapper mg-content">
       <label>Tags</label>
       <div class="tag-selector">
 
@@ -54,7 +54,8 @@
       </div>
     </div>
     
-    <div class="wrapper tag-wrapper">
+    <div class="wrapper tag-wrapper mg-content">
+      <label>Selected Tags:</label>
       {{#each item.system.tags}}
         {{#with (findTag ../tags this) as |tag|}}
         <span class="item-tag tag" data-tooltip="{{tag.description}}">{{tag.label}}</span>
@@ -67,7 +68,7 @@
     </div>
 
     {{#if (eq item.type "gambit")}}
-      <div class="form-group">
+      <div class="form-group mg-content">
         <label>Gambit Tier</label>
         <select name="system.tier">
           <option value="rookie" {{#if (eq system.tier "rookie")}}selected{{/if}}>Rookie</option>
@@ -82,29 +83,80 @@
 
 
     {{#if (eq itemType "weapon")}}
-      <div class="wrapper">
+      <div class="wrapper mg-content">
         <label>Strain Damage</label>
-        <input type="number" name="system.strainDamage" value="{{system.strainDamage}}" min="0" />
+
+        <div class="mg-weapon-strain-grid bubble-wrapper">
+          <div class="mg-weapon-strain-field strain-bubble">
+            <i class="fa-solid fa-dagger" title="Mortal Strain"></i>
+            <input type="number"
+                  name="system.mortalStrainDamage"
+                  value="{{system.mortalStrainDamage}}"
+                  min="0" />
+          </div>
+
+          <div class="mg-weapon-strain-field strain-bubble">
+            <i class="fa-solid fa-moon-over-sun" title="Soul Strain"></i>
+            <input type="number"
+                  name="system.soulStrainDamage"
+                  value="{{system.soulStrainDamage}}"
+                  min="0" />
+          </div>
+        </div>
       </div>
     {{/if}}
 
     {{#if (eq itemType "armor")}}
-      <div class="wrapper">
-        <label>Mortal Capacity</label>
-        <input type="number" name="system.mortalCapacity" value="{{system.mortalCapacity}}" min="0" />
-        <label>Soul Capacity</label>
-        <input type="number" name="system.soulCapacity" value="{{system.soulCapacity}}" min="0" />
+      <div class="wrapper mg-content">
+        <label>Capacity</label>
+        <div class="bubble-wrapper">
+          <div class="strain-bubble">
+            <i class="fa-solid fa-dagger" title="Mortal Capacity"></i>
+            <input type="number" name="system.mortalCapacity" value="{{system.mortalCapacity}}" min="0" />
+          </div>
+
+          <div class="strain-bubble">
+            <i class="fa-solid fa-moon-over-sun" title="Soul Capacity"></i>
+            <input type="number" name="system.soulCapacity" value="{{system.soulCapacity}}" min="0" />
+          </div>
+        </div>
       </div>
     {{/if}}
 
     {{#if (eq itemType "misc")}}
-      <div class="wrapper">
+      <div class="wrapper mg-content">
+
         <label>Strain Damage</label>
-        <input type="number" name="system.strainDamage" value="{{system.strainDamage}}" min="0" />
-        <label>Mortal Capacity</label>
-        <input type="number" name="system.mortalCapacity" value="{{system.mortalCapacity}}" min="0" />
-        <label>Soul Capacity</label>
-        <input type="number" name="system.soulCapacity" value="{{system.soulCapacity}}" min="0" />
+        <div class="bubble-wrapper">
+          <div class="strain-bubble">
+            <i class="fa-solid fa-dagger" title="Mortal Strain"></i>
+            <input type="number"
+                  name="system.mortalStrainDamage"
+                  value="{{system.mortalStrainDamage}}"
+                  min="0" />
+          </div>
+
+          <div class="strain-bubble">
+            <i class="fa-solid fa-moon-over-sun" title="Soul Strain"></i>
+            <input type="number"
+                  name="system.soulStrainDamage"
+                  value="{{system.soulStrainDamage}}"
+                  min="0" />
+          </div>
+        </div>
+
+        <label>Capacity</label>
+        <div class="bubble-wrapper">
+          <div class="strain-bubble">
+            <i class="fa-solid fa-dagger" title="Mortal Capacity"></i>
+            <input type="number" name="system.mortalCapacity" value="{{system.mortalCapacity}}" min="0" />
+          </div>
+
+          <div class="strain-bubble">
+            <i class="fa-solid fa-moon-over-sun" title="Soul Capacity"></i>
+            <input type="number" name="system.soulCapacity" value="{{system.soulCapacity}}" min="0" />
+          </div>
+        </div>
       </div>
     {{/if}}
 

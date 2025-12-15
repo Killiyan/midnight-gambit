@@ -329,9 +329,8 @@ export class MidnightGambitActorSheet extends ActorSheet {
           this._mgRestrictTabsForNonOwners(html);
         }
         this._mgMakeReadOnly(html);
-        return; // IMPORTANT: don’t register any of the interactive listeners below
+        return;
       }
-
 
       // Dynamically apply .narrow-mode based on sheet width
       const appWindow = html[0]?.closest(".window-app");
@@ -353,15 +352,26 @@ export class MidnightGambitActorSheet extends ActorSheet {
         this._resizeObserver = observer;
       }
 
-      //Shuffle Function
+      // Shuffle Function
       function shuffleArray(array) {
-        const copy = [...array];
+        const copy = [...(array ?? [])];
         for (let i = copy.length - 1; i > 0; i--) {
           const j = Math.floor(Math.random() * (i + 1));
           [copy[i], copy[j]] = [copy[j], copy[i]];
         }
         return copy;
       }
+
+      // MG Edge Toggle Button
+      html.find(".mg-edge-toggle").on("click", async (ev) => {
+        ev.preventDefault();
+        const cur = !!this.actor.system.edgeNext;
+        await this.actor.update({ "system.edgeNext": !cur }, { render: false });
+
+        // Update UI immediately without re-render
+        const btn = ev.currentTarget;
+        btn.classList.toggle("is-active", !cur);
+      });
 
       // This updates the strain amount on click; Also added parameter to suppress re-render on DOM so it won't jump around on click
       html.find(".strain-dot").on("click", async (event) => {
@@ -581,8 +591,6 @@ export class MidnightGambitActorSheet extends ActorSheet {
         this.render(false);
       });
 
-
-
       //Making it so if you click moves in the Character sheet they post to chat!
       html.find(".post-move").on("click", event => {
         const name = event.currentTarget.dataset.moveName || "Unknown Move";
@@ -641,7 +649,6 @@ export class MidnightGambitActorSheet extends ActorSheet {
         this.render(false);
       });
 
-
       // Handle dragstart
       html.find(".gambit-card").on("dragstart", event => {
         const itemId = event.currentTarget.dataset.itemId;
@@ -653,7 +660,6 @@ export class MidnightGambitActorSheet extends ActorSheet {
           JSON.stringify({ itemId, source })
         );
       });
-
 
       // Handle drop on deck or drawn
       const handleDrop = (targetArea) => {
@@ -880,8 +886,7 @@ export class MidnightGambitActorSheet extends ActorSheet {
         el.textContent = next >= 0 ? `+${next}` : `${next}`;
       });
 
-
-      //Rolling Attributes in chat with the right logic
+      // Rolling Attributes in chat with the right logic
       html.find(".attribute-modifier").on("click", async (event) => {
         const attrKey = event.currentTarget.dataset.key;
         const mod = this.actor.system.attributes?.[attrKey] ?? 0;
@@ -890,12 +895,23 @@ export class MidnightGambitActorSheet extends ActorSheet {
         const rollType = mod >= 0 ? "kh2" : "kl2";
         const formula = `${pool}d6${rollType}`;
 
+        const edge = !!this.actor.system.edgeNext;
+
         await evaluateRoll({
           formula,
           label: `Attribute Roll: ${attrKey.toUpperCase()}`,
-          actor: this.actor
+          actor: this.actor,
+          edge
         });
+
+        // Consume Edge after the roll (one-and-done)
+        if (edge) {
+          await this.actor.update({ "system.edgeNext": false }, { render: false });
+          const btn = html.find(".mg-edge-toggle")[0];
+          if (btn) btn.classList.remove("is-active");
+        }
       });
+
 
       // Handle disabling duplicate spark school selections
       const select1 = html.find("#spark-school-1");
@@ -945,7 +961,7 @@ export class MidnightGambitActorSheet extends ActorSheet {
         command: "Pre", charm: "Pre", perform: "Pre"
       };
 
-      html.find(".skill-name, .skill-value").on("click", async (event) => {
+      html.find(".skill-name, .skill-value").off("click.mgSkillRoll").on("click.mgSkillRoll", async (event) => {
         const skillKey = event.currentTarget.dataset.key;
         const skillMod = this.actor.system.skills?.[skillKey] ?? 0;
 
@@ -965,13 +981,24 @@ export class MidnightGambitActorSheet extends ActorSheet {
         const rollType = attrMod >= 0 ? "kh2" : "kl2";
         const formula = `${pool}d6${rollType}`;
 
+        const edge = !!this.actor.system.edgeNext;
+
         await evaluateRoll({
           formula,
           skillMod,
           label: `Skill Roll: ${skillKey.toUpperCase()} (${attrKey.toUpperCase()})`,
-          actor: this.actor
+          actor: this.actor,
+          edge
         });
+
+        // Consume Edge after the roll (one-and-done)
+        if (edge) {
+          await this.actor.update({ "system.edgeNext": false }, { render: false });
+          const btn = html.find(".mg-edge-toggle")[0];
+          if (btn) btn.classList.remove("is-active");
+        }
       });
+
 
       // Skill base edit (numeric-safe, manual UI refresh)
       html.find(".skill-value").on("contextmenu", async (event) => {
@@ -1182,17 +1209,31 @@ export class MidnightGambitActorSheet extends ActorSheet {
 
         let extraInfo = "";
 
-        // Weapon: Strain Damage
-        if (type === "weapon" && system.strainDamage) {
-          extraInfo += `
-            <label>Strain Damage</label>
-            <div class="bubble-wrapper">
-              <p class="strain-bubble">
-                <i class="fa-solid fa-dagger"></i>
-                <span class="remaining-number">${system.strainDamage}</span>
-              </p>
-            </div>`;
+        // Weapon: Strain Damage (Mortal/Soul, with legacy fallback)
+        if (type === "weapon") {
+          const mortal = Number(system.mortalStrainDamage ?? system.strainDamage ?? 0);
+          const soul   = Number(system.soulStrainDamage ?? 0);
+
+          if (mortal || soul) {
+            extraInfo += `
+              <label>Strain Damage</label>
+              <div class="bubble-wrapper">
+                ${mortal ? `
+                  <p class="strain-bubble">
+                    <i class="fa-solid fa-dagger"></i>
+                    <span class="remaining-number">${mortal}</span>
+                  </p>` : ""
+                }
+                ${soul ? `
+                  <p class="strain-bubble">
+                    <i class="fa-solid fa-moon-over-sun"></i>
+                    <span class="remaining-number">${soul}</span>
+                  </p>` : ""
+                }
+              </div>`;
+          }
         }
+
 
         // Armor: MC / SC
         if (type === "armor") {
@@ -1216,38 +1257,50 @@ export class MidnightGambitActorSheet extends ActorSheet {
 
         // Misc: Strain Damage + Capacity
         if (type === "misc") {
-          if (system.strainDamage) {
+          const mortalSD = Number(system.mortalStrainDamage ?? system.strainDamage ?? 0);
+          const soulSD   = Number(system.soulStrainDamage ?? 0);
+
+          if (mortalSD || soulSD) {
             extraInfo += `
-              <label>Capacity</label>
+              <label>Strain Damage</label>
               <div class="bubble-wrapper">
-                <p class="strain-bubble">
-                  <i class="fa-solid fa-dagger"></i>
-                  <span class="remaining-number">${mc}</span>
-                </p>
-                <p class="strain-bubble">
-                  <i class="fa-solid fa-moon-over-sun"></i>
-                  <span class="remaining-number">${sc}</span>
-                </p>
+                ${mortalSD ? `
+                  <p class="strain-bubble">
+                    <i class="fa-solid fa-dagger"></i>
+                    <span class="remaining-number">${mortalSD}</span>
+                  </p>` : ""
+                }
+                ${soulSD ? `
+                  <p class="strain-bubble">
+                    <i class="fa-solid fa-moon-over-sun"></i>
+                    <span class="remaining-number">${soulSD}</span>
+                  </p>` : ""
+                }
               </div>`;
           }
 
-          const mc = system.mortalCapacity ?? 0;
-          const sc = system.soulCapacity ?? 0;
+          const mc = Number(system.mortalCapacity ?? 0);
+          const sc = Number(system.soulCapacity ?? 0);
           if (mc || sc) {
             extraInfo += `
               <label>Capacity</label>
               <div class="bubble-wrapper">
-                <p class="strain-bubble">
-                  <i class="fa-solid fa-dagger"></i>
-                  <span class="remaining-number">${mc}</span>
-                </p>
-                <p class="strain-bubble">
-                  <i class="fa-solid fa-moon-over-sun"></i>
-                  <span class="remaining-number">${sc}</span>
-                </p>
+                ${mc ? `
+                  <p class="strain-bubble">
+                    <i class="fa-solid fa-dagger"></i>
+                    <span class="remaining-number">${mc}</span>
+                  </p>` : ""
+                }
+                ${sc ? `
+                  <p class="strain-bubble">
+                    <i class="fa-solid fa-moon-over-sun"></i>
+                    <span class="remaining-number">${sc}</span>
+                  </p>` : ""
+                }
               </div>`;
           }
         }
+
 
         // Enrich the TinyMCE HTML for chat so formatting (lists, bold, etc.) is preserved
         const descHtml = system.description

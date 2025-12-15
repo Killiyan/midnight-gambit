@@ -5,7 +5,7 @@
   </header>
 
   <section class="sheet-body">
-    <div class="form-group stacked">
+    <div class="form-group stacked mg-content">
       <label>Description</label>
       {{editor system.description
         target="system.description"
@@ -15,7 +15,7 @@
       }}
     </div>
 
-    <div class="form-group stacked">
+    <div class="form-group stacked mg-content">
       <label for="notes-{{item.id}}">Notes</label>
       {{!-- Always-on TinyMCE; first arg is the content --}}
       {{editor
@@ -28,7 +28,7 @@
       }}
     </div>
 
-    <div class="wrapper">
+    <div class="wrapper mg-content">
       <label>Tags</label>
 
       <div class="tag-selector">
@@ -55,7 +55,8 @@
     </div>
 
     <!-- Optional: show chosen tags like the gear sheet -->
-    <div class="wrapper tag-wrapper">
+    <div class="wrapper tag-wrapper mg-content">
+      <label>Selected Tags:</label>
       {{#each system.tags}}
         {{#with (findTag ../tags this) as |tag|}}
           <span class="item-tag tag" data-tooltip="{{tag.description}}">{{tag.label}}</span>

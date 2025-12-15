@@ -14,21 +14,22 @@
 		<!-- Crew Title / Name -->
 		<div class="mg-crew-title">
 			<div class="title-tier">
+
+				<!-- Crew header title (view) -->
+				<div class="mg-name-wrap" data-mg-nameblock>
+				<h1 class="mg-name-view mg-crew-name-display">{{actor.name}}</h1>
+				</div>
+
 				{{#if canEdit}}
-				<input type="text"
-						name="name"
-						value="{{actor.name}}"
-						class="mg-crew-name"
-						placeholder="Crew Name" />
-				<span class="crew-tier-badge">Tier {{crewTier}}</span>
-
-				{{else}}
-				<h1 class="mg-crew-name-display">{{actor.name}}</h1>
-				<span class="crew-tier-badge">Tier {{crewTier}}</span>
+				<button type="button" class="mg-edit-name" title="Edit crew name">
+					<i class="fa-solid fa-pen-to-square"></i>
+				</button>
 				{{/if}}
-			</div>
 
+				<span class="crew-tier-badge">Tier {{crewTier}}</span>
+			</div>
 		</div>
+
 
 		<div class="mg-splash-strip">
 			{{#each splashImages as |img|}}
