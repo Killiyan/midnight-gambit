@@ -806,28 +806,40 @@ export class MidnightGambitActorSheet extends ActorSheet {
         }
       };
 
-      //Capacity Boxes add on Click, and remove on Shift click
-      html.find(".capacity-box input").on("click", async (event) => {
+      // Capacity tickers: − removes 1, + adds 1 (still respects armor/misc capacity logic)
+      html.find(".capacity-controls .cap-tick").on("click", async (event) => {
         event.preventDefault();
         event.stopPropagation();
 
-        const input = event.currentTarget;
-        const name = input.name; // e.g., "system.strain.mortal capacity"
-        const path = input.name;
-        const current = foundry.utils.getProperty(this.actor.system, path.replace("system.", ""));
-        const type = name.includes("mortal") ? "mortal" : "soul";
+        const btn = event.currentTarget;
 
-        const direction = event.shiftKey ? 1 : -1;
-        const newValue = Math.max(0, current + direction);
+        const type = btn.closest(".capacity-controls")?.dataset?.type; // "mortal" | "soul"
+        if (!type) return;
 
-        await checkArmorDamage(this.actor, current, newValue, type);
+        const dir = Number(btn.dataset.dir || 0); // -1 or +1
+        if (!dir) return;
+
+        const key = `${type} capacity`; // "mortal capacity" | "soul capacity"
+        const current = Number(this.actor.system?.strain?.[key] ?? 0);
+        const newValue = Math.max(0, current + dir);
+
+        // If we're decreasing capacity, let armor/misc absorb the "damage" as before
+        if (dir < 0) {
+          await checkArmorDamage(this.actor, current, newValue, type);
+        }
 
         const updates = {
-          [`system.strain.${type} capacity`]: newValue,
-          [`system.strain.manualOverride.${type} capacity`]: true
+          [`system.strain.${key}`]: newValue,
+          [`system.strain.manualOverride.${key}`]: true
         };
 
-        await this.actor.update(updates);
+        await this.actor.update(updates, { render: false });
+
+        // Patch the number immediately (no flicker)
+        const valEl = html.find(`.capacity-value[data-type="${type}"]`)[0];
+        if (valEl) valEl.textContent = String(newValue);
+
+        // If you prefer the old behavior (recompute any derived UI), keep this:
         this.render(false);
       });
 

@@ -38,6 +38,15 @@ export class MGInitiativeBar extends Application {
   /** Public helpers (frameless) */
   async showBar() {
     this._ensureAttached();
+
+    // GM: broadcast open to all clients
+    if (game.user.isGM && game.socket) {
+      game.socket.emit("system.midnight-gambit", {
+        type: "iniOpen",
+        sender: game.user.id
+      });
+    }
+
     this._wireLiveRefresh();
     // keep the foil hidden until we finish layout/hydration
     this._foilFadeOut(0)?.catch(() => {});
@@ -1538,6 +1547,14 @@ export class MGInitiativeBar extends Application {
 
   // Smoothly hide/close the initiative bar (public API used by your click handler)
   async hideBar(options = { animate: true }) {
+    // GM: broadcast close to all clients
+    if (game.user.isGM && game.socket) {
+      game.socket.emit("system.midnight-gambit", {
+        type: "iniClose",
+        sender: game.user.id
+      });
+    }
+
     const root =
       this._root ||
       this.element?.[0] ||
@@ -1978,46 +1995,58 @@ Hooks.once("ready", async () => {
   }
 });
 
-Hooks.once("ready", () => {
+function registerMGInitiativeSocket() {
   // Singleton access
   game.mgInitiative = MGInitiativeBar.instance;
 
-  if (game.socket) {
-    game.socket.on("system.midnight-gambit", async (msg) => {
-      if (!game.user.isGM) return;
-      if (!msg || msg.type !== "iniProgress") return;
+  if (!game.socket) return;
 
-      try {
-        const inst = game.mgInitiative;
-        const crew = inst?._resolveCrewActor?.();
-        if (!crew) return;
+  // Avoid double-binding if this runs twice
+  if (game.mgInitiative?._socketBound) return;
+  game.mgInitiative._socketBound = true;
+
+  game.socket.on("system.midnight-gambit", async (msg) => {
+    if (!msg) return;
+
+    console.log("MG SOCKET RECEIVED:", msg, "isGM?", game.user.isGM, "user:", game.user.id);
+
+    // Everyone handles open/close (UI sync)
+    if (msg.type === "iniOpen") {
+      if (msg.sender === game.user.id) return;
+      await MGInitiativeBar.instance.showBar();
+      return;
+    }
+
+    if (msg.type === "iniClose") {
+      if (msg.sender === game.user.id) return;
+      await MGInitiativeBar.instance.hideBar({ animate: false });
+      return;
+    }
+
+    // GM-only relay for shared state writes
+    if (!game.user.isGM) return;
+
+    try {
+      const inst = game.mgInitiative;
+      const crew = inst?._resolveCrewActor?.();
+      if (!crew) return;
+
+      if (msg.type === "iniProgress") {
         await crew.setFlag("midnight-gambit", "initiativeProgress", msg.payload);
-      } catch (e) {
-        console.error("MG | GM relay failed:", e);
       }
-    });
-  }
 
-  if (game.socket) {
-    game.socket.on("system.midnight-gambit", async (msg) => {
-      if (!game.user.isGM) return;
-      if (!msg) return;
-
-      try {
-        const inst = game.mgInitiative;
-        const crew = inst?._resolveCrewActor?.();
-        if (!crew) return;
-
-        if (msg.type === "iniProgress") {
-          await crew.setFlag("midnight-gambit", "initiativeProgress", msg.payload);
-        }
-
-        if (msg.type === "iniReset") {
-          await crew.setFlag("midnight-gambit", "initiativeReset", msg.payload);
-        }
-      } catch (e) {
-        console.error("MG | GM relay failed:", e);
+      if (msg.type === "iniReset") {
+        await crew.setFlag("midnight-gambit", "initiativeReset", msg.payload);
       }
-    });
-  }
-});
+    } catch (e) {
+      console.error("MG | GM relay failed:", e);
+    }
+  });
+}
+
+// Register on ready (normal path)
+Hooks.once("ready", registerMGInitiativeSocket);
+
+// ALSO register immediately if this file loads late (post-ready)
+if (game?.ready) registerMGInitiativeSocket();
+

@@ -533,6 +533,112 @@ h1,h2,h3,h4 {
               }
             }
           }
+
+          .strain-container {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 1.75rem;
+
+            .capacity-box {
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+
+              .label-box {
+                position: relative;
+                text-align: center;
+                padding: .45rem .5rem;
+                z-index: 3;
+
+                label {
+                  @include oswald();
+                  font-size: 1rem;
+                  font-weight: 700;
+                  color: $mg-blue-2;
+                  text-transform: uppercase;
+                }
+
+                .capacity-controls {
+
+                  button {
+                    position: absolute;
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                    background: $mg-blue-4;
+                    @include mg-border();
+                    bottom: 1rem;
+                    z-index: -1;
+                    
+                    i {
+                      font-size: .75rem;
+                      color: $mg-blue-2;
+                      line-height: 1;
+                    }
+
+                    &:first-of-type {
+                      left: -2.5rem;
+                      padding: .25rem 2rem .25rem .25rem;
+                      justify-content: flex-start;
+                    }
+
+                    &:last-of-type {
+                      right: -2.5rem;
+                      padding: .25rem .25rem .25rem 2rem;
+                      justify-content: flex-end;
+                    }
+                  }
+
+                  .capacity-value {
+                    @include roboto();
+                    font-size: 1rem;
+                    color: $mg-ivory;
+                  }
+                }
+
+                &:after {
+                  content: '\f132';
+                  font-family: "Font Awesome 6 Pro";
+                  color: $mg-blue-main;
+                  font-size: 4rem;
+                  font-weight: 700;
+                  position: absolute;
+                  top: 0;
+                  left: calc(50% - 2rem);
+                  z-index: -1;
+                  -webkit-text-stroke-width: 2px; /* For Chrome/Safari */
+                  -webkit-text-stroke-color: $mg-blue-main-2;
+                }
+              }
+
+              .strain-track {
+                display: flex;
+                flex-direction: column;
+                gap: .625rem;
+                background: $mg-blue-4;
+                @include mg-border();
+                padding: 2rem .625rem .625rem .625rem;
+                margin-top: -1.5rem;
+                border-radius: .5rem;
+                position: relative;
+                z-index: 0;
+
+                .strain-dot {
+                  color: $mg-blue-main-2;
+                  transition: color .5s ease, transform .5s ease;
+
+                  &:hover {
+                    transform: scale(1.25);
+                  }
+
+                  &.filled {
+                    color: $mg-blue-1;
+                  }
+                }
+              }
+            }
+          }
         }
     }
   }
@@ -607,8 +713,12 @@ h1,h2,h3,h4 {
       }
     }
 
+    .skills {
+      margin-bottom: 2.125rem;
+    }
+
+
     //Combining common header/container styling
-    .strain-container,
     .spark-container,
     .skills-header {
       display: flex;
@@ -626,9 +736,7 @@ h1,h2,h3,h4 {
       }
 
       //Combining interior styling of the different elements
-      .strain-track,
       .capacity-box,
-      .strain-label,
       .spark-label,
       .spark-school-selectors,
       .spark-track,
@@ -1091,8 +1199,8 @@ h1,h2,h3,h4 {
     }
 
     &.is-active {
-      background: $mg-blue-main-2;
-      border-color: $mg-blue-main-2;
+      background: $mg-blue-4;
+      border-color: $mg-blue-3;
       opacity: 1;
 
         span {

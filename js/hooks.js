@@ -2251,3 +2251,40 @@ Hooks.on("updateActor", async (crew, data) => {
     catch (e) { console.warn("MG | crew rename propagate failed for", a, e); }
   }
 });
+
+// Combat Tracker sidebar button: GM opens/closes MG Initiative for everyone
+Hooks.on("renderCombatTracker", (app, html) => {
+  // Only GM should broadcast open/close
+  if (!game.user.isGM) return;
+
+  const $app = html.closest(".app");
+  if (!$app.length) return;
+
+  // Prevent duplicates on rerender
+  if ($app.find(".mg-open-initiative").length) return;
+
+  const btn = $(`
+    <a class="header-button mg-open-initiative" title="Toggle MG Initiative">
+      <i class="fa-solid fa-swords"></i> MG Initiative
+    </a>
+  `);
+
+  btn.on("click", async (ev) => {
+    ev.preventDefault();
+
+    if (!game.mgInitiative) {
+      ui.notifications?.error("Initiative UI failed to load (game.mgInitiative missing).");
+      return;
+    }
+
+    // If it's already present, close it. Otherwise open it.
+    const isOpen = !!document.querySelector(".mg-ini-root");
+    if (isOpen) await game.mgInitiative.hideBar();
+    else await game.mgInitiative.showBar();
+  });
+
+  // Stick it into the window header buttons area
+  const headerButtons = $app.find(".window-header .window-title");
+  headerButtons.after(btn);
+});
+
