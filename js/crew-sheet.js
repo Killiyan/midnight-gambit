@@ -97,11 +97,18 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 			: (this.actor.img || "systems/midnight-gambit/assets/images/mg-queen.png");
 
 			let resolved = foundry.utils.getRoute(stored);
-			if (resolved.startsWith("/https://")) resolved = resolved.slice(1);
+
+			// Forge-safe: strip leading slash for VFS paths
+			if (resolved.startsWith("/systems/")) {
+				resolved = resolved.slice(1);
+			}
+
+			// Still guard against malformed https edge case
+			if (resolved.startsWith("/https://")) {
+				resolved = resolved.slice(1);
+			}
+
 			data.directoryIconResolved = resolved;
-
-
-
 
 		// Make actor available to the template (for name binding)
 		data.actor = this.actor;
@@ -1518,14 +1525,19 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 		// When inner mg-seeall expands/collapses, bump card height if card is expanded
 		// (This is what fixes "desc opens but card doesn't grow")
 		$root.off("click.mgAssetCardBumpOnInnerSeeAll").on(
-			"click.mgAssetCardBumpOnInnerSeeAll",
-			'.tab[data-tab="assets"] .mg-seeall-toggle, .tab[data-tab="assets"] .tags-toggle',
-			(ev) => {
+		"click.mgAssetCardBumpOnInnerSeeAll",
+		'.tab[data-tab="assets"] .mg-seeall-toggle, .tab[data-tab="assets"] .tags-toggle',
+		(ev) => {
 			const card = ev.currentTarget.closest(".asset-card");
 			if (!card) return;
-			// Let inner handler run first, then measure
+
+			// 1) Let the inner handler flip classes / start its transition
 			setTimeout(() => refreshExpandedHeight(card), 0);
-			}
+
+			// 2) Then bump AGAIN after the inner max-height animation finishes
+			// (your inner See All uses TRANSITION_MS = 500)
+			setTimeout(() => refreshExpandedHeight(card), TRANSITION_MS + 60);
+		}
 		);
 
 		// Hidden tab issue: init when switching to assets

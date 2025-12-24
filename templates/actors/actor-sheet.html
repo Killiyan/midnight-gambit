@@ -169,21 +169,42 @@
           {{/each}}
         </div>
 
+        <div class="wrapper resource-container">
+
+          <div class="risk-container">
+            <label data-tooltip="Risk Dice represent your luck pool. Click to spend or restore.">Risk</label>
+
+            <div class="risk-track" data-resource="risk">
+              {{#range 1 actor.system.riskDice}}
+                <span class="risk-dot {{#if (riskShouldFill this ../actor.system.riskDice ../actor.system.riskUsed)}}filled{{/if}}"
+                      data-value="{{this}}">
+                  <i class="fa-solid fa-dice"></i>
+                </span>
+              {{/range}}
+            </div>
+          </div>
+
+          <div class="sto-container">
+            <label data-tooltip="Stacking the Odds (STO). Auto +1 on Fail/Complication (max 6).&#10;Left-click: set/toggle. Shift-click: spend that amount. Right-click: clear to 0.">
+              STO
+            </label>
+
+            <div class="sto-track" data-track="sto">
+              {{#range 1 6}}
+                <span class="sto-dot {{#if (lte this ../actor.system.sto.value)}}filled{{/if}}"
+                      data-value="{{this}}"
+                      data-tooltip="Left-click sets/toggles. Shift-click spends. Right-click clears.">
+                  <i class="fa-solid fa-cubes"></i>
+                </span>
+              {{/range}}
+            </div>
+          </div>
+        </div>
+
+
         <div class="skills">
           <div class="skills-header">
             <label class="skills-label">Skills</label>
-
-            <div class="risk-track" data-resource="risk">
-              <label data-tooltip="Risk Dice represent your luck pool. Click to spend or restore.">Risk</label>
-              <div class="risk-boxes">
-                {{#range 1 actor.system.riskDice}}
-                  <span class="risk-dot {{#if (riskShouldFill this ../actor.system.riskDice ../actor.system.riskUsed)}}filled{{/if}}"
-                        data-value="{{this}}">
-                    <i class="fa-solid fa-dice"></i>
-                  </span>
-                {{/range}}
-              </div>
-            </div>
           </div>
 
           <div class="skill-container">

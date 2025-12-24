@@ -430,6 +430,47 @@ export class MidnightGambitActorSheet extends ActorSheet {
         this.render(false);
       });
 
+      /** STO (Stacking the Odds) tracker — click to add or spend */
+      html.find(".sto-dot")
+        .off("click.mgSTO")
+        .on("click.mgSTO", async (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+
+          const el = event.currentTarget;
+          const clicked = Number(el.dataset.value);
+          if (!Number.isFinite(clicked)) return;
+
+          const actor = this.actor;
+          if (!actor) return;
+
+          const current = Number(actor.system?.sto?.value ?? 0);
+
+          // Core rule:
+          // - click empty → set to clicked
+          // - click filled → drop to clicked - 1
+          let next = (clicked <= current)
+            ? clicked - 1
+            : clicked;
+
+          next = Math.max(0, Math.min(6, next));
+
+          await actor.update(
+            { "system.sto.value": next },
+            { render: false }
+          );
+
+          // Patch UI immediately (no full render)
+          const $track = this.element.find(`.sto-track[data-track="sto"]`);
+          $track.find(".sto-dot").each((_, node) => {
+            const v = Number(node.dataset.value);
+            node.classList.toggle("filled", v <= next);
+          });
+        });
+
+
+
+
       /**This is the listener for clicking the Flashback Resource */
       html.find(".flashback-dot").on("click", async (event) => {
         const current = this.actor.system.flashbackUsed ?? false;
@@ -1696,6 +1737,10 @@ export class MidnightGambitActorSheet extends ActorSheet {
         const COLLAPSED_MAX = 80;   // px of tag-stack height before clamping
         const TRANSITION_MS = 500;  // keep in sync with your CSS transition
 
+        // Allow per-wrapper override, else fallback
+        const capFor = (wrap) => Number(wrap?.dataset?.seeallCap) || COLLAPSED_MAX;
+
+
         // Measure one wrapper and decide if it needs a toggle
         const updateOne = (wrap) => {
           if (!wrap || wrap.classList.contains("animating")) return;
@@ -2496,6 +2541,25 @@ export class MidnightGambitActorSheet extends ActorSheet {
             }
           }
         }
+
+      // Live STO updates while sheet is open
+      this._stoHookId = Hooks.on("updateActor", (actor, changes) => {
+        if (actor.id !== this.actor.id) return;
+
+        const stoPath = changes?.system?.sto?.value;
+        if (stoPath === undefined) return;
+
+        const stoValue = Number(actor.system?.sto?.value ?? 0);
+
+        const $track = this.element.find(`.sto-track[data-track="sto"]`);
+        if (!$track.length) return;
+
+        $track.find(".sto-dot").each((_, node) => {
+          const v = Number(node.dataset.value);
+          node.classList.toggle("filled", v <= stoValue);
+        });
+      });
+
     }
 
   /** Preserve scroll position across re-renders + fix header paint glitches. */
@@ -2662,6 +2726,14 @@ export class MidnightGambitActorSheet extends ActorSheet {
     });
 
     return overlay;
+  }
+
+  async close(options) {
+    if (this._stoHookId) {
+      Hooks.off("updateActor", this._stoHookId);
+      this._stoHookId = null;
+    }
+    return super.close(options);
   }
 
   /**

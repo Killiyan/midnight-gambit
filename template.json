@@ -140,6 +140,9 @@
 		"sparkUsed": 0,
 		"riskDice": 5,
 		"riskUsed": 0,
+		"sto": {
+			"value": 0
+		},
 		"crew": "",
 		"gambits": {
 			"deck": [],

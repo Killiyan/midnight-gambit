@@ -1,150 +1,96 @@
-export async function evaluateRoll({
-  formula,
-  rollData = {},
-  skillMod = 0,
-  label = "Roll",
-  edge = false,
-  actor = null
-}) {
-	const displayFormula = skillMod !== 0 ? `${formula} + (${skillMod})` : formula;
-	const actualFormula = skillMod !== 0
-		? `${formula} ${skillMod >= 0 ? "+" : "-"} ${Math.abs(skillMod)}`
-		: formula;
+export async function evaluateRoll({ formula, rollData = {}, skillMod = 0, label = "Roll", actor = null }) {
+  const displayFormula = skillMod !== 0 ? `${formula} + (${skillMod})` : formula;
+  const actualFormula  = `${formula} ${skillMod >= 0 ? "+" : "-"} ${Math.abs(skillMod)}`;
 
-	// Helper to evaluate one roll
-	const doRoll = async () => {
-		const r = new Roll(actualFormula, rollData);
-		await r.evaluate({ async: true });
-		return r;
-	};
+  const roll = new Roll(actualFormula, rollData);
+  await roll.evaluate({ async: true });
 
-	// If Edge, roll twice and keep the higher total (D&D advantage style)
-	const rollA = await doRoll();
-	const rollB = edge ? await doRoll() : null;
+  const total = roll.total;
 
-	const keptRoll =
-		rollB && rollB.total > rollA.total ? rollB : rollA;
+  // Kept dice (assumes first term is the dice pool)
+  const kept = roll.terms?.[0]?.results?.filter(r => r.active).map(r => r.result) ?? [];
 
-	// Build result label based on the KEPT roll
-	const kept = keptRoll.terms?.[0]?.results?.filter(r => r.active).map(r => r.result) ?? [];
-	let resultText;
+  // Determine outcome band (match your existing thresholds)
+  const isAce   = kept.length && kept.every(d => d === 6);
+  const isCrit  = kept.length && kept.every(d => d === 1);
+  const isFail  = !isAce && !isCrit && total <= 6;
+  const isComp  = !isAce && !isCrit && total > 6 && total <= 10;
+  const isGood  = isAce || total > 10; // Flourish/Ace
 
-	if (kept.length && kept.every(d => d === 6)) {
-		resultText = `<div class="result-label"><i class="fa-solid fa-star text-gold"></i> <strong>ACE!</strong></div><span>You steal the spotlight.</span>`;
-	} else if (kept.length && kept.every(d => d === 1)) {
-		resultText = `<div class="result-label"><i class="fa-solid fa-skull-crossbones"></i> <strong>Critical Failure</strong></div><span>It goes horribly wrong.</span>`;
-	} else if (keptRoll.total <= 6) {
-		resultText = `<div class="result-label"><i class="fa-solid fa-fire-flame result-fail"></i> <strong>Failure</strong></div><span>something goes awry.</span>`;
-	} else if (keptRoll.total <= 10) {
-		resultText = `<div class="result-label"><i class="fa-solid fa-swords result-mixed"></i> <strong>Complication</strong></div> <span>success with a cost.</span>`;
-	} else {
-		resultText = `<div class="result-label"><i class="fa-solid fa-sparkles flourish-animate"></i> <strong class="flourish-animate">Flourish</strong></div><span>narrate your success.</span>`;
-	}
+  let resultText;
+  if (isAce) {
+    resultText = `<div class="result-label"><i class="fa-solid fa-star text-gold"></i> <strong>ACE!</strong></div><span>You steal the spotlight.</span>`;
+  } else if (isCrit) {
+    resultText = `<div class="result-label"><i class="fa-solid fa-skull-crossbones"></i> <strong>Critical Failure</strong></div><span>It goes horribly wrong.</span>`;
+  } else if (isFail) {
+    resultText = `<div class="result-label"><i class="fa-solid fa-fire-flame result-fail"></i> <strong>Failure</strong></div><span>something goes awry.</span>`;
+  } else if (isComp) {
+    resultText = `<div class="result-label"><i class="fa-solid fa-swords result-mixed"></i> <strong>Complication</strong></div> <span>success with a cost.</span>`;
+  } else {
+    resultText = `<div class="result-label"><i class="fa-solid fa-sparkles flourish-animate"></i> <strong class="flourish-animate">Flourish</strong></div><span>narrate your success.</span>`;
+  }
 
-	// Helper: get the two KEPT dice from a Roll (active dice in the first dice term)
-	const keptDice = (r) => {
-	const term0 = r?.terms?.[0];
-	const results = term0?.results ?? [];
-	return results.filter(x => x.active).map(x => x.result).slice(0, 2);
-	};
+  // Roll Session id (ties Risk rerolls to the same STO transaction)
+  const sessionId = foundry.utils.randomID();
 
-	const keptA = keptDice(rollA);
-	const keptB = keptDice(rollB);
-
-	// All dice results + whether each die was kept (active)
-	const diceResults = (r) => {
-	const term0 = r?.terms?.[0];
-	const results = term0?.results ?? [];
-	return results.map(x => ({ r: x.result, a: !!x.active })); // r=result, a=active
-	};
-
-	const diceA = diceResults(rollA);
-	const diceB = diceResults(rollB);
-
-
-
-  const edgeHeader = edge
-    ? `<div class="edge-label">
-			<strong><i class="fa-solid fa-scythe"></i></strong>
-			<span><strong>EDGE</strong> (rolled twice, kept higher)</span>
-		</div>`
+  // Risk button: only if we have two kept dice
+  const riskBtn = (actor && kept.length >= 2)
+    ? `<button type="button"
+              class="mg-risk-it"
+              data-actor-id="${actor.id}"
+              data-kept="${kept.join(",")}"
+              data-skill-mod="${Number(skillMod) || 0}"
+              data-session-id="${sessionId}">
+        <i class="fa-solid fa-dice-d6"></i> Risk It
+      </button>
+	  <small class="hint">Replaces the lower kept die; a <strong>1</strong> causes 1 Strain.</small>`
     : "";
 
-	const rollsHtml = edge
-	? `
-		<div class="mg-edge">
-		<div class="mg-edge-box"
-			role="button"
-			tabindex="0"
-			data-edge="A"
-			data-dice='${JSON.stringify(diceA)}'>
-			<i class="fa-solid fa-dice-one"></i>
-			<h4 class="mg-edge-total">${rollA.total}</h4>
-		</div>
-
-		<div class="mg-edge-box ${keptRoll === rollB ? "is-kept" : ""}"
-			role="button"
-			tabindex="0"
-			data-edge="B"
-			data-dice='${JSON.stringify(diceB)}'>
-			<i class="fa-solid fa-dice-two"></i>
-			<h4 class="mg-edge-total">${rollB.total}</h4>
-		</div>
-		</div>
-
-		<div class="mg-edge-dice-panel dice" hidden></div>
-	`
-	: `${await rollA.render()}`;
-
-
-	// --- Risk It control (chat button hooks.js expects) ---
-	const usedNow  = Number(actor?.system?.riskUsed ?? 0);
-	const totalRD  = Number(actor?.system?.riskDice ?? 0);
-	const canRisk  = !!actor?.id && usedNow < totalRD;
-
-	// Risk rerolls the LOWER of the TWO KEPT dice, so we must pass those two dice.
-	const keptForRisk = Array.isArray(kept) ? kept.slice(0, 2) : [];
-	const riskControls = canRisk && keptForRisk.length === 2
-	? `
-		<div class="mg-risk-controls">
-		<button type="button"
-				class="mg-risk-it"
-				data-actor-id="${actor.id}"
-				data-kept="${keptForRisk.join(",")}"
-				data-skill-mod="${Number(skillMod || 0)}">
-			<i class="fa-solid fa-dice-d6"></i> Risk It
-		</button>
-		<small class="hint">Replaces the lower kept die; a <strong>1</strong> causes 1 Strain.</small>
-		</div>
-	`
-	: `
-		<div class="mg-risk-controls">
-		<small class="hint">${actor?.id ? "No Risk dice remaining." : ""}</small>
-		</div>
-	`;
-
 	const chatContent = `
-		<div class="chat-roll">
+	<div class="chat-roll">
 		<div class="roll-container">
-			<label>${label}</label>
-			<strong>${resultText}</strong>
+		<label>${label}</label><br/>
+		<strong>${resultText}</strong>
 		</div>
-		${edgeHeader}
+
 		<hr/>
-		${rollsHtml}
-		${riskControls}
-		</div>
+		${await roll.render()}
+
+		${riskBtn ? `<div class="mg-risk-controls">${riskBtn}</div>` : ""}
+	</div>
 	`;
 
-	// NOTE: we attach the KEPT roll as the message roll so dice buttons/etc behave
-	await ChatMessage.create({
-		user: game.user.id,
-		speaker: ChatMessage.getSpeaker(),
-		content: chatContent,
-		roll: keptRoll,
-		type: CONST.CHAT_MESSAGE_TYPES.ROLL,
-		rollMode: game.settings.get("core", "rollMode")
-	});
+  // Create message FIRST so we can safely attach flags
+  const msg = await ChatMessage.create({
+    user: game.user.id,
+    speaker: ChatMessage.getSpeaker({ actor }),
+    content: chatContent,
+    roll,
+    type: CONST.CHAT_MESSAGE_TYPES.ROLL,
+    rollMode: game.settings.get("core", "rollMode")
+  });
 
- 	 return keptRoll;
+  // Initialize STO session flags on this message
+  const stoSession = {
+    sessionId,
+    stoApplied: false,
+    stoAppliedDelta: 0, // 1 if STO actually incremented, 0 if capped
+    stoUndone: false
+  };
+
+  // Auto-apply STO on Fail/Complication immediately (so "do nothing" still counts)
+  if (actor && (isFail || isComp || isCrit)) {
+    const cur = Number(actor.system?.sto?.value ?? 0);
+    const next = Math.min(6, cur + 1);
+    const delta = (next !== cur) ? 1 : 0;
+
+    if (delta) await actor.update({ "system.sto.value": next }, { render: false });
+
+    stoSession.stoApplied = true;
+    stoSession.stoAppliedDelta = delta;
+  }
+
+  await msg.setFlag("midnight-gambit", "stoSession", stoSession);
+
+  return msg;
 }

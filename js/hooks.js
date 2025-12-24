@@ -1765,6 +1765,8 @@ Hooks.on("renderChatMessage", (message, html) => {
     const actorId  = btn.dataset.actorId;
     const keptStr  = btn.dataset.kept || "";
     const skillMod = Number(btn.dataset.skillMod || 0);
+    const sessionId = btn.dataset.sessionId || message.getFlag("midnight-gambit", "stoSession")?.sessionId || foundry.utils.randomID();
+
 
     const actor = game.actors.get(actorId);
     if (!actor) return ui.notifications.warn("Actor not found for Risk.");
@@ -1784,6 +1786,40 @@ Hooks.on("renderChatMessage", (message, html) => {
 
     const newSum   = newDice[0] + newDice[1];
     const newTotal = newSum + skillMod;
+
+    // --- STO session bookkeeping (apply once, undo once, never double tick) ---
+    let stoSession = message.getFlag("midnight-gambit", "stoSession") || {
+      sessionId,
+      stoApplied: false,
+      stoAppliedDelta: 0,
+      stoUndone: false
+    };
+
+    // Evaluate new outcome band (same thresholds as your base roll)
+    const isBad = (newDice.every(d => d === 1)) || (newTotal <= 10); // crit fail OR fail OR complication
+    const isGood = !isBad; // flourish-ish ( >10 ) OR ace (handled by >10 anyway)
+
+    // If the Risk reroll turns a previously good roll into bad, apply STO (once)
+    if (isBad && !stoSession.stoApplied) {
+      const cur = Number(actor.system?.sto?.value ?? 0);
+      const next = Math.min(6, cur + 1);
+      const delta = (next !== cur) ? 1 : 0;
+
+      if (delta) await actor.update({ "system.sto.value": next }, { render: false });
+
+      stoSession.stoApplied = true;
+      stoSession.stoAppliedDelta = delta;
+      stoSession.stoUndone = false;
+    }
+
+    // If STO was applied for this session, and we now get a good result, undo (once)
+    if (isGood && stoSession.stoApplied && !stoSession.stoUndone && stoSession.stoAppliedDelta === 1) {
+      const cur = Number(actor.system?.sto?.value ?? 0);
+      const next = Math.max(0, cur - 1);
+      await actor.update({ "system.sto.value": next }, { render: false });
+      stoSession.stoUndone = true;
+    }
+
 
     // If a 1, flash both strain tracks (player clicks to assign 1)
     if (R === 1) {
@@ -1831,7 +1867,8 @@ Hooks.on("renderChatMessage", (message, html) => {
               class="mg-risk-again"
               data-actor-id="${actor.id}"
               data-kept="${newDice.join(",")}"
-              data-skill-mod="${skillMod}">
+              data-skill-mod="${skillMod}"
+              data-session-id="${sessionId}">
         <i class="fa-solid fa-dice-d6"></i> Risk Again
       </button>
       <small class="hint">Replaces the lower; a <strong>1</strong> causes 1 Strain.</small>`
@@ -1852,11 +1889,15 @@ Hooks.on("renderChatMessage", (message, html) => {
     </div>
   `;
 
-  await ChatMessage.create({
+  const newMsg = await ChatMessage.create({
     speaker: ChatMessage.getSpeaker({ actor }),
     content,
     type: CONST.CHAT_MESSAGE_TYPES.OTHER
   });
+
+  // Carry STO session forward so the next Risk Again click is still the same session
+  try { await newMsg.setFlag("midnight-gambit", "stoSession", stoSession); } catch (e) {}
+
   };
 
   // 1) Original chat roll's "Risk It" button (one-use, persisted)

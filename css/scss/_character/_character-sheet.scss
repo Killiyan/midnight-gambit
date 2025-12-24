@@ -115,9 +115,10 @@ h1,h2,h3,h4 {
     }
 
     label {
-      color: $mg-ivory;
+      color: $mg-blue-1;
       @include oswald();
       font-size: 1rem;
+      font-weight: 700;
       text-transform: uppercase;
       margin-bottom: .5rem;
       display: block;
@@ -288,7 +289,6 @@ h1,h2,h3,h4 {
         }
 
         .personal-info {
-          min-width: 15.625rem;
           background: $mg-blue-main;
           display: flex;
           flex-direction: column;
@@ -298,8 +298,8 @@ h1,h2,h3,h4 {
           border-top: 0;
           color: $mg-ivory;
           z-index: 10;
-          min-width: 17.875rem;
-          max-width: 17.875rem;
+          min-width: 18.5rem;
+          max-width: 18.5rem;
           background-image: url("../assets/images/gambit-border.png");
           background-repeat: repeat-y;
           background-size: 100%;
@@ -538,7 +538,7 @@ h1,h2,h3,h4 {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 0 1.75rem;
+            padding: 0 2.35rem;
 
             .capacity-box {
               display: flex;
@@ -578,13 +578,13 @@ h1,h2,h3,h4 {
                     }
 
                     &:first-of-type {
-                      left: -2.5rem;
+                      left: -2.15rem;
                       padding: .25rem 2rem .25rem .25rem;
                       justify-content: flex-start;
                     }
 
                     &:last-of-type {
-                      right: -2.5rem;
+                      right: -2.15rem;
                       padding: .25rem .25rem .25rem 2rem;
                       justify-content: flex-end;
                     }
@@ -686,9 +686,9 @@ h1,h2,h3,h4 {
         
         label {
           @include oswald();
-          font-size: 1rem;
+          font-size: .9375rem;
           text-transform: uppercase;
-          color: $mg-ivory;
+          color: $mg-blue-1;
         }
 
         //This specifically targets the + or -
@@ -708,6 +708,58 @@ h1,h2,h3,h4 {
           &:focus {
             background: $mg-blue-3;
             color: $mg-ivory;
+          }
+        }
+      }
+    }
+
+    .resource-container {
+      display: flex;
+      gap: 2.125rem;
+
+      .sto-container,
+      .risk-container {
+        display: flex;
+        width: 50%;
+        @include mg-border();
+        box-shadow: 5px 5px 10px rgba(0,0,0,0.5);
+        border-radius: .625rem;
+        overflow: hidden;
+
+        label {
+          color: $mg-blue-1;
+          padding: 1rem;
+          margin: 0;
+          border-right: 2px solid $mg-blue-main-2;
+          background: $mg-blue-main;
+          display: flex;
+          align-items: center;
+        }
+      }
+
+      //Styling Risk Track more specifically
+      .risk-track,
+      .sto-track {
+        width: 100%;
+        display: flex;
+        gap: 1.25rem;
+        border: 0;
+        padding: 1rem;
+        align-items: center;
+        flex-wrap: wrap;
+
+        .risk-dot,
+        .sto-dot {
+          transition: color 0.5s ease, transform .5s ease;
+          font-size: 1rem;
+          color: $mg-blue-main-2;
+
+          &:hover {
+            transform: scale(1.2);
+          }
+
+          &.filled i {
+            color: $mg-blue-2;
           }
         }
       }
@@ -742,7 +794,7 @@ h1,h2,h3,h4 {
       .spark-track,
       .risk-track,
       .skills-label {
-        padding: 1.25rem;
+        padding: 1rem;
         display: flex;
         gap: .625rem;
         align-items: center;
@@ -763,55 +815,13 @@ h1,h2,h3,h4 {
         }
       }
 
-      //Giving Capacity box specific styling to overwrite pesky Foundry shite
-      .capacity-box {
-        display: flex;
-        gap: .625rem;
-        justify-content: center;
-
-        input[type="number"] {
-          border-top: none;
-          border-right: none;
-          border-bottom: 2px solid $mg-blue-3;
-          border-left: none;
-          width: 25%;
-          padding: 0;
-          text-align: center;
-          background: none;
-          border-radius: 0;
-          font-size: 1rem;
-
-          &:hover,
-          &:focus {
-            box-shadow: none;
-          }
-        }
-      }
-
-      //This styles the exact icon of strain
-      .strain-dot {
-        transition: color 0.5s ease, transform .5s ease;
-
-        &:hover {
-          transform: scale(1.2);
-        }
-
-        &.filled i {
-          color: $mg-blue-2;
-        }
-      }
-
-      .strain-track.soul {
-        border: none;
-      }
-
-      //Tarking the Spark items to give them full width getting spacing more consistent
+      //Targeting the Spark items to give them full width getting spacing more consistent
       .spark-school-selectors,
       .spark-track {
         width: 100%;
 
         label {
-          color: $mg-ivory;
+          color: $mg-blue-1;
         }
       }
 
@@ -842,39 +852,11 @@ h1,h2,h3,h4 {
           color: $mg-blue-2;
         }
       }
-
-      //Styling Risk Track more specifically
-      .risk-track {
-        width: 100%;
-        display: flex;
-        gap: 1.25rem;
-        border: 0;
-
-        label {
-          color: $mg-ivory;
-        }
-
-        .risk-boxes {
-          display: flex;
-          gap: 1.25rem;
-
-          .risk-dot {
-           transition: color 0.5s ease, transform .5s ease;
-
-            &:hover {
-              transform: scale(1.2);
-            }
-            &.filled i {
-              color: $mg-blue-2;
-            }
-          }
-        }
-      }
     }
 
     //Overwriting the common color for label
     .strain-label {
-      color: $mg-ivory;
+      color: $mg-blue-1;
     }
 
     //Start Skill styling and it's grid
@@ -1177,7 +1159,7 @@ h1,h2,h3,h4 {
     border-left: 0;
     position: absolute;
     bottom: 4.175rem;
-    left: 17rem;
+    left: 17.5rem;
     padding: .875rem .875rem .875rem 1.625rem;
     border-radius: 0 .5rem .5rem 0;
     display: flex;
@@ -1459,7 +1441,7 @@ h1,h2,h3,h4 {
       @include oswald();
       font-size: 1rem;
       text-transform: uppercase;
-      color: $mg-ivory;
+      color: $mg-blue-1;
     }
 
     input {

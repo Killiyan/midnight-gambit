@@ -46,6 +46,13 @@ export class MidnightGambitActor extends Actor {
       }
     }
 
+    /* STO defaults
+    ------------------------------------------------------------------*/
+    data.sto ??= {};
+    data.sto.value = Number.isFinite(Number(data.sto.value)) ? Number(data.sto.value) : 0;
+    data.sto.value = Math.max(0, Math.min(6, data.sto.value));
+
+
     /* Risk & Spark defaults
     ----------------------------------------------------------------------*/  
     data.baseRiskDice ??= 5;
