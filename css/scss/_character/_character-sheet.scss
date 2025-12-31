@@ -286,6 +286,33 @@ h1,h2,h3,h4 {
           position: relative;
           display: flex;
           min-height: 31.25rem;
+          border-bottom: 2px solid $mg-blue-main-2;
+
+          &:before {
+            content: '';
+            position: absolute;
+            z-index: 10;
+            height: 100%;
+            opacity: .5; 
+            width: .5rem;
+            background: linear-gradient(270deg,rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 1) 100%);
+            bottom: 0;
+            left: 21.25rem;
+            pointer-events: none; 
+          }
+
+          &:after {
+            content: '';
+            position: absolute;
+            z-index: 10;
+            height: .75rem;
+            opacity: .5; 
+            width: 100%;
+            background: linear-gradient(180deg,rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 1) 100%);
+            bottom: 0;
+            left: 0;
+            pointer-events: none;
+          }
         }
 
         .personal-info {
@@ -293,19 +320,35 @@ h1,h2,h3,h4 {
           display: flex;
           flex-direction: column;
           padding: 2.125rem 2.125rem 4.125rem 2.125rem;
-          border: 2px solid $mg-blue-main-2;
-          border-left: 0;
-          border-top: 0;
+          border-right: 2px solid $mg-blue-main-2;
           color: $mg-ivory;
           z-index: 10;
-          min-width: 18.5rem;
-          max-width: 18.5rem;
-          background-image: url("../assets/images/gambit-border.png");
-          background-repeat: repeat-y;
-          background-size: 100%;
-          background-blend-mode: soft-light;
+          min-width: 21.25rem;
+          max-width: 21.25rem;
+          background-image: url("../assets/images/filigree-vert.png");
+          background-repeat: no-repeat;
+          background-size: cover;
+          background-blend-mode: multiply;
+          backdrop-filter: brightness(50%);
           gap: 1rem;
           justify-content: space-between;
+          position: relative;
+
+          > * {
+            position: relative;
+            z-index: 3;
+          }
+
+          &:before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            height: 100%;
+            width: 100%;
+            background: $mg-blue-main;
+            opacity: .2;
+          }
 
           &:after {
             content: '';
@@ -313,6 +356,7 @@ h1,h2,h3,h4 {
             top: 0;
             left: 0;
             height: 40%;
+            width: 100%;
             background: linear-gradient(0deg, rgba(18, 33, 55, 0.00) 46.83%, rgba(18, 33, 55, 0.50) 100%);
           }
 
@@ -370,6 +414,14 @@ h1,h2,h3,h4 {
                   color: $mg-blue-4;
                 }
               }
+            }
+
+            .mg-name-wrap {
+              display: -webkit-box;
+              line-clamp: 3;
+              -webkit-line-clamp: 2;
+              -webkit-box-orient: vertical;
+              overflow: hidden;
             }
 
             .mg-name-view {
@@ -445,17 +497,117 @@ h1,h2,h3,h4 {
             flex-direction: column;
             align-items: flex-start;
             gap: 1rem;
-          }
 
-          .long-rest-button {
-            font-weight: 400;
-            font-style: normal;
+            .button-wrapper {
+              display: flex;
+              gap: .5rem;
+              width: 100%;
+
+              .edge-button {
+                overflow: hidden;
+                position: relative;
+
+                &.is-active {
+                      background: $mg-blue-4;
+                      border-color: $mg-blue-3;
+                      opacity: 1;
+
+                        span {
+                          color: $mg-blue-1;
+                        }
+
+                      // Sheen sweep (matches lead initiative member)
+                      &:after {
+                        content: "";
+                        position: absolute;
+                        pointer-events: none;
+
+                        // Keep it mostly top area like your initiative sheen
+                        inset: -10% -20% auto -20%;
+                        height: 200%;
+
+                        // Match the tab shape so it doesn't look like a floating rectangle
+                        border-radius: 0 .5rem .5rem 0;
+                        overflow: hidden;
+
+                        transform: rotate(var(--mg-gleam-tilt, -12deg)) translateX(-120%);
+                        mix-blend-mode: screen;
+                        opacity: var(--mg-gleam-opacity, 0.9);
+                        z-index: 2;
+
+                        background: linear-gradient(
+                          90deg,
+                          transparent 0%,
+                          rgba($mg-blue-4, 0.0) 30%,
+                          rgba($mg-blue-3, 0.35) 45%,
+                          rgba($mg-blue-1, 0.90) 50%,
+                          rgba($mg-blue-3, 0.35) 55%,
+                          rgba($mg-blue-4, 0.0) 70%,
+                          transparent 100%
+                        );
+
+                        filter: blur(0.6px);
+                        animation: mg-gleam var(--mg-gleam-speed, 1.9s) ease-in-out infinite;
+                      }
+
+                      i {
+                        animation: mg-edge-pulse 800ms ease-in-out infinite alternate;
+                        color: $mg-blue-1;
+                      }
+                  }
+
+                  @keyframes mg-gleam {
+                    0%   { transform: rotate(var(--mg-gleam-tilt, -12deg)) translateX(-120%); opacity: 0; }
+                    10%  { opacity: var(--mg-gleam-opacity, 0.9); }
+                    45%  { transform: rotate(var(--mg-gleam-tilt, -12deg)) translateX(120%); opacity: var(--mg-gleam-opacity, 0.9); }
+                    60%  { opacity: 0; }
+                    100% { transform: rotate(var(--mg-gleam-tilt, -12deg)) translateX(120%); opacity: 0; }
+                  }
+
+                  i {
+                    color: $mg-blue-3;
+                  }
+
+                  span {
+                    color: $mg-blue-2;
+                    @include oswald();
+                    font-style: italic;
+                    text-transform: uppercase;
+                    font-size: .75rem;
+                    pointer-events: none;
+                    transition: color .5s ease;
+                  }
+
+                  &:hover,
+                  &:focus {
+
+                    span,
+                    i {
+                      color: $mg-ivory;
+                    }
+                  }     
+              }       
+
+              button {
+                width: calc(50% - .25rem);
+                font-size: .85rem;
+                padding: 1rem;
+                gap: .5rem;
+                justify-content: center;
+
+                i {
+                  font-size: .85rem;
+                  margin: 0;
+                }
+              }
+            }
           }
 
           //Setting consisten styling for the over image toggles
           .long-rest-button,
           .flashback-track,
-          .load-toggle {
+          .load-toggle,
+          .edge-button {
             width: 100%;
             background: $mg-blue-main;
             border: 2px solid $mg-blue-main-2;
@@ -655,11 +807,66 @@ h1,h2,h3,h4 {
 
   //The first tab of the character sheet
   .tab-content {
+    position: relative;
+    z-index: 20;
+    isolation: isolate;
+
+    &:before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      z-index: 0;
+      opacity: .22; 
+      pointer-events: none;
+
+      background:
+        /* subtle pearly sheen (top-center) */
+        radial-gradient(circle at 50% 0%,
+          rgba(197, 212, 236, 0.22) 0%,
+          rgba(197, 212, 236, 0.10) 35%,
+          rgba(18, 33, 55, 0.00) 70%
+        ),
+        /* texture */
+        url("../assets/images/filigree.jpg");
+
+      background-size: cover, cover;
+      background-position: center, center;
+      background-blend-mode: soft-light, multiply;
+      background-color: $mg-blue-4;
+    }
+
+    &::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      z-index: 1;
+      pointer-events: none;
+
+      opacity: 0.62;
+      background:
+        radial-gradient(circle at 50% 0%,
+          rgba(95, 160, 255, 0.28) 0%,
+          rgba(95, 160, 255, 0.14) 36%,
+          rgba(18, 33, 55, 0.00) 75%
+        ),
+        radial-gradient(circle at 50% 0%,
+          rgba(0, 0, 0, 0.00) 56%,
+          rgba(0, 0, 0, 0.40) 82%,
+          rgba(0, 0, 0, 0.65) 100%
+        );
+
+      mix-blend-mode: color-dodge;
+    }
+
+    > * {
+      z-index: 2;
+    }
 
     .tab {
       padding: 2.125rem;
-      background: $mg-blue-4;
       height: 100%;
+      position: relative;
+      z-index: 20;
     }
 
     //Attribute styling
@@ -672,27 +879,46 @@ h1,h2,h3,h4 {
       position: relative;
       z-index: 10;
 
-      .attribute-row {
+      .attribute-column {
         display: flex;
         flex-direction: column;
-        padding: 1rem;
         border-radius: .625rem;
         background: $mg-blue-main;
         @include mg-border();
         text-align: center;
-        gap: .625rem;
-        width: 100%;
+        width: calc(100% - 2.125rem);
         box-shadow: 5px 5px 10px rgba(0,0,0,0.5);
+        overflow: hidden;
         
         label {
           @include oswald();
-          font-size: .9375rem;
+          font-size: .875rem;
           text-transform: uppercase;
           color: $mg-blue-1;
+          padding: 1rem;
+          margin: 0;
+          background-color: $mg-blue-main;
+        }
+
+        .attribute-interior {
+          padding: 1rem;
+          background: $mg-blue-4;
+          display: flex;
+          flex-direction: column;
+          gap: .5rem;
+
+          hr {
+            height: 2px;
+            width: 100%;
+            background: $mg-blue-main-2;
+            border-color: $mg-blue-main-2;
+            margin: .5rem 0;
+          }
         }
 
         //This specifically targets the + or -
-        .attribute-modifier {
+        .attribute-modifier,
+        .skill-value {
           display: flex;
           justify-content: center;
           padding: 1.125rem;
@@ -710,12 +936,35 @@ h1,h2,h3,h4 {
             color: $mg-ivory;
           }
         }
+
+        .skill-name {
+          font-size: .75rem;
+          font-weight: 700;
+          color: $mg-blue-1;
+        }
+
+        .attribute-skills {
+          gap: 1.25rem;
+          display: flex;
+          flex-direction: column;
+
+          .skill-row {
+            display: flex;
+            gap: .5rem;
+            flex-direction: column;
+
+            .skill-value {
+              padding: .5rem;
+            }
+          }
+        }
       }
     }
 
     .resource-container {
       display: flex;
       gap: 2.125rem;
+      margin-bottom: 2.125rem;
 
       .sto-container,
       .risk-container {
@@ -741,6 +990,7 @@ h1,h2,h3,h4 {
       .risk-track,
       .sto-track {
         width: 100%;
+        background: $mg-blue-4;
         display: flex;
         gap: 1.25rem;
         border: 0;
@@ -804,6 +1054,37 @@ h1,h2,h3,h4 {
           color: $mg-blue-2;
         }
       }
+
+      .spark-label {
+        padding: 1rem 0 1rem 1rem;
+        border-right: none;
+      }
+
+      .spark-skill-row {
+        padding: 1rem;
+        border-right: 2px solid $mg-blue-main-2;
+        aspect-ratio: 1.5 / 1;
+
+        .skill-value {
+          display: flex;
+          justify-content: center;
+          padding: 1.125rem;
+          width: 100%;
+          background: $mg-blue-main-2;
+          color: $mg-blue-1;
+          @include oswald();
+          font-size: 1rem;
+          border-radius: .5rem;
+          transition: background .5s ease, color .5s ease;
+
+          &:hover,
+          &:focus {
+            background: $mg-blue-3;
+            color: $mg-ivory;
+          }
+        }
+      }
+      
 
       .strain-track,
       .spark-track,
@@ -1152,116 +1433,6 @@ h1,h2,h3,h4 {
     }
   }
 
-  .edge-button {
-    background: $mg-blue-4;
-    color: $mg-blue-2;
-    border: 3px solid $mg-blue-main-2;
-    border-left: 0;
-    position: absolute;
-    bottom: 4.175rem;
-    left: 17.5rem;
-    padding: .875rem .875rem .875rem 1.625rem;
-    border-radius: 0 .5rem .5rem 0;
-    display: flex;
-    gap: 1rem;
-    justify-content: center;
-    align-items: center;
-    z-index: 9;
-    width: auto;
-    overflow: hidden;
-    opacity: .6;
-    transition: color .5s ease, transform .5s ease, background .5s ease, box-shadow .5s ease, transform .5s ease, box-shadow .5s ease, border-color .5s ease, opacity .5s ease;
-
-    span {
-      transition: color .5s ease;
-    }
-
-    &:active {
-      transform: translateY(1px);
-    }
-
-    &.is-active {
-      background: $mg-blue-4;
-      border-color: $mg-blue-3;
-      opacity: 1;
-
-        span {
-          color: $mg-blue-1;
-        }
-
-      // Sheen sweep (matches lead initiative member)
-      &:after {
-        content: "";
-        position: absolute;
-        pointer-events: none;
-
-        // Keep it mostly top area like your initiative sheen
-        inset: -10% -20% auto -20%;
-        height: 200%;
-
-        // Match the tab shape so it doesn't look like a floating rectangle
-        border-radius: 0 .5rem .5rem 0;
-        overflow: hidden;
-
-        transform: rotate(var(--mg-gleam-tilt, -12deg)) translateX(-120%);
-        mix-blend-mode: screen;
-        opacity: var(--mg-gleam-opacity, 0.9);
-        z-index: 2;
-
-        background: linear-gradient(
-          90deg,
-          transparent 0%,
-          rgba($mg-blue-4, 0.0) 30%,
-          rgba($mg-blue-3, 0.35) 45%,
-          rgba($mg-blue-1, 0.90) 50%,
-          rgba($mg-blue-3, 0.35) 55%,
-          rgba($mg-blue-4, 0.0) 70%,
-          transparent 100%
-        );
-
-        filter: blur(0.6px);
-        animation: mg-gleam var(--mg-gleam-speed, 1.9s) ease-in-out infinite;
-      }
-
-      i {
-        animation: mg-edge-pulse 800ms ease-in-out infinite alternate;
-        color: $mg-blue-1;
-      }
-    }
-
-    @keyframes mg-gleam {
-      0%   { transform: rotate(var(--mg-gleam-tilt, -12deg)) translateX(-120%); opacity: 0; }
-      10%  { opacity: var(--mg-gleam-opacity, 0.9); }
-      45%  { transform: rotate(var(--mg-gleam-tilt, -12deg)) translateX(120%); opacity: var(--mg-gleam-opacity, 0.9); }
-      60%  { opacity: 0; }
-      100% { transform: rotate(var(--mg-gleam-tilt, -12deg)) translateX(120%); opacity: 0; }
-    }
-
-    i {
-      color: $mg-blue-3;
-    }
-
-    span {
-      color: $mg-blue-2;
-      @include oswald();
-      font-style: italic;
-      text-transform: uppercase;
-      font-size: .75rem;
-      pointer-events: none;
-      transition: color .5s ease;
-    }
-
-    &:hover,
-    &:focus {
-      transform: translateX(0.75rem);
-
-      span,
-      i {
-        color: $mg-ivory;
-      }
-    }
-  }
-
   //Styling the profile image on all tabs
   .profile-image {
     top: 0;
@@ -1271,18 +1442,6 @@ h1,h2,h3,h4 {
     aspect-ratio: 16 / 9;
     z-index: 8;
     position: relative;
-
-      &:before {
-        background:radial-gradient(80.16% 80.16% at 50% 64.69%, rgba(37, 66, 108, 0.00) 41.35%, #25426C 100%), url(<path-to-image>) transparent 50% / cover no-repeat;
-        content: '';
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        pointer-events: none;
-        z-index: 20;
-      }
 
       img {
         width: auto;
@@ -2454,16 +2613,55 @@ h1,h2,h3,h4 {
     box-shadow: 0 12px 40px rgba(0,0,0,0.6); 
   }
 
+  &.chat-crop {
+
+    .mg-crop-panel {
+      aspect-ratio: auto; // stop inheriting your 1/1 panel styling
+    }
+
+    .mg-crop-stage {
+      width: 7rem;
+      height: 24rem;
+      margin: 8px auto 12px;
+      aspect-ratio: auto;
+      border-radius: 10px;
+      overflow: hidden;
+      position: relative;
+      background: $mg-blue-main;
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.06);
+    }
+
+    .mg-crop-preview {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: auto;
+      height: auto;
+      max-width: none;
+      max-height: none;
+      transform:
+        translate(
+          calc(-1% * var(--mg-crop-x, 50)),
+          calc(-1% * var(--mg-crop-y, 50))
+        )
+        scale(var(--mg-crop-scale, 1));
+      transform-origin: center center;
+
+      user-select: none;
+      pointer-events: none;
+    }
+  }
+
   .mg-crop-stage { 
     position: relative;
     overflow: hidden; 
-    width: auto; 
-    height: auto; 
+    width: 30.875rem;
+    height: 34.5625rem; 
     aspect-ratio: 1/1;
     margin: 8px auto 12px; 
     background: $mg-blue-main; 
     border-radius: 10px; 
-    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.06); 
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.06);
 
     img { 
       position: absolute; 
@@ -2472,7 +2670,8 @@ h1,h2,h3,h4 {
       transform: translate(calc(-1% * var(--x, 50)), calc(-1% * var(--y, 50))) scale(var(--s, 1)); 
       transform-origin: center center; 
       user-select: none;
-      pointer-events: none; 
+      pointer-events: none;
+      border-radius: 0;
     }
   }
 

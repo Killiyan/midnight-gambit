@@ -1,11 +1,4 @@
 export class GuiseSheet extends ItemSheet {
-  static get defaultOptions() {
-    return mergeObject(super.defaultOptions, {
-      template: "systems/midnight-gambit/templates/items/guise-sheet.html",
-      width: 500,
-      height: 400
-    });
-  }
 
   // DROP-IN: normalized render context
   async getData(options) {
@@ -18,6 +11,7 @@ export class GuiseSheet extends ItemSheet {
     sys.riskDice      ??= 5;
     sys.casterType    ??= "none";
     sys.signaturePerk ??= "";
+    sys.sparkAttribute ??= "guile";
 
     // --- Ensure moves is a TRUE array for the template ---
     if (!Array.isArray(sys.moves)) {
@@ -139,16 +133,17 @@ export class GuiseSheet extends ItemSheet {
     return super._updateObject(event, foundry.utils.flattenObject(expanded));
   }
 
-  static get defaultOptions() {
-    return foundry.utils.mergeObject(super.defaultOptions, {
-      template: "systems/midnight-gambit/templates/items/guise-sheet.html",
-      width: 500,
-      height: 400,
-      submitOnChange: false,
-      submitOnClose:  false,
-      closeOnSubmit:  false
-    });
-  }
+static get defaultOptions() {
+  return foundry.utils.mergeObject(super.defaultOptions, {
+    template: "systems/midnight-gambit/templates/items/guise-sheet.html",
+    width: 500,
+    height: 400,
+    submitOnChange: false,
+    submitOnClose:  false,
+    closeOnSubmit:  false
+  });
+}
+
 
   _getHeaderButtons() {
     const buttons = super._getHeaderButtons?.() ?? [];

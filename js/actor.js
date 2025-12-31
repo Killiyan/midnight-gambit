@@ -15,6 +15,27 @@ export class MidnightGambitActor extends Actor {
       data.baseAttributes[k] = Number.isFinite(n) ? n : 0;
     }
 
+    // --- Skill defaults (ensures sheet renders even on older actors) ---
+    data.skills ??= {};
+
+    const DEFAULT_SKILLS = [
+      "brawl", "endure", "athletics",
+      "aim", "stealth", "sleight",
+      "will", "grit", "composure",
+      "lore", "investigate", "deceive",
+      "survey", "hunt", "nature",
+      "command", "charm", "perform"
+    ];
+
+    // If you still store Spark as a number somewhere else, ignore this.
+    // If you *do* keep spark in skills for legacy reasons, you can include it:
+    data.skills.spark ??= 0;
+
+    for (const k of DEFAULT_SKILLS) {
+      if (data.skills[k] === undefined || data.skills[k] === null) data.skills[k] = 0;
+    }
+
+
     // Clone AFTER sanitizing
     const base = foundry.utils.deepClone(data.baseAttributes);
 
@@ -75,6 +96,10 @@ export class MidnightGambitActor extends Actor {
 
     if (guise?.type === "guise") {
       const gSys = guise.system || {};
+
+      // Spark casting attribute comes from the equipped Guise
+      data.sparkAttribute = gSys.sparkAttribute ?? "guile";
+
       const modifiers = gSys.modifiers ?? {};
 
       // Apply modifiers as NUMBERS (avoid string concat/NaN)
@@ -103,6 +128,7 @@ export class MidnightGambitActor extends Actor {
       data.riskDice   = gSys.riskDice   ?? 5;
       data.casterType = gSys.casterType ?? null;
     }
+
 
     // === Crew defaults (non-destructive) ===
     if (this.type === "crew") {

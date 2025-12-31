@@ -4,7 +4,7 @@ export class MidnightGambitActorSheet extends ActorSheet {
   static get defaultOptions() {
     return mergeObject(super.defaultOptions, {
       template: "systems/midnight-gambit/templates/actors/actor-sheet.html",
-      width: 800,
+      width: 850,
       height: 950
     });
   }
@@ -16,6 +16,9 @@ export class MidnightGambitActorSheet extends ActorSheet {
       // Make sure the actor is available in the template
       context.actor = this.actor;
       context.system = this.actor.system;
+
+      context.sparkAttribute = this.actor.system.sparkAttribute ?? "guile";
+
       
       const deckIds = context.system.gambits.deck ?? [];
       const drawnIds = context.system.gambits.drawn ?? [];
@@ -76,15 +79,54 @@ export class MidnightGambitActorSheet extends ActorSheet {
         "instinct",
         "presence"
       ];
+
+      // Skill buckets for the new under-attribute layout
+      context.skillBuckets = {
+        tenacity: ["brawl", "endure", "athletics"],
+        finesse:  ["aim", "stealth", "sleight"],
+        resolve:  ["will", "grit", "composure"],
+        guile:    ["lore", "investigate", "deceive"],
+        instinct: ["survey", "hunt", "nature"],
+        presence: ["command", "charm", "perform"]
+      };
+
+      // Human-friendly labels (keeps template clean)
+      context.skillLabels = {
+        brawl: "Brawl",
+        endure: "Endure",
+        athletics: "Athletics",
+        aim: "Aim",
+        stealth: "Stealth",
+        sleight: "Sleight",
+        will: "Will",
+        grit: "Grit",
+        composure: "Composure",
+        lore: "Lore",
+        investigate: "Investigate",
+        deceive: "Deceive",
+        survey: "Survey",
+        hunt: "Hunt",
+        nature: "Nature",
+        command: "Command",
+        charm: "Charm",
+        perform: "Perform",
+
+        // Spark label if you render it in the Spark section
+        spark: "Spark"
+      };
+
       
-      // Show which Attribute powers each skill in the UI (shorthand, lower-case)
       context.skillAttrShort = {
         brawl: "ten", endure: "ten", athletics: "ten",
         aim: "fin", stealth: "fin", sleight: "fin",
-        will: "res", grit: "res",
-        lore: "gui", investigate: "gui", deceive: "gui", spark: "gui",
+        will: "res", grit: "res", composure: "res",
+        lore: "gui", investigate: "gui", deceive: "gui",
         survey: "ins", hunt: "ins", nature: "ins",
-        command: "pre", charm: "pre", perform: "pre"
+        command: "pre", charm: "pre", perform: "pre",
+
+        // Spark is no longer rendered in the skill grid, but this can stay for now
+        // if you still render Spark elsewhere and want the tooltip shorthand.
+        spark: "gui"
       };
 
 
@@ -309,6 +351,117 @@ export class MidnightGambitActorSheet extends ActorSheet {
       document.body.appendChild($ui[0]);
     }
 
+/** Modal cropper for Chat Avatar: identical behavior to profile cropper */
+_mgOpenChatCropper() {
+  const src = this.actor?.img;
+  if (!src) return;
+
+  // Current values
+  const saved = this.actor.getFlag("midnight-gambit", "crops")?.chat?.css || {};
+  let x = Number.isFinite(saved.x) ? saved.x : 50;
+  let y = Number.isFinite(saved.y) ? saved.y : 50;
+  let s = Number.isFinite(saved.scale) ? saved.scale : 1;
+
+  const $ui = $(`
+    <div class="mg-crop-editor chat-crop" role="dialog" aria-modal="true">
+      <div class="mg-crop-panel">
+        <div class="mg-row">
+          <div><strong>Frame Chat Avatar</strong></div>
+          <div class="hint">Drag to pan • Mouse wheel to zoom • Esc to cancel</div>
+        </div>
+
+        <div class="mg-crop-stage">
+          <img src="${src}" alt="preview" style="--x:${x}; --y:${y}; --s:${s}">
+        </div>
+
+        <div class="mg-actions">
+          <button type="button" class="ghost mg-cancel">Cancel</button>
+          <button type="button" class="primary mg-save">Save</button>
+        </div>
+      </div>
+    </div>
+  `);
+
+  const stage = $ui.find(".mg-crop-stage")[0];
+  const imgEl = $ui.find(".mg-crop-stage img")[0];
+
+  let dragging = false;
+  let last = { cx: 0, cy: 0 };
+
+  const apply = () => {
+    imgEl.style.setProperty("--x", String(x));
+    imgEl.style.setProperty("--y", String(y));
+    imgEl.style.setProperty("--s", String(s));
+  };
+
+  stage.addEventListener("pointerdown", (ev) => {
+    dragging = true;
+    last = { cx: ev.clientX, cy: ev.clientY };
+    stage.setPointerCapture?.(ev.pointerId);
+  });
+
+  stage.addEventListener("pointermove", (ev) => {
+    if (!dragging) return;
+
+    const dx = ev.clientX - last.cx;
+    const dy = ev.clientY - last.cy;
+    last = { cx: ev.clientX, cy: ev.clientY };
+
+    const w = stage.clientWidth || 1;
+    const h = stage.clientHeight || 1;
+
+    // Same feel as profile cropper (not hypersensitive)
+    const PAN = 0.45;
+    x -= ((dx / w) * 100) * PAN;
+    y -= ((dy / h) * 100) * PAN;
+
+    apply();
+  });
+
+  stage.addEventListener("pointerup", () => { dragging = false; });
+  stage.addEventListener("pointercancel", () => { dragging = false; });
+
+  stage.addEventListener("wheel", (ev) => {
+    ev.preventDefault();
+
+    // Same zoom feel as profile cropper
+    const delta = Math.sign(ev.deltaY) * 0.05;
+    s = Math.min(6, Math.max(0.25, s - delta));
+
+    apply();
+  }, { passive: false });
+
+  $ui.on("click", ".mg-cancel", () => $ui.remove());
+
+  $ui.on("click", ".mg-save", async () => {
+    try {
+      const ns = "midnight-gambit";
+      const crops = (await this.actor.getFlag(ns, "crops")) || {};
+      crops.chat = crops.chat || {};
+      crops.chat.css = { x, y, scale: s };
+      await this.actor.setFlag(ns, "crops", crops);
+
+      // Refresh chat so you don't need a new roll to test
+      ui.chat?.render?.(true);
+
+      $ui.remove();
+    } catch (err) {
+      console.error("MG | Save chat crop failed:", err);
+      ui.notifications?.error("Failed to save chat framing. See console.");
+    }
+  });
+
+  const onKey = (ev) => {
+    if (ev.key === "Escape") {
+      $ui.remove();
+      window.removeEventListener("keydown", onKey);
+    }
+  };
+  window.addEventListener("keydown", onKey);
+
+  document.body.appendChild($ui[0]);
+}
+
 
     /** Binds event listeners after rendering. This is the Event listener for most the system*/
     async activateListeners(html) {
@@ -320,6 +473,10 @@ export class MidnightGambitActorSheet extends ActorSheet {
         this._mgOpenProfileCropper(html);
       });
 
+      html.find(".mg-crop-chat").off("click.mgCropChat").on("click.mgCropChat", (ev) => {
+        ev.preventDefault();
+        this._mgOpenChatCropper(html);
+      });
 
       // Owner / GM? Full interactivity. Otherwise: view-only and bail out.
       const isOwner = this.actor?.testUserPermission?.(game.user, "OWNER") || game.user.isGM;
@@ -779,15 +936,35 @@ export class MidnightGambitActorSheet extends ActorSheet {
 
         let newUsed;
         if (clicked > remaining) {
-          // Fill up to clicked
+          // Fill up to clicked (refund/restore behavior)
           newUsed = total - clicked;
         } else {
-          // Unfill clicked and right
+          // Unfill clicked and right (spend behavior)
           newUsed = total - (clicked - 1);
         }
 
-        console.log(`Spark clicked: ${clicked} → sparkUsed: ${newUsed} (was ${used})`);
+        // Safety clamp
+        newUsed = Math.max(0, Math.min(total, newUsed));
+
+        const spent = newUsed > used; // only true when you click a FILLED spark to spend it
+
         await this.actor.update({ "system.sparkUsed": newUsed });
+
+        // Post chat message ONLY when spending Spark
+        if (spent) {
+          const chatContent = `
+            <div class="chat-move">
+              <h2><i class="fa-solid fa-dice-d10"></i> Spark has been used!</h2>
+            </div>
+          `;
+
+          ChatMessage.create({
+            user: game.user.id,
+            speaker: ChatMessage.getSpeaker({ actor: this.actor }),
+            content: chatContent
+          });
+        }
+
         this.render(false);
       });
 
@@ -999,11 +1176,15 @@ export class MidnightGambitActorSheet extends ActorSheet {
       const skillAttributeMap = {
         brawl: "tenacity", endure: "tenacity", athletics: "tenacity",
         aim: "finesse", stealth: "finesse", sleight: "finesse",
-        will: "resolve", grit: "resolve",
-        lore: "guile", investigate: "guile", deceive: "guile", spark: "guile",
+        will: "resolve", grit: "resolve", composure: "resolve",
+        lore: "guile", investigate: "guile", deceive: "guile",
         survey: "instinct", hunt: "instinct", nature: "instinct",
-        command: "presence", charm: "presence", perform: "presence"
+        command: "presence", charm: "presence", perform: "presence",
+
+        // Spark: still mapped for now until we implement Guise casting attribute
+        spark: "guile"
       };
+
 
       const skillAttributeDisplay = {
         brawl: "Ten", endure: "Ten", athletics: "Ten",
@@ -1014,6 +1195,7 @@ export class MidnightGambitActorSheet extends ActorSheet {
         command: "Pre", charm: "Pre", perform: "Pre"
       };
 
+
       html.find(".skill-name, .skill-value").off("click.mgSkillRoll").on("click.mgSkillRoll", async (event) => {
         const skillKey = event.currentTarget.dataset.key;
         const skillMod = this.actor.system.skills?.[skillKey] ?? 0;
@@ -1021,13 +1203,23 @@ export class MidnightGambitActorSheet extends ActorSheet {
         const skillAttributeMap = {
           brawl: "tenacity", endure: "tenacity", athletics: "tenacity",
           aim: "finesse", stealth: "finesse", sleight: "finesse",
-          will: "resolve", grit: "resolve",
-          lore: "guile", investigate: "guile", deceive: "guile", spark: "guile",
+          will: "resolve", grit: "resolve", composure: "resolve",
+          lore: "guile", investigate: "guile", deceive: "guile",
           survey: "instinct", hunt: "instinct", nature: "instinct",
-          command: "presence", charm: "presence", perform: "presence"
+          command: "presence", charm: "presence", perform: "presence",
+
+          // Spark: still mapped for now until we implement Guise casting attribute
+          spark: "guile"
         };
 
-        const attrKey = skillAttributeMap[skillKey];
+
+        let attrKey = skillAttributeMap[skillKey];
+
+        // Spark is Guise-dependent
+        if (skillKey === "spark") {
+          attrKey = this.actor.system.sparkAttribute ?? "guile";
+        }
+
         const attrMod = this.actor.system.attributes?.[attrKey] ?? 0;
 
         const pool = 2 + Math.abs(attrMod);
@@ -1039,7 +1231,7 @@ export class MidnightGambitActorSheet extends ActorSheet {
         await evaluateRoll({
           formula,
           skillMod,
-          label: `Skill Roll: ${skillKey.toUpperCase()} (${attrKey.toUpperCase()})`,
+          label: `Skill Roll: ${context.skillLabels?.[skillKey] ?? skillKey}`,
           actor: this.actor,
           edge
         });
@@ -1708,14 +1900,20 @@ export class MidnightGambitActorSheet extends ActorSheet {
           }, TRANSITION_MS + 50);
         };
 
-        // Card toggle button
         $root
           .off("click.mgInvCardToggle")
           .on("click.mgInvCardToggle", ".tab-inventory .card-seeall-toggle", (ev) => {
             ev.preventDefault();
             ev.stopPropagation();
+
             toggleCard(ev.currentTarget);
+
+            // After expand/collapse, re-measure inner Description/Notes so chevrons appear correctly
+            setTimeout(() => {
+              $root[0]?._mgInvRefreshInnerSeeAll?.();
+            }, 0);
           });
+
 
         // When Description/Notes expands/collapses inside a card, bump the card height if it’s expanded
         $root
@@ -1879,6 +2077,9 @@ export class MidnightGambitActorSheet extends ActorSheet {
 
           wraps.forEach(setupOne);
         };
+        
+        // expose for other listeners (like card expand)
+        $root[0]._mgInvRefreshInnerSeeAll = refreshAll;
 
         $root
           .off("click.mgInnerSeeall")
@@ -2352,39 +2553,74 @@ export class MidnightGambitActorSheet extends ActorSheet {
 
       this._mgBindMoveGrid(html);
 
-      // Settings: "Change Profile Image" (same behavior as clicking the banner)
-      html.off("click.mgPickAvatar").on("click.mgPickAvatar", ".mg-change-profile-image", async (ev) => {
+      // Change Profile Image (works for trusted + basic owners)
+      html.off("click.mgProfileImg").on("click.mgProfileImg", ".mg-change-profile-image", async (ev) => {
         ev.preventDefault();
+        ev.stopPropagation();
 
-        const current = this.actor.img || this.actor.prototypeToken?.texture?.src || "icons/svg/mystery-man.svg";
+        if (!this.isEditable) {
+          ui.notifications?.warn("You do not have permission to edit this character.");
+          return;
+        }
 
-        const picker = new FilePicker({
-          type: "image",
-          activeSource: "data",
-          current,
-          callback: async (path) => {
-            // Update the actor image; if the prototype token was mirroring, mirror the new path too.
-            const updates = { img: path };
-            try {
-              const proto = this.actor.prototypeToken;
-              const was   = proto?.texture?.src;
-              if (proto && (was === current || !was)) {
-                updates["prototypeToken.texture.src"] = path;
-              }
-            } catch (_) {}
+        const current = this.actor.img ?? "icons/svg/mystery-man.svg";
 
-            await this.actor.update(updates);
+        // Foundry permission gates: basic players often cannot open FilePicker (especially on Forge)
+        const canBrowse = game.user?.can?.("FILES_BROWSE") ?? game.user?.isTrusted ?? false;
 
-            // Optional instant preview if your template has a banner/img selector:
-            // (safe no-op if selectors don't exist)
+        // Helper: apply update + live preview
+        const applyImg = async (path) => {
+          try {
+            await this.actor.update({ img: path });
+
+            // Optional instant preview (safe no-op if selector doesn't exist)
             const routed = foundry.utils.getRoute(path);
             this.element.find(".profile-banner img, .profile-image").attr("src", routed);
 
             ui.notifications?.info("Profile image updated.");
+          } catch (err) {
+            console.error("MG | Failed to update actor profile image:", err);
+            ui.notifications?.error("Failed to update profile image.");
           }
-        });
+        };
 
-        picker.render(true);
+        // If user can browse, open FilePicker normally
+        if (canBrowse) {
+          const fp = new FilePicker({
+            type: "image",
+            current,
+            callback: applyImg
+          });
+          fp.render(true);
+          return;
+        }
+
+        // Fallback: basic players still get a dialog to paste an image URL/path
+        new Dialog({
+          title: "Set Profile Image",
+          content: `
+            <p>You don't have file browsing permissions, but you can still set an image by URL/path.</p>
+            <div class="form-group">
+              <label>Image URL or Path</label>
+              <input type="text" name="mgImgPath" value="${current}" style="width:100%;" />
+            </div>
+          `,
+          buttons: {
+            save: {
+              icon: '<i class="fa-solid fa-check"></i>',
+              label: "Save",
+              callback: (html) => {
+                const path = html.find('input[name="mgImgPath"]').val()?.trim();
+                if (path) applyImg(path);
+              }
+            },
+            cancel: {
+              icon: '<i class="fa-solid fa-xmark"></i>',
+              label: "Cancel"
+            }
+          },
+          default: "save"
+        }).render(true);
       });
 
       // Defensive: hide Level controls if no Guise (in case template guard is missing)

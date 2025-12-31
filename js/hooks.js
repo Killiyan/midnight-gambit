@@ -1670,15 +1670,13 @@ Hooks.on("getSceneControlButtons", (controls) => {
 /* Portrait Injection
 ----------------------------------------------------------------------*/
 
-Hooks.on("renderChatMessage", (message, html) => {
+Hooks.on("renderChatMessage", async (message, html) => {
   try {
     // Guard: avoid double-injection
     if (html[0]?.classList?.contains("mg-chat")) return;
 
     // Settings (already registered in your file)
     const source = game.settings.get("midnight-gambit", "chatPortraitSource"); // "token" | "actor" | "user"
-    const size   = Number(game.settings.get("midnight-gambit", "chatPortraitSize")) || 38;
-    const shape  = game.settings.get("midnight-gambit", "chatPortraitShape");   // "circle" | "rounded" | "square"
 
     // Resolve an image without touching your message content
     const speaker = message.speaker ?? {};
@@ -1703,7 +1701,7 @@ Hooks.on("renderChatMessage", (message, html) => {
     // Fallback to user avatar
     if (!img) {
       const user = game.users.get(message.user?.id);
-      img = (source === "user" ? (user?.avatar ?? null) : (user?.avatar ?? null));
+      img = user?.avatar ?? null;
     }
 
     // If no image, do nothing
@@ -1718,17 +1716,39 @@ Hooks.on("renderChatMessage", (message, html) => {
       </div>
     `);
 
-    // Inline size/shape so changes reflect immediately
-    const br = shape === "circle" ? "9999px" : shape === "rounded" ? "10px" : "0";
-    $avatar.find("img").addClass("mg-chat-avatar-img");
+    // Apply per-actor chat framing (CSS vars) TO THE IMG (not the wrapper)
+    const actorId = speaker.actor;
+    const actor = actorId ? game.actors.get(actorId) : null;
 
+    if (actor) {
+      const crop = actor.getFlag("midnight-gambit", "crops")?.chat?.css || null;
+
+      const hasCrop =
+        crop &&
+        Number.isFinite(crop.x) &&
+        Number.isFinite(crop.y) &&
+        Number.isFinite(crop.scale);
+
+      if (hasCrop) {
+        const x = crop.x;
+        const y = crop.y;
+        const s = crop.scale;
+
+        const imgEl = $avatar.find("img.mg-chat-avatar")[0];
+        if (imgEl?.style) {
+          imgEl.style.setProperty("--mg-crop-x", String(x));
+          imgEl.style.setProperty("--mg-crop-y", String(y));
+          imgEl.style.setProperty("--mg-crop-scale", String(s));
+          imgEl.classList.add("mg-chat-avatar-cropped");
+        }
+      }
+    }
 
     // Insert avatar at the very top of the message node; do NOT wrap/move your content
     html.prepend($avatar);
 
     // Add a class to header/content so CSS can place them next to the avatar without reparenting
     html.find(".message-header, .message-content").addClass("mg-chat-body");
-
   } catch (err) {
     console.error("Midnight Gambit | Chat portrait injection error:", err);
   }
@@ -1878,7 +1898,8 @@ Hooks.on("renderChatMessage", (message, html) => {
   const content = `
     <div class="mg-chat-card mg-risk-result">
       <div class="roll-container">
-        <div class="mg-risk-result-outcome"><label>Risk Result</label> ${resultText}</div>
+        <label>Risk Result</label></br>
+        <strong>${resultText}</strong>
       </div>
       ${keptSmall}
       <p class="dice-total risk-result">Replaced lower die <strong>${L} → ${R}</strong></p>

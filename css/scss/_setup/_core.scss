@@ -154,9 +154,9 @@ button:disabled {
   }
 
   #chat-log {
-    background-image: url("../assets/images/gambit-border.png");
-    background-size: 20%;
-    background-repeat: repeat-y;
+    background-image: url("../assets/images/filigree-vert-blue.png");
+    background-color: $mg-blue-4;
+    background-size: cover;
 
     &::-webkit-scrollbar-thumb {
       background: $mg-blue-1;
@@ -191,7 +191,7 @@ button:disabled {
     header {
       position: relative;
       background: $mg-blue-4;
-      border-bottom: 1px solid $mg-blue-main-2;
+      border-bottom: 2px solid $mg-blue-main-2;
       padding: .75rem 3.25rem .75rem .75rem;
       margin: -3rem -1rem 0;
       top: 0;
@@ -231,41 +231,64 @@ button:disabled {
       top: 0;
       left: 0;
       width: 3.5rem;
-      height: 100%;
+      height: 12rem;
       max-height: 12rem;
       z-index: 1;
+      overflow: hidden;
+      --mg-crop-x: 50;
+      --mg-crop-y: 50;
+      --mg-crop-scale: 1;
+      border: 2px solid $mg-blue-main-2;
+      border-left: 0;
+      border-top: 0;
+      border-radius: 0 0 0.5rem 0;
 
       &:before {
         position: absolute;
-        top: 0;
-        bottom: 0;
+        inset: 0;
         content: '';
-        width: 100%;
-        height: 100%;
         mix-blend-mode: hard-light;
         opacity: .2;
         background: $mg-blue-main;
         z-index: 2;
-      }      
-
-      &:after {
-        z-index: 3;
-        content: '';
-        height: 40%;
-        width: 100%;
-        position: absolute;
-        bottom: 0;
-        left: 0;
-        background: linear-gradient(180deg,rgba(26, 46, 76, 0) 0%, rgba(26, 46, 76, 1) 82%);
-      }
+        pointer-events: none;
+      }  
       
       .mg-chat-avatar {
         width: 100%;
         height: 100%;
-        border-radius: 0;
+        border-radius: 0 !important;
         border: none;
         display: block;
+
+        /* Baseline behavior (works even before user ever crops) */
         object-fit: cover;
+        object-position: 50% 50%;
+        transform: none;
+
+        &.mg-chat-avatar-cropped {
+          position: absolute;
+          left: 50%;
+          top: 50%;
+
+          /* Baseline sizing: match the framer behavior (fit-to-width) */
+          width: 100%;
+          height: auto;
+          max-width: 100%;
+          max-height: none;
+
+          /* kill object-fit so it stops “helping” */
+          object-fit: unset;
+          object-position: unset;
+
+          transform:
+            translate(
+              calc(-1% * var(--mg-crop-x, 50)),
+              calc(-1% * var(--mg-crop-y, 50))
+            )
+            scale(var(--mg-crop-scale, 1));
+          transform-origin: center center;      
+        }
       }
     }
 
@@ -447,7 +470,6 @@ button:disabled {
         display: flex;
         align-items: center;
         gap: .625rem;
-        margin-top: 1.625rem;
         text-transform: uppercase;
 
         strong {
@@ -708,9 +730,9 @@ button:disabled {
   min-width: 25rem;
 
   #chat-log {
-    background-image: url("../assets/images/gambit-border.png");
-    background-size: 20%;
-    background-repeat: repeat-y;
+    background-image: url("../assets/images/filigree-vert-blue.png");
+    background-color: $mg-blue-4;
+    background-size: cover;
 
     &::-webkit-scrollbar-thumb {
       background: $mg-blue-1;
@@ -748,7 +770,7 @@ button:disabled {
     header {
       position: relative;
       background: $mg-blue-4;
-      border-bottom: 1px solid $mg-blue-main-2;
+      border-bottom: 2px solid $mg-blue-main-2;
       padding: .75rem 3.25rem .75rem .75rem;
       margin: -3rem -1rem 0;
       top: 0;
@@ -788,41 +810,64 @@ button:disabled {
       top: 0;
       left: 0;
       width: 3.5rem;
-      height: 100%;
+      height: 12rem;
       max-height: 12rem;
       z-index: 1;
+      overflow: hidden;
+      --mg-crop-x: 50;
+      --mg-crop-y: 50;
+      --mg-crop-scale: 1;
+      border: 2px solid $mg-blue-main-2;
+      border-left: 0;
+      border-top: 0;
+      border-radius: 0 0 0.5rem 0;
 
       &:before {
         position: absolute;
-        top: 0;
-        bottom: 0;
+        inset: 0;
         content: '';
-        width: 100%;
-        height: 100%;
         mix-blend-mode: hard-light;
         opacity: .2;
         background: $mg-blue-main;
         z-index: 2;
-      }      
-
-      &:after {
-        z-index: 3;
-        content: '';
-        height: 40%;
-        width: 100%;
-        position: absolute;
-        bottom: 0;
-        left: 0;
-        background: linear-gradient(180deg,rgba(26, 46, 76, 0) 0%, rgba(26, 46, 76, 1) 82%);
+        pointer-events: none;
       }
-      
+
       .mg-chat-avatar {
         width: 100%;
         height: 100%;
-        border-radius: 0;
+        border-radius: 0 !important;
         border: none;
         display: block;
+
+        /* Baseline behavior (works even before user ever crops) */
         object-fit: cover;
+        object-position: 50% 50%;
+        transform: none;
+
+        &.mg-chat-avatar-cropped {
+          position: absolute;
+          left: 50%;
+          top: 50%;
+
+          /* Baseline sizing: match the framer behavior (fit-to-width) */
+          width: 100%;
+          height: auto;
+          max-width: 100%;
+          max-height: none;
+
+          /* kill object-fit so it stops “helping” */
+          object-fit: unset;
+          object-position: unset;
+
+          transform:
+            translate(
+              calc(-1% * var(--mg-crop-x, 50)),
+              calc(-1% * var(--mg-crop-y, 50))
+            )
+            scale(var(--mg-crop-scale, 1));
+          transform-origin: center center;      
+        }
       }
     }
 

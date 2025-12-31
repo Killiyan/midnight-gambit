@@ -49,6 +49,39 @@
           </div>
         </div>
 
+        <div class="side-controls">
+
+          <div class="button-wrapper">
+            <button type="button" class="edge-button mg-edge-toggle {{#if system.edgeNext}}is-active{{/if}}" title="Edge: your next Skill or Attribute roll is rolled twice">
+              <i class="fa-solid fa-scythe"></i>
+              Edge
+            </button>
+
+            <button type="button" data-tooltip="Recover" class="long-rest-button">
+              <i class="fas fa-bed"></i>
+              Rest
+            </button>
+          </div>
+
+          <!--Removing Flashbacks and Load for now until I find their home in the system.
+          <div class="flashback-track">
+            <label data-tooltip="Use this to spend a flashback during a job.">Flashback</label>
+            <span class="flashback-dot {{#unless actor.system.flashbackUsed}}filled{{/unless}}" data-action="flashback">
+              <i class="fa-solid fa-clock-rotate-left"></i>
+            </span>
+          </div>
+
+          <div class="load-toggle">
+            <label>Load</label>
+            <div class="load-options">
+              <span class="load-icon {{#if (eq actor.system.load 'light')}}selected{{/if}}" data-load="light" title="Light Load"><i class="fa-solid fa-feather-pointed"></i></span>
+              <span class="load-icon {{#if (eq actor.system.load 'medium')}}selected{{/if}}" data-load="medium" title="Medium Load"><i class="fa-solid fa-scale-balanced"></i></span>
+              <span class="load-icon {{#if (eq actor.system.load 'heavy')}}selected{{/if}}" data-load="heavy" title="Heavy Load"><i class="fa-solid fa-weight-hanging"></i></span>
+            </div>
+          </div>
+           -->
+        </div>
+
         <div class="strain-container">
 
           <div class="capacity-box">
@@ -110,36 +143,8 @@
             </div>
           </div>
         </div>
-
-        <!--Removing Flashbacks and Load for now until I find their home in the system.
-        <div class="side-controls">
-
-          <div class="flashback-track">
-            <label data-tooltip="Use this to spend a flashback during a job.">Flashback</label>
-            <span class="flashback-dot {{#unless actor.system.flashbackUsed}}filled{{/unless}}" data-action="flashback">
-              <i class="fa-solid fa-clock-rotate-left"></i>
-            </span>
-          </div>
-
-          <div class="load-toggle">
-            <label>Load</label>
-            <div class="load-options">
-              <span class="load-icon {{#if (eq actor.system.load 'light')}}selected{{/if}}" data-load="light" title="Light Load"><i class="fa-solid fa-feather-pointed"></i></span>
-              <span class="load-icon {{#if (eq actor.system.load 'medium')}}selected{{/if}}" data-load="medium" title="Medium Load"><i class="fa-solid fa-scale-balanced"></i></span>
-              <span class="load-icon {{#if (eq actor.system.load 'heavy')}}selected{{/if}}" data-load="heavy" title="Heavy Load"><i class="fa-solid fa-weight-hanging"></i></span>
-            </div>
-          </div>
-        </div>
-        -->
       </div>
 
-      <button
-        type="button"
-        class="edge-button mg-edge-toggle {{#if system.edgeNext}}is-active{{/if}}"
-        title="Edge: your next Skill or Attribute roll is rolled twice">
-        <span>Edge</span>
-        <i class="fa-solid fa-scythe"></i>
-      </button>
 
       <div class="profile-image">
         <img class="mg-profile-img" src="{{actor.img}}" data-edit="img" title="{{actor.name}}" />
@@ -151,23 +156,52 @@
       <!--This is our General tab where Image, and general gameplay goes-->
       <div class="tab" data-group="main" data-tab="general" >
         
-        <div class="attribute-container">
-          {{#each attributeKeys as |key|}}
-            <div class="attribute-row">
-              <label>{{key}}</label>
-              <span class="attribute-modifier"
-                    data-tooltip="Click to roll | Right click to edit base Attribute"
-                    data-key="{{key}}"
-                    data-base="{{lookup ../system.baseAttributes key}}">
-                {{#if (gte (lookup ../system.attributes key) 0)}}
-                  +{{lookup ../system.attributes key}}
-                {{else}}
-                  {{lookup ../system.attributes key}}
-                {{/if}}
-              </span>
+      <div class="attribute-container">
+        {{#each attributeKeys as |key|}}
+
+          <div class="attribute-column" data-attr="{{key}}">
+            <label class="attribute-label">{{key}}</label>
+
+            <div class="attribute-interior">
+              <!-- Attribute Header -->
+              <div class="attribute">
+
+                <span class="attribute-modifier"
+                      data-tooltip="Click to roll | Right click to edit base Attribute"
+                      data-key="{{key}}"
+                      data-base="{{lookup ../system.baseAttributes key}}">
+                  {{#if (gte (lookup ../system.attributes key) 0)}}
+                    +{{lookup ../system.attributes key}}
+                  {{else}}
+                    {{lookup ../system.attributes key}}
+                  {{/if}}
+                </span>
+              </div>
+
+              <hr>
+
+              <!-- Skills Under This Attribute -->
+              <div class="attribute-skills">
+                {{#each (lookup ../skillBuckets key) as |skillKey|}}
+                  <div class="skill-row">
+                    <div class="skill-name" data-key="{{skillKey}}">
+                      {{lookup ../../skillLabels skillKey}}
+                    </div>
+
+                    <div class="skill-value"
+                        data-key="{{skillKey}}"
+                        data-base="{{lookup ../../system.skills skillKey}}">
+                      {{lookup ../../system.skills skillKey}}
+                    </div>
+                  </div>
+                {{/each}}
+              </div>
             </div>
-          {{/each}}
-        </div>
+          </div>
+
+        {{/each}}
+      </div>
+
 
         <div class="wrapper resource-container">
 
@@ -201,31 +235,18 @@
           </div>
         </div>
 
-
-        <div class="skills">
-          <div class="skills-header">
-            <label class="skills-label">Skills</label>
-          </div>
-
-          <div class="skill-container">
-            {{#each system.skills as |value key|}}
-              <div class="skill-row">
-                <span class="skill-value" data-key="{{key}}" data-base="{{value}}">
-                  {{value}}
-                </span>
-
-                <span class="skill-name" data-key="{{key}}">
-                  <span class="skill-key">{{key}}</span>
-                  <span class="skill-attr">({{lookup ../skillAttrShort key}})</span>
-                </span>
-              </div>
-            {{/each}}
-          </div>
-        </div>
-
         {{#if (or data.isFullCaster data.isHalfCaster)}}
           <div class="spark-container">
             <label class="spark-label" data-tooltip="Spark slots represent mystical charges or energy. Click to spend or restore.">Sparks</label>
+
+            <div class="spark-skill-row">
+              <div class="skill-value"
+                  data-key="spark"
+                  data-base="{{lookup system.skills 'spark'}}">
+                {{lookup system.skills 'spark'}}
+              </div>
+            </div>
+
 
             {{#if data.isFullCaster}}
               <div class="spark-school-selectors">
@@ -293,8 +314,6 @@
             {{/if}}
           </div>
         {{/if}}
-
-        <button type="button" data-tooltip="Recover" class="long-rest-button">Recover <i class="fas fa-bed"></i></button>
       </div>
 
       <!--This is our Moves tab. It shows Signature Perk, and moves on the character sheet-->
@@ -1036,7 +1055,7 @@
           <h2>Profile Image</h2>
 
           <div class="button-wrapper">
-            <button type="button" class="mg-change-profile-image">
+            <button type="button" class="mg-change-profile-image" data-edit="img">
               <i class="fa-solid fa-image"></i>
               Change Profile Image
             </button>
@@ -1044,6 +1063,11 @@
             <button type="button" class="mg-crop-profile">
               <i class="fa-solid fa-crop"></i> Crop Actor Profile Image
             </button>
+
+            <button type="button" class="mg-crop-chat">
+              <i class="fa-solid fa-comment"></i>Frame Chat Image
+            </button>
+
           </div>
           
         </div>
