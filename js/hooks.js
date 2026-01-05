@@ -2466,3 +2466,57 @@ Hooks.on("renderChatMessage", (_message, html) => {
     requestAnimationFrame(() => { log.scrollTop = log.scrollHeight; });
   }
 });
+
+
+/* MG Initiative Sidebar Button (works in Electron + Web)
+----------------------------------------------------------------------*/
+function mgEnsureInitiativeSidebarButton() {
+  const tabs = document.querySelector("#sidebar-tabs");
+  if (!tabs) return;
+
+  // Already installed?
+  if (tabs.querySelector('[data-tab="mg-initiative"]')) return;
+
+  // Create a new sidebar tab button
+  const btn = document.createElement("a");
+  btn.classList.add("item");
+  btn.dataset.tab = "mg-initiative";
+  btn.title = "Initiative";
+
+  // Use any FA icon you like
+  btn.innerHTML = `<i class="fa-solid fa-swords"></i>`;
+
+  // Insert near the combat tab if it exists, otherwise append
+  const combat = tabs.querySelector('[data-tab="combat"]');
+  if (combat?.parentNode) combat.parentNode.insertBefore(btn, combat.nextSibling);
+  else tabs.appendChild(btn);
+
+  // Click => open/toggle your MG bar
+  btn.addEventListener("click", (ev) => {
+    ev.preventDefault();
+    ev.stopPropagation();
+
+    // If you want "toggle", you can check visibility here.
+    game.mgInitiative?.showBar?.();
+  });
+}
+
+// Run after UI is ready, and re-run on renders that rebuild the sidebar.
+Hooks.once("ready", () => {
+  mgEnsureInitiativeSidebarButton();
+});
+
+// Sidebar gets rebuilt a lot; keep it alive.
+Hooks.on("renderSidebar", () => mgEnsureInitiativeSidebarButton());
+Hooks.on("renderSidebarTab", () => mgEnsureInitiativeSidebarButton());
+
+Hooks.once("ready", async () => {
+  try {
+    // Force the sidebar to exist on every client, every load.
+    await MGInitiativeSidebar.instance.mount();
+    game.mgInitiativeSidebar = MGInitiativeSidebar.instance;
+  } catch (e) {
+    console.error("MG | initiative sidebar mount failed:", e);
+  }
+});
+

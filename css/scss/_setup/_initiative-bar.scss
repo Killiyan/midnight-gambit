@@ -39,6 +39,7 @@
   .mg-ini-side-wrap {
     height: 100%;
     width: 100%;
+    overflow: hidden;
     pointer-events: auto;
     transition: transform 280ms ease;
     display: flex;
