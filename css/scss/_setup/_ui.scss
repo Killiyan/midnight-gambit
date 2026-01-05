@@ -269,6 +269,7 @@
 				width: 8.25rem;
 				overflow: hidden;
 				max-height: 3rem;
+				z-index: 2;
 
 				.up-next {
 					@include roboto();
@@ -308,6 +309,8 @@
 		}
 
 		.mg-ini-stage {
+			background-image: url(../assets/images/filigree-vert-blue.png);
+			background-color: $mg-blue-4;
 			--pad: 2.125rem;
 			position: relative;
 			box-sizing: border-box;
@@ -334,7 +337,7 @@
 					box-shadow: 0 12px 28px rgba(0,0,0,.40);
 					overflow: hidden;
 					padding: 0;
-					background: #0f1c2b;
+					background: $mg-blue-4;
 					transition: transform .28s ease, opacity .28s ease, box-shadow .5s ease, filter .5s ease, border .5s ease;
 					border-radius: 0;
 
@@ -443,6 +446,7 @@
 				color: $mg-blue-main-2;
 				font-weight: 700;
 				line-height: .8;
+				filter: drop-shadow(0 0 0.75rem $black);
 			}
 		}
 	}

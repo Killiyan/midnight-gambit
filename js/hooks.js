@@ -1,5 +1,6 @@
 import { MGInitiativeBar } from "./initiative-bar.js";
 import { MidnightGambitCrewSheet } from "./crew-sheet.js";
+import { MGInitiativeSidebar } from "./initiative-sidebar.js";
 
 
 // After Hooks.once("ready", ...) or add a new one
@@ -152,7 +153,9 @@ Hooks.once("init", () => {
     makeDefault: true
   });
 
-  const reg = game.settings.settings;
+  const reg = game.settings?.settings;
+  if (!reg) return;
+
   // Crew Actor ID used by Initiative bar and "Open Crew Sheet"
   if (!reg.has("midnight-gambit.crewActorId")) {
     game.settings.register("midnight-gambit", "crewActorId", {
@@ -172,6 +175,47 @@ Hooks.once("init", () => {
       config: false,
       type: String,
       default: ""
+    });
+  }
+
+  if (!reg.has("midnight-gambit.initiativeSidebarCollapsed")) {
+    game.settings.register("midnight-gambit", "initiativeSidebarCollapsed", {
+      name: "Initiative Sidebar Collapsed",
+      scope: "client",
+      config: false,
+      type: Boolean,
+      default: false
+    });
+  }
+
+  if (!reg.has("midnight-gambit.initiativeViewMode")) {
+    game.settings.register("midnight-gambit", "initiativeViewMode", {
+      name: "Initiative View Mode",
+      hint: "Overlay, Sidebar, Both, or Off.",
+      scope: "client",
+      config: true,
+      type: String,
+      choices: {
+        overlay: "Overlay",
+        sidebar: "Sidebar",
+        both: "Both",
+        off: "Off"
+      },
+      default: "overlay",
+      onChange: async () => {
+        // settings can change after init; only run once UI exists
+        try {
+          const mode = game.settings.get("midnight-gambit", "initiativeViewMode");
+          if (mode === "sidebar" || mode === "both") {
+            await MGInitiativeSidebar.instance.mount();
+            game.mgInitiativeSidebar = MGInitiativeSidebar.instance;
+          } else {
+            await MGInitiativeSidebar.instance.unmount();
+          }
+        } catch (e) {
+          console.error("MG | initiativeViewMode onChange failed:", e);
+        }
+      }
     });
   }
 });
@@ -788,8 +832,6 @@ function mgUpdateRings($wrap, id) {
 
   // always update glow (partial or full)
   mgMaybePlayRedSfx($wrap, id, total, filled);   // <-- add this line
-  mgUpdateGlowArc($wrap, id);
-
 
   // always update glow (partial or full)
   mgUpdateGlowArc($wrap, id);
@@ -2298,6 +2340,21 @@ Hooks.once("ready", async () => {
     }
   }
 });
+
+Hooks.once("ready", async () => {
+  try {
+    const mode = game.settings.get("midnight-gambit", "initiativeViewMode");
+    if (mode === "sidebar" || mode === "both") {
+      await MGInitiativeSidebar.instance.mount();
+      game.mgInitiativeSidebar = MGInitiativeSidebar.instance;
+    } else {
+      await MGInitiativeSidebar.instance.unmount();
+    }
+  } catch (e) {
+    console.error("MG | initiative sidebar initial apply failed:", e);
+  }
+});
+
 
 Hooks.on("updateActor", async (crew, data) => {
   if (crew.type !== "crew") return;

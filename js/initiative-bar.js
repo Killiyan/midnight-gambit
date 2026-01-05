@@ -1,3 +1,4 @@
+import { MGInitiativeController } from "./initiative-controller.js";
 // systems/midnight-gambit/initiative-bar.js
 // Frameless Initiative overlay for Midnight Gambit.
 
@@ -47,7 +48,8 @@ export class MGInitiativeBar extends Application {
       });
     }
 
-    this._wireLiveRefresh();
+    MGInitiativeController.instance.activate();
+    this._wireInitiativeController();
     // keep the foil hidden until we finish layout/hydration
     this._foilFadeOut(0)?.catch(() => {});
     this._foilDefer = true;
@@ -210,7 +212,6 @@ export class MGInitiativeBar extends Application {
         </div>
       </div>
 
-      <!-- IMPORTANT: your SCSS expects .mg-ini-stage, not .mg-ini-diag-wrap -->
       <div class="mg-ini-stage">
         <div class="mg-ini-diag-stage"></div>
         <div class="mg-ini-watermark">INITIATIVE</div>
@@ -288,6 +289,31 @@ export class MGInitiativeBar extends Application {
       stage.appendChild(btn);
     }
   }
+
+  /** Ensure ONLY the real END slice has .is-end / .mg-ini-endcap */
+  _normalizeEndSlices(stage) {
+    if (!stage) return;
+
+    stage.querySelectorAll(".mg-ini-slice").forEach((el) => {
+      const isEnd = el.dataset.actorId === END_ID;
+
+      el.classList.toggle("is-end", isEnd);
+      el.classList.toggle("mg-ini-endcap", isEnd);
+
+      // Optional: guarantee END markup is label-only (no image)
+      if (isEnd) {
+        // Keep it simple: just the text label
+        el.innerHTML = `<div class="label">END</div>`;
+        el.title = "End of Round";
+      } else {
+        // If you want to be extra-safe: remove any stray END label node
+        // (won't touch your normal image div)
+        const lbl = el.querySelector(":scope > .label");
+        if (lbl && !el.querySelector(":scope > .mg-ini-image")) lbl.remove();
+      }
+    });
+  }
+
 
   // Style A slot geometry — smaller/taller slices + tighter columns
   _diagPositions(count) {
@@ -399,7 +425,6 @@ export class MGInitiativeBar extends Application {
     cap.style.setProperty("--h", `${h}px`);
     cap.style.setProperty("--skX", skX);
     cap.style.setProperty("--bleedL", bleed);
-    this._layoutEndcap();
   }
 
   // Compute and apply positions for the visible window. Hide everything else.
@@ -412,6 +437,7 @@ export class MGInitiativeBar extends Application {
 
     // Make sure all nodes exist (including END) before we position/hide
     this._ensureSlices(stage, seq);
+    this._normalizeEndSlices(stage);
 
     const L = seq.length;
     if (!L) return;
@@ -456,8 +482,10 @@ export class MGInitiativeBar extends Application {
     for (const id of seq) {
       if (visSet.has(id)) continue;
       const el = stage.querySelector(`.mg-ini-slice[data-actor-id="${id}"]`);
-      if (el) el.style.visibility = "hidden";
-      el.removeAttribute("data-slot");
+      if (el) {
+        el.style.visibility = "hidden";
+        el.removeAttribute("data-slot");
+      }
     }
 
     // If END is in slot 0 (or nothing visible), hide the foil overlay
@@ -845,7 +873,7 @@ export class MGInitiativeBar extends Application {
         ev.preventDefault();
 
         // Broadcast a reset to all clients; listener will rebuild/realign.
-        this._emitReset().catch(console.error);
+        MGInitiativeController.instance.reset().catch(console.error);
         return;
       }
 
@@ -853,7 +881,7 @@ export class MGInitiativeBar extends Application {
         ev.preventDefault();
 
         // Emit a replicated progress tick; the updateActor listener will animate for everyone.
-        this._emitNextStep().catch(console.error);
+        MGInitiativeController.instance.advance().catch(console.error);
         return;
       }
     });
@@ -1815,6 +1843,7 @@ export class MGInitiativeBar extends Application {
 
               // Ensure all needed slices exist (adds any missing)
               this._ensureSlices(stage, [...this._ids, END_ID]);
+              this._normalizeEndSlices(stage);
 
               // Make sure nothing is visually stuck hidden after the rebuild
               this._revealAllCards?.();
@@ -1874,6 +1903,123 @@ export class MGInitiativeBar extends Application {
       }
     });
 
+  }
+
+  _iniUnsub = null;
+
+  _wireInitiativeController() {
+    if (this._iniUnsub) return;
+
+    const ctl = MGInitiativeController.instance;
+    this._iniUnsub = ctl.subscribe((evt) => this._onInitiativeEvent(evt));
+  }
+
+  async _onInitiativeEvent(evt) {
+    if (!evt || !evt.type) return;
+
+    // --- A) Progress tick (advance one) ---
+    if (evt.type === "progress") {
+      const { ids, prev } = evt.payload ?? {};
+
+      if (Array.isArray(ids) && ids.length) {
+        this._ids = ids.filter(id => !!game.actors.get(id));
+      } else if (!Array.isArray(this._ids) || !this._ids.length) {
+        this._ids = this.getOrderActorIds();
+      }
+
+      const n = Array.isArray(this._ids) ? this._ids.length : 0;
+      const L = (n > 0 ? n + 1 : 1);
+      const clampedPrev = Number.isFinite(prev) ? ((prev % L) + L) % L : 0;
+      this._vOffset = clampedPrev;
+
+      if (this._attached) {
+        this._endTurn()
+          .then(() => {
+            this._renderActiveName();
+            return this._persistDurableInitState();
+          })
+          .catch(console.error);
+      } else {
+        this._persistIniState().catch(() => {});
+        this._persistDurableInitState().catch(() => {});
+      }
+      return;
+    }
+
+    // --- B) Reset signal (go to start) ---
+    if (evt.type === "reset") {
+      const { ids } = evt.payload ?? {};
+
+      if (Array.isArray(ids) && ids.length) {
+        this._ids = ids.filter(id => !!game.actors.get(id));
+      } else {
+        this._ids = this.getOrderActorIds();
+      }
+
+      this._vOffset = 0;
+
+      if (this._attached) {
+        (async () => {
+          const RESET_FADE_MS = 320;
+          this._foilDefer = true;
+
+          await this._foilFadeOut(RESET_FADE_MS).catch(() => {});
+
+          const stage = this._root?.querySelector(".mg-ini-diag-stage");
+          if (stage) {
+            const want = new Set([...this._ids, END_ID]);
+            stage.querySelectorAll(".mg-ini-slice").forEach(node => {
+              const id = node.getAttribute("data-actor-id");
+              if (!want.has(id)) node.remove();
+            });
+
+            this._ensureSlices(stage, [...this._ids, END_ID]);
+            this._revealAllCards?.();
+          }
+
+          this._layoutDiagonal(this._ids);
+          if (typeof this._autosizeFrame === "function") this._autosizeFrame();
+
+          const firstId = this._ids[0] ?? null;
+          const resetName = firstId ? (game.actors.get(firstId)?.name ?? "—") : "End of Round";
+          const feat = this._root?.querySelector('.mg-ini-diag-stage .mg-ini-slice[data-slot="0"]');
+
+          await Promise.all([
+            this._animateActiveNameChange(resetName).catch(() => {}),
+            feat ? this._afterTransition(feat) : Promise.resolve()
+          ]);
+
+          const featNow = this._root?.querySelector('.mg-ini-diag-stage .mg-ini-slice[data-slot="0"]');
+          this._syncFoilToSlice(featNow, !!featNow);
+
+          this._resetFoilStroke();
+
+          const HOLD_AFTER_MS = 210;
+          await new Promise(r => setTimeout(r, HOLD_AFTER_MS));
+
+          this._foilDefer = true;
+          await this._foilFadeIn().catch(() => {});
+
+          this._persistDurableInitState().catch(() => {});
+        })();
+      } else {
+        this._persistIniState().catch(() => {});
+        this._persistDurableInitState().catch(() => {});
+      }
+      return;
+    }
+
+    // --- C) Order changed ---
+    if (evt.type === "order") {
+      this._ids = this.getOrderActorIds();
+      if (!this._attached) return;
+
+      const stage = this._root?.querySelector(".mg-ini-diag-stage");
+      if (stage) this._ensureSlices(stage, [...this._ids, END_ID]);
+      this._layoutDiagonal(this._ids);
+      if (typeof this._autosizeFrame === "function") this._autosizeFrame();
+      this._renderActiveName();
+    }
   }
 
   _onAnyUpdate() {

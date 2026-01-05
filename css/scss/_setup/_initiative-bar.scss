@@ -1,0 +1,278 @@
+/* ==========================================
+   Midnight Gambit — initiative-bar.scss
+   Full drop-in replacement (SCSS)
+
+   IMPORTANT:
+   Your JS FLIP animation sets inline transforms on `.mg-ini-side-card`,
+   so we MUST NOT use CSS `transform` on that element for styling.
+   Angles are done with clip-path only.
+   ========================================== */
+
+/* ---------- Sidebar Initiative (Ini Design 3) ---------- */
+#mg-initiative-sidebar.mg-ini-side {
+  /* panel sizing */
+  --mg-ini-panel-w: 320px;
+  --mg-ini-pad-l: 34px;
+  --mg-ini-pad-r: 14px;
+
+  /* slice sizing */
+  --mg-ini-slice-h: 90px;      /* normal slice */
+  --mg-ini-slice-h0: 200px;    /* hero slice (slot-0) */
+  --mg-ini-slice-gap: 14px;
+
+  --mg-ini-img-overscan: 38%;
+  --mg-ini-img-x: 0px;        /* pan left/right */
+  --mg-ini-img-y: -20px;        /* pan up/down */
+  --mg-ini-img-scale: 1.12;   /* subtle zoom to protect edges */  
+
+  /* “angle” tuning (clip-path) */
+  --mg-ini-cut: 26px;          /* how deep the diagonal cuts are */
+  --mg-ini-border: 3px;
+
+  /* motion (should match your JS numbers) */
+  --mg-ini-trans: 260ms;
+
+  width: var(--mg-ini-panel-w);
+  pointer-events: auto;
+  z-index: 110;
+
+  .mg-ini-side-wrap {
+    height: 100%;
+    width: 100%;
+    pointer-events: auto;
+    transition: transform 280ms ease;
+    display: flex;
+    justify-content: flex-end;
+    align-items: flex-start;
+    flex-direction: column;    
+    background-image: url(../assets/images/filigree-vert-blue.png);
+    background-color: $mg-blue-4;
+    padding: 2.125rem;
+    border: 3px solid $mg-blue-main-2;
+    border-radius: .5rem;
+  }
+
+  &.is-collapsed .mg-ini-side-wrap {
+    transform: translateX(calc(100% - 5px));
+
+    .mg-ini-side-handle {
+      left: -2.25rem;
+    }
+  }
+
+  .mg-ini-side-handle {
+    position: absolute;
+    left: -1.7rem;
+    top: calc(50% - 1.875rem);
+    width: auto;
+    height: auto;
+    border: 0;
+    cursor: pointer;
+    z-index: 5;
+    background: rgba($mg-blue-4, .9);
+    border-radius: .5rem 0 0 .5rem;
+    padding: 1rem .5rem;
+    box-shadow: none;
+    transition: color .5s ease, background .5s ease, left .5s ease;
+
+    i {
+      color: $mg-blue-1;
+      margin: 0;
+    }
+  }
+
+  .mg-ini-side-head {
+    width: 100%;
+    padding: 0 0 5rem 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+
+    .mg-ini-side-controls {
+      display: flex;
+      gap: .5rem;
+    }    
+  }
+
+  .mg-ini-side-title {
+    @include oswald();
+    font-size: 1.25rem;
+    font-style: italic;
+    font-weight: 700;
+    color: $mg-ivory;
+    filter: drop-shadow(0 0 .75rem $black);
+    text-transform: uppercase;
+    display: block;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%; 
+
+    .mg-ini-side-sub {
+      @include roboto();
+      font-weight: 700;
+      font-style: italic;
+      font-size: .75rem;
+      letter-spacing: .05em;
+      color: $mg-blue-2;
+    }
+  }
+
+  .mg-ini-side-nextname {
+    @include oswald();
+    text-transform: uppercase;
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: $mg-ivory;
+  }
+
+  .mg-ini-side-stack {
+    position: relative;
+    padding: 8px var(--mg-ini-pad-r) 10px var(--mg-ini-pad-l);
+    width: 100%;
+
+    /* slot step used by your layout */
+    --mg-ini-slot-step: calc(var(--mg-ini-slice-h) + var(--mg-ini-slice-gap));
+    height: calc(var(--mg-ini-slice-h0) + (var(--mg-ini-slot-step) * 4));
+  }
+
+  /* Slots are anchored; JS moves the cards */
+  .mg-ini-side-slot {
+    position: absolute;
+    left: 0;
+    right: 0;
+    margin: 0;
+
+    &.is-empty {
+      opacity: 0;
+      pointer-events: none;
+    }
+  }
+
+  /* anchor positions */
+  .mg-ini-side-slot.slot-0 { 
+    top: -1rem;
+    
+    .mg-ini-side-card-img {
+      height: 15rem;
+    }
+  }
+  .mg-ini-side-slot.slot-1 { top: calc(var(--mg-ini-slice-h0) + (var(--mg-ini-slot-step) * 0)); }
+  .mg-ini-side-slot.slot-2 { top: calc(var(--mg-ini-slice-h0) + (var(--mg-ini-slot-step) * 1)); }
+  .mg-ini-side-slot.slot-3 { top: calc(var(--mg-ini-slice-h0) + (var(--mg-ini-slot-step) * 2)); }
+  .mg-ini-side-slot.slot-4 { top: calc(var(--mg-ini-slice-h0) + (var(--mg-ini-slot-step) * 3)); }
+
+  .mg-ini-slice {
+    position: relative;
+    overflow: hidden;
+
+    /* make it obvious if skew is applying */
+    transform: skewY(-20deg);
+    transform-origin: left center;
+
+    &.is-end {
+      background: $mg-blue-4;
+
+      .mg-ini-side-card-img img {
+        display: none;
+      }
+    }
+  }
+
+  .mg-ini-side-card {
+    position: relative;
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
+
+    height: var(--mg-ini-slice-h);
+    border: var(--mg-ini-border) solid rgba(160, 190, 240, 0.72);
+
+    /* Parallelogram slice */
+    //clip-path: polygon(0 35%, 100% 0, 100% 65%, 0 100%);
+
+    /* inner frame */
+    &::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.18);
+      pointer-events: none;
+      z-index: 2;
+    }
+
+    /* subtle highlight */
+    &::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 3;
+      background:
+        linear-gradient(135deg, rgba(255,255,255,0.16), rgba(255,255,255,0) 45%),
+        linear-gradient(0deg, rgba(0,0,0,0.0), rgba(0,0,0,0.35));
+      opacity: 0.85;
+      mix-blend-mode: screen;
+    }
+  }
+
+  /* Hero slice (slot-0 bigger) */
+  .mg-ini-side-slot.slot-0 .mg-ini-side-card {
+    height: var(--mg-ini-slice-h0);
+    border-color: rgba(210, 230, 255, 0.95);
+  }
+
+  .mg-ini-side-card-img {
+    position: absolute;
+    width: 100%;
+    height: 12rem;
+    top: -2rem;
+    transform: skewY(20deg);
+    transform-origin: top;
+    left: 0;
+
+    img {
+      position: absolute;
+      border: none;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+      object-fit: cover;
+    }
+  }
+
+  .mg-ini-side-card-name {
+    position: absolute;
+    left: -.65rem;
+    bottom: 0;
+    z-index: 5;
+
+    transform: skewY(20deg) rotate(-20deg);
+    transform-origin: left center;    
+    color: $mg-ivory;
+
+    font-weight: 700;
+    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.65);
+
+    /* keep names readable on bright art */
+    background: linear-gradient(182deg,rgba(18, 33, 55, 0) 0%, rgba(18, 33, 55, 1) 70%);
+    text-transform: uppercase;
+    font-style: italic;
+    padding: 1rem 1rem 1rem 1.5rem;
+    width: 135%;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* Slot border tinting */
+  .mg-ini-side-slot.slot-1 .mg-ini-side-card { border-color: rgba(160, 200, 255, .85); }
+  .mg-ini-side-slot.slot-2 .mg-ini-side-card { border-color: rgba(120, 170, 245, .75); }
+  .mg-ini-side-slot.slot-3 .mg-ini-side-card { border-color: rgba(90, 140, 225, .65); }
+  .mg-ini-side-slot.slot-4 .mg-ini-side-card { border-color: rgba(70, 120, 210, .55); }
+
+  /* END card (when END_ID is painted into a slot) */
+  .mg-ini-side-slot .mg-ini-side-card-name:empty {
+    display: none;
+  }
+}
