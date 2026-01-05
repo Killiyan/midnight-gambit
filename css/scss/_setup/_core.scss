@@ -1314,3 +1314,6 @@ p {
   --mg-scroll-track: $mg-blue-4;
   scrollbar-color: $mg-blue-1 $mg-blue-4;
 }
+
+#sidebar-tabs [data-tab="combat"] { display: none !important; }
+#combat { display: none !important; }

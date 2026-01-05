@@ -2355,7 +2355,6 @@ Hooks.once("ready", async () => {
   }
 });
 
-
 Hooks.on("updateActor", async (crew, data) => {
   if (crew.type !== "crew") return;
   if (!("name" in data)) return;
@@ -2407,3 +2406,63 @@ Hooks.on("renderCombatTracker", (app, html) => {
   headerButtons.after(btn);
 });
 
+// --- Hide Foundry's Combat Tracker sidebar tab (data-tab="combat") ---
+Hooks.once("ready", () => {
+  const removeCombatTab = () => {
+    // Remove the tab button
+    const tabBtn = document.querySelector('#sidebar-tabs [data-tab="combat"]');
+    tabBtn?.remove();
+
+    // Remove the actual tab panel/app if it exists
+    // (Foundry typically uses #combat for the Combat Tracker sidebar app)
+    const combatApp = document.getElementById("combat");
+    combatApp?.remove();
+  };
+
+  // Run once now
+  removeCombatTab();
+
+  // Run again whenever sidebar tabs re-render
+  Hooks.on("renderSidebarTab", () => removeCombatTab());
+});
+
+/* Force Chat to Start at Bottom (refresh-safe)
+----------------------------------------------------------------------*/
+let mgDidInitialChatScroll = false;
+
+Hooks.on("renderChatLog", (app, html) => {
+  // Only force on the first render after a refresh/reload.
+  if (mgDidInitialChatScroll) return;
+  mgDidInitialChatScroll = true;
+
+  const doScroll = () => {
+    try {
+      // Prefer Foundry's method if present
+      if (typeof app.scrollBottom === "function") app.scrollBottom();
+      else if (ui?.chat && typeof ui.chat.scrollBottom === "function") ui.chat.scrollBottom();
+      else {
+        // Hard fallback
+        const log = html.find("#chat-log")[0];
+        if (log) log.scrollTop = log.scrollHeight;
+      }
+    } catch (e) {
+      console.warn("Midnight Gambit | Failed to scroll chat to bottom:", e);
+    }
+  };
+
+  // Do it now, then again next tick to beat late layout/CSS changes.
+  doScroll();
+  requestAnimationFrame(doScroll);
+});
+
+Hooks.on("renderChatMessage", (_message, html) => {
+  const log = document.querySelector("#chat-log");
+  if (!log) return;
+
+  const distanceFromBottom = log.scrollHeight - (log.scrollTop + log.clientHeight);
+
+  // If user is basically at the bottom, keep them pinned
+  if (distanceFromBottom < 40) {
+    requestAnimationFrame(() => { log.scrollTop = log.scrollHeight; });
+  }
+});
