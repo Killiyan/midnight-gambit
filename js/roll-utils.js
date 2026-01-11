@@ -15,7 +15,6 @@ export async function evaluateRoll({ formula, rollData = {}, skillMod = 0, label
   const isCrit  = kept.length && kept.every(d => d === 1);
   const isFail  = !isAce && !isCrit && total <= 6;
   const isComp  = !isAce && !isCrit && total > 6 && total <= 10;
-  const isGood  = isAce || total > 10; // Flourish/Ace
 
   let resultText;
   if (isAce) {
@@ -43,24 +42,46 @@ export async function evaluateRoll({ formula, rollData = {}, skillMod = 0, label
               data-session-id="${sessionId}">
         <i class="fa-solid fa-dice-d6"></i> Risk It
       </button>
-	  <small class="hint">Replaces the lower kept die; a <strong>1</strong> causes 1 Strain.</small>`
+      <small class="hint">Replaces the lower kept die; a <strong>1</strong> causes 1 Strain.</small>`
     : "";
 
-	const chatContent = `
-	<div class="chat-roll">
-		<div class="roll-container">
-		<label>${label}</label><br/>
-		<strong>${resultText}</strong>
-		</div>
+  const chatContent = `
+    <div class="chat-roll">
+      <div class="roll-container">
+        <label>${label}</label><br/>
+        <strong>${resultText}</strong>
+      </div>
 
-		<hr/>
-		${await roll.render()}
+      <hr/>
+      ${await roll.render()}
 
-		${riskBtn ? `<div class="mg-risk-controls">${riskBtn}</div>` : ""}
-	</div>
-	`;
+      ${riskBtn ? `<div class="mg-risk-controls">${riskBtn}</div>` : ""}
+    </div>
+  `;
 
-  // Create message FIRST so we can safely attach flags
+  // ------------------------------------------------------------
+  // STO: decide now, apply AFTER chat renders (prevents spoilers)
+  // Failure = total 1–6, INCLUDING crit fails
+  // ------------------------------------------------------------
+  let pendingSTODelta = 0;
+
+  const stoSession = {
+    sessionId,
+    stoApplied: false,
+    stoAppliedDelta: 0, // 1 if STO actually incremented, 0 if capped
+    stoUndone: false
+  };
+
+  if (actor && total <= 6) {
+    const cur = Number(actor.system?.sto?.value ?? 0);
+    const next = Math.min(6, cur + 1);
+    pendingSTODelta = (next !== cur) ? 1 : 0;
+
+    stoSession.stoApplied = pendingSTODelta > 0;
+    stoSession.stoAppliedDelta = pendingSTODelta;
+  }
+
+  // Create message FIRST so the roll is visible before STO ticks up
   const msg = await ChatMessage.create({
     user: game.user.id,
     speaker: ChatMessage.getSpeaker({ actor }),
@@ -70,26 +91,25 @@ export async function evaluateRoll({ formula, rollData = {}, skillMod = 0, label
     rollMode: game.settings.get("core", "rollMode")
   });
 
-  // Initialize STO session flags on this message
-  const stoSession = {
-    sessionId,
-    stoApplied: false,
-    stoAppliedDelta: 0, // 1 if STO actually incremented, 0 if capped
-    stoUndone: false
-  };
+  // Apply STO after the roll is visible in chat (prevents outcome spoilers)
+  if (actor && pendingSTODelta) {
 
-  // Auto-apply STO on Fail/Complication immediately (so "do nothing" still counts)
-  if (actor && (isFail || isComp || isCrit)) {
+    // Wait for dice visuals to finish if possible
+    if (game.dice3d?.waitFor3DAnimationByMessageID) {
+      await game.dice3d.waitFor3DAnimationByMessageID(msg.id);
+    } else {
+      await new Promise(resolve => setTimeout(resolve, 150));
+    }
+
     const cur = Number(actor.system?.sto?.value ?? 0);
     const next = Math.min(6, cur + 1);
-    const delta = (next !== cur) ? 1 : 0;
 
-    if (delta) await actor.update({ "system.sto.value": next }, { render: false });
-
-    stoSession.stoApplied = true;
-    stoSession.stoAppliedDelta = delta;
+    if (next !== cur) {
+      await actor.update({ "system.sto.value": next }, { render: false });
+    }
   }
 
+  // Attach STO session info to the chat message (Risk It can reference it)
   await msg.setFlag("midnight-gambit", "stoSession", stoSession);
 
   return msg;

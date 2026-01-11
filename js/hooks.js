@@ -2580,3 +2580,25 @@ Hooks.on("updateActor", (actor, diff) => {
     patchSheet($root);
   }
 });
+
+
+// ---------------------------------------------------------------------------
+// Default to LINKED tokens for Midnight Gambit
+// (prevents "scene token becomes a separate character instance")
+// ---------------------------------------------------------------------------
+
+// Ensure newly-created Actors default to a linked Prototype Token
+Hooks.on("preCreateActor", (actor, data, options, userId) => {
+  // Only set if not explicitly defined
+  const pt = data.prototypeToken ?? {};
+  if (typeof pt.actorLink === "undefined") {
+    actor.updateSource({ prototypeToken: { ...pt, actorLink: true } });
+  }
+});
+
+// Ensure newly-created Tokens default to linked actor data
+Hooks.on("preCreateToken", (tokenDoc, data, options, userId) => {
+  if (typeof data.actorLink === "undefined") {
+    tokenDoc.updateSource({ actorLink: true });
+  }
+});

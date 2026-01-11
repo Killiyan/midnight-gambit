@@ -6,18 +6,23 @@
 -----------------------------------------------------*/
 
 
-/*Oswald
+/* Oswald
 ---------------------*/
 @mixin oswald() {
 	font-family: "Oswald", sans-serif;
 }
 
-/*Roboto
+/* Roboto
 ---------------------*/
 @mixin roboto() {
 	font-family: "Roboto", sans-serif;
 }
 
+/* Font Awesome
+---------------------*/
+@mixin font-awesome() {
+	font-family: "Font Awesome 6 Pro", sans-serif;
+}
 
 /*Styles
 -----------------------------------------------------*/

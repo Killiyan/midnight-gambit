@@ -7,7 +7,7 @@ body {
   background-color: $mg-blue-main;
 }
 
-input[type="text"], input[type="number"], input[type="password"], input[type="date"], input[type="time"], input[type="search"] {
+input[type="text"], input[type="number"], input[type="password"], input[type="date"], input[type="time"], input[type="search"],input[type="checkbox"] {
   background-color: rgba($black, 0.5);
   background-image: none;
   @include mg-border();
@@ -1267,29 +1267,31 @@ button:disabled {
   }
 }
 
-#module-management form {
-  @include mg-border();
-  background: $mg-blue-main;
-  padding: 1.125rem;
-  border-radius: .5rem;
-  box-shadow: 5px 5px 10px rgba(0,0,0,0.5);
+#module-management {
+  color: $mg-blue-1 !important;
 
-  #module-list {
-    margin-top: 2.125rem;
-    border-color: $mg-blue-3;
+  form {
+    @include mg-border();
+    background: $mg-blue-main;
+    padding: 1.125rem;
+    border-radius: .5rem;
+    box-shadow: 5px 5px 10px rgba(0,0,0,0.5);
 
-    .package-list {
+    #module-list {
+      margin-top: 2.125rem;
+      border-color: $mg-blue-3;
 
-      .package {
-        border-bottom: 2px solid $mg-blue-3;
+      .title,
+      .package-title {
+        color: $mg-blue-1 !important;
+      }
+    }
+    
+    .package-list .package {
+      border-bottom: 1px solid $mg-blue-3;
 
-        .package-overview .package-title {
-          color: $mg-blue-1 !important;
-
-          .title {
-            color: $mg-blue-1 !important;
-          }
-        }
+      &:last-of-type {
+        border: none;
       }
     }
   }
