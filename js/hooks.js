@@ -2520,3 +2520,63 @@ Hooks.once("ready", async () => {
   }
 });
 
+// ---------------------------------------------------------------------------
+// Strain + Capacity UI Sync (multiplayer, no full sheet re-render required)
+// ---------------------------------------------------------------------------
+Hooks.on("updateActor", (actor, diff) => {
+  const strainDiff = diff?.system?.strain;
+  if (!strainDiff) return;
+
+  // Determine what changed (supports keys with spaces like "mortal capacity")
+  const changedKeys = Object.keys(strainDiff);
+  if (!changedKeys.length) return;
+
+  // Open apps for this actor (anyone viewing the sheet)
+  const apps = Object.values(actor.apps || {});
+  if (!apps.length) return;
+
+  // Helper to update a single sheet DOM
+  const patchSheet = ($root) => {
+    // 1) Current strain dots (mortal/soul)
+    for (const type of ["mortal", "soul"]) {
+      // Only patch if that specific field changed OR if any strain field changed (cheap + safe)
+      if (!changedKeys.includes(type) && !changedKeys.includes("mortal") && !changedKeys.includes("soul")) {
+        // don't early return; capacities might have changed
+      }
+
+      const newValue = Number(foundry.utils.getProperty(actor.system.strain, type) ?? 0);
+
+      const $track = $root.find(`.strain-track[data-strain="${type}"]`);
+      if ($track.length) {
+        $track.find(".strain-dot").each((_, node) => {
+          const v = Number(node.dataset.value);
+          node.classList.toggle("filled", v <= newValue);
+        });
+      }
+    }
+
+    // 2) Capacity spans (these are the ones you showed)
+    // Mortal Capacity
+    if (changedKeys.includes("mortal capacity") || changedKeys.includes("soul capacity")) {
+      const mortalCap = actor.system.strain?.["mortal capacity"];
+      const soulCap   = actor.system.strain?.["soul capacity"];
+
+      const $mortalCapSpan = $root.find(`.capacity-value[data-type="mortal"]`);
+      if ($mortalCapSpan.length && typeof mortalCap !== "undefined") {
+        $mortalCapSpan.text(mortalCap);
+      }
+
+      const $soulCapSpan = $root.find(`.capacity-value[data-type="soul"]`);
+      if ($soulCapSpan.length && typeof soulCap !== "undefined") {
+        $soulCapSpan.text(soulCap);
+      }
+    }
+  };
+
+  // Patch every rendered sheet for this actor on this client
+  for (const app of apps) {
+    const $root = app?.element;
+    if (!$root?.length) continue;
+    patchSheet($root);
+  }
+});

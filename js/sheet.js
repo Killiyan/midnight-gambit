@@ -530,36 +530,58 @@ _mgOpenChatCropper() {
         btn.classList.toggle("is-active", !cur);
       });
 
-      // This updates the strain amount on click; Also added parameter to suppress re-render on DOM so it won't jump around on click
+      // This updates the strain amount on click; we suppress full re-render to avoid UI jump
       html.find(".strain-dot").on("click", async (event) => {
         event.preventDefault();
         event.stopPropagation();
 
         // Kill any active input focus
-        if (document.activeElement) try { document.activeElement.blur(); } catch(_) {}
+        if (document.activeElement) {
+          try { document.activeElement.blur(); } catch (_) {}
+        }
 
-        // Setting the strain type Mortal/Strain
         const el = event.currentTarget;
-        const strainType   = el.dataset.type;
-        const clickedValue = Number(el.dataset.value);
+        const strainType   = el.dataset.type;           // "mortal" | "soul" (your dots use data-type)
+        const clickedValue = Number(el.dataset.value);  // 1..N
 
         const actor = this.actor;
         if (!actor) return;
 
-        //Finds the current value and subtracts the differntial
         const currentValue = getProperty(actor.system.strain, strainType);
-        const newValue = Math.max(0, clickedValue === currentValue ? clickedValue - 1 : clickedValue);
+        const newValue = Math.max(
+          0,
+          clickedValue === currentValue ? clickedValue - 1 : clickedValue
+        );
 
-        // 1) Update the doc WITHOUT triggering a render
-        await actor.update({ [`system.strain.${strainType}`]: newValue });
+        // 1) Update the document WITHOUT triggering a render (important for multiplayer UI consistency)
+        await actor.update({ [`system.strain.${strainType}`]: newValue }, { render: false });
 
-        // 2) Manually reflect the change in the currently open sheet
+        // 2) Manually reflect the change in the currently open sheet:
+        // 2a) dots
         const $track = html.find(`.strain-track[data-strain="${strainType}"]`);
         $track.find(".strain-dot").each((_, node) => {
           const v = Number(node.dataset.value);
           node.classList.toggle("filled", v <= newValue);
         });
+
+        // 2b) ticker number inside the shield (covers common patterns)
+        // Try input first
+        const $tickerInput = html.find(
+          `input[name="system.strain.${strainType}"], input[data-strain="${strainType}"].strain-ticker`
+        );
+        if ($tickerInput.length) {
+          $tickerInput.val(newValue);
+        }
+
+        // Try plain text spans/divs (e.g., the number inside the shield)
+        const $tickerText = html.find(
+          `[data-strain-current="${strainType}"], .strain-current[data-strain="${strainType}"], .strain-ticker-value[data-strain="${strainType}"]`
+        );
+        if ($tickerText.length) {
+          $tickerText.text(newValue);
+        }
       });
+
       
       /** This looks for risk dice amount and applies similar click logic */
       html.find(".risk-dot").on("click", async (event) => {
@@ -1058,7 +1080,6 @@ _mgOpenChatCropper() {
         if (valEl) valEl.textContent = String(newValue);
 
         // If you prefer the old behavior (recompute any derived UI), keep this:
-        this.render(false);
       });
 
       //Remove guise button to return the sheet to default if needed.

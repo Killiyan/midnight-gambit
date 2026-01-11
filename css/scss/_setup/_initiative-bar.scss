@@ -70,6 +70,7 @@
     cursor: pointer;
     z-index: 5;
     background: rgba($mg-blue-4, .9);
+    @include mg-border();
     border-radius: .5rem 0 0 .5rem;
     padding: 1rem .5rem;
     box-shadow: none;
