@@ -1248,14 +1248,17 @@ _mgOpenChatCropper() {
         const formula = `${pool}d6${rollType}`;
 
         const edge = !!this.actor.system.edgeNext;
+        const skillLabel = context.skillLabels?.[skillKey] ?? skillKey;
+        const upperSkill = String(skillLabel).toUpperCase();
 
         await evaluateRoll({
           formula,
           skillMod,
-          label: `Skill Roll: ${context.skillLabels?.[skillKey] ?? skillKey}`,
+          label: `Skill Roll: ${upperSkill}`,
           actor: this.actor,
           edge
         });
+
 
         // Consume Edge after the roll (one-and-done)
         if (edge) {

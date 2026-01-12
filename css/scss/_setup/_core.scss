@@ -531,6 +531,40 @@ button:disabled {
       }
     }
 
+    .sto-upgrade .dice-total {
+      font-weight: 700;
+      font-size: 1.25rem;
+      text-align: center;
+
+      .sto-spent {
+        padding: 0;
+        font-size: .75rem;
+        color: $mg-blue-2;
+      }
+    }
+
+    .mg-risk-controls,
+    .mg-risk-controls-again {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: .5rem;
+
+      .hint {
+        grid-column-start: 1;
+        grid-column-end: 3;
+      }
+
+      .mg-risk-it,
+      .mg-risk-again {
+        grid-column-start: 1;
+        grid-column-end: 3;
+      }
+
+      .mg-spend-sto {
+        column-span: 2;
+      }
+    }    
+
     .mg-edge-dice-panel {
       max-height: 0;
       overflow: hidden;

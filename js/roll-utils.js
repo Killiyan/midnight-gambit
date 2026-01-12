@@ -15,6 +15,63 @@ export async function evaluateRoll({ formula, rollData = {}, skillMod = 0, label
   const isCrit  = kept.length && kept.every(d => d === 1);
   const isFail  = !isAce && !isCrit && total <= 6;
   const isComp  = !isAce && !isCrit && total > 6 && total <= 10;
+  const isFlourish = total >= 11;
+
+  const stoValue = Number(actor?.system?.sto?.value ?? 0);
+
+  let stoBtn = "";
+
+  if (actor && stoValue > 0 && !isAce) {
+    // Fail -> Complication
+    if (total <= 6) {
+      const needComp = 7 - total;
+      const needFlourish = 11 - total;
+
+      // Button: upgrade to Complication
+      if (needComp > 0 && needComp <= stoValue) {
+      stoBtn += `
+        <button type="button"
+          class="mg-spend-sto sto-complication"
+          data-actor-id="${actor.id}"
+          data-spend="${needComp}"
+          data-target="complication"
+          title="Upgrade to Complication">
+          <i class="fa-solid fa-swords"></i> STO
+        </button>`;
+      }
+
+      // Button: upgrade to Flourish
+      if (needFlourish > 0 && needFlourish <= stoValue) {
+      stoBtn += `
+        <button type="button"
+          class="mg-spend-sto sto-flourish"
+          data-actor-id="${actor.id}"
+          data-spend="${needFlourish}"
+          data-target="flourish"
+          title="Upgrade to Flourish">
+          <i class="fa-solid fa-crown"></i> STO
+        </button>`;
+      }
+    }
+
+    // Complication -> Flourish
+    else if (total >= 7 && total <= 10) {
+      const needFlourish = 11 - total;
+
+      if (needFlourish > 0 && needFlourish <= stoValue) {
+      stoBtn += `
+        <button type="button"
+          class="mg-spend-sto sto-flourish"
+          data-actor-id="${actor.id}"
+          data-spend="${needFlourish}"
+          data-target="flourish"
+          title="Upgrade to Flourish">
+          <i class="fa-solid fa-crown"></i> STO
+        </button>`;
+      }
+    }
+  }
+
 
   let resultText;
   if (isAce) {
@@ -26,36 +83,47 @@ export async function evaluateRoll({ formula, rollData = {}, skillMod = 0, label
   } else if (isComp) {
     resultText = `<div class="result-label"><i class="fa-solid fa-swords result-mixed"></i> <strong>Complication</strong></div> <span>success with a cost.</span>`;
   } else {
-    resultText = `<div class="result-label"><i class="fa-solid fa-sparkles flourish-animate"></i> <strong class="flourish-animate">Flourish</strong></div><span>narrate your success.</span>`;
+    resultText = `<div class="result-label"><i class="fa-solid fa-crown flourish-animate"></i> <strong class="flourish-animate">Flourish</strong></div><span>narrate your success.</span>`;
   }
+
+  
 
   // Roll Session id (ties Risk rerolls to the same STO transaction)
   const sessionId = foundry.utils.randomID();
 
-  // Risk button: only if we have two kept dice
-  const riskBtn = (actor && kept.length >= 2)
+  // Risk button: only if we have two kept dice AND Risk dice remaining
+  const usedRisk  = Number(actor?.system?.riskUsed ?? 0);
+  const totalRisk = Number(actor?.system?.riskDice ?? 0);
+  const hasRiskRemaining = usedRisk < totalRisk;
+
+  const riskBtn = (actor && kept.length >= 2 && hasRiskRemaining)
     ? `<button type="button"
-              class="mg-risk-it"
-              data-actor-id="${actor.id}"
-              data-kept="${kept.join(",")}"
-              data-skill-mod="${Number(skillMod) || 0}"
-              data-session-id="${sessionId}">
+                class="mg-risk-it"
+                data-actor-id="${actor.id}"
+                data-kept="${kept.join(",")}"
+                data-skill-mod="${Number(skillMod) || 0}"
+                data-session-id="${sessionId}">
         <i class="fa-solid fa-dice-d6"></i> Risk It
       </button>
       <small class="hint">Replaces the lower kept die; a <strong>1</strong> causes 1 Strain.</small>`
-    : "";
+    : `<small class="hint">No Risk dice remaining.</small>`;
+
 
   const chatContent = `
-    <div class="chat-roll">
+    <div class="chat-roll" data-total="${total}">
       <div class="roll-container">
         <label>${label}</label><br/>
         <strong>${resultText}</strong>
       </div>
 
-      <hr/>
       ${await roll.render()}
 
-      ${riskBtn ? `<div class="mg-risk-controls">${riskBtn}</div>` : ""}
+      ${(riskBtn || stoBtn)
+        ? `<div class="mg-risk-controls">
+            ${riskBtn}
+            ${stoBtn}
+          </div>`
+        : ""}
     </div>
   `;
 
@@ -72,7 +140,7 @@ export async function evaluateRoll({ formula, rollData = {}, skillMod = 0, label
     stoUndone: false
   };
 
-  if (actor && total <= 6) {
+  if (actor && total <= 6 && !rollData?.fromSTO) {
     const cur = Number(actor.system?.sto?.value ?? 0);
     const next = Math.min(6, cur + 1);
     pendingSTODelta = (next !== cur) ? 1 : 0;

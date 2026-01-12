@@ -1,6 +1,8 @@
 import { MGInitiativeBar } from "./initiative-bar.js";
 import { MidnightGambitCrewSheet } from "./crew-sheet.js";
 import { MGInitiativeSidebar } from "./initiative-sidebar.js";
+import { evaluateRoll } from "./roll-utils.js";
+
 
 
 // After Hooks.once("ready", ...) or add a new one
@@ -1801,6 +1803,42 @@ Hooks.on("renderChatMessage", (message, html) => {
   const root = html[0];
   if (!root) return;
 
+  // ------------------------------------------------------------
+  // MG chat controls visibility:
+  // Only show Risk/STO buttons to actor owners (or GM).
+  // This runs per-client, so chat stays clean for everyone else.
+  // ------------------------------------------------------------
+  {
+    const btn =
+      root.querySelector(".mg-risk-it, .mg-risk-again, .mg-spend-sto");
+
+    // If this message has no MG controls, nothing to do.
+    if (btn) {
+      const actorId =
+        btn.dataset.actorId || message?.speaker?.actor || null;
+
+      const actor = actorId ? game.actors.get(actorId) : null;
+
+      // If we can't resolve an actor, fail "closed" (hide buttons).
+      const canUse =
+        !!actor && (actor.isOwner || game.user.isGM);
+
+      if (!canUse) {
+        root
+          .querySelectorAll(".mg-risk-it, .mg-risk-again, .mg-spend-sto")
+          .forEach((n) => n.remove());
+
+        // Optional cleanup: remove empty wrappers so chat doesn't have dead space
+        root
+          .querySelectorAll(".mg-roll-controls, .mg-risk-controls, .mg-risk-controls-again")
+          .forEach((wrap) => {
+            if (!wrap.querySelector("button")) wrap.remove();
+          });
+      }
+    }
+  }
+
+
   // Helper: disable a button visually
   const disableBtn = (btn) => {
     btn.disabled = true;
@@ -1857,12 +1895,13 @@ Hooks.on("renderChatMessage", (message, html) => {
       stoUndone: false
     };
 
-    // Evaluate new outcome band (same thresholds as your base roll)
-    const isBad = (newDice.every(d => d === 1)) || (newTotal <= 10); // crit fail OR fail OR complication
-    const isGood = !isBad; // flourish-ish ( >10 ) OR ace (handled by >10 anyway)
+    // STO stacks ONLY on Failure (including crit fail)
+    const isFailNow = (newDice.every(d => d === 1)) || (newTotal <= 6);
+    const isNotFailNow = !isFailNow;
+
 
     // If the Risk reroll turns a previously good roll into bad, apply STO (once)
-    if (isBad && !stoSession.stoApplied) {
+    if (isFailNow && !stoSession.stoApplied) {
       const cur = Number(actor.system?.sto?.value ?? 0);
       const next = Math.min(6, cur + 1);
       const delta = (next !== cur) ? 1 : 0;
@@ -1875,7 +1914,7 @@ Hooks.on("renderChatMessage", (message, html) => {
     }
 
     // If STO was applied for this session, and we now get a good result, undo (once)
-    if (isGood && stoSession.stoApplied && !stoSession.stoUndone && stoSession.stoAppliedDelta === 1) {
+    if (isNotFailNow && stoSession.stoApplied && !stoSession.stoUndone && stoSession.stoAppliedDelta === 1) {
       const cur = Number(actor.system?.sto?.value ?? 0);
       const next = Math.max(0, cur - 1);
       await actor.update({ "system.sto.value": next }, { render: false });
@@ -1936,9 +1975,66 @@ Hooks.on("renderChatMessage", (message, html) => {
       <small class="hint">Replaces the lower; a <strong>1</strong> causes 1 Strain.</small>`
     : `<small class="hint">No Risk dice remaining.</small>`;
 
+  // ------------------------------------------------------------
+  // STO buttons for the Risk Result card (owner-only rendering is handled elsewhere)
+  // Shows ONLY if spending STO upgrades the outcome band.
+  // ------------------------------------------------------------
+  let stoBtn = "";
+  const stoValue = Number(actor.system?.sto?.value ?? 0);
+
+  // Never allow STO -> Ace, and no need to show STO if already Flourish+
+  if (stoValue > 0 && !newDice.every(d => d === 6) && newTotal <= 10) {
+    // From Failure -> Complication / Flourish
+    if (newTotal <= 6) {
+      const needComp = 7 - newTotal;
+      const needFlourish = 11 - newTotal;
+
+      if (needComp > 0 && needComp <= stoValue) {
+        stoBtn += `
+          <button type="button"
+            class="mg-spend-sto sto-complication"
+            data-actor-id="${actor.id}"
+            data-spend="${needComp}"
+            data-total="${newTotal}"
+            title="Upgrade to Complication">
+            <i class="fa-solid fa-swords"></i> STO
+          </button>`;
+      }
+
+      if (needFlourish > 0 && needFlourish <= stoValue) {
+        stoBtn += `
+          <button type="button"
+            class="mg-spend-sto sto-flourish"
+            data-actor-id="${actor.id}"
+            data-spend="${needFlourish}"
+            data-total="${newTotal}"
+            title="Upgrade to Flourish">
+            <i class="fa-solid fa-crown"></i> STO
+          </button>`;
+      }
+    }
+
+    // From Complication -> Flourish
+    else if (newTotal >= 7 && newTotal <= 10) {
+      const needFlourish = 11 - newTotal;
+
+      if (needFlourish > 0 && needFlourish <= stoValue) {
+        stoBtn += `
+          <button type="button"
+            class="mg-spend-sto sto-flourish"
+            data-actor-id="${actor.id}"
+            data-spend="${needFlourish}"
+            data-total="${newTotal}"
+            title="Upgrade to Flourish">
+            <i class="fa-solid fa-crown"></i> STO
+          </button>`;
+      }
+    }
+  }
+
   // --- Compose the follow-up message ---
   const content = `
-    <div class="mg-chat-card mg-risk-result">
+    <div class="mg-chat-card mg-risk-result chat-roll" data-total="${newTotal}">
       <div class="roll-container">
         <label>Risk Result</label></br>
         <strong>${resultText}</strong>
@@ -1946,11 +2042,13 @@ Hooks.on("renderChatMessage", (message, html) => {
       ${keptSmall}
       <p class="dice-total risk-result">Replaced lower die <strong>${L} → ${R}</strong></p>
       ${R === 1 ? `<p class="text-danger"><strong>Strain:</strong> choose a track and click to add 1.</p>` : ""}
-      <div class="mg-risk-controls mg-risk-controls-again">
+      <div class="mg-roll-controls mg-risk-controls-again">
         ${againBtn}
+        ${stoBtn}
       </div>
     </div>
   `;
+  
 
   const newMsg = await ChatMessage.create({
     speaker: ChatMessage.getSpeaker({ actor }),
@@ -1978,7 +2076,81 @@ Hooks.on("renderChatMessage", (message, html) => {
     if (consumed) disableBtn(riskAgainBtn);
     else riskAgainBtn.addEventListener("click", () => handleRiskClick(riskAgainBtn), { once: true });
   }
+
+  html.on("click", ".mg-spend-sto", async (event) => {
+    event.preventDefault();
+
+    const btn = event.currentTarget;
+    const actor = game.actors.get(btn.dataset.actorId);
+    if (!actor) return;
+
+    const spend = Number(btn.dataset.spend);
+    if (!spend) return;
+
+    const chatRoll = btn.closest(".chat-roll");
+    if (!chatRoll) return;
+
+    const baseTotal = Number(chatRoll.dataset.total);
+    if (Number.isNaN(baseTotal)) return;
+
+    const curSTO = Number(actor.system?.sto?.value ?? 0);
+    if (curSTO < spend) return; // safety
+
+    const finalTotal = baseTotal + spend;
+
+    // Spend ONLY what's needed
+    await actor.update({ "system.sto.value": Math.max(0, curSTO - spend) }, { render: false });
+
+    // Determine new outcome bracket
+    let resultClass;
+    let resultIcon;
+    let resultLabel;
+    let resultText;
+
+    if (finalTotal >= 11) {
+      resultClass = "result-flourish";
+      resultIcon = "fa-crown";
+      resultLabel = "Flourish";
+      resultText = "Narrate your success.";
+    }
+    else if (finalTotal >= 7) {
+      resultClass = "result-complication";
+      resultIcon = "fa-swords";
+      resultLabel = "Complication";
+      resultText = "Success with a cost.";
+    }
+    else {
+      resultClass = "result-fail";
+      resultIcon = "fa-fire-flame";
+      resultLabel = "Failure";
+      resultText = "Something goes awry.";
+    }
+
+    await ChatMessage.create({
+      user: game.user.id,
+      speaker: ChatMessage.getSpeaker({ actor }),
+      content: `
+        <div class="chat-roll sto-upgrade roll-container" data-total="${finalTotal}">
+          <strong>
+            <div class="result-label">
+              <i class="fa-solid ${resultIcon} ${resultClass}" aria-hidden="true"></i>
+              <strong>${resultLabel}</strong>
+            </div>
+            <span>${resultText}</span>
+          </strong>
+
+          <h4 class="dice-total">
+            <strong>${finalTotal}</strong>
+            <span class="sto-spent">${spend} STO Spent</span>
+          </h4>
+        </div>
+      `,
+      type: CONST.CHAT_MESSAGE_TYPES.OTHER
+    });
+
+  });
 });
+
 
 // --- Edge: click a box to reveal its kept dice (chat only) ---
 Hooks.on("renderChatMessage", (_message, html) => {
