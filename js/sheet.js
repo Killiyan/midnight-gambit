@@ -424,9 +424,12 @@ _mgOpenChatCropper() {
   stage.addEventListener("wheel", (ev) => {
     ev.preventDefault();
 
-    // Same zoom feel as profile cropper
-    const delta = Math.sign(ev.deltaY) * 0.05;
-    s = Math.min(6, Math.max(0.25, s - delta));
+    // Zoom speed (hold Shift for faster zoom)
+    const step = ev.shiftKey ? 0.15 : 0.05;
+    const delta = Math.sign(ev.deltaY) * step;
+
+    // NO practical max; keep only a safety min so scale never hits 0
+    s = Math.max(0.05, s - delta);
 
     apply();
   }, { passive: false });
@@ -990,33 +993,86 @@ _mgOpenChatCropper() {
         this.render(false);
       });
 
-      //Long rest button that resets values to base
+      // Recalculate max strain capacity based on Base + Equipped item *remainingCapacity*
+      const recalcStrainFromGear = async ({ resetToMax = false } = {}) => {
+        const actor = this.actor;
+
+        const baseM = actor.system.baseStrainCapacity?.mortal ?? 0;
+        const baseS = actor.system.baseStrainCapacity?.soul ?? 0;
+
+        const gear = actor.items.filter(i =>
+          ["armor", "misc"].includes(i.type) &&
+          i.system.equipped &&
+          i.system.capacityApplied
+        );
+
+        // IMPORTANT: use remainingCapacity as the "active" bonus (it shrinks as armor soaks)
+        const bonusM = gear.reduce((sum, i) => sum + (i.system.remainingCapacity?.mortal ?? 0), 0);
+        const bonusS = gear.reduce((sum, i) => sum + (i.system.remainingCapacity?.soul ?? 0), 0);
+
+        const maxM = baseM + bonusM;
+        const maxS = baseS + bonusS;
+
+        const curMaxM = actor.system.strain["mortal capacity"] ?? 0;
+        const curMaxS = actor.system.strain["soul capacity"] ?? 0;
+
+        const nextMaxM = resetToMax ? maxM : Math.min(curMaxM, maxM);
+        const nextMaxS = resetToMax ? maxS : Math.min(curMaxS, maxS);
+
+        // Clamp current strain taken so it can't exceed the new max
+        const curTakenM = actor.system.strain.mortal ?? 0;
+        const curTakenS = actor.system.strain.soul ?? 0;
+
+        const nextTakenM = Math.min(curTakenM, nextMaxM);
+        const nextTakenS = Math.min(curTakenS, nextMaxS);
+
+        await actor.update({
+          "system.strain.mortal capacity": nextMaxM,
+          "system.strain.soul capacity": nextMaxS,
+
+          "system.strain.mortal": nextTakenM,
+          "system.strain.soul": nextTakenS,
+
+          // Protect from prepareData overwrite
+          "system.strain.manualOverride.mortal capacity": true,
+          "system.strain.manualOverride.soul capacity": true
+        }, { render: false });
+      };
+
       html.find(".long-rest-button").click(async () => {
         const actor = this.actor;
-        const guiseId = actor.system.guise;
-        const guise = guiseId ? game.items.get(guiseId) : null;
 
         const updates = {
           "system.sparkUsed": 0,
           "system.strain.mortal": 0,
           "system.strain.soul": 0,
           "system.riskUsed": 0,
-          "system.flashbackUsed": false,
-          "system.strain.manualOverride.mortal capacity": false,
-          "system.strain.manualOverride.soul capacity": false,
-          "system.strain.mortal capacity": actor.system.baseStrainCapacity?.mortal ?? 0,
-          "system.strain.soul capacity": actor.system.baseStrainCapacity?.soul ?? 0
+          "system.flashbackUsed": false
         };
 
-        // After updating actor strain values...
+        await actor.update(updates);
+
+        // Repair/reset remainingCapacity for equipped capacity-granting items,
+        // but DO NOT clear equipped, and DO NOT clear capacityApplied.
         for (const item of actor.items.filter(i =>
-        ["armor", "misc"].includes(i.type) &&
-        (i.system.mortalCapacity > 0 || i.system.soulCapacity > 0))) {
-          await item.update({ "system.capacityApplied": false });
+          ["armor", "misc"].includes(i.type) &&
+          i.system.equipped &&
+          ((i.system.mortalCapacity ?? 0) > 0 || (i.system.soulCapacity ?? 0) > 0)
+        )) {
+          const mc = item.system.mortalCapacity ?? 0;
+          const sc = item.system.soulCapacity ?? 0;
+
+          await item.update({
+            "system.capacityApplied": true,
+            "system.remainingCapacity.mortal": mc,
+            "system.remainingCapacity.soul": sc
+          });
         }
 
-        await actor.update(updates);
-        await actor.prepareData();  // force recompute
+        // Set actor strain capacity to Base + Equipped bonuses
+        await recalcStrainFromGear({ resetToMax: true });
+
+        await actor.prepareData();
         this.render(true);
         ui.notifications.info(`${actor.name} has completed a Long Rest.`);
       });
@@ -1046,41 +1102,116 @@ _mgOpenChatCropper() {
         }
       };
 
-      // Capacity tickers: − removes 1, + adds 1 (still respects armor/misc capacity logic)
+      // Capacity tickers: "-" = take 1 damage, "+" = heal 1
       html.find(".capacity-controls .cap-tick").on("click", async (event) => {
         event.preventDefault();
         event.stopPropagation();
 
         const btn = event.currentTarget;
-
         const type = btn.closest(".capacity-controls")?.dataset?.type; // "mortal" | "soul"
         if (!type) return;
 
-        const dir = Number(btn.dataset.dir || 0); // -1 or +1
+        const dir = Number(btn.dataset.dir || 0); // -1 (damage) or +1 (heal)
         if (!dir) return;
 
-        const key = `${type} capacity`; // "mortal capacity" | "soul capacity"
-        const current = Number(this.actor.system?.strain?.[key] ?? 0);
-        const newValue = Math.max(0, current + dir);
+        const actor = this.actor;
 
-        // If we're decreasing capacity, let armor/misc absorb the "damage" as before
-        if (dir < 0) {
-          await checkArmorDamage(this.actor, current, newValue, type);
-        }
+        const maxKey = `${type} capacity`; // "mortal capacity" | "soul capacity"
+        const maxCap = Number(actor.system?.strain?.[maxKey] ?? 0);
+        const curTaken = Number(actor.system?.strain?.[type] ?? 0);
 
-        const updates = {
-          [`system.strain.${key}`]: newValue,
-          [`system.strain.manualOverride.${key}`]: true
+        // Helper: update UI bits without full render
+        const patchUI = (nextTaken) => {
+          // strain dots
+          const $track = html.find(`.strain-track[data-strain="${type}"]`);
+          $track.find(".strain-dot").each((_, node) => {
+            const v = Number(node.dataset.value);
+            node.classList.toggle("filled", v <= nextTaken);
+          });
+
+          // remaining capacity number (what players *feel*)
+          const remaining = Math.max(0, maxCap - nextTaken);
+          const valEl = html.find(`.capacity-value[data-type="${type}"]`)[0];
+          if (valEl) valEl.textContent = String(remaining);
         };
 
-        await this.actor.update(updates, { render: false });
+        // DAMAGE
+        if (dir < 0) {
+          // First: try to soak 1 point with equipped gear remainingCapacity
+          const soakItems = actor.items.filter(item =>
+            ["armor", "misc"].includes(item.type) &&
+            item.system.equipped &&
+            item.system.capacityApplied &&
+            (item.system.remainingCapacity?.[type] ?? 0) > 0
+          );
 
-        // Patch the number immediately (no flicker)
-        const valEl = html.find(`.capacity-value[data-type="${type}"]`)[0];
-        if (valEl) valEl.textContent = String(newValue);
+          if (soakItems.length) {
+            const item = soakItems[0];
+            const remaining = Number(item.system.remainingCapacity?.[type] ?? 0);
 
-        // If you prefer the old behavior (recompute any derived UI), keep this:
+            await item.update({
+              [`system.remainingCapacity.${type}`]: Math.max(0, remaining - 1)
+            });
+
+            // Recompute max capacity (it shrinks as the armor buffer shrinks)
+            await recalcStrainFromGear({ resetToMax: false });
+
+            // Strain taken did NOT change, so just patch UI
+            patchUI(curTaken);
+            return;
+          }
+
+          // No soak left: apply 1 strain taken (up to max)
+          const nextTaken = Math.min(maxCap, curTaken + 1);
+          await actor.update({ [`system.strain.${type}`]: nextTaken }, { render: false });
+          patchUI(nextTaken);
+          return;
+        }
+
+        // HEAL
+        if (dir > 0) {
+          const nextTaken = Math.max(0, curTaken - 1);
+          await actor.update({ [`system.strain.${type}`]: nextTaken }, { render: false });
+          patchUI(nextTaken);
+        }
       });
+
+      // Update the capacity ticker numbers without re-rendering the sheet
+      const updateCapacityTickerUI = (html, actor) => {
+        const strain = actor.system?.strain ?? {};
+
+        // These are your max capacities
+        const maxM = Number(strain["mortal capacity"] ?? 0);
+        const maxS = Number(strain["soul capacity"] ?? 0);
+
+        // These are your current strain taken (damage)
+        const takenM = Number(strain.mortal ?? 0);
+        const takenS = Number(strain.soul ?? 0);
+
+        // Remaining shown in your ticker (what your screenshot implies)
+        const remM = Math.max(0, maxM - takenM);
+        const remS = Math.max(0, maxS - takenS);
+
+        // Update the numbers (cover a couple likely selector names)
+        const mcEl =
+          html[0].querySelector(".capacity-ticker[data-type='mortal'] .capacity-value") ||
+          html[0].querySelector("[data-capacity='mortal'] .capacity-value") ||
+          html[0].querySelector(".capacity-value[data-type='mortal']");
+
+        const scEl =
+          html[0].querySelector(".capacity-ticker[data-type='soul'] .capacity-value") ||
+          html[0].querySelector("[data-capacity='soul'] .capacity-value") ||
+          html[0].querySelector(".capacity-value[data-type='soul']");
+
+        if (mcEl) mcEl.textContent = String(remM);
+        if (scEl) scEl.textContent = String(remS);
+
+        // Optional: if you have a "max" label in the UI, update it too
+        const mcMaxEl = html[0].querySelector(".capacity-max[data-type='mortal']");
+        const scMaxEl = html[0].querySelector(".capacity-max[data-type='soul']");
+        if (mcMaxEl) mcMaxEl.textContent = String(maxM);
+        if (scMaxEl) scMaxEl.textContent = String(maxS);
+      };      
 
       //Remove guise button to return the sheet to default if needed.
       html.find(".remove-guise").on("click", async (event) => {
@@ -1334,53 +1465,69 @@ _mgOpenChatCropper() {
         input.blur();
       });
 
-
-      // Handle quantity changes
       html.find(".item-quantity").on("change", async (event) => {
-        const itemId = event.currentTarget.closest(".inventory-item").dataset.itemId;
+        const itemId = event.currentTarget
+          .closest(".inventory-card, .inventory-item")
+          ?.dataset?.itemId;
+
+        if (!itemId) return;
+
         const quantity = parseInt(event.currentTarget.value);
         const item = this.actor.items.get(itemId);
         if (item) await item.update({ "system.quantity": quantity });
       });
 
-      html.find(".item-equipped").on("change", async (event) => {
-        const itemId = event.currentTarget.closest(".inventory-item").dataset.itemId;
-        const equipped = event.currentTarget.checked;
+      // --- Equip toggle (inventory-card) ---
+      const handleEquipToggle = async (event) => {
+        const card = event.currentTarget.closest(".inventory-card");
+        if (!card) return;
+
+        const itemId =
+          card.dataset.itemId ||
+          event.currentTarget.dataset.itemId; // fallback if you ever put data-item-id on the checkbox
+
+        if (!itemId) return;
+
         const item = this.actor.items.get(itemId);
         if (!item) return;
 
-        await item.update({ "system.equipped": equipped });
+        const cb = card.querySelector("input.item-equipped[type='checkbox']");
+        const equipped = cb ? cb.checked : !Boolean(item.system.equipped);
 
-        // Skip unless this item can grant capacity
-        const grantsCapacity = ["armor", "misc"].includes(item.type) &&
-          (item.system.mortalCapacity > 0 || item.system.soulCapacity > 0);
-        if (!grantsCapacity) return;
+        await item.update({ "system.equipped": equipped }, { render: false });
 
-        const { mortalCapacity = 0, soulCapacity = 0, capacityApplied = false } = item.system;
+        // keep UI synced
+        if (cb) cb.checked = equipped;
 
-        console.log(`🛡️ Equip event for ${item.name}`);
-        console.log("Equipped?", equipped, "| Already Applied?", capacityApplied);
-        console.log("MC/SC Bonus from item:", mortalCapacity, soulCapacity);
+        const grantsCapacity =
+          ["armor", "misc"].includes(item.type) &&
+          ((item.system.mortalCapacity ?? 0) > 0 || (item.system.soulCapacity ?? 0) > 0);
 
-        const currentMC = this.actor.system.strain["mortal capacity"] ?? 0;
-        const currentSC = this.actor.system.strain["soul capacity"] ?? 0;
+        if (grantsCapacity) {
+          if (equipped) {
+            await item.update({
+              "system.capacityApplied": true,
+              "system.remainingCapacity.mortal": item.system.mortalCapacity ?? 0,
+              "system.remainingCapacity.soul": item.system.soulCapacity ?? 0
+            }, { render: false });
+          } else {
+            await item.update({ "system.capacityApplied": false }, { render: false });
+          }
 
-        if (equipped && !capacityApplied) {
-          await this.actor.update({
-            "system.strain.mortal capacity": currentMC + mortalCapacity,
-            "system.strain.soul capacity": currentSC + soulCapacity,
-            "system.strain.manualOverride.mortal capacity": true,
-            "system.strain.manualOverride.soul capacity": true
-          });
-
-          await item.update({
-            "system.capacityApplied": true,
-            "system.remainingCapacity.mortal": mortalCapacity,
-            "system.remainingCapacity.soul": soulCapacity
-          });
+          // this is what should make your ticker number change
+          await recalcStrainFromGear({ resetToMax: equipped });
         }
 
-      });
+        // Update the UI in-place (no full sheet rerender)
+        updateCapacityTickerUI(html, this.actor);
+      };
+
+      // Only listen in ONE place.
+      // Checkbox changes:
+      html.on("change", "input.item-equipped[type='checkbox']", handleEquipToggle);
+
+      // Fancy equip UI clicks (add/remove selectors as needed):
+      html.on("click", ".item-equip, .item-equip-toggle, .equip-toggle, .item-equipped-label", handleEquipToggle);
 
       //Repair Armor
       html.find(".repair-armor").on("click", async (event) => {
@@ -1410,10 +1557,12 @@ _mgOpenChatCropper() {
         await item.update({
           "system.remainingCapacity.mortal": mortalCapacity,
           "system.remainingCapacity.soul": soulCapacity,
-          "system.capacityApplied": false
-        });
+          "system.capacityApplied": true
+        }, { render: false });
 
         ui.notifications.info(`${item.name} repaired. Durability restored.`);
+        await recalcStrainFromGear({ resetToMax: false });
+        this.render(false);
       });
 
       //Remove item from Inventory
@@ -1694,37 +1843,93 @@ _mgOpenChatCropper() {
           empty.style.display = show ? "block" : "none";
         };
 
-        // Core search routine (no events, just logic)
+        let mgInvSearchToken = 0;
+        let mgInvSearchTimer = null;
+
         const runSearchNow = () => {
           const input = $tab.find(".item-search")[0];
           const q = (input?.value || "").toLowerCase().trim();
+          const searching = q.length > 0;
 
-          // Support both .inventory-card and legacy .inventory-item classes
-          const cards = $tab.find(".inventory-card, .inventory-item").toArray();
+          const titles = $tab.find(".inventory-bucket-title").toArray();
+          const cards  = $tab.find(".inventory-card, .inventory-item").toArray();
+
+          // Cancel any in-flight finalize from a previous search
+          mgInvSearchToken += 1;
+          const token = mgInvSearchToken;
+
+          if (mgInvSearchTimer) {
+            clearTimeout(mgInvSearchTimer);
+            mgInvSearchTimer = null;
+          }
+
+          // Hard reset transition classes so the next search ALWAYS animates
+          for (const el of cards) {
+            el.classList.remove("is-entering", "pre-enter", "is-leaving");
+            el.style.transitionDelay = "";
+            // if it was hidden from the previous query, keep it hidden for now — we’ll decide after LEAVE_MS
+          }
+          for (const t of titles) {
+            t.classList.remove("is-entering", "pre-enter", "is-leaving");
+            t.style.transitionDelay = "";
+          }
+
+          // Build match set
           const matchSet = new Set(cards.filter((el) => cardMatches(el, q)));
 
-          // Start the leave animation for everything
+          // Start leave animation for ALL cards (even ones that will remain)
           for (const el of cards) leaveCard(el);
 
-          // After leave animation finishes, finalize which ones show / hide
-          setTimeout(() => {
+          // Start leave animation for titles ONLY when searching
+          if (searching) {
+            for (const t of titles) t.classList.add("is-leaving");
+          }
+
+          // After leave animation finishes, finalize DOM layout + re-enter matches
+          mgInvSearchTimer = setTimeout(() => {
+            if (token !== mgInvSearchToken) return; // stale finalize, ignore
+
+            // Toggle titles out of layout *after* fade so it feels seamless
+            if (searching) {
+              for (const t of titles) {
+                t.style.display = "none";
+                t.classList.remove("is-leaving");
+              }
+            } else {
+              for (const t of titles) {
+                t.style.display = "";
+                t.classList.remove("is-leaving");
+              }
+            }
+
             let hits = 0;
             let enterIndex = 0;
 
             for (const el of cards) {
-              const isMatch = matchSet.has(el);
+              const isMatch = searching ? matchSet.has(el) : true;
+
+              // finalize leave
               el.classList.remove("is-leaving");
+
               if (isMatch) {
                 hits++;
+                // Make sure it’s not hidden before we animate in
+                el.classList.remove("is-hidden");
+
+                // Force a reflow so re-adding enter classes always triggers (prevents “flicker” on 2nd search)
+                // eslint-disable-next-line no-unused-expressions
+                el.offsetHeight;
+
                 enterCard(el, enterIndex++);
               } else {
                 el.classList.add("is-hidden");
               }
             }
 
-            showEmpty(hits === 0 && !!q);
+            showEmpty(hits === 0 && searching);
           }, LEAVE_MS);
         };
+
 
         const runSearch = debounce(runSearchNow, DEBOUNCE_MS);
 
@@ -1740,6 +1945,7 @@ _mgOpenChatCropper() {
             ev.stopImmediatePropagation();
             runSearch();
           });
+
 
         // Click the Search button
         $root
@@ -1760,19 +1966,221 @@ _mgOpenChatCropper() {
             const input = $tab.find(".item-search")[0];
             if (input) input.value = "";
 
-            showEmpty(false);
-
-            const cards = $tab.find(".inventory-card, .inventory-item").toArray();
-            for (const el of cards) leaveCard(el);
-
-            setTimeout(() => {
-              let idx = 0;
-              for (const el of cards) {
-                el.classList.remove("is-leaving");
-                enterCard(el, idx++);
-              }
-            }, LEAVE_MS);
+            // Run the same logic as “empty search”
+            runSearchNow();
           });
+
+// ------------------------------------------------------------
+// Inventory bucket collapse / expand (smooth + persisted)
+// Insert this block ABOVE:  // "See All / See Less" for inventory cards
+// ------------------------------------------------------------
+{
+  const $root = html instanceof jQuery ? html : $(html);
+  const $tab  = $root.find(".tab-inventory");
+  if (!$tab.length) return;
+
+  const BUCKET_MS = 500; // keep in sync with your other inventory transitions
+
+  // Persist bucket state per actor (store ONLY collapsed buckets)
+  const BUCKET_FLAG_SCOPE = "midnight-gambit";
+  const BUCKET_FLAG_KEY   = "inventoryBucketCollapsed";
+
+  const getBucketKey = (titleEl) => {
+    if (!titleEl) return null;
+
+    // Best: add data-bucket-key="weapons"/"armor"/etc on the title in HTML later
+    const explicit = titleEl.dataset?.bucketKey || titleEl.getAttribute?.("data-bucket-key");
+    if (explicit) return String(explicit).trim().toLowerCase();
+
+    // Fallback: title text
+    return String(titleEl.textContent || "")
+      .replace(/\s+/g, " ")
+      .trim()
+      .toLowerCase();
+  };
+
+  const readState = () => {
+    try { return this.actor?.getFlag(BUCKET_FLAG_SCOPE, BUCKET_FLAG_KEY) || {}; }
+    catch (_e) { return {}; }
+  };
+
+  const writeState = async (state) => {
+    try { await this.actor?.setFlag(BUCKET_FLAG_SCOPE, BUCKET_FLAG_KEY, state); }
+    catch (_e) {}
+  };
+
+  // Turn: [Title][Cards...][Next Title] into [Title][Body{Cards...}][Next Title]
+  const ensureBucketBodies = () => {
+    const root = $tab[0];
+    if (!root) return;
+
+    const titles = Array.from(root.querySelectorAll(".inventory-bucket-title"));
+    for (const title of titles) {
+      let next = title.nextElementSibling;
+
+      // already normalized
+      if (next && next.classList?.contains("inventory-bucket-body")) continue;
+
+      const body = document.createElement("div");
+
+      // IMPORTANT: keep your existing grid layout so cards don’t get weird
+      body.classList.add("inventory-bucket-body", "inventory-grid");
+      body.style.width = "100%";
+      body.style.overflow = "hidden";
+
+      title.insertAdjacentElement("afterend", body);
+
+      // Move everything until the next title into the body
+      while (next && !next.classList.contains("inventory-bucket-title")) {
+        const move = next;
+        next = next.nextElementSibling;
+        body.appendChild(move);
+      }
+    }
+  };
+
+  const setChevronState = (titleEl, collapsed) => {
+    titleEl.classList.toggle("is-collapsed", collapsed);
+    const icon = titleEl.querySelector(".inventory-bucket-toggle i");
+    if (icon) icon.classList.toggle("rotated", !collapsed); // rotated = expanded
+  };
+
+  // Smooth max-height animation + stable end state (hidden=true when collapsed)
+  const animateBucket = (body, expand) => {
+    if (!body) return Promise.resolve();
+
+    return new Promise((resolve) => {
+      // prevent double clicks during animation
+      if (body.dataset.animating === "1") return resolve();
+      body.dataset.animating = "1";
+
+      const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+      const ms = reduce ? 0 : BUCKET_MS;
+
+      body.style.overflow = "hidden";
+      body.style.transition = `max-height ${ms}ms ease`;
+
+      const finish = () => {
+        body.style.transition = "";
+        body.style.overflow = "";
+        body.dataset.animating = "0";
+        resolve();
+      };
+
+      if (expand) {
+        body.hidden = false;
+
+        body.style.maxHeight = "0px";
+        // force reflow
+        // eslint-disable-next-line no-unused-expressions
+        body.offsetHeight;
+
+        body.style.maxHeight = `${body.scrollHeight}px`;
+
+        const onEnd = (e) => {
+          if (e && e.target !== body) return;
+          body.removeEventListener("transitionend", onEnd);
+
+          // let it size naturally after opening
+          body.style.maxHeight = "";
+          finish();
+        };
+
+        if (ms === 0) return onEnd();
+        body.addEventListener("transitionend", onEnd, { once: true });
+        setTimeout(onEnd, ms + 120);
+        return;
+      }
+
+      // collapse
+      body.hidden = false; // ensure measurable
+      body.style.maxHeight = `${Math.ceil(body.getBoundingClientRect().height)}px`;
+      // force reflow
+      // eslint-disable-next-line no-unused-expressions
+      body.offsetHeight;
+
+      body.style.maxHeight = "0px";
+
+      const onEnd = (e) => {
+        if (e && e.target !== body) return;
+        body.removeEventListener("transitionend", onEnd);
+
+        // IMPORTANT: hide after collapse so nothing peeks through
+        body.hidden = true;
+        body.style.maxHeight = "0px";
+        finish();
+      };
+
+      if (ms === 0) return onEnd();
+      body.addEventListener("transitionend", onEnd, { once: true });
+      setTimeout(onEnd, ms + 120);
+    });
+  };
+
+  // Build wrappers and apply saved state on render
+  ensureBucketBodies();
+
+  {
+    const state = readState();
+    const titles = Array.from($tab[0].querySelectorAll(".inventory-bucket-title"));
+
+    for (const title of titles) {
+      const body = title.nextElementSibling;
+      if (!body || !body.classList.contains("inventory-bucket-body")) continue;
+
+      const key = getBucketKey(title);
+      if (!key) continue;
+
+      const collapsed = Boolean(state[key]);
+      setChevronState(title, collapsed);
+
+      body.hidden = collapsed;
+      body.style.maxHeight = collapsed ? "0px" : "";
+      body.dataset.animating = "0";
+    }
+  }
+
+  // Click handler
+  $root
+    .off("click.mgInvBucketToggle")
+    .on("click.mgInvBucketToggle", ".tab-inventory .inventory-bucket-toggle", async (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+
+      // Ignore toggles while searching (your search mode hides titles anyway)
+      const q = ($tab.find(".item-search")[0]?.value || "").trim();
+      if (q.length) return;
+
+      const title = ev.currentTarget.closest(".inventory-bucket-title");
+      if (!title) return;
+
+      const body = title.nextElementSibling;
+      if (!body || !body.classList.contains("inventory-bucket-body")) return;
+
+      const key = getBucketKey(title);
+      if (!key) return;
+
+      const state = readState();
+      const collapsed = title.classList.contains("is-collapsed");
+
+      if (!collapsed) {
+        // COLLAPSE
+        setChevronState(title, true);
+        state[key] = true;          // remember collapsed
+        await writeState(state);
+        await animateBucket(body, false);
+        return;
+      }
+
+      // EXPAND
+      setChevronState(title, false);
+      delete state[key];            // IMPORTANT: remember open by removing key
+      await writeState(state);
+      await animateBucket(body, true);
+    });
+}
+
+
 
         // Initial state: everything visible, no animations, no empty message
         const initialCards = $tab.find(".inventory-card, .inventory-item").toArray();
@@ -1782,6 +2190,7 @@ _mgOpenChatCropper() {
         }
         showEmpty(false);
       }
+
 
       // "See All / See Less" for inventory cards
       // Uniform collapsed height + infinite expand/collapse using CSS transition on max-height

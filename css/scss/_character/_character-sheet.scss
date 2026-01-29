@@ -1637,6 +1637,78 @@ h1,h2,h3,h4 {
 
   .inventory-section {
 
+    .inventory-bucket-body[hidden] {
+      display: none !important;
+    }
+
+    .inventory-bucket-title.mg-content {
+      width: 100%;
+      background: rgba($black, .2);
+      backdrop-filter: blur(8px);
+      display: flex;
+      gap: 1rem;
+      padding: 0;
+      overflow: hidden;
+      align-items: center;
+      margin: 0;
+
+      h2 {
+        border: none;
+        margin: 0;
+        padding: 1.125rem 0;
+      }
+
+      .item-icon {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        background: rgba(black, .2);
+        height: auto;
+        width: auto;
+        padding: 2rem;
+        border-right: 2px solid $mg-blue-main-2;
+
+        i {
+          color: $mg-blue-3;
+          font-size: 1.25rem;
+        }
+      }
+
+      button {
+        box-shadow: none;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        background: rgba($black, .2);
+        height: auto;
+        width: auto;
+        padding: 2.25rem;
+        border-left: 2px solid $mg-blue-main-2;    
+        border-top: 0;    
+        border-radius: 0;
+        margin: 0 0 0 auto;
+
+        &:hover {
+          background: rgba($black, .4);
+
+          i {
+            color: $mg-ivory;
+          }
+        }
+        
+        i {
+          transition: transform .5s ease, color .5s ease;
+          color: $mg-blue-3;
+        }
+      }
+      
+      &.is-collapsed {
+        button i {
+          transform: rotate(180deg);
+        }
+      }
+    }
+
     .inventory-card {
 
       input[type="checkbox"] {

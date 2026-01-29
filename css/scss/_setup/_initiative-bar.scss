@@ -125,6 +125,9 @@
     font-size: 1.75rem;
     font-weight: 700;
     color: $mg-ivory;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .mg-ini-side-stack {

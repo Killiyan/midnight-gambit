@@ -2154,27 +2154,22 @@ Hooks.on("renderChatMessage", (message, html) => {
 
 // --- Edge: click a box to reveal its kept dice (chat only) ---
 Hooks.on("renderChatMessage", (_message, html) => {
-  html.on("click", ".mg-edge-box", (ev) => {
+  html.on("click", ".mg-edge-box", async (ev) => {
     const box = ev.currentTarget;
-    const panel = box.closest(".chat-roll")?.querySelector(".mg-edge-dice-panel");
+    const chatRoll = box.closest(".chat-roll");
+    const panel = chatRoll?.querySelector(".mg-edge-dice-panel");
     if (!panel) return;
 
     const raw = (box.dataset.dice || "").trim();
     let dice = [];
-    try { dice = JSON.parse(raw); } catch (e) { return; }
+    try { dice = JSON.parse(raw); } catch { return; }
     if (!Array.isArray(dice) || !dice.length) return;
 
     const edgeLabel = box.dataset.edge || "";
+    const dur = 500;
 
-    const already = panel.dataset.openFor === edgeLabel && panel.classList.contains("is-open");
-    if (already) {
-      panel.classList.remove("is-open");
-      panel.dataset.openFor = "";
-      return;
-    }
-
-    panel.dataset.openFor = edgeLabel;
-    panel.innerHTML = `
+    // Helper: build the tooltip HTML
+    const build = () => `
       <div class="dice-tooltip">
         <ol class="dice-rolls">
           ${dice.map(d => `
@@ -2183,10 +2178,57 @@ Hooks.on("renderChatMessage", (_message, html) => {
         </ol>
       </div>
     `;
+
+    // If clicking the same box that's already open -> close it
+    const isSameOpen = panel.classList.contains("is-open") && panel.dataset.openFor === edgeLabel;
+    if (isSameOpen) {
+      panel.style.overflow = "hidden";
+      panel.style.maxHeight = panel.scrollHeight + "px";
+      panel.offsetHeight; // force reflow
+      panel.style.transition = `max-height ${dur}ms ease`;
+      panel.style.maxHeight = "0px";
+
+      await new Promise(r => setTimeout(r, dur));
+      panel.classList.remove("is-open");
+      panel.dataset.openFor = "";
+      panel.style.transition = "";
+      panel.style.maxHeight = "";
+      panel.style.overflow = "";
+      return;
+    }
+
+    // Otherwise: CLOSE (if open) -> SWAP -> OPEN
+    panel.style.overflow = "hidden";
+    panel.style.transition = `max-height ${dur}ms ease`;
+
+    const wasOpen = panel.classList.contains("is-open");
+
+    // 1) If open, animate shut first
+    if (wasOpen) {
+      panel.style.maxHeight = panel.scrollHeight + "px";
+      panel.offsetHeight; // reflow
+      panel.style.maxHeight = "0px";
+      await new Promise(r => setTimeout(r, dur));
+    }
+
+    // 2) Swap the content while closed
+    panel.dataset.openFor = edgeLabel;
+    panel.innerHTML = build();
+
+    // 3) Animate open
     panel.classList.add("is-open");
+    panel.style.maxHeight = "0px";
+    panel.offsetHeight; // reflow
+    panel.style.maxHeight = panel.scrollHeight + "px";
+    await new Promise(r => setTimeout(r, dur));
+
+    // Cleanup so it can naturally size if chat reflows
+    panel.style.transition = "";
+    panel.style.maxHeight = "";
+    panel.style.overflow = "";
   });
 
-  // Optional: keyboard accessibility (Enter/Space)
+  // keep your keyboard handler
   html.on("keydown", ".mg-edge-box", (ev) => {
     if (ev.key === "Enter" || ev.key === " ") {
       ev.preventDefault();
