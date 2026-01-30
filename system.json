@@ -11,7 +11,8 @@
   "url": "https://github.com/Killiyan/midnight-gambit/",
   "styles": [
     "css/style.css",
-    "https://fonts.googleapis.com/css2?family=Oswald:wght@200..700&family=Roboto:ital,wght@0,100..900;1,100..900&display=swap"
+    "https://fonts.googleapis.com/css2?family=Oswald:wght@200..700&family=Roboto:ital,wght@0,100..900;1,100..900&display=swap",
+    "https://use.typekit.net/taa8mwu.css"
   ],
   "scripts": [
     "https://kit.fontawesome.com/44ed447bce.js"

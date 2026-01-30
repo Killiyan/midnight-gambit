@@ -24,6 +24,12 @@
 	font-family: "Font Awesome 6 Pro", sans-serif;
 }
 
+/* Tiller
+---------------------*/
+@mixin tiller() {
+	font-family: tiller, sans-serif;
+}
+
 /*Styles
 -----------------------------------------------------*/
 

@@ -521,11 +521,15 @@ h1,h2,h3,h4 {
                 &.is-active {
                       background: $mg-blue-4;
                       border-color: $mg-blue-3;
-                      opacity: 1;
+                      
+                      &:hover,
+                      &:focus {
+                        background: $mg-blue-1;
 
-                        span {
-                          color: $mg-blue-1;
-                        }
+                         i {
+                          color: $mg-blue-3;
+                         }
+                      }
 
                       // Sheen sweep (matches lead initiative member)
                       &:after {
@@ -534,7 +538,7 @@ h1,h2,h3,h4 {
                         pointer-events: none;
 
                         // Keep it mostly top area like your initiative sheen
-                        inset: -10% -20% auto -20%;
+                        inset: -40% -20% auto -20%;
                         height: 200%;
 
                         // Match the tab shape so it doesn't look like a floating rectangle
@@ -565,44 +569,27 @@ h1,h2,h3,h4 {
                         animation: mg-edge-pulse 800ms ease-in-out infinite alternate;
                         color: $mg-blue-1;
                       }
-                  }
+                }
 
-                  @keyframes mg-gleam {
-                    0%   { transform: rotate(var(--mg-gleam-tilt, -12deg)) translateX(-120%); opacity: 0; }
-                    10%  { opacity: var(--mg-gleam-opacity, 0.9); }
-                    45%  { transform: rotate(var(--mg-gleam-tilt, -12deg)) translateX(120%); opacity: var(--mg-gleam-opacity, 0.9); }
-                    60%  { opacity: 0; }
-                    100% { transform: rotate(var(--mg-gleam-tilt, -12deg)) translateX(120%); opacity: 0; }
-                  }
+                @keyframes mg-gleam {
+                  0%   { transform: rotate(var(--mg-gleam-tilt, -12deg)) translateX(-120%); opacity: 0; }
+                  10%  { opacity: var(--mg-gleam-opacity, 0.9); }
+                  45%  { transform: rotate(var(--mg-gleam-tilt, -12deg)) translateX(120%); opacity: var(--mg-gleam-opacity, 0.9); }
+                  60%  { opacity: 0; }
+                  100% { transform: rotate(var(--mg-gleam-tilt, -12deg)) translateX(120%); opacity: 0; }
+                }
 
-                  i {
-                    color: $mg-blue-3;
-                  }
-
-                  span {
-                    color: $mg-blue-2;
-                    @include oswald();
-                    font-style: italic;
-                    text-transform: uppercase;
-                    font-size: .75rem;
-                    pointer-events: none;
-                    transition: color .5s ease;
-                  }
-
-                  &:hover,
-                  &:focus {
-
-                    span,
-                    i {
-                      color: $mg-ivory;
-                    }
-                  }     
-              }       
+                i {
+                  color: $mg-blue-3;
+                }
+              }  
 
               button {
                 width: calc(50% - .25rem);
                 font-size: .85rem;
-                padding: 1rem;
+                padding: .25rem .5rem;
+                display: flex;
+                align-items: center;
                 gap: .5rem;
                 justify-content: center;
 
@@ -616,8 +603,6 @@ h1,h2,h3,h4 {
 
           //Setting consisten styling for the over image toggles
           .long-rest-button,
-          .flashback-track,
-          .load-toggle,
           .edge-button {
             width: 100%;
             background: $mg-blue-main;
@@ -643,56 +628,15 @@ h1,h2,h3,h4 {
               color: $mg-blue-3;
               display: block;
             }
-          }
 
-          //Differing Flashback slightly
-          .flashback-track {
-            gap: 1.775rem;
-
-            .flashback-dot {
-              font-size: 1.5em;
-              cursor: pointer;
-              color: $mg-blue-main-2;
-              transition: color 0.5s ease, transform .5s ease;
-
-              &:hover {
-                transform: scale(1.2);
-              }
+            &:hover,
+            &:focus {
+              background: $mg-blue-1;
+              color: $mg-blue-4;
+              border-color: $mg-blue-1;
 
               i {
-                color: $mg-blue-main-2;
-              }
-
-              &.filled  i {
                 color: $mg-blue-3;
-              }
-            }
-          }
-
-          //Specific Load toggling for the spacing and coloring
-          .load-toggle {
-            .load-options {
-              display: flex;
-              gap: .875rem;
-              
-              .load-icon {
-                cursor: pointer;
-                transform: scale(1);
-                transition: all 0.3s ease;
-                color: $mg-blue-main-2;
-
-                &:hover,
-                &:focus {
-                  color: $mg-blue-3;
-                }
-
-                i {
-                  color: inherit;
-                }
-
-                &.selected {
-                  color: $mg-blue-3;
-                }
               }
             }
           }
@@ -701,12 +645,12 @@ h1,h2,h3,h4 {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 0 2.35rem;
 
             .capacity-box {
               display: flex;
               flex-direction: column;
               align-items: center;
+              width: 6.75rem;
 
               .label-box {
                 position: relative;
@@ -720,6 +664,7 @@ h1,h2,h3,h4 {
                   font-weight: 700;
                   color: $mg-blue-2;
                   text-transform: uppercase;
+                  margin-bottom: 0;
                 }
 
                 .capacity-controls {
@@ -741,20 +686,21 @@ h1,h2,h3,h4 {
                     }
 
                     &:first-of-type {
-                      left: -2.15rem;
+                      left: -2.25rem;
                       padding: .25rem 2rem .25rem .25rem;
                       justify-content: flex-start;
                     }
 
                     &:last-of-type {
-                      right: -2.15rem;
+                      right: -2.325rem;
                       padding: .25rem .25rem .25rem 2rem;
                       justify-content: flex-end;
                     }
                   }
 
                   .capacity-value {
-                    @include roboto();
+                    @include oswald();
+                    font-weight: 700;
                     font-size: 1rem;
                     color: $mg-ivory;
                   }
@@ -1651,6 +1597,24 @@ h1,h2,h3,h4 {
       overflow: hidden;
       align-items: center;
       margin: 0;
+      transition: opacity 0.5s ease, transform 0.5s ease;
+      will-change: opacity, transform;
+
+      &.pre-enter {
+        opacity: 0;
+        transform: translateY(6px);
+      }
+
+      &.is-entering {
+        opacity: 1;
+        transform: translateY(0);
+      }
+
+      &.is-leaving {
+        opacity: 0;
+        transform: translateY(6px);
+        pointer-events: none;
+      }
 
       h2 {
         border: none;
