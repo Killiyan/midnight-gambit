@@ -35,6 +35,7 @@
   width: var(--mg-ini-panel-w);
   pointer-events: auto;
   z-index: 110;
+  max-height: 90vh;
 
   .mg-ini-side-wrap {
     height: 100%;
@@ -174,6 +175,95 @@
     transform: skewY(-20deg);
     transform-origin: left center;
 
+    &:hover,
+    &:focus-visible {
+      .mg-ini-hoverstats {
+        opacity: 1;
+        transform: translate3d(0, 0, 0);
+      }
+    }    
+
+    .mg-ini-hoverstats {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      left: 0;
+      top: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      opacity: 0;
+      will-change: transform, opacity;
+      transform: translate3d(0, 6px, 0);
+      transition: opacity 0.5s ease, transform 0.5s ease;
+      backface-visibility: hidden;
+      -webkit-font-smoothing: antialiased;
+      text-rendering: geometricPrecision;						
+      pointer-events: none; // so hover stays on the slice
+      z-index: 50;
+      font-style: normal;
+      @include oswald();
+      background-image: url("../assets/images/filigree-character.png");
+      background-size: 100%;
+      color: $white;
+
+      &:after {
+        content: '';
+        position: absolute;
+        mix-blend-mode: color-dodge;
+        z-index: -1;
+        width: 100%;
+        height: 100%;
+        top: 0;
+        left: 0;
+        background: $mg-blue-main-2;
+      }      
+
+      i {
+        color: $mg-blue-2;
+      }
+
+      .mg-ini-hs-row {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        width: 100%;
+        height: 50%;
+        gap: .5rem;
+
+        &:last-of-type {
+          border-top: 2px solid $mg-blue-main-2;
+        }
+
+        .mg-ini-hs-pill {
+          display: flex;
+          align-items: center;
+          gap: 0.35rem;
+          justify-content: center;
+          align-items: center;
+          height: 50%;
+          border-radius: 0;
+          font-size: 1.75rem;
+          transition: color .5s ease;
+
+          &:last-of-type {
+            
+            i {
+              font-size: .75rem;
+            }
+          }        
+          
+          i { 
+            font-size: 1rem;
+          }
+
+          span { 
+            font-weight: 700; 
+          }
+        }							
+      }						
+    }		    
+
     &.is-end {
       background: $mg-blue-4;
 
@@ -223,7 +313,7 @@
   /* Hero slice (slot-0 bigger) */
   .mg-ini-side-slot.slot-0 .mg-ini-side-card {
     height: var(--mg-ini-slice-h0);
-    border-color: rgba(210, 230, 255, 0.95);
+    border-color: $mg-blue-1;
   }
 
   .mg-ini-side-card-img {
@@ -270,10 +360,10 @@
   }
 
   /* Slot border tinting */
-  .mg-ini-side-slot.slot-1 .mg-ini-side-card { border-color: rgba(160, 200, 255, .85); }
-  .mg-ini-side-slot.slot-2 .mg-ini-side-card { border-color: rgba(120, 170, 245, .75); }
-  .mg-ini-side-slot.slot-3 .mg-ini-side-card { border-color: rgba(90, 140, 225, .65); }
-  .mg-ini-side-slot.slot-4 .mg-ini-side-card { border-color: rgba(70, 120, 210, .55); }
+  .mg-ini-side-slot.slot-1 .mg-ini-side-card { border-color: $mg-blue-2; }
+  .mg-ini-side-slot.slot-2 .mg-ini-side-card { border-color: $mg-blue-3; }
+  .mg-ini-side-slot.slot-3 .mg-ini-side-card { border-color: $mg-blue-main-2 }
+  .mg-ini-side-slot.slot-4 .mg-ini-side-card { border-color: $mg-blue-4 }
 
   /* END card (when END_ID is painted into a slot) */
   .mg-ini-side-slot .mg-ini-side-card-name:empty {

@@ -50,6 +50,7 @@ export class MGInitiativeBar extends Application {
 
     MGInitiativeController.instance.activate();
     this._wireInitiativeController();
+    this._wireLiveRefresh(); // live-update strain/cap when actor sheets change
     // keep the foil hidden until we finish layout/hydration
     this._foilFadeOut(0)?.catch(() => {});
     this._foilDefer = true;
@@ -111,8 +112,6 @@ export class MGInitiativeBar extends Application {
   _collapsed = false;          // current collapsed state
   _collapseReleasePosition = false; // set to true if you want to drop fixed pos in collapsed mode
 
-
-
   // Null-safe: find the current Crew actor
   _resolveCrewActor() {
     let crew = null;
@@ -139,6 +138,127 @@ export class MGInitiativeBar extends Application {
     }
     return crew;
   }
+
+  // --- Hover stats (Capacity + Track) ---
+  _hoverStatsEnabled = true;
+
+  /* ------------------------------------------------------------------
+  * Hover Stats (Capacity + Track)
+  *
+  * Reads actor.system.strain:
+  *  - strain["mortal capacity"] / strain["soul capacity"] => remaining buffer
+  *  - strain.mortal / strain.soul                         => track damage
+  * ------------------------------------------------------------------*/
+  _getStrainSnapshot(actor) {
+    const s = actor?.system?.strain ?? {};
+    return {
+      mortal: {
+        cap: Number(s["mortal capacity"] ?? 0) || 0,
+        track: Number(s.mortal ?? 0) || 0
+      },
+      soul: {
+        cap: Number(s["soul capacity"] ?? 0) || 0,
+        track: Number(s.soul ?? 0) || 0
+      }
+    };
+  }
+
+  // --------- Strain helpers (safe for ANY actor) ---------
+  _getStrainNumbers(actor) {
+    // Midnight Gambit strain shape (per sheet.js):
+    //   system.strain.mortal            -> track damage (number)
+    //   system.strain.soul              -> track damage (number)
+    //   system.strain["mortal capacity"]-> capacity (number)
+    //   system.strain["soul capacity"]  -> capacity (number)
+    const s = actor?.system?.strain ?? {};
+
+    // --- Capacity ---
+    const mcCap = Number(
+      s["mortal capacity"] ??
+      s.mortalCap ??
+      (typeof s.mortal === "object" ? s.mortal?.cap : undefined) ??
+      0
+    ) || 0;
+
+    const scCap = Number(
+      s["soul capacity"] ??
+      s.soulCap ??
+      (typeof s.soul === "object" ? s.soul?.cap : undefined) ??
+      0
+    ) || 0;
+
+    // --- Track (damage) ---
+    const mcTrackRaw =
+      (typeof s.mortal === "number" ? s.mortal :
+        (typeof s.mortal === "object" ? s.mortal?.track : undefined)) ??
+      s["mortal track"] ??
+      s.mortalTrack ??
+      0;
+
+    const scTrackRaw =
+      (typeof s.soul === "number" ? s.soul :
+        (typeof s.soul === "object" ? s.soul?.track : undefined)) ??
+      s["soul track"] ??
+      s.soulTrack ??
+      0;
+
+    const mcTrack = Number(mcTrackRaw) || 0;
+    const scTrack = Number(scTrackRaw) || 0;
+
+    return {
+      mc: { cap: mcCap, track: mcTrack },
+      sc: { cap: scCap, track: scTrack },
+    };
+  }
+
+  _refreshSliceHoverStats(sliceEl) {
+    try {
+      if (!sliceEl) return;
+
+      const actorId = sliceEl.dataset?.actorId;
+      if (!actorId || actorId === "__MG_END__") return;
+
+      const actor = game.actors.get(actorId);
+      if (!actor) return;
+
+      const snap = this._getStrainNumbers(actor);
+
+      // Support either class name (you mentioned you styled a bit)
+      const pop =
+        sliceEl.querySelector(".mg-ini-hoverstats") ||
+        sliceEl.querySelector(".mg-ini-hovercard");
+
+      if (!pop) return;
+
+      const setRow = (type, capVal, trackVal) => {
+        const row = pop.querySelector(`.mg-ini-hs-row[data-type="${type}"]`);
+        if (!row) return;
+        const capEl   = row.querySelector('[data-field="cap"]');
+        const trackEl = row.querySelector('[data-field="track"]');
+        if (capEl) capEl.textContent = String(capVal);
+        if (trackEl) trackEl.textContent = String(trackVal);
+      };
+
+      setRow("mortal", snap.mc.cap, snap.mc.track);
+      setRow("soul",   snap.sc.cap, snap.sc.track);
+
+    } catch (err) {
+      console.warn("MG | _refreshSliceHoverStats failed (non-fatal):", err);
+    }
+  }
+
+  _refreshHoverStatsForActor(actorId) {
+    if (!this._root || !actorId) return;
+
+    const stage = this._root.querySelector(".mg-ini-diag-stage");
+    if (!stage) return;
+
+    const slice = stage.querySelector(`.mg-ini-slice[data-actor-id="${actorId}"]`);
+    const a = game.actors.get(actorId);
+
+    if (slice && a) this._refreshSliceHoverStats(slice, a);
+  }
+
 
   /** Try Crew flag first, else fallback to player characters (hidden-aware). */
   getOrderActorIds() {
@@ -283,10 +403,41 @@ export class MGInitiativeBar extends Application {
       btn.dataset.actorId = id;
       btn.title = a.name;
       const img = a.img || a.prototypeToken?.texture?.src || "icons/svg/mystery-man.svg";
-      btn.innerHTML = `<div class="mg-ini-image" style="background-image: url('${img}');"></div>`;
+      // NOTE: The hover stats panel is inert until CSS is added.
+      btn.innerHTML = `
+        <div class="mg-ini-image" style="background-image: url('${img}');"></div>
+
+        <div class="mg-ini-hoverstats" aria-hidden="true">
+          <div class="mg-ini-hs-row" data-type="mortal">
+            <span class="mg-ini-hs-pill">
+              <i class="fa-solid fa-dagger"></i>
+              <span class="mg-ini-hs-track" data-field="track">0</span>
+            </span>          
+            <span class="mg-ini-hs-pill">
+              <i class="fa-solid fa-shield"></i>
+              <span class="mg-ini-hs-cap" data-field="cap">0</span>
+            </span>
+          </div>
+
+          <div class="mg-ini-hs-row" data-type="soul">
+            <span class="mg-ini-hs-pill">
+              <i class="fa-solid fa-moon-over-sun"></i>
+              <span class="mg-ini-hs-track" data-field="track">0</span>
+            </span>          
+            <span class="mg-ini-hs-pill">
+              <i class="fa-solid fa-shield"></i>
+              <span class="mg-ini-hs-cap" data-field="cap">0</span>
+            </span>
+          </div>
+        </div>
+      `;
+
       // start hidden; layout will reveal when in window
       btn.style.visibility = "hidden";
       stage.appendChild(btn);
+      // Populate stats immediately (so first hover is correct)
+      this._refreshSliceHoverStats(btn, a);
+
     }
   }
 
@@ -1734,6 +1885,7 @@ export class MGInitiativeBar extends Application {
     this._attached = false;
     this._buildHTML();
     this._bindRootEvents();
+    this._wireLiveRefresh(); // live-update strain/cap when actor sheets change
     this._applyInitialPosition(); // 1) place bottom-right (or restore)
     this._enableDrag();           // 2) make header draggable and persist position
     this._attached = true;
@@ -1762,6 +1914,69 @@ export class MGInitiativeBar extends Application {
     // restore pos
     Object.assign(this._root.style, pos);
   }
+
+  /**
+   * Read the 4 strain numbers we care about, safely.
+   * Uses your actor schema:
+   *  - system.strain.mortal / system.strain.soul (track)
+   *  - system.strain["mortal capacity"] / ["soul capacity"] (capacity)
+   */
+  _getStrainSnapshot(actor) {
+    const s = actor?.system?.strain ?? {};
+    const mcCap = Number(s["mortal capacity"] ?? 0) || 0;
+    const scCap = Number(s["soul capacity"] ?? 0) || 0;
+    const mcTrk = Number(s.mortal ?? 0) || 0;
+    const scTrk = Number(s.soul ?? 0) || 0;
+    return { mcCap, scCap, mcTrk, scTrk };
+  }
+
+  /**
+   * Updates any existing strain UI for a given actor inside the sidebar initiative.
+   * This is intentionally "selector-flexible" so it won't nuke your styling:
+   * - it updates data-attrs (safe)
+   * - it updates common text nodes if they exist
+   */
+  _refreshSidebarStrainUI(actorId) {
+    if (!this._attached || !this._root) return;
+
+    const actor = game.actors.get(actorId);
+    if (!actor) return;
+
+    const snap = this._getStrainSnapshot(actor);
+
+    // Update every visible slice for this actor (in case it appears twice via wrap/END logic)
+    const slices = this._root.querySelectorAll(`.mg-ini-slice[data-actor-id="${actorId}"]`);
+    if (!slices?.length) return;
+
+    for (const el of slices) {
+      // Safe data attrs (won't affect layout unless your CSS uses them)
+      el.dataset.mcCap = String(snap.mcCap);
+      el.dataset.scCap = String(snap.scCap);
+      el.dataset.mcTrk = String(snap.mcTrk);
+      el.dataset.scTrk = String(snap.scTrk);
+
+      // If your popover markup exists, update it without assuming one exact structure.
+      // Add/keep whichever selectors match what you styled.
+      const map = [
+        { sel: '[data-stat="mc-cap"]', val: snap.mcCap },
+        { sel: '[data-stat="sc-cap"]', val: snap.scCap },
+        { sel: '[data-stat="mc-trk"]', val: snap.mcTrk },
+        { sel: '[data-stat="sc-trk"]', val: snap.scTrk },
+
+        // Common class fallbacks
+        { sel: ".mg-mc-cap", val: snap.mcCap },
+        { sel: ".mg-sc-cap", val: snap.scCap },
+        { sel: ".mg-mc-track", val: snap.mcTrk },
+        { sel: ".mg-sc-track", val: snap.scTrk }
+      ];
+
+      for (const { sel, val } of map) {
+        const node = el.querySelector(sel);
+        if (node) node.textContent = String(val);
+      }
+    }
+  }
+
 
   /** Live sync: when Crew changes its initiative flag/system, refresh in place */
   _wireLiveRefresh() {
@@ -1903,6 +2118,71 @@ export class MGInitiativeBar extends Application {
       }
     });
 
+    // --- Hover stats live refresh ---
+    // Strain/capacity changes happen on the individual actors, not the Crew.
+    Hooks.on("updateActor", (actor) => {
+      if (!this._attached || !this._root || !this._hoverStatsEnabled) return;
+      if (!actor?.id) return;
+      if (!Array.isArray(this._ids) || !this._ids.includes(actor.id)) return;
+      this._refreshHoverStatsForActor(actor.id);
+    });
+
+    Hooks.on("updateItem", (item) => {
+      if (!this._attached || !this._root || !this._hoverStatsEnabled) return;
+      const actor = item?.parent;
+      if (!actor?.id) return;
+      if (!Array.isArray(this._ids) || !this._ids.includes(actor.id)) return;
+      this._refreshHoverStatsForActor(actor.id);
+    });
+
+    // --- D) Live strain/capacity refresh for any actor in this initiative bar ---
+    Hooks.on("updateActor", (actor, changed) => {
+      if (!this._attached || !this._root) return;
+
+      // Ignore the Crew actor (handled by the progress/reset listeners)
+      const crew = this._resolveCrewActor();
+      if (crew && actor?.id === crew.id) return;
+
+      // Only actors currently in our initiative order
+      const ids = Array.isArray(this._ids) ? this._ids : [];
+      if (!actor?.id || !ids.includes(actor.id)) return;
+
+      // Only react to strain/capacity changes (prevents spam + accidental rerenders)
+      const touchedStrain =
+        getProperty(changed, "system.strain") != null ||
+        getProperty(changed, "system.strain.mortal") != null ||
+        getProperty(changed, "system.strain.soul") != null ||
+        getProperty(changed, "system.strain.mortal capacity") != null ||
+        getProperty(changed, "system.strain.soul capacity") != null;
+
+      if (!touchedStrain) return;
+
+      // Refresh ALL slices for that actor (safe with your visibility window logic)
+      const stage = this._root.querySelector(".mg-ini-diag-stage");
+      if (!stage) return;
+
+      const slices = stage.querySelectorAll(`.mg-ini-slice[data-actor-id="${actor.id}"]`);
+      for (const sliceEl of slices) {
+        this._refreshSliceHoverStats(sliceEl);
+      }
+    });
+
+
+    // --- E) If armor repair updates an embedded Item, reflect that immediately too ---
+    Hooks.on("updateItem", (item, changed) => {
+      if (!this._attached) return;
+
+      const parent = item?.parent;
+      if (!parent || parent.documentName !== "Actor") return;
+
+      const ids = Array.isArray(this._ids) ? this._ids : [];
+      if (!ids.includes(parent.id)) return;
+
+      // Armor repair tends to update remainingCapacity or similar fields on the item,
+      // which then affects recalcs / displayed capacity.
+      // We refresh the parent actor UI either way.
+      this._refreshSidebarStrainUI(parent.id);
+    });
   }
 
   _iniUnsub = null;

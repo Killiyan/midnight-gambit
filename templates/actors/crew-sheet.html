@@ -54,7 +54,7 @@
 
 				<div class="mg-party-grid">
 					{{#each partyMembers as |m|}}
-					<article class="mg-member-card" data-uuid="{{m.uuid}}">
+					<article class="mg-member-card" data-uuid="{{m.uuid}}" data-actor-id="{{m.actorId}}">
 						<div class="mg-member-portrait">
 							<img src="{{m.img}}" alt="{{m.name}}" />
 						</div>
@@ -66,6 +66,31 @@
 								{{#if m.missing}}<span class="mg-member-missing">(Missing)</span>{{/if}}
 							</div>
 						</div>
+
+						<div class="mg-party-strain">
+							<div class="mg-ini-hs-row" data-type="mortal">
+								<label>M</label>
+								<div class="mg-ini-hs-pill">
+									<span class="mg-ini-hs-cap" data-field="cap">{{m.mcCap}}</span>
+								</div>
+								<div class="mg-ini-hs-pill">
+									<i class="fa-solid fa-dagger"></i>
+									<span class="mg-ini-hs-track" data-field="track">{{m.mcTrk}}</span>
+								</div>
+							</div>
+
+							<div class="mg-ini-hs-row" data-type="soul">
+								<label>S</label>
+								<div class="mg-ini-hs-pill">
+									<span class="mg-ini-hs-cap" data-field="cap">{{m.scCap}}</span>
+								</div>
+								<div class="mg-ini-hs-pill">
+									<i class="fa-solid fa-moon-over-sun"></i>
+									<span class="mg-ini-hs-track" data-field="track">{{m.scTrk}}</span>
+								</div>
+							</div>
+						</div>
+
 
 						<div class="mg-member-actions">
 

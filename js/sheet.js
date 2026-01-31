@@ -1079,27 +1079,12 @@ _mgOpenChatCropper() {
           "system.flashbackUsed": false
         };
 
-
         await actor.update(updates);
 
-        // Repair/reset remainingCapacity for equipped capacity-granting items,
-        // but DO NOT clear equipped, and DO NOT clear capacityApplied.
-        for (const item of actor.items.filter(i =>
-          ["armor", "misc"].includes(i.type) &&
-          i.system.equipped &&
-          ((i.system.mortalCapacity ?? 0) > 0 || (i.system.soulCapacity ?? 0) > 0)
-        )) {
-          const mc = item.system.mortalCapacity ?? 0;
-          const sc = item.system.soulCapacity ?? 0;
+        // NOTE: Long Rest does *not* repair armor durability.
+        // Armor/Misc remainingCapacity only recovers via the item's Repair button in Inventory.
 
-          await item.update({
-            "system.capacityApplied": true,
-            "system.remainingCapacity.mortal": mc,
-            "system.remainingCapacity.soul": sc
-          });
-        }
-
-        // Set actor strain capacity to Base + Equipped bonuses
+        // Reset actor capacity buffer to Base + CURRENT equipped remainingCapacity (post-damage) + temp (now cleared)
         await recalcStrainFromGear({ resetToMax: true });
 
         await actor.prepareData();
@@ -1219,28 +1204,17 @@ _mgOpenChatCropper() {
         // DAMAGE
         if (dir < 0) {
           if (cap > 0) {
-            // Spend buffer first.
-            const nextCapRaw = Math.max(0, cap - 1);
+            const nextCap = Math.max(0, cap - 1);
 
-            // If there's equipped gear buffer, damage that first (shrinks future max).
-            const soakItems = actor.items.filter(item =>
-              ["armor", "misc"].includes(item.type) &&
-              item.system.equipped &&
-              item.system.capacityApplied &&
-              (item.system.remainingCapacity?.[type] ?? 0) > 0
-            );
+            // If an equipped armor/misc item is providing capacity, tick its remainingCapacity down
+            await checkArmorDamage(actor, cap, nextCap, type);
 
-            if (soakItems.length) {
-              const item = soakItems[0];
-              const rem = Number(item.system.remainingCapacity?.[type] ?? 0);
-              await item.update({ [`system.remainingCapacity.${type}`]: Math.max(0, rem - 1) }, { render: false });
-              await recalcStrainFromGear({ resetToMax: false });
-            }
+            // Recompute max from gear AFTER item durability changes (keeps max labels + math correct)
+            await recalcStrainFromGear({ resetToMax: false });
 
-            // Clamp to current max after any gear shrink
-            const maxAfter = getMax();
-            const nextCap = Math.min(maxAfter, nextCapRaw);
+            // Now spend the actor’s remaining capacity buffer
             await actor.update({ [`system.strain.${capKey}`]: nextCap }, { render: false });
+
             patchUI();
             return;
           }
@@ -1755,40 +1729,70 @@ _mgOpenChatCropper() {
         }
       });
 
-
       //Repair Armor
       html.find(".repair-armor").on("click", async (event) => {
         const itemId = event.currentTarget.dataset.itemId;
         const item = this.actor.items.get(itemId);
-        const isRepairable = ["armor", "misc"].includes(item.type) &&
-        (item.system.mortalCapacity > 0 || item.system.soulCapacity > 0);
 
+        const isRepairable =
+          item &&
+          ["armor", "misc"].includes(item.type) &&
+          (Number(item.system.mortalCapacity) > 0 || Number(item.system.soulCapacity) > 0);
+
+        // Only equipped gear contributes to capacity and can be repaired for the live sheet effect
         if (!isRepairable || !item.system.equipped) return;
 
-        const {
-          mortalCapacity = 0,
-          soulCapacity = 0,
-          remainingCapacity = { mortal: 0, soul: 0 }
-        } = item.system;
+        const mortalCapacity = Number(item.system.mortalCapacity ?? 0);
+        const soulCapacity = Number(item.system.soulCapacity ?? 0);
 
-        const remainingMC = remainingCapacity.mortal ?? 0;
-        const remainingSC = remainingCapacity.soul ?? 0;
+        const remainingMC = Number(item.system.remainingCapacity?.mortal ?? 0);
+        const remainingSC = Number(item.system.remainingCapacity?.soul ?? 0);
 
-        const isDamaged = remainingMC < mortalCapacity || remainingSC < soulCapacity;
+        const deltaMC = Math.max(0, mortalCapacity - remainingMC);
+        const deltaSC = Math.max(0, soulCapacity - remainingSC);
+
+        const isDamaged = deltaMC > 0 || deltaSC > 0;
         if (!isDamaged) {
           ui.notifications.info(`${item.name} is already fully repaired.`);
           return;
         }
 
-        // Restore armor’s own durability
-        await item.update({
-          "system.remainingCapacity.mortal": mortalCapacity,
-          "system.remainingCapacity.soul": soulCapacity,
-          "system.capacityApplied": true
-        }, { render: false });
+        // 1) Restore the item's own durability
+        await item.update(
+          {
+            "system.remainingCapacity.mortal": mortalCapacity,
+            "system.remainingCapacity.soul": soulCapacity,
+            "system.capacityApplied": true
+          },
+          { render: false }
+        );
 
         ui.notifications.info(`${item.name} repaired. Durability restored.`);
+
+        // 2) Recalculate derived capacity (base + CURRENT equipped remainingCapacity)
+        // NOTE: This should NOT heal track; it only updates maxCapacity bookkeeping.
         await recalcStrainFromGear({ resetToMax: false });
+
+        // 3) Live update the actor's *current* capacity buffer by the amount repaired.
+        // This is why the player shouldn't need to Rest to see the armor capacity come back.
+        const updates = {};
+        if (deltaMC > 0) {
+          const capKey = "mortal capacity";
+          const cur = Number(this.actor.system?.strain?.[capKey] ?? 0);
+          const max = Number(this.actor.system?.strain?.maxCapacity?.mortal ?? (cur + deltaMC));
+          updates[`system.strain.${capKey}`] = Math.min(max, cur + deltaMC);
+        }
+        if (deltaSC > 0) {
+          const capKey = "soul capacity";
+          const cur = Number(this.actor.system?.strain?.[capKey] ?? 0);
+          const max = Number(this.actor.system?.strain?.maxCapacity?.soul ?? (cur + deltaSC));
+          updates[`system.strain.${capKey}`] = Math.min(max, cur + deltaSC);
+        }
+
+        if (Object.keys(updates).length) {
+          await this.actor.update(updates, { render: false });
+        }
+
         this.render(false);
       });
 

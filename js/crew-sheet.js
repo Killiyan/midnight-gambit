@@ -339,14 +339,26 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 		if (cache?.[uuid]?.level != null) levelText = String(cache[uuid].level);
 		}
 
+      // Strain snapshot (safe defaults)
+      const strain = doc?.system?.strain ?? {};
+      const mcCap = Number(strain["mortal capacity"] ?? 0) || 0;
+      const scCap = Number(strain["soul capacity"] ?? 0) || 0;
+      const mcTrk = Number(strain.mortal ?? 0) || 0;
+      const scTrk = Number(strain.soul ?? 0) || 0;		
+
       out.push({
         uuid,
+		actorId: doc?.id ?? null,
         name,
         img,
         type,
         className,
         levelText,
-        missing: !doc
+        missing: !doc,
+        mcCap,
+        scCap,
+        mcTrk,
+        scTrk		
       });
     }
     return out;
@@ -580,8 +592,94 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 		return 6;              // tier 5 stays 6
 	}
 
+	_getStrainSnapshot(actor) {
+		const s = actor?.system?.strain ?? {};
+		return {
+		mortal: {
+			cap: Number(s["mortal capacity"] ?? 0) || 0,
+			track: Number(s.mortal ?? 0) || 0
+		},
+		soul: {
+			cap: Number(s["soul capacity"] ?? 0) || 0,
+			track: Number(s.soul ?? 0) || 0
+		}
+		};
+	}
+
+	_refreshPartyCardStrain(actorId) {
+		if (!actorId) return;
+		const root = this.element?.[0];
+		if (!root) return;
+
+		const actor = game.actors.get(actorId);
+		if (!actor) return;
+
+		const snap = this._getStrainSnapshot(actor);
+
+		const cards = root.querySelectorAll(`.mg-member-card[data-actor-id="${actorId}"]`);
+		for (const card of cards) {
+		const wrap = card.querySelector(".mg-party-strain");
+		if (!wrap) continue;
+
+		for (const type of ["mortal", "soul"]) {
+			const row = wrap.querySelector(`.mg-ini-hs-row[data-type="${type}"]`);
+			if (!row) continue;
+
+			const capEl = row.querySelector(`[data-field="cap"]`);
+			const trkEl = row.querySelector(`[data-field="track"]`);
+
+			if (capEl) capEl.textContent = String(snap[type].cap);
+			if (trkEl) trkEl.textContent = String(snap[type].track);
+		}
+		}
+	}
+
+	_wirePartyStrainLiveRefresh() {
+		if (this._partyStrainHooksWired) return;
+		this._partyStrainHooksWired = true;
+
+		// Update when any party member's strain changes
+		this._partyStrainActorHookId = Hooks.on("updateActor", (actor, changed) => {
+		// Only when this sheet is open
+		if (!this.element?.length) return;
+		if (!actor?.id) return;
+
+		// Only if actor is in our party list
+		const members = this.actor?.system?.party?.members ?? [];
+		// We stored UUIDs; simplest: refresh if we have a card with this actorId
+		const root = this.element?.[0];
+		if (!root?.querySelector?.(`.mg-member-card[data-actor-id="${actor.id}"]`)) return;
+
+		// Only react to strain/cap changes (keeps it light)
+		const touched =
+			getProperty(changed, "system.strain") != null ||
+			getProperty(changed, "system.strain.mortal") != null ||
+			getProperty(changed, "system.strain.soul") != null ||
+			getProperty(changed, "system.strain.mortal capacity") != null ||
+			getProperty(changed, "system.strain.soul capacity") != null;
+
+		if (!touched) return;
+
+		this._refreshPartyCardStrain(actor.id);
+		});
+
+		// Optional: if item repairs indirectly change capacity via item updates, this keeps it snappy
+		this._partyStrainItemHookId = Hooks.on("updateItem", (item, changed) => {
+		if (!this.element?.length) return;
+		const parent = item?.parent;
+		if (!parent || parent.documentName !== "Actor") return;
+
+		const root = this.element?.[0];
+		if (!root?.querySelector?.(`.mg-member-card[data-actor-id="${parent.id}"]`)) return;
+
+		this._refreshPartyCardStrain(parent.id);
+		});
+	}
+
+
 	activateListeners(html) {
 	super.activateListeners(html);
+	this._wirePartyStrainLiveRefresh();
 
 		const $root = html instanceof jQuery ? html : $(html);
 

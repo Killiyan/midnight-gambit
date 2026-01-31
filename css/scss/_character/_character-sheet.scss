@@ -1784,8 +1784,9 @@ h1,h2,h3,h4 {
     .currency-field {
       padding: 1.125rem;
       border-right: 2px solid $mg-blue-main-2;
-      border-radius: .5rem;
+      border-radius: 0;
       width: calc(28% - 1rem);
+      text-align: left;
 
       label {
         margin-bottom: .5rem;

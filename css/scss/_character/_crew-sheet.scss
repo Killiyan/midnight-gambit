@@ -280,6 +280,7 @@
 			.mg-member-card,
 			.mg-init-card {
 				display: flex;
+				flex-direction: column;
 				position: relative;
 				background: $mg-blue-main-2;
 				border: 2px solid $mg-blue-main-2;
@@ -461,20 +462,109 @@
 				width: calc(33% - .675rem);
 				min-height: 10rem;
 				align-items: center;
-				padding: 2.5rem 2.125rem;
+				padding: 1.125rem 1.125rem 5.25rem 2.125rem;
+				gap: 1rem;
+
+				.mg-party-strain {
+					display: flex;
+					width: 100%;
+					padding-left: 25%;
+					gap: 1rem;
+
+					.mg-ini-hs-row {
+						//background: $mg-blue-main;
+						//border-radius: .5rem;
+						//border: 2px solid $mg-blue-3;
+						padding: .5rem;
+						display: flex;
+						flex-direction: column;
+						justify-content: center;
+						align-items: center;
+						position: relative;
+						width: 50%;
+						aspect-ratio: 1/1;
+
+						&:after {
+							content: '\f132';
+							font-family: "Font Awesome 6 Pro";
+							color: $mg-blue-main;
+							font-size: 4rem;
+							font-weight: 700;
+							position: absolute;
+							top: 0;
+							left: calc(50% - 2rem);
+							z-index: -1;
+							-webkit-text-stroke-width: 2px; /* For Chrome/Safari */
+							-webkit-text-stroke-color: $mg-blue-3;
+						}
+
+						.mg-ini-hs-pill {
+							display: flex;
+							justify-content: center;
+							align-items: center;
+							gap: .5rem;
+
+							i {
+								font-size: 1rem;
+								color: $mg-blue-3;
+								aspect-ratio: 1/1;
+								width: 1rem;
+								height: 1rem;
+							}
+
+							.mg-ini-hs-track,
+							.mg-ini-hs-cap {
+								@include oswald();
+								font-size: 1.25rem;
+								color: $white;
+							}
+
+							&:last-of-type {
+								position: absolute;
+    							padding: 2rem 0.5rem 0.5rem 0.5rem;
+								bottom: -2.5rem;
+								left: calc(50% - 26.5px);
+								background: $mg-blue-main;
+								border: 2px solid $mg-blue-3;
+								z-index: -1;
+								border-radius: 0 0 .5rem .5rem;
+							}
+						}
+					}
+					
+					label {
+						font-size: 1rem;
+						line-height: 1.1;
+						grid-column-start: 1;
+						grid-column-end: 3;
+						margin: 0;
+					}
+				}
 
 				.mg-member-actions {
+					width: 75%;
 					position: absolute;
-					top: .5rem;
-					right: .5rem;
-					width: auto;
+					left: 25%;
+					bottom: 0;
 					margin: 0;
+					display: flex;
+					gap: 2px;
 
 					button {
+						width: 50%;
+						border-radius: 0;
 						padding: .5rem;
 						min-width: 2.25rem;
 						margin: 0;
 						border: 0;
+					}
+
+					.mg-member {
+						width: 50%;
+
+						button {
+							width: 100%;
+						}
 					}
 				}
 			}

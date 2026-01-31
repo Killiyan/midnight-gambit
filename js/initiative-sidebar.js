@@ -64,6 +64,8 @@ export class MGInitiativeSidebar {
     this._syncFromSource();
     this._renderShell();
     this._paintSlots();
+    this._wireLiveActorRefresh();
+
   }
 
   async unmount() {
@@ -192,6 +194,31 @@ export class MGInitiativeSidebar {
                   <div class="mg-ini-side-card-img"><img src="" alt=""></div>
                   <div class="mg-ini-side-card-name"></div>
                 </div>
+
+                <!-- Hover stats (Capacity + Track) -->
+                <div class="mg-ini-hoverstats" aria-hidden="true">
+                  <div class="mg-ini-hs-row" data-type="mortal">
+                    <span class="mg-ini-hs-pill">
+                      <i class="fa-solid fa-dagger"></i>
+                      <span class="mg-ini-hs-track" data-field="track">0</span>
+                    </span>                  
+                    <span class="mg-ini-hs-pill">
+                      <i class="fa-solid fa-shield"></i>
+                      <span class="mg-ini-hs-cap" data-field="cap">0</span>
+                    </span>
+                  </div>
+
+                  <div class="mg-ini-hs-row" data-type="soul">
+                    <span class="mg-ini-hs-pill">
+                      <i class="fa-solid fa-moon-over-sun"></i>
+                      <span class="mg-ini-hs-track" data-field="track">0</span>
+                    </span>                  
+                    <span class="mg-ini-hs-pill">
+                      <i class="fa-solid fa-shield"></i>
+                      <span class="mg-ini-hs-cap" data-field="cap">0</span>
+                    </span>
+                  </div>
+                </div>
               </div>
             </div>
           `).join("")}
@@ -202,6 +229,95 @@ export class MGInitiativeSidebar {
     `;
 
     this._bind(root);
+  }
+
+  // -----------------------------
+  // Hover Stats: Strain Snapshot + Paint
+  // -----------------------------
+  _getStrainSnapshot(actor) {
+    const s = actor?.system?.strain ?? {};
+    return {
+      mortal: {
+        cap: Number(s["mortal capacity"] ?? 0) || 0,
+        track: Number(s.mortal ?? 0) || 0
+      },
+      soul: {
+        cap: Number(s["soul capacity"] ?? 0) || 0,
+        track: Number(s.soul ?? 0) || 0
+      }
+    };
+  }
+
+  _refreshSliceHoverStats(sliceEl, actorId) {
+    if (!sliceEl) return;
+
+    // END / empty slots shouldn't show stats
+    if (!actorId || actorId === END_ID) return;
+
+    const actor = game.actors.get(actorId);
+    if (!actor) return;
+
+    const panel = sliceEl.querySelector(".mg-ini-hoverstats");
+    if (!panel) return;
+
+    const snap = this._getStrainSnapshot(actor);
+
+    for (const type of ["mortal", "soul"]) {
+      const row = panel.querySelector(`.mg-ini-hs-row[data-type="${type}"]`);
+      if (!row) continue;
+
+      const capEl = row.querySelector(`[data-field="cap"]`);
+      const trackEl = row.querySelector(`[data-field="track"]`);
+
+      if (capEl) capEl.textContent = String(Math.max(0, snap[type].cap));
+      if (trackEl) trackEl.textContent = String(Math.max(0, snap[type].track));
+    }
+  }
+
+  _refreshAllSidebarHoverStatsForActor(actorId) {
+    const root = document.getElementById("mg-initiative-sidebar");
+    if (!root || !actorId) return;
+
+    const slots = root.querySelectorAll(`.mg-ini-side-slot[data-actor-id="${actorId}"]`);
+    for (const slot of slots) {
+      const slice = slot.querySelector(".mg-ini-slice");
+      if (slice) this._refreshSliceHoverStats(slice, actorId);
+    }
+  }
+
+  _wireLiveActorRefresh() {
+    if (this._liveHooksWired) return;
+    this._liveHooksWired = true;
+
+    // Actor sheet edits (capacity/track) -> update sidebar instantly
+    Hooks.on("updateActor", (actor, changed) => {
+      if (!this._mounted) return;
+      if (!actor?.id) return;
+      if (!Array.isArray(this._ids) || !this._ids.includes(actor.id)) return;
+
+      // Only react to strain/cap changes (prevents unnecessary work)
+      const touched =
+        getProperty(changed, "system.strain") != null ||
+        getProperty(changed, "system.strain.mortal") != null ||
+        getProperty(changed, "system.strain.soul") != null ||
+        getProperty(changed, "system.strain.mortal capacity") != null ||
+        getProperty(changed, "system.strain.soul capacity") != null;
+
+      if (!touched) return;
+
+      this._refreshAllSidebarHoverStatsForActor(actor.id);
+    });
+
+    // Item changes (armor repair updates remainingCapacity) -> capacity recalc flows into actor -> refresh UI
+    Hooks.on("updateItem", (item, changed) => {
+      if (!this._mounted) return;
+      const parent = item?.parent;
+      if (!parent || parent.documentName !== "Actor") return;
+      if (!Array.isArray(this._ids) || !this._ids.includes(parent.id)) return;
+
+      // If armor repair triggers actor update too, this is redundant but harmless.
+      this._refreshAllSidebarHoverStatsForActor(parent.id);
+    });
   }
 
   _paintCard(cardEl, id) {
@@ -286,7 +402,6 @@ export class MGInitiativeSidebar {
         return;
       }
 
-
       if (!id) {
         slot.classList.add("is-empty");
         slot.dataset.actorId = "";
@@ -300,9 +415,12 @@ export class MGInitiativeSidebar {
       slot.classList.remove("is-empty");
       slot.dataset.actorId = id;
 
-      if (img) img.src = a?.img ?? "icons/svg/mystery-man.svg";
+      if (img) img.src = a?.img ?? "systems/midnight-gambit/assets/images/mg-queen.png";
       if (name) name.textContent = a?.name ?? "—";
       if (card) card.removeAttribute("aria-hidden");
+
+      const sliceEl = slot.querySelector(".mg-ini-slice");
+      if (sliceEl) this._refreshSliceHoverStats(sliceEl, id);      
     });
 
     // END ghost active
