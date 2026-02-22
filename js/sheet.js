@@ -132,23 +132,26 @@ export class MidnightGambitActorSheet extends ActorSheet {
 
       context.CONFIG = CONFIG;
 
-      const guiseId = this.actor.system.guise;
-      if (guiseId) {
-        const guise = this.actor.items.get(guiseId) || game.items.get(guiseId);
-        if (guise) {
+      // --- Guise shown on-sheet (Moves/Signature) is allowed to differ from primary (stats) ---
+      const primaryGuiseId = this.actor.system?.guise || this.actor.system?.guiseId || null;
+      const movesGuiseId = this.actor.system?.movesGuiseId || primaryGuiseId;
+
+      context.primaryGuiseId = primaryGuiseId;
+      context.movesGuiseId = movesGuiseId;
+
+      if (movesGuiseId) {
+        const guise = this.actor.items.get(movesGuiseId) || game.items.get(movesGuiseId);
+        if (guise?.type === "guise") {
           context.guise = guise;
 
           const casterType = guise.system?.casterType ?? null;
-
           context.isCaster = casterType === "full" || casterType === "half";
           context.isFullCaster = casterType === "full";
           context.isHalfCaster = casterType === "half";
 
-          console.log("Guise ID:", guiseId);
-          console.log("Caster Type:", casterType);
-          console.log("isCaster?", context.isCaster);
-          console.log("isFullCaster?", context.isFullCaster);
-          console.log("isHalfCaster?", context.isHalfCaster);
+          console.log("Primary Guise ID:", primaryGuiseId);
+          console.log("Moves Guise ID:", movesGuiseId);
+          console.log("Rendering Moves from:", guise.name);
         }
       } else {
         context.isCaster = false;
@@ -176,11 +179,44 @@ export class MidnightGambitActorSheet extends ActorSheet {
           (!sc || item.system.remainingCapacity.soul === sc);
       }
 
-      /* Split moves into Basic (from Guise or not-learned) vs Learned
-      ----------------------------------------------------------------------*/
+      // ----------------------------------------------------------------------
+      // Moves: learned vs “secondary guise injected” move-items
+      // ----------------------------------------------------------------------
       const allMoves = this.actor.items.filter(i => i.type === "move");
-      context.basicMoves   = allMoves.filter(m => !m.system?.learned);
-      context.learnedMoves = allMoves.filter(m =>  m.system?.learned);
+
+      // Keep your existing learned-moves behavior
+      context.learnedMoves = allMoves.filter(m =>
+        m.system?.learned === true &&
+        m.system?.isSignature !== true
+      );
+
+      // Secondary Guise injected moves (created on 2nd+ guise drop)
+      const secondaryMoves = allMoves.filter(m => m.system?.fromSecondaryGuise === true);
+
+      context.secondarySignatureMoves = secondaryMoves.filter(m => m.system?.isSignature === true);
+      context.secondaryBasicMoves     = secondaryMoves.filter(m => m.system?.isSignature !== true);
+
+      context.enrichedSecondarySignatureMoves = await Promise.all(
+        context.secondarySignatureMoves.map(async m => ({
+          _id: m.id,
+          name: m.name,
+          description: m.system?.description ?? "",
+          html: await TextEditor.enrichHTML(String(m.system?.description ?? ""), { async: true }),
+          tags: Array.isArray(m.system?.tags) ? m.system.tags : [],
+          guiseSource: m.system?.guiseSource ?? null
+        }))
+      );
+
+      context.enrichedSecondaryBasicMoves = await Promise.all(
+        context.secondaryBasicMoves.map(async m => ({
+          _id: m.id,
+          name: m.name,
+          description: m.system?.description ?? "",
+          html: await TextEditor.enrichHTML(String(m.system?.description ?? ""), { async: true }),
+          tags: Array.isArray(m.system?.tags) ? m.system.tags : [],
+          guiseSource: m.system?.guiseSource ?? null
+        }))
+      );  
 
       /* Level up / Undo context
       ----------------------------------------------------------------------*/
@@ -221,6 +257,43 @@ export class MidnightGambitActorSheet extends ActorSheet {
         context.enrichedMoves = [];
       }
 
+      // ----------------------------------------------------------------------
+      // Enrich embedded Move items used for multi-guise / signature perk drops
+      // ----------------------------------------------------------------------
+      const enrichMoveItem = async (itemDoc) => {
+        const desc = String(itemDoc?.system?.description ?? "");
+        return {
+          _id: itemDoc.id,
+          name: itemDoc.name,
+          description: desc,
+          tags: Array.isArray(itemDoc.system?.tags) ? itemDoc.system.tags : [],
+          html: await TextEditor.enrichHTML(desc, { async: true })
+        };
+      };
+
+      // Signature perk MOVES (embedded move items flagged as signature)
+      context.enrichedSignaturePerkMoves = await Promise.all(
+        (context.signaturePerkMoves ?? []).map(enrichMoveItem)
+      );
+
+      // Extra basic moves from secondary guises (embedded move items with guiseSource)
+      context.enrichedEmbeddedGuiseMoves = await Promise.all(
+        (context.embeddedGuiseMoves ?? []).map(enrichMoveItem)
+      );      
+
+      // Embedded signature perks (from secondary guises OR standalone drops)
+      const embeddedSigItems = this.actor.items.filter(i =>
+        i.type === "move" && i.system?.isSignature === true
+      );
+
+      context.embeddedSignatureMoves = await Promise.all(
+        embeddedSigItems.map(async (m) => ({
+          _id: m.id,
+          name: m.name,
+          description: m.system?.description ?? "",
+          html: await TextEditor.enrichHTML(String(m.system?.description ?? ""), { async: true })
+        }))
+      );      
 
       context.data = context;  // <- this makes all context vars available to the template root
       context.tags = CONFIG.MidnightGambit?.ITEM_TAGS ?? [];
@@ -1314,7 +1387,24 @@ _mgOpenChatCropper() {
 
         if (!confirmed) return;
 
-        await this.actor.update({ "system.guise": null });
+        // Delete ALL embedded Guise items
+        const guiseIds = this.actor.items
+          .filter(i => i.type === "guise")
+          .map(i => i.id);
+
+        if (guiseIds.length) {
+          await this.actor.deleteEmbeddedDocuments("Item", guiseIds);
+        }
+
+        // Clear tracking fields (primary + moves + secondary)
+        await this.actor.update({
+          "system.guise": null,
+          "system.guiseId": null,
+          "system.guiseUuid": null,
+          "system.movesGuiseId": null,
+          "system.secondaryGuises": []
+        });
+
         this.render(true);
       });
 
@@ -4375,146 +4465,143 @@ _mgOpenChatCropper() {
     }
 
     if (itemData.type === "guise") {
-    console.log("✅ Dropped a guise item on actor");
+      console.log("✅ Dropped a guise item on actor");
 
-    if (!this.actor.system.baseAttributes || Object.keys(this.actor.system.baseAttributes).length === 0) {
-      const base = foundry.utils.deepClone(this.actor.system.attributes);
-      await this.actor.update({ "system.baseAttributes": base });
-    }
+      // Helper: hydrate dropped Guise (UUID or raw data) into an Item doc
+      const hydrateGuise = async () => {
+        if (itemData?.uuid) {
+          const doc = await fromUuid(itemData.uuid);
+          if (!doc) throw new Error("Failed to load Guise from UUID");
+          return doc;
+        }
 
-    let guise;
-    try {
-      console.log("🧪 Dropped itemData:", itemData);
-
-      // Use from Uuid if coming from compendium (has UUID)
-      if (itemData?.uuid) {
-        guise = await fromUuid(itemData.uuid);
-        if (!guise) throw new Error("Failed to load item from UUID");
-      } else {
-        // Flatten if the data is embedded like a compendium wrapper
         const data = itemData.system?.system ? itemData.system : itemData;
+        if (!data?.name || !data?.type) throw new Error("Dropped Guise missing required fields");
+        return await Item.implementation.create(data, { temporary: true });
+      };
 
-        // Validate required fields
-        if (!data.name || !data.type) {
-          throw new Error("Dropped item is missing required fields");
-        }
-
-        guise = await Item.implementation.create(data, { temporary: true });
+      let droppedGuise;
+      try {
+        droppedGuise = await hydrateGuise();
+      } catch (err) {
+        console.error("MG | Failed to retrieve dropped guise:", err);
+        ui.notifications?.error("Could not load the dropped Guise item.");
+        return [];
       }
-    } catch (err) {
-      console.error("Failed to retrieve dropped guise:", err);
-      ui.notifications.error("Could not load the dropped Guise item.");
-      return [];
-    }
 
-    const [embedded] = await this.actor.createEmbeddedDocuments("Item", [guise.toObject()]);
-    await this.actor.update({ "system.guise": embedded.id });
+      if (!droppedGuise || droppedGuise.type !== "guise") {
+        ui.notifications?.error("Dropped item is not a valid Guise.");
+        return [];
+      }
 
-    if (!guise || guise.type !== "guise") {
-      ui.notifications.error("Dropped item is not a valid Guise.");
-      return [];
-    }
+      // Robust primary detection (system fields first; fallback to an embedded guise)
+      let primaryGuiseId =
+        this.actor.system?.guiseId ||
+        this.actor.system?.guise ||
+        null;
 
-      /* Guise Caster Type
-      ----------------------------------------------------------------------*/
-      const casterType = guise.system?.casterType ?? null;
-      let sparkSchool1 = "";
-      let sparkSchool2 = "";
+      if (!primaryGuiseId) {
+        const embeddedPrimary = this.actor.items?.find(i => i.type === "guise");
+        if (embeddedPrimary) primaryGuiseId = embeddedPrimary.id;
+      }
 
-      if (["full", "half"].includes(casterType)) {
-        const schools = [
-          { value: "veiling", label: "Veiling" },
-          { value: "sundering", label: "Sundering" },
-          { value: "binding", label: "Binding" },
-          { value: "drift", label: "Drift" },
-          { value: "threading", label: "Threading" },
-          { value: "warding", label: "Warding" },
-          { value: "shaping", label: "Shaping" },
-          { value: "gloom", label: "Gloom" },
-          { value: "ember", label: "Ember" }
-        ];
+      const hasPrimary = Boolean(primaryGuiseId);
 
-        const form = document.createElement("form");
+      // Always embed the guise. Mark it secondary if a primary already exists.
+      const [embeddedGuise] = await this.actor.createEmbeddedDocuments(
+        "Item",
+        [droppedGuise.toObject()],
+        { mgSecondary: hasPrimary }
+      );
 
-        // Spark School 1
-        const label1 = document.createElement("label");
-        label1.textContent = "Spark School 1";
-        const select1 = document.createElement("select");
-        select1.name = "sparkSchool1";
-        select1.innerHTML = `<option value="">-- Select --</option>` +
-          schools.map(s => `<option value="${s.value}">${s.label}</option>`).join("");
+      if (!embeddedGuise) {
+        ui.notifications?.error("Failed to embed Guise on actor.");
+        return [];
+      }
 
-        form.appendChild(label1);
-        form.appendChild(select1);
+      // FIRST GUISE: do nothing else here.
+      // The actor.js hook will apply full stats/resources AND set system.guiseId + movesGuiseId.
+      if (!hasPrimary) {
+        ui.notifications?.info(`${embeddedGuise.name} assigned as primary Guise.`);
+        this.render(false);
+        return [];
+      }
 
-        let select2;
-        if (["full", "caster"].includes(casterType)) {
-          const label2 = document.createElement("label");
-          label2.textContent = "Spark School 2";
-          select2 = document.createElement("select");
-          select2.name = "sparkSchool2";
-          select2.innerHTML = `<option value="">-- Select --</option>` +
-            schools.map(s => `<option value="${s.value}">${s.label}</option>`).join("");
+      // SECOND+ GUISE:
+      // Add ONLY Signature Perk + Basic Moves as embedded Move items.
+      // Do NOT change system.guiseId / guise / movesGuiseId.
 
-          // Prevent duplicate selections
-          select1.addEventListener("change", () => {
-            const selected1 = select1.value;
-            select2.querySelectorAll("option").forEach(opt => {
-              opt.disabled = opt.value === selected1 && opt.value !== "";
-            });
-          });
+      // Track secondary guises list (optional but useful)
+      const existing = Array.isArray(this.actor.system.secondaryGuises)
+        ? this.actor.system.secondaryGuises
+        : [];
 
-          form.appendChild(label2);
-          form.appendChild(select2);
+      const nextSecondary = existing.includes(embeddedGuise.id)
+        ? existing
+        : [...existing, embeddedGuise.id];
+
+      await this.actor.update({ "system.secondaryGuises": nextSecondary });
+
+      // Clear any previously-created moves from THIS guise (prevents duplicates on re-drop)
+      try {
+        const toDelete = this.actor.items
+          .filter(i => i.type === "move" && i.system?.guiseSource === embeddedGuise.id)
+          .map(i => i.id);
+
+        if (toDelete.length) {
+          await this.actor.deleteEmbeddedDocuments("Item", toDelete);
         }
+      } catch (e) {
+        console.warn("MG | Failed clearing old guise-sourced moves (non-fatal):", e);
+      }
 
-        /* Choose Spark Schools prompt
-        ----------------------------------------------------------------------*/
-        await Dialog.wait({
-          title: "Choose Spark School(s)",
-          content: `
-            ${form.outerHTML}
-          `,
-          buttons: {
-            ok: { label: this._mgBtn("Confirm", "fa-check"), callback: () => {
-              const selected1 = document.querySelector('[name="sparkSchool1"]')?.value || "";
-              sparkSchool1 = selected1;
+      const moveCreates = [];
 
-              if (["full", "caster"].includes(casterType)) {
-                const selected2 = document.querySelector('[name="sparkSchool2"]')?.value || "";
-                sparkSchool2 = selected2;
-              }
-              return true;
-            }},
-            cancel: { label: this._mgBtn("Cancel", "fa-circle-xmark"), callback: () => false }
-          },
-          default: "ok",
-          render: (html) => {
-            if (["full", "caster"].includes(casterType)) {
-              const select1El = html[0].querySelector('[name="sparkSchool1"]');
-              const select2El = html[0].querySelector('[name="sparkSchool2"]');
+      // Signature Perk → embedded Move item
+      const sigName = String(droppedGuise.system?.signaturePerk ?? "").trim();
+      const sigDesc = String(droppedGuise.system?.signatureDescription ?? "").trim();
 
-              select1El.addEventListener("change", () => {
-                const selected1 = select1El.value;
-                Array.from(select2El.options).forEach(opt => {
-                  opt.disabled = opt.value === selected1 && opt.value !== "";
-                });
-              });
-            }
+      if (sigName) {
+        moveCreates.push({
+          name: sigName,
+          type: "move",
+          system: {
+            description: sigDesc,
+            tags: [],
+            learned: false,
+            isSignature: true,
+            fromSecondaryGuise: true,
+            guiseSource: embeddedGuise.id
           }
         });
       }
 
-      await this.actor.update({
-        "system.guise": embedded.id,
-        "system.casterType": casterType,
-        "system.sparkSchool1": sparkSchool1,
-        "system.sparkSchool2": sparkSchool2
-      });
+      // Basic Moves → embedded Move items
+      const rawMoves = Array.isArray(droppedGuise.system?.moves) ? droppedGuise.system.moves : [];
+      for (const m of rawMoves) {
+        const n = String(m?.name ?? "").trim();
+        if (!n) continue;
 
-      await this.actor.update({});   // <-- force apply guise bonuses
-      ui.notifications.info(`${guise.name} applied as new Guise!`);
-      await this.render(true);
+        moveCreates.push({
+          name: n,
+          type: "move",
+          system: {
+            description: String(m?.description ?? ""),
+            tags: Array.isArray(m?.tags) ? m.tags : [],
+            learned: false,
+            isSignature: false,
+            fromSecondaryGuise: true,
+            guiseSource: embeddedGuise.id
+          }
+        });
+      }
+
+      if (moveCreates.length) {
+        await this.actor.createEmbeddedDocuments("Item", moveCreates);
+      }
+
+      ui.notifications?.info(`${embeddedGuise.name} added (Signature + Basic Moves only).`);
+      this.render(false);
       return [];
     }
     
@@ -4565,6 +4652,12 @@ _mgOpenChatCropper() {
       } catch (err) {
         console.error("Failed to read dropped Move:", err);
         ui.notifications.error("Could not read the dropped Move.");
+        return [];
+      }
+
+      // Prevent NPC moves from being learned by PCs
+      if (moveDoc?.system?.npcMove === true || moveDoc?.system?.npcSignature === true) {
+        ui.notifications.warn("That’s an NPC-only Move. It can’t be learned by player characters.");
         return [];
       }
 

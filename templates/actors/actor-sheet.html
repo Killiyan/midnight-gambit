@@ -333,6 +333,26 @@
                 {{{signatureHtml}}}
               </div>
             </div>
+            
+            {{#if enrichedSecondarySignatureMoves.length}}
+              {{#each enrichedSecondarySignatureMoves}}
+                <div class="signature-perk" data-item-id="{{this._id}}">
+                  <h3>
+                    <span
+                      class="post-signature"
+                      data-perk-name="{{this.name}}"
+                      data-perk-description="{{this.description}}"
+                    >
+                      <i class="fa-solid fa-messages"></i>Signature Perk: {{this.name}}
+                    </span>
+                  </h3>
+
+                  <div class="move-content">
+                    {{{this.html}}}
+                  </div>
+                </div>
+              {{/each}}
+            {{/if}}            
 
             <div class="basic-moves">
               <h3>Basic Moves</h3>
@@ -349,8 +369,23 @@
                     </div>
                   </div>
                 {{/each}}
+
+                {{#if enrichedSecondaryBasicMoves.length}}
+                      {{#each enrichedSecondaryBasicMoves}}
+                        <div class="move-block" data-item-id="{{this._id}}">
+                          <strong class="post-move"
+                                  data-move-name="{{this.name}}"
+                                  data-move-description="{{this.description}}">
+                            <i class="fa-solid fa-messages"></i>{{this.name}}
+                          </strong>
+                          <div class="move-content">
+                            {{{this.html}}}
+                          </div>
+                        </div>
+                      {{/each}}
+                {{/if}}                 
               </div>
-            </div>
+            </div>        
           {{else}}
             <p>No guise assigned. Assign one to gain moves.</p>
           {{/if}}
@@ -360,7 +395,7 @@
           <h3>Learned Moves</h3>
           <div class="moves-grid" data-move-list>
             {{#each actor.items as |item|}}
-              {{#if (eq item.type "move")}}
+              {{#if (and (eq item.type "move") item.system.learned (not item.system.isSignature))}}
               <div class="move-block" data-item-id="{{item._id}}" draggable="true">
                 <header class="move-header">
                   <span

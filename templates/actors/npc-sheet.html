@@ -1,0 +1,429 @@
+<form class="sheet actor npc-sheet" data-actor-id="{{actor._id}}" autocomplete="off">
+
+  <!-- Tabs (same structure, just fewer) -->
+  <nav class="sheet-tabs floating" data-group="main">
+    <a class="item" data-tab="general"><i class="fas fa-user"></i> <span>General</span></a>
+    <a class="item" data-tab="settings"><i class="fa-solid fa-gears"></i> <span>Settings</span></a>
+  </nav>
+
+  <div class="sheet-body">
+
+    <!-- Header block (kept same structure for styling reuse) -->
+    <div class="character-info">
+
+      <div class="personal-info">
+        <div class="name">
+          <!-- Name (kept your structure/classes) -->
+          <div class="mg-name-wrap" data-mg-nameblock>
+            <h1 class="mg-name-view">{{actor.name}}</h1>
+          </div>
+
+          <!-- Keep the edit button if you already support it elsewhere.
+               If you don't, it's harmless. -->
+          <button type="button" class="mg-edit-name" title="Edit name">
+            <i class="fa-solid fa-pen-to-square"></i>
+          </button>
+
+          <!-- NPC subtitle slot (optional, but keeps layout similar) -->
+          {{#if system.npc.title}}
+            <div class="mg-crew-affiliation">
+              <span>Role:</span> {{system.npc.title}}
+            </div>
+          {{else}}
+            <div class="mg-crew-affiliation is-empty">
+              NPC
+            </div>
+          {{/if}}
+
+          <!-- You can add a small “type” or faction line later without changing layout -->
+          {{#if system.npc.faction}}
+            <div class="mg-crew-affiliation">
+              <span>Faction:</span> {{system.npc.faction}}
+            </div>
+          {{/if}}
+        </div>
+
+        <!-- Side controls (kept wrapper for consistent spacing)
+             No Edge/Rest for NPCs -->
+        <div class="side-controls">
+          <div class="button-wrapper">
+            {{!-- intentionally empty: keeps spacing consistent --}}
+          </div>
+        </div>
+
+        <!-- Strain (your exact block) -->
+        <div class="strain-container">
+
+          <div class="capacity-box">
+            <div class="label-box">
+              <label data-tooltip="Physical damage affects this pool before your main tracks.">MC</label>
+              <div class="capacity-controls" data-type="mortal">
+                <button type="button" class="cap-tick" data-dir="-1" aria-label="Decrease Mortal Capacity"><i class="fa-solid fa-minus"></i></button>
+
+                <span
+                  class="capacity-value"
+                  data-type="mortal"
+                  data-tooltip="Physical damage affects this pool before your main tracks."
+                >
+                  {{lookup actor.system.strain 'mortal capacity'}}
+                </span>
+
+                <button type="button" class="cap-tick" data-dir="1" aria-label="Increase Mortal Capacity"><i class="fa-solid fa-plus"></i></button>
+              </div>
+            </div>
+
+            <div class="strain-track mortal" data-strain="mortal">
+              {{#range 1 5}}
+                <span class="strain-dot {{#if (lte this ../actor.system.strain.mortal)}}filled{{/if}}"
+                      data-value="{{this}}"
+                      data-type="mortal">
+                  <i class="fa-solid fa-dagger"></i>
+                </span>
+              {{/range}}
+            </div>
+          </div>
+
+          <div class="capacity-box soul">
+            <div class="label-box">
+              <label data-tooltip="Supernatural or emotional damage affects this pool before your main tracks.">SC</label>
+              <div class="capacity-controls" data-type="soul">
+                <button type="button" class="cap-tick" data-dir="-1" aria-label="Decrease Soul Capacity"><i class="fa-solid fa-minus"></i></button>
+
+                <span
+                  class="capacity-value"
+                  data-type="soul"
+                  data-tooltip="Supernatural or emotional damage affects this pool before your main tracks."
+                >
+                  {{lookup actor.system.strain 'soul capacity'}}
+                </span>
+
+                <button type="button" class="cap-tick" data-dir="1" aria-label="Increase Soul Capacity"><i class="fa-solid fa-plus"></i></button>
+              </div>
+            </div>
+
+            <div class="strain-track soul" data-strain="soul">
+              {{#range 1 5}}
+                <span class="strain-dot {{#if (lte this ../actor.system.strain.soul)}}filled{{/if}}"
+                      data-value="{{this}}"
+                      data-type="soul">
+                  <i class="fa-solid fa-moon-over-sun"></i>
+                </span>
+              {{/range}}
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Profile image (same class so your crop system can reuse styling) -->
+      <div class="profile-image">
+        <img class="mg-profile-img" src="{{actor.img}}" data-edit="img" title="{{actor.name}}" />
+      </div>
+
+    </div>
+
+
+    <section class="tab-content" data-group="main">
+
+      <!-- GENERAL TAB -->
+      <div class="tab" data-group="main" data-tab="general">
+
+        <!-- Attributes (kept your containers/classes) -->
+        <div class="attribute-container">
+          {{#each attributeKeys as |key|}}
+
+            <div class="attribute-column" data-attr="{{key}}">
+              <label class="attribute-label">{{key}}</label>
+
+              <div class="attribute-interior">
+                <div class="attribute">
+                  <span class="attribute-modifier"
+                        data-tooltip="Click to roll | Right click to edit base Attribute"
+                        data-key="{{key}}"
+                        data-base="{{lookup ../system.baseAttributes key}}">
+                    {{#if (gte (lookup ../system.attributes key) 0)}}
+                      +{{lookup ../system.attributes key}}
+                    {{else}}
+                      {{lookup ../system.attributes key}}
+                    {{/if}}
+                  </span>
+                </div>
+
+                <hr>
+                
+                <!-- Optional: quick “Opposition” post button, tiny footprint -->
+                <button type="button" class="npc-post-opp" data-key="{{key}}" title="Post opposition to chat">
+                  <i class="fa-solid fa-comment-dots"></i>
+                </button>
+
+              </div>
+            </div>
+
+          {{/each}}
+        </div>
+
+
+        <!-- Moves & Signature (moved INTO general) -->
+
+        <div class="mg-content">
+
+          <h2>Signature Perk</h2>
+
+          <!-- SIGNATURE PERK -->
+          <div class="signature-perk" data-dropzone="signature">
+
+            {{#if signatureMove}}
+              <h3>
+                <span
+                  class="post-signature"
+                  data-perk-name="{{signatureMove.name}}"
+                  data-perk-description="{{signatureMove.system.description}}"
+                >
+                  <i class="fa-solid fa-messages"></i>
+                  Signature Perk: {{signatureMove.name}}
+                </span>
+              </h3>
+
+              <div class="move-content">
+                {{{signatureHtml}}}
+              </div>
+
+              {{#if signatureMove.system.tags.length}}
+                <div class="tags-wrap" data-item-id="{{signatureMove._id}}">
+                  <div class="item-tags mg-seeall-wrap">
+                    {{#each signatureMove.system.tags as |tagId|}}
+                      {{#with (lookup ../../CONFIG.MidnightGambit.ITEM_TAGS tagId) as |tag|}}
+                        <div class="item-tag tag" data-item-id="{{../signatureMove._id}}" data-tag-id="{{tagId}}" title="Right-click to remove">
+                          <span data-tooltip="{{tag.description}}">{{tag.description}}</span>
+                        </div>
+                      {{else}}
+                        <div class="item-tag tag" data-item-id="{{../signatureMove._id}}" data-tag-id="{{tagId}}" title="Right-click to remove">
+                          <span>{{tagId}}</span>
+                        </div>
+                      {{/with}}
+                    {{/each}}
+                  </div>
+
+                  <span class="tags-toggle" hidden>
+                    <i class="fa-solid fa-angle-down"></i>
+                  </span>
+                </div>
+              {{/if}}
+
+              {{!-- EXTRA Signature Perks (from secondary guises / standalone signature drops) --}}
+              {{#if enrichedSignaturePerkMoves.length}}
+                <div class="basic-moves">
+                  <h3>Additional Signature Perks</h3>
+
+                  <div class="move-container">
+                    {{#each enrichedSignaturePerkMoves}}
+                      <div class="move-block" data-item-id="{{this._id}}" draggable="true">
+                        <strong
+                          class="post-signature"
+                          data-perk-name="{{this.name}}"
+                          data-perk-description="{{this.description}}"
+                        >
+                          <i class="fa-solid fa-messages"></i>Signature Perk: {{this.name}}
+                        </strong>
+
+                        <div class="move-content">
+                          {{{this.html}}}
+                        </div>
+
+                        {{!-- Tags (use the SAME structure as inventory) --}}
+                        {{#if this.tags.length}}
+                          <div class="tags-wrap" data-item-id="{{this._id}}">
+                            <div class="item-tags">
+                              {{#each this.tags as |tagId|}}
+                                {{#with (lookup ../../CONFIG.MidnightGambit.ITEM_TAGS tagId) as |tag|}}
+                                  <div class="item-tag tag" data-item-id="{{../this._id}}" data-tag-id="{{tagId}}" title="Right-click to remove">
+                                    <span data-tooltip="{{tag.description}}">{{tag.description}}</span>
+                                  </div>
+                                {{else}}
+                                  <div class="item-tag tag" data-item-id="{{../this._id}}" data-tag-id="{{tagId}}" title="Right-click to remove">
+                                    <span>{{tagId}}</span>
+                                  </div>
+                                {{/with}}
+                              {{/each}}
+                            </div>
+
+                            <span class="tags-toggle" hidden>
+                              <i class="fa-solid fa-angle-down"></i>
+                            </span>
+                          </div>
+                        {{/if}}
+                      </div>
+                    {{/each}}
+                  </div>
+                </div>
+              {{/if}}
+
+              <div class="status-buttons" style="margin-left:10px;">
+                <button type="button" class="item-edit" data-item-id="{{signatureMove._id}}" title="Edit">
+                  <i class="fa-solid fa-pen-to-square"></i>
+                </button>
+                <button type="button" class="item-delete" data-item-id="{{signatureMove._id}}" title="Delete">
+                  <i class="fa-solid fa-trash"></i>
+                </button>
+              </div>
+
+            {{else}}
+              {{!-- Blank state: ONLY the hint --}}
+              <p class="npc-hint">Click “+ Signature” or drop a Move here.</p>
+            {{/if}}
+
+          </div>
+
+          <!-- BASIC MOVES -->
+          <div class="basic-moves" data-dropzone="moves">
+            <h3>Basic Moves</h3>
+
+            {{#if enrichedNpcMoves.length}}
+
+              <div class="move-container">
+                {{#each enrichedNpcMoves}}
+                  <div class="move-block" data-item-id="{{this._id}}" draggable="true">
+                    <strong
+                      class="post-move"
+                      data-move-name="{{this.name}}"
+                      data-move-description="{{this.description}}"
+                    >
+                      <i class="fa-solid fa-messages"></i>{{this.name}}
+                    </strong>
+
+                    <div class="move-content">
+                      {{{this.html}}}
+                    </div>
+
+                    {{#if this.tags.length}}
+                      <div class="tags-wrap" data-item-id="{{this._id}}">
+                        <div class="item-tags mg-seeall-wrap">
+                          {{#each this.tags as |tagId|}}
+                            {{#with (lookup ../../CONFIG.MidnightGambit.ITEM_TAGS tagId) as |tag|}}
+                              <div class="item-tag tag" data-item-id="{{../_id}}" data-tag-id="{{tagId}}" title="Right-click to remove">
+                                <span data-tooltip="{{tag.description}}">{{tag.description}}</span>
+                              </div>
+                            {{else}}
+                              <div class="item-tag tag" data-item-id="{{../_id}}" data-tag-id="{{tagId}}" title="Right-click to remove">
+                                <span>{{tagId}}</span>
+                              </div>
+                            {{/with}}
+                          {{/each}}
+                        </div>
+
+                        <span class="tags-toggle" hidden>
+                          <i class="fa-solid fa-angle-down"></i>
+                        </span>
+                      </div>
+                    {{/if}}                 
+
+                    <div class="status-buttons">
+                      <button type="button" class="item-edit" data-item-id="{{this._id}}" title="Edit">
+                        <i class="fa-solid fa-pen-to-square"></i>
+                      </button>
+                      <button type="button" class="item-delete" data-item-id="{{this._id}}" title="Delete">
+                        <i class="fa-solid fa-trash"></i>
+                      </button>
+                    </div>
+                  </div>
+                {{/each}}
+              </div>
+
+            {{else}}
+              {{!-- Blank state: ONLY the hint --}}
+              <p class="npc-hint">No NPC Moves yet. Click “+ NPC Move” or drag them in.</p>
+            {{/if}}
+
+            {{!-- EXTRA Basic Moves (embedded from secondary guises) --}}
+            {{#if enrichedEmbeddedGuiseMoves.length}}
+              <div class="basic-moves">
+                <h3>Additional Moves</h3>
+
+                <div class="move-container">
+                  {{#each enrichedEmbeddedGuiseMoves}}
+                    <div class="move-block" data-item-id="{{this._id}}" draggable="true">
+                      <strong
+                        class="post-move"
+                        data-move-name="{{this.name}}"
+                        data-move-description="{{this.description}}"
+                      >
+                        <i class="fa-solid fa-messages"></i>{{this.name}}
+                      </strong>
+
+                      <div class="move-content">
+                        {{{this.html}}}
+                      </div>
+
+                      {{#if this.tags.length}}
+                        <div class="tags-wrap" data-item-id="{{this._id}}">
+                          <div class="item-tags">
+                            {{#each this.tags as |tagId|}}
+                              {{#with (lookup ../../CONFIG.MidnightGambit.ITEM_TAGS tagId) as |tag|}}
+                                <div class="item-tag tag" data-item-id="{{../this._id}}" data-tag-id="{{tagId}}" title="Right-click to remove">
+                                  <span data-tooltip="{{tag.description}}">{{tag.description}}</span>
+                                </div>
+                              {{else}}
+                                <div class="item-tag tag" data-item-id="{{../this._id}}" data-tag-id="{{tagId}}" title="Right-click to remove">
+                                  <span>{{tagId}}</span>
+                                </div>
+                              {{/with}}
+                            {{/each}}
+                          </div>
+
+                          <span class="tags-toggle" hidden>
+                            <i class="fa-solid fa-angle-down"></i>
+                          </span>
+                        </div>
+                      {{/if}}
+                    </div>
+                  {{/each}}
+                </div>
+              </div>
+            {{/if}}         
+
+          </div>
+
+        </div>
+
+        <div class="mg-content npc-tools">
+          <button type="button" class="npc-signature-create">
+            <i class="fa-solid fa-plus"></i> Signature
+          </button>
+
+
+          <button type="button" class="npc-move-create">
+            <i class="fa-solid fa-plus"></i> NPC Move
+          </button>              
+        </div>        
+      </div>
+
+
+      <!-- SETTINGS TAB (mirrors your character sheet settings structure) -->
+      <div class="tab settings-tab" data-group="main" data-tab="settings">
+
+        <div class="mg-content">
+          <h2>Profile Image</h2>
+
+          <div class="button-wrapper">
+            <button type="button" class="mg-change-profile-image" data-edit="img">
+              <i class="fa-solid fa-image"></i>
+              Image Settings
+            </button>
+
+            <button type="button" class="mg-crop-profile">
+              <i class="fa-solid fa-user"></i> Frame Actor Profile Image
+            </button>
+
+            <button type="button" class="mg-crop-chat">
+              <i class="fa-solid fa-comment"></i> Frame Chat Image
+            </button>
+          </div>
+        </div>
+
+        {{!-- If your character sheet has more Settings blocks you want shared (frame image picker, etc.),
+             we can paste the exact same markup here once we confirm the fields/flags. --}}
+      </div>
+
+    </section>
+  </div>
+</form>

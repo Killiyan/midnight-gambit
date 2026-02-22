@@ -756,7 +756,8 @@ h1,h2,h3,h4 {
 /*Character Sheet Styling
 ==============================================================================*/
 
-.sheet .actor {
+.sheet .actor,
+.sheet.npc-sheet {
   .sheet-body {
     position: relative;
     background: $mg-blue-4;
@@ -1192,7 +1193,24 @@ h1,h2,h3,h4 {
   }
 
   //Start the Moves Tab of the character sheet
-  .tab-moves {
+  .tab-moves,
+  .tab {
+
+    .npc-tools {
+      display: flex;
+      gap: 1rem;
+    }
+
+    .npc-hint {
+      padding: 1.125rem;
+      margin: 0;
+    }
+
+    .status-buttons {
+      display: flex;
+      gap: 1rem;
+      padding: 0 1rem 1rem 1rem;
+    }
 
     .signature-perk,
     .move-block {
@@ -1215,6 +1233,10 @@ h1,h2,h3,h4 {
     .signature-perk {
       background: $mg-blue-main-2;
       padding: 0;
+
+      &:first-of-type {
+        margin-bottom: 2.125rem;
+      }
 
       h3 {
         @include oswald();
@@ -1275,6 +1297,12 @@ h1,h2,h3,h4 {
         padding-bottom: .75rem;
         @include oswald();
         font-size: 1.25rem;
+      }
+
+      .npc-hint {
+        background: $mg-blue-main-2;
+        box-shadow: 5px 5px 10px rgba($black, .5);
+        border-radius: .5rem;
       }
 
       .move-container,

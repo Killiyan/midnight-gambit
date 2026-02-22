@@ -5,6 +5,7 @@ import { GuiseSheet } from "./guise-sheet.js";
 import { MidnightGambitActorSheet } from "./sheet.js";
 import { MidnightGambitItemSheet } from "./item-sheet.js";
 import { MidnightGambitCrewSheet } from "./crew-sheet.js";
+import { MidnightGambitNpcSheet } from "./npc-sheet.js";
 
 
 
@@ -74,6 +75,11 @@ Hooks.once("init", async () => {
     types: ["crew"],
     makeDefault: true
   });
+
+  Actors.registerSheet("midnight-gambit", MidnightGambitNpcSheet, {
+    types: ["npc"],
+    makeDefault: true
+  });  
 
   // TinyMCE — use our copied skin folder directly + our content css
   CONFIG.TinyMCE = foundry.utils.mergeObject(CONFIG.TinyMCE ?? {}, {

@@ -33,6 +33,36 @@
 			},
 			"tier": 1
 		}
+	},
+	
+	"npc": {
+		"type": "npc",
+		"name": "New NPC",
+		"system": {
+			"npc": {
+			"signatureName": "",
+			"signatureText": ""
+			},
+			"baseAttributes": {
+			"tenacity": 0,
+			"finesse": 0,
+			"resolve": 0,
+			"guile": 0,
+			"instinct": 0,
+			"presence": 0
+			},
+			"strain": {
+			"mortal": 0,
+			"soul": 0,
+			"mortal capacity": 0,
+			"soul capacity": 0,
+			"manualOverride": {
+				"mortal capacity": false,
+				"soul capacity": false
+			}
+			},
+			"baseStrainCapacity": { "mortal": 0, "soul": 0 }
+		}
 	}
 	},
 
@@ -82,7 +112,9 @@
 		},
 		"move": {
 			"description": "",
-			"tags": []
+			"tags": [],
+			"npcMove": false,
+			"npcSignature": false
 		},
 		"asset": {
 		"system": {
@@ -154,6 +186,7 @@
 		},
 		"class": "class placeholder",
 		"level": 1,
+		"secondaryGuises": [],
 		"load": "light",
 		"flashbackUsed": false,
 		"casterType": null,

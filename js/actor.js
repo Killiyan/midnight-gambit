@@ -472,21 +472,47 @@ export class MidnightGambitActor extends Actor {
     return pending;
   }
 
-  async _onCreateDescendantDocuments(embeddedName, documents, context) {
-    if (embeddedName !== "Item") return;
+  // v11+ preferred
+  async _onCreateDescendantDocuments(parent, collection, documents, data, options, userId) {
+    // We only care about embedded Items on this Actor
+    if (collection !== "Item") return;
 
     const guise = documents.find(doc => doc.type === "guise");
     if (!guise) return;
 
-    console.log(`✅ Intercepted Guise creation: ${guise.name}`);
+    const isSecondary = Boolean(options?.mgSecondary);
+    const primaryId = this.system?.guiseId || this.system?.guise || null;
+    const hasPrimary = Boolean(primaryId);
 
+    console.log(`✅ Intercepted Guise creation: ${guise.name}`, {
+      isSecondary,
+      hasPrimary,
+      primaryId
+    });
+
+    // Secondary OR already has primary → track only, don’t overwrite stats
+    if (isSecondary || hasPrimary) {
+      const existing = Array.isArray(this.system.secondaryGuises) ? this.system.secondaryGuises : [];
+      const nextSecondary = existing.includes(guise.id) ? existing : [...existing, guise.id];
+
+      await this.update({
+        "system.secondaryGuises": nextSecondary
+      });
+      return;
+    }
+
+    // ---- FIRST GUISE ONLY: apply full stats/resources ----
     if (!this.system.baseAttributes || Object.keys(this.system.baseAttributes).length === 0) {
       const base = foundry.utils.deepClone(this.system.attributes);
       await this.update({ "system.baseAttributes": base });
     }
 
     const updates = {
-      "system.guise": guise.uuid,
+      "system.guiseId": guise.id,
+      "system.guise": guise.id,
+      "system.guiseUuid": guise.uuid ?? null,
+      "system.movesGuiseId": guise.id,
+
       "system.strain['mortal capacity']": guise.system.mortalCap ?? 5,
       "system.strain['soul capacity']": guise.system.soulCap ?? 5,
       "system.sparkSlots": guise.system.sparkSlots ?? 0,
@@ -494,13 +520,15 @@ export class MidnightGambitActor extends Actor {
       "system.riskDice": guise.system.riskDice ?? 5
     };
 
-    console.log("Guise sparkSlots value before update:", guise.system.sparkSlots);
-    console.log("Full updates object:", updates);
-
+    console.log("MG | Applying PRIMARY Guise updates:", updates);
     await this.update(updates);
-    //await this.deleteEmbeddedDocuments("Item", [guise.id]);
+  }
 
-    context.keepId = true;
-    return [];
+  // Optional shim: keep for older code paths / modules that might still call it.
+  // You can remove this once you’re confident everything is v11+.
+  async _onCreateEmbeddedDocuments(embeddedName, documents, result, options, userId) {
+    // Route to the new handler format.
+    if (embeddedName !== "Item") return;
+    return this._onCreateDescendantDocuments(this, "Item", documents, result, options, userId);
   }
 }

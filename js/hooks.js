@@ -1796,6 +1796,37 @@ Hooks.on("renderChatMessage", async (message, html) => {
   } catch (err) {
     console.error("Midnight Gambit | Chat portrait injection error:", err);
   }
+
+  // Apply saved chat crop (flags.midnight-gambit.crops.chat.css) if an actor exists
+  try {
+    const actorId = speaker.actor;
+    const actor = actorId ? game.actors.get(actorId) : null;
+    const css = actor?.getFlag("midnight-gambit", "crops")?.chat?.css;
+
+    if (css) {
+      const x = Number.isFinite(css.x) ? css.x : 50;
+      const y = Number.isFinite(css.y) ? css.y : 50;
+      const s = Number.isFinite(css.scale) ? css.scale : 1;
+
+      const imgEl = $avatar.find("img")[0];
+      if (imgEl) {
+        imgEl.style.position = "absolute";
+        imgEl.style.left = `${x}%`;
+        imgEl.style.top = `${y}%`;
+        imgEl.style.transformOrigin = "center center";
+        imgEl.style.transform = `translate(-50%, -50%) scale(${s})`;
+      }
+
+      // Ensure wrap clips correctly
+      const wrapEl = $avatar[0];
+      if (wrapEl) {
+        wrapEl.style.position = "relative";
+        wrapEl.style.overflow = "hidden";
+      }
+    }
+  } catch (e) {
+    console.warn("MG | Chat crop apply failed:", e);
+  }
 });
 
 // --- Risk It: one-use per message; subsequent risks via the spawned result card ---
