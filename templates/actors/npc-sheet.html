@@ -169,110 +169,121 @@
 
           <h2>Signature Perk</h2>
 
-          <!-- SIGNATURE PERK -->
-          <div class="signature-perk" data-dropzone="signature">
+          <div class="signature-wrapper" data-dropzone="signature">
 
-            {{#if signatureMove}}
-              <h3>
-                <span
-                  class="post-signature"
-                  data-perk-name="{{signatureMove.name}}"
-                  data-perk-description="{{signatureMove.system.description}}"
-                >
-                  <i class="fa-solid fa-messages"></i>
-                  Signature Perk: {{signatureMove.name}}
-                </span>
-              </h3>
+            <!-- SIGNATURE PERK -->
+            <div class="signature-perk">
 
-              <div class="move-content">
-                {{{signatureHtml}}}
-              </div>
-
-              {{#if signatureMove.system.tags.length}}
-                <div class="tags-wrap" data-item-id="{{signatureMove._id}}">
-                  <div class="item-tags mg-seeall-wrap">
-                    {{#each signatureMove.system.tags as |tagId|}}
-                      {{#with (lookup ../../CONFIG.MidnightGambit.ITEM_TAGS tagId) as |tag|}}
-                        <div class="item-tag tag" data-item-id="{{../signatureMove._id}}" data-tag-id="{{tagId}}" title="Right-click to remove">
-                          <span data-tooltip="{{tag.description}}">{{tag.description}}</span>
-                        </div>
-                      {{else}}
-                        <div class="item-tag tag" data-item-id="{{../signatureMove._id}}" data-tag-id="{{tagId}}" title="Right-click to remove">
-                          <span>{{tagId}}</span>
-                        </div>
-                      {{/with}}
-                    {{/each}}
-                  </div>
-
-                  <span class="tags-toggle" hidden>
-                    <i class="fa-solid fa-angle-down"></i>
+              {{#if signatureMove}}
+                <h3>
+                  <span
+                    class="post-signature"
+                    data-perk-name="{{signatureMove.name}}"
+                    data-perk-description="{{signatureMove.system.description}}"
+                  >
+                    <i class="fa-solid fa-messages"></i>
+                    Signature Perk: {{signatureMove.name}}
                   </span>
+                </h3>
+
+                <div class="move-content">
+                  {{{signatureHtml}}}
                 </div>
+
+                {{#if signatureMove.system.tags.length}}
+                  <div class="tags-wrap" data-item-id="{{signatureMove._id}}">
+                    <div class="item-tags mg-seeall-wrap">
+                      {{#each signatureMove.system.tags as |tagId|}}
+                        {{#with (lookup ../../CONFIG.MidnightGambit.ITEM_TAGS tagId) as |tag|}}
+                          <div class="item-tag tag" data-item-id="{{../signatureMove._id}}" data-tag-id="{{tagId}}" title="Right-click to remove">
+                            <span data-tooltip="{{tag.description}}">{{tag.description}}</span>
+                          </div>
+                        {{else}}
+                          <div class="item-tag tag" data-item-id="{{../signatureMove._id}}" data-tag-id="{{tagId}}" title="Right-click to remove">
+                            <span>{{tagId}}</span>
+                          </div>
+                        {{/with}}
+                      {{/each}}
+                    </div>
+
+                    <span class="tags-toggle" hidden>
+                      <i class="fa-solid fa-angle-down"></i>
+                    </span>
+                  </div>
+                {{/if}}
+
+                <div class="status-buttons" style="margin-left:10px;">
+                  <button type="button" class="item-edit" data-item-id="{{signatureMove._id}}" title="Edit">
+                    <i class="fa-solid fa-pen-to-square"></i>
+                  </button>
+                  <button type="button" class="item-delete" data-item-id="{{signatureMove._id}}" title="Delete">
+                    <i class="fa-solid fa-trash"></i>
+                  </button>
+                </div>
+
+              {{else}}
+                {{!-- Blank state: ONLY the hint --}}
+                <p class="npc-hint">Click “+ Signature” or drop a Move here.</p>
               {{/if}}
 
-              {{!-- EXTRA Signature Perks (from secondary guises / standalone signature drops) --}}
-              {{#if enrichedSignaturePerkMoves.length}}
-                <div class="basic-moves">
-                  <h3>Additional Signature Perks</h3>
+            </div>
 
-                  <div class="move-container">
-                    {{#each enrichedSignaturePerkMoves}}
-                      <div class="move-block" data-item-id="{{this._id}}" draggable="true">
-                        <strong
+            {{!-- EXTRA Signature Perks (from secondary guises / standalone signature drops) --}}
+            {{#if enrichedSignaturePerkMoves.length}}
+              <div class="signature-secondary">
+                  {{#each enrichedSignaturePerkMoves}}
+                    <div class="signature-perk" data-item-id="{{this._id}}" draggable="true">
+                      <h3>
+                        <span
                           class="post-signature"
                           data-perk-name="{{this.name}}"
                           data-perk-description="{{this.description}}"
                         >
-                          <i class="fa-solid fa-messages"></i>Signature Perk: {{this.name}}
-                        </strong>
+                          <i class="fa-solid fa-messages"></i>
+                          Signature Perk: {{this.name}}
+                        </span>
+                      </h3>
 
-                        <div class="move-content">
-                          {{{this.html}}}
-                        </div>
-
-                        {{!-- Tags (use the SAME structure as inventory) --}}
-                        {{#if this.tags.length}}
-                          <div class="tags-wrap" data-item-id="{{this._id}}">
-                            <div class="item-tags">
-                              {{#each this.tags as |tagId|}}
-                                {{#with (lookup ../../CONFIG.MidnightGambit.ITEM_TAGS tagId) as |tag|}}
-                                  <div class="item-tag tag" data-item-id="{{../this._id}}" data-tag-id="{{tagId}}" title="Right-click to remove">
-                                    <span data-tooltip="{{tag.description}}">{{tag.description}}</span>
-                                  </div>
-                                {{else}}
-                                  <div class="item-tag tag" data-item-id="{{../this._id}}" data-tag-id="{{tagId}}" title="Right-click to remove">
-                                    <span>{{tagId}}</span>
-                                  </div>
-                                {{/with}}
-                              {{/each}}
-                            </div>
-
-                            <span class="tags-toggle" hidden>
-                              <i class="fa-solid fa-angle-down"></i>
-                            </span>
-                          </div>
-                        {{/if}}
+                      <div class="move-content">
+                        {{{this.html}}}
                       </div>
-                    {{/each}}
-                  </div>
-                </div>
-              {{/if}}
 
-              <div class="status-buttons" style="margin-left:10px;">
-                <button type="button" class="item-edit" data-item-id="{{signatureMove._id}}" title="Edit">
-                  <i class="fa-solid fa-pen-to-square"></i>
-                </button>
-                <button type="button" class="item-delete" data-item-id="{{signatureMove._id}}" title="Delete">
-                  <i class="fa-solid fa-trash"></i>
-                </button>
+                      {{#if this.tags.length}}
+                        <div class="tags-wrap" data-item-id="{{this._id}}">
+                          <div class="item-tags mg-seeall-wrap">
+                            {{#each this.tags as |tagId|}}
+                              {{#with (lookup ../../CONFIG.MidnightGambit.ITEM_TAGS tagId) as |tag|}}
+                                <div class="item-tag tag" data-item-id="{{../this._id}}" data-tag-id="{{tagId}}" title="Right-click to remove">
+                                  <span data-tooltip="{{tag.description}}">{{tag.description}}</span>
+                                </div>
+                              {{else}}
+                                <div class="item-tag tag" data-item-id="{{../this._id}}" data-tag-id="{{tagId}}" title="Right-click to remove">
+                                  <span>{{tagId}}</span>
+                                </div>
+                              {{/with}}
+                            {{/each}}
+                          </div>
+
+                          <span class="tags-toggle" hidden>
+                            <i class="fa-solid fa-angle-down"></i>
+                          </span>
+                        </div>
+                      {{/if}}
+
+                      {{!-- Optional: match your primary signature controls --}}
+                      <div class="status-buttons" style="margin-left:10px;">
+                        <button type="button" class="item-edit" data-item-id="{{this._id}}" title="Edit">
+                          <i class="fa-solid fa-pen-to-square"></i>
+                        </button>
+                        <button type="button" class="item-delete" data-item-id="{{this._id}}" title="Delete">
+                          <i class="fa-solid fa-trash"></i>
+                        </button>
+                      </div>
+                    </div>
+                  {{/each}}
               </div>
-
-            {{else}}
-              {{!-- Blank state: ONLY the hint --}}
-              <p class="npc-hint">Click “+ Signature” or drop a Move here.</p>
             {{/if}}
-
-          </div>
+          </div>      
 
           <!-- BASIC MOVES -->
           <div class="basic-moves" data-dropzone="moves">

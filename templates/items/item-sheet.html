@@ -29,6 +29,17 @@
       }}
     </div>
 
+    {{#if (eq itemType "move")}}
+      <div class="wrapper mg-content">
+        <div class="form-group signature-check">
+          <label>Signature Perk?</label>
+          <div class="form-wrap">
+            <input type="checkbox" name="system.isSignature" {{#if system.isSignature}}checked{{/if}} />
+            <p>If checked, this item will post and render as a Signature Perk instead of a Move.</p>
+          </div>
+        </div>
+      </div>
+    {{/if}}    
 
     <div class="wrapper mg-content">
       <label>Tags</label>

@@ -23,11 +23,26 @@ export class MidnightGambitNpcSheet extends ActorSheet {
     // NPC moves live as normal Item documents (type "move") but flagged
     const allMoves = this.actor.items.filter(i => i.type === "move");
 
-    context.signatureMove =
-      allMoves.find(i => i.system?.npcSignature === true) ?? null;
+    const isNpcSignature = (i) => i.system?.npcSignature === true || i.system?.isSignature === true;
 
-    context.npcMoves =
-      allMoves.filter(i => i.system?.npcMove === true && i.system?.npcSignature !== true);
+    // --- Signatures (allow multiple) ---
+    const signatureMoves = allMoves
+      .filter(isNpcSignature)
+      // stable order: embedded documents have a `sort` field; fallback to name
+      .sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0) || String(a.name).localeCompare(String(b.name)));
+
+    context.signatureMove = signatureMoves[0] ?? null;           // “Primary” = first
+    const extraSignatureMoves = signatureMoves.slice(1);         // everything else
+
+    // --- Basic NPC Moves ---
+    context.npcMoves = allMoves.filter(i =>
+      i.system?.npcMove === true && !isNpcSignature(i)
+    );
+
+    // Anything else (unflagged) – currently not rendered, but kept for debugging
+    context.otherMoves = allMoves.filter(i =>
+      i.system?.npcMove !== true && !isNpcSignature(i)
+    );
 
     // --- Enrich Signature + NPC Moves like the character sheet does ---
     const enrich = async (text) => {
@@ -59,11 +74,17 @@ export class MidnightGambitNpcSheet extends ActorSheet {
       });
     }
 
-
-    // (Optional) If you want to show non-NPC moves too (probably not), keep them separate:
-    context.otherMoves =
-      allMoves.filter(i => !i.system?.npcMove && !i.system?.npcSignature);
-
+    // --- Extra Signature Perks (below the primary panel) ---
+    context.enrichedSignaturePerkMoves = [];
+    for (const m of extraSignatureMoves) {
+      context.enrichedSignaturePerkMoves.push({
+        _id: m._id,
+        name: m.name,
+        description: m.system?.description ?? "",
+        html: await enrich(m.system?.description),
+        tags: Array.isArray(m.system?.tags) ? m.system.tags : []
+      });
+    }
 
     return context;
   }
@@ -537,21 +558,19 @@ export class MidnightGambitNpcSheet extends ActorSheet {
       this.render(false);
     });
 
-    // Create/Replace Signature Move
+    // Create Signature Perk (Multiple on NPCs)
     html.find(".npc-signature-create").off("click.mgNpcSigCreate").on("click.mgNpcSigCreate", async (ev) => {
       ev.preventDefault();
-
-      // Remove existing signature (only one allowed)
-      const existing = this.actor.items.find(i => i.type === "move" && i.system?.npcSignature === true);
-      if (existing) await this.actor.deleteEmbeddedDocuments("Item", [existing.id]);
 
       await this.actor.createEmbeddedDocuments("Item", [{
         name: "Signature Perk",
         type: "move",
         system: {
           description: "",
-          npcMove: true,
-          npcSignature: true
+          npcMove: false,
+          npcSignature: true,
+          isSignature: true,
+          learned: false
         }
       }]);
 
@@ -803,6 +822,32 @@ export class MidnightGambitNpcSheet extends ActorSheet {
   }
 
   async _onDrop(event) {
+    // Robust: find dropzone even when Foundry’s drop target is weird
+    const findDropzone = (ev) => {
+      // 1) composedPath (best when available)
+      const path = ev?.composedPath?.() ?? [];
+      for (const node of path) {
+        if (node?.dataset?.dropzone) return node.dataset.dropzone;
+        if (node?.closest) {
+          const z = node.closest("[data-dropzone]");
+          if (z?.dataset?.dropzone) return z.dataset.dropzone;
+        }
+      }
+
+      // 2) elementFromPoint fallback (the "what did I really drop on?" answer)
+      if (typeof document !== "undefined" && Number.isFinite(ev?.clientX) && Number.isFinite(ev?.clientY)) {
+        const el = document.elementFromPoint(ev.clientX, ev.clientY);
+        const z = el?.closest?.("[data-dropzone]");
+        if (z?.dataset?.dropzone) return z.dataset.dropzone;
+      }
+
+      // 3) last-ditch fallback
+      return ev?.target?.closest?.("[data-dropzone]")?.dataset?.dropzone ?? null;
+    };
+
+    const dropzone = findDropzone(event);
+    console.log("MG NPC DROPZONE:", dropzone, "target:", event.target);
+
     // Let Foundry handle non-item drops normally
     let data;
     try {
@@ -810,7 +855,6 @@ export class MidnightGambitNpcSheet extends ActorSheet {
     } catch (_) {
       return super._onDrop(event);
     }
-
     if (data?.type !== "Item") return super._onDrop(event);
 
     // Resolve dropped item (compendium/world/sidebar)
@@ -820,34 +864,12 @@ export class MidnightGambitNpcSheet extends ActorSheet {
     } catch (_) {
       src = null;
     }
-
-    // If we can’t resolve via UUID, fall back to default behavior
-    if (!src || src.documentName !== "Item") {
-      return super._onDrop(event);
-    }
+    if (!src || src.documentName !== "Item") return super._onDrop(event);
 
     const dropped = src.toObject();
-    if (dropped.type !== "move") {
-      return super._onDrop(event);
-    }
+    if (dropped.type !== "move") return super._onDrop(event);
 
-    // Ensure it becomes an NPC move on this NPC actor
-    dropped.system = dropped.system || {};
-    dropped.system.npcMove = true;
-
-    // If dropped onto signature zone, force signature
-    const dropOnSignature = !!event.target?.closest?.('[data-dropzone="signature"]');
-    if (dropOnSignature) dropped.system.npcSignature = true;
-
-    // If it’s a signature, enforce only one
-    if (dropped.system.npcSignature === true) {
-      const existing = this.actor.items.find(i => i.type === "move" && i.system?.npcSignature === true);
-      if (existing) await this.actor.deleteEmbeddedDocuments("Item", [existing.id]);
-    } else {
-      dropped.system.npcSignature = false;
-    }
-
-    // De-dupe by sourceId or name (same logic as PC sheet)
+    // De-dupe by sourceId or name
     const existing = this.actor.items.find(i =>
       i.type === "move" && (
         (i.flags?.core?.sourceId && i.flags.core.sourceId === dropped.flags?.core?.sourceId) ||
@@ -855,14 +877,39 @@ export class MidnightGambitNpcSheet extends ActorSheet {
       )
     );
     if (existing) {
-      ui.notifications.warn(`${dropped.name} is already on ${this.actor.name}.`);
+      ui.notifications?.warn(`${dropped.name} is already on ${this.actor.name}.`);
       return false;
     }
 
-    await this.actor.createEmbeddedDocuments("Item", [dropped]);
-    ui.notifications.info(`NPC Move added: ${dropped.name}`);
-    this.render(false);
-    return false;
+    // Apply flags based on dropzone
+    dropped.system = dropped.system || {};
+
+    if (dropzone === "signature") {
+      dropped.system.npcSignature = true;
+      dropped.system.npcMove = false;        // IMPORTANT: do not treat as basic move
+      dropped.system.isSignature = true;     // helpful for shared rendering/posts
+      dropped.system.learned = false;
+
+      await this.actor.createEmbeddedDocuments("Item", [dropped]);
+      ui.notifications?.info(`NPC Signature Perk added: ${dropped.name}`);
+      this.render(false);
+      return false;
+    }
+
+    if (dropzone === "moves") {
+      dropped.system.npcMove = true;
+      dropped.system.npcSignature = false;
+      dropped.system.isSignature = false;
+      dropped.system.learned = false;
+
+      await this.actor.createEmbeddedDocuments("Item", [dropped]);
+      ui.notifications?.info(`NPC Move added: ${dropped.name}`);
+      this.render(false);
+      return false;
+    }
+
+    // If dropped somewhere else, let Foundry do its normal thing
+    return super._onDrop(event);
   }
 
   async close(options = {}) {

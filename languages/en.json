@@ -1,0 +1,12 @@
+{	
+	"TYPES.Item.guise": "Guise",
+	"TYPES.Item.weapon": "Weapon",
+	"TYPES.Item.armor": "Armor",
+	"TYPES.Item.misc": "Miscellaneous",
+	"TYPES.Item.gambit": "Gambit",
+	"TYPES.Item.move": "Move / Signature Perk",
+	"TYPES.Item.asset": "Asset",
+	"TYPES.Actor.character": "Character",
+	"TYPES.Actor.npc": "NPC",
+	"TYPES.Actor.crew": "Crew"
+}

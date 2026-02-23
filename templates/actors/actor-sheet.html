@@ -42,6 +42,11 @@
               {{#if guise}}
               <span class="guise-name" data-tooltip="{{guise.system.description}}">
                 <span class="level">Lv {{actor.system.level}}</span> {{guise.name}}
+                {{#if secondaryGuises.length}}
+                    {{#each secondaryGuises}}
+                      <span class="secondary-guise" data-guise-id="{{this.id}}"> / {{this.name}}</span>{{#unless @last}}, {{/unless}}
+                    {{/each}}
+                {{/if}}                
               </span>
               {{else}}
                 No Class Assigned
@@ -321,38 +326,44 @@
       <div class="tab tab-moves" data-tab="moves">
         <div class="mg-content">
           {{#if guise}}
-            <div class="signature-perk">
-              <h3>
-                <span class="post-signature"
-                      data-perk-name="{{guise.system.signaturePerk}}"
-                      data-perk-description="{{guise.system.signatureDescription}}">
-                  <i class="fa-solid fa-messages"></i>Signature Perk: {{guise.system.signaturePerk}}
-                </span>
-              </h3>
-              <div class="move-content">
-                {{{signatureHtml}}}
-              </div>
-            </div>
-            
-            {{#if enrichedSecondarySignatureMoves.length}}
-              {{#each enrichedSecondarySignatureMoves}}
-                <div class="signature-perk" data-item-id="{{this._id}}">
-                  <h3>
-                    <span
-                      class="post-signature"
-                      data-perk-name="{{this.name}}"
-                      data-perk-description="{{this.description}}"
-                    >
-                      <i class="fa-solid fa-messages"></i>Signature Perk: {{this.name}}
-                    </span>
-                  </h3>
+            <h2>Signature Perk</h2>
+            <div class="signature-wrapper">
 
-                  <div class="move-content">
-                    {{{this.html}}}
-                  </div>
+              <div class="signature-perk" data-dropzone="signature">
+                <h3>
+                  <span class="post-signature"
+                        data-perk-name="{{guise.system.signaturePerk}}"
+                        data-perk-description="{{guise.system.signatureDescription}}">
+                    <i class="fa-solid fa-messages"></i>Signature Perk: {{guise.system.signaturePerk}}
+                  </span>
+                </h3>
+                <div class="move-content">
+                  {{{signatureHtml}}}
                 </div>
-              {{/each}}
-            {{/if}}            
+              </div>
+              
+              {{#if enrichedSecondarySignatureMoves.length}}
+                <div class="signature-secondary">
+                  {{#each enrichedSecondarySignatureMoves}}
+                    <div class="signature-perk" data-item-id="{{this._id}}">
+                      <h3>
+                        <span
+                          class="post-signature"
+                          data-perk-name="{{this.name}}"
+                          data-perk-description="{{this.description}}"
+                        >
+                          <i class="fa-solid fa-messages"></i>Signature Perk: {{this.name}}
+                        </span>
+                      </h3>
+
+                      <div class="move-content">
+                        {{{this.html}}}
+                      </div>
+                    </div>
+                  {{/each}}
+                </div>
+              {{/if}}
+            </div>     
 
             <div class="basic-moves">
               <h3>Basic Moves</h3>

@@ -257,6 +257,25 @@ export class MidnightGambitActorSheet extends ActorSheet {
         context.enrichedMoves = [];
       }
 
+      // --- Secondary guises (show in header) ---------------------------------
+      const allGuises = this.actor.items.filter(i => i.type === "guise");
+
+      // Resolve primary guise robustly (system.guise might be an embedded id OR a uuid)
+      let primaryGuise = null;
+      const gRef = this.actor.system.guise;
+
+      if (gRef) {
+        primaryGuise =
+          this.actor.items.get(gRef) ||                      // embedded id case
+          allGuises.find(g => g.uuid === gRef) ||            // uuid case
+          null;
+      }
+
+      // Everything else is “secondary”
+      context.secondaryGuises = allGuises
+        .filter(g => !primaryGuise || (g.id !== primaryGuise.id && g.uuid !== primaryGuise.uuid))
+        .map(g => ({ id: g.id, name: g.name }));      
+
       // ----------------------------------------------------------------------
       // Enrich embedded Move items used for multi-guise / signature perk drops
       // ----------------------------------------------------------------------
@@ -957,65 +976,115 @@ _mgOpenChatCropper() {
         );
       });
 
-      // Handle drop on deck or drawn
+      // --- MG internal gambit drag/drop uses custom MIME to avoid clobbering Foundry drops ---
+      const MG_GAMBIT_MIME = "application/x-midnightgambit-gambit";
+
+      // When dragging a gambit card within the sheet, store MG-only payload
+      html.find(".gambit-card[draggable='true']").off("dragstart.mgGambit").on("dragstart.mgGambit", function (event) {
+        const $card = $(this);
+        const itemId = $card.data("itemId");
+        const source = $card.data("source"); // "deck" or "drawn"
+
+        const payload = { itemId, source };
+        event.originalEvent.dataTransfer.setData(MG_GAMBIT_MIME, JSON.stringify(payload));
+
+        // Optional: also set a tiny plain-text fallback for browser UX (NOT used by logic)
+        event.originalEvent.dataTransfer.setData("text/plain", "MG_GAMBIT");
+      });
+
+      // Helper: is this an internal MG gambit drag?
+      const isMgGambitDrag = (event) => {
+        const dt = event?.originalEvent?.dataTransfer;
+        if (!dt) return false;
+        // Some browsers expose types as DOMStringList
+        const types = Array.from(dt.types ?? []);
+        return types.includes(MG_GAMBIT_MIME);
+      };
+
+      // Handle drop on deck or drawn (ONLY for MG gambit drags)
       const handleDrop = (targetArea) => {
         return async (event) => {
-          event.preventDefault();
-          const data = JSON.parse(event.originalEvent.dataTransfer.getData("text/plain"));
-          const { itemId, source } = data;
+          // If this isn't our internal gambit drag, do NOT intercept (let Foundry handle)
+          if (!isMgGambitDrag(event)) return;
 
+          event.preventDefault();
+          event.stopPropagation();
+
+          const raw = event.originalEvent.dataTransfer.getData(MG_GAMBIT_MIME);
+          const data = raw ? JSON.parse(raw) : null;
+          const { itemId, source } = data ?? {};
+
+          if (!itemId || !source) return;
           if (source === targetArea) return;
 
           const deck = this.actor.system.gambits.deck ?? [];
           const drawn = this.actor.system.gambits.drawn ?? [];
 
           let from = source === "deck" ? deck : drawn;
-          let to = source === "deck" ? drawn : deck;
+          let to   = source === "deck" ? drawn : deck;
 
           const index = from.indexOf(itemId);
           if (index === -1) return;
 
           from = [...from];
-          to = [...to, itemId];
+          to   = [...to, itemId];
           from.splice(index, 1);
 
           await this.actor.update({
-            "system.gambits.deck": source === "deck" ? from : to,
-            "system.gambits.drawn": source === "deck" ? to : from
+            "system.gambits.deck":  source === "deck" ? from : to,
+            "system.gambits.drawn": source === "deck" ? to   : from
           });
         };
       };
 
-      // Set hover class on container only when dragging enters/leaves the overall drop zone
+      // Set hover class ONLY for MG gambit drags
       const setupDragHover = (containerSelector) => {
         const container = html.find(containerSelector);
 
-        container.on('dragenter', (e) => {
+        container.off(".mgGambitHover");
+
+        container.on("dragenter.mgGambitHover", (e) => {
+          if (!isMgGambitDrag(e)) return;
           e.preventDefault();
           e.stopPropagation();
-          container.addClass('drag-hover');
+          container.addClass("drag-hover");
         });
 
-        container.on('dragover', (e) => {
+        container.on("dragover.mgGambitHover", (e) => {
+          if (!isMgGambitDrag(e)) return;
           e.preventDefault();
           e.stopPropagation();
         });
 
-        container.on('dragleave', (e) => {
-          // Check if actually leaving the container, not entering a child
-          if (!container[0].contains(e.relatedTarget)) {
-            container.removeClass('drag-hover');
-          }
+        container.on("dragleave.mgGambitHover", (e) => {
+          if (!container[0].contains(e.relatedTarget)) container.removeClass("drag-hover");
         });
 
-        container.on('drop', (e) => {
-          container.removeClass('drag-hover');
+        container.on("drop.mgGambitHover", (e) => {
+          if (!isMgGambitDrag(e)) return;
+          container.removeClass("drag-hover");
         });
       };
 
       // Add drag-hover support to both deck and hand
-      setupDragHover('.gambit-deck');
-      setupDragHover('.gambit-hand');
+      setupDragHover(".gambit-deck");
+      setupDragHover(".gambit-hand");
+
+      // Register drop zones (only intercept MG gambit drags; Foundry drops pass through)
+      html.find(".gambit-deck").off(".mgGambitDrop");
+      html.find(".gambit-hand").off(".mgGambitDrop");
+
+      html.find(".gambit-deck").on("dragover.mgGambitDrop", (e) => {
+        if (!isMgGambitDrag(e)) return;
+        e.preventDefault();
+      });
+      html.find(".gambit-hand").on("dragover.mgGambitDrop", (e) => {
+        if (!isMgGambitDrag(e)) return;
+        e.preventDefault();
+      });
+
+      html.find(".gambit-deck").on("drop.mgGambitDrop", handleDrop("deck"));
+      html.find(".gambit-hand").on("drop.mgGambitDrop", handleDrop("drawn"));
 
 
       // Register drop zones
@@ -1369,45 +1438,166 @@ _mgOpenChatCropper() {
         if (scMaxEl) scMaxEl.textContent = String(Math.max(0, maxS));
       };
 
-      //Remove guise button to return the sheet to default if needed.
+      // Remove guise button (supports multiple guises + cleans up injected moves/perks)
       html.find(".remove-guise").on("click", async (event) => {
         event.preventDefault();
+
+        const actor = this.actor;
+
+        // All embedded Guise items on this actor
+        const guises = actor.items.filter(i => i.type === "guise");
+        if (!guises.length) {
+          ui.notifications?.warn("No Guises found on this actor.");
+          return;
+        }
+
+        // Primary refs (you’ve had multiple shapes historically)
+        const primaryRef = actor.system?.guiseId || actor.system?.guise || null;
+
+        const primaryGuise =
+          guises.find(g => g.id === primaryRef) ||
+          guises.find(g => g.uuid === primaryRef) ||
+          null;
+
+        const options = guises.map(g => {
+          const isPrimary = primaryGuise && g.id === primaryGuise.id;
+          const label = isPrimary ? `${g.name} (Primary)` : g.name;
+          return `<option value="${g.id}">${label}</option>`;
+        }).join("");
+
+        const pickerHtml = (guises.length > 1)
+          ? `
+            <p>Select which Guise to remove:</p>
+            <div class="form-group">
+              <label>Guise</label>
+              <select name="mgGuiseToRemove">${options}</select>
+            </div>
+          `
+          : `<p>Remove Guise: <strong>${guises[0].name}</strong> ?</p>`;
 
         const confirmed = await Dialog.wait({
           title: "Remove Guise?",
           content: `
-            <p>Are you sure you want to unassign this Guise? This will keep all your current values.</p>
+            ${pickerHtml}
+            <hr/>
+            <p>This will remove the selected Guise item and also delete any Signature Perk / Moves that were added from it.</p>
           `,
           buttons: {
-            yes: { label: this._mgBtn("Remove", "fa-trash-arrow-up"), callback: () => true },
-            no: { label: this._mgBtn("Cancel", "fa-circle-xmark"), callback: () => false }
+            yes: { label: "Remove", callback: () => true },
+            no: { label: "Cancel", callback: () => false }
           },
           default: "no"
         });
 
         if (!confirmed) return;
 
-        // Delete ALL embedded Guise items
-        const guiseIds = this.actor.items
-          .filter(i => i.type === "guise")
-          .map(i => i.id);
-
-        if (guiseIds.length) {
-          await this.actor.deleteEmbeddedDocuments("Item", guiseIds);
+        // Which guise did we choose?
+        let removeId = guises[0].id;
+        if (guises.length > 1) {
+          const sel = this.element?.[0]?.querySelector?.('select[name="mgGuiseToRemove"]');
+          if (sel?.value) removeId = sel.value;
         }
 
-        // Clear tracking fields (primary + moves + secondary)
-        await this.actor.update({
-          "system.guise": null,
-          "system.guiseId": null,
-          "system.guiseUuid": null,
-          "system.movesGuiseId": null,
-          "system.secondaryGuises": []
+        const targetGuise = guises.find(g => g.id === removeId);
+        if (!targetGuise) {
+          ui.notifications?.error("Could not resolve the selected Guise.");
+          return;
+        }
+
+        const targetIsPrimary = primaryGuise && (targetGuise.id === primaryGuise.id);
+
+        // Helper: delete any injected moves/perks that came from a given Guise ID
+        const deleteInjectedFromGuiseId = async (guiseId) => {
+          const injected = actor.items.filter(i =>
+            i.type === "move" &&
+            (
+              // your secondary-injection pattern
+              i.system?.fromSecondaryGuise === true &&
+              i.system?.guiseSource === guiseId
+            )
+          );
+
+          if (injected.length) {
+            await actor.deleteEmbeddedDocuments("Item", injected.map(i => i.id));
+          }
+        };
+
+        // 1) Delete injected moves/perks from the target guise
+        await deleteInjectedFromGuiseId(targetGuise.id);
+
+        // 2) Delete the guise itself
+        await actor.deleteEmbeddedDocuments("Item", [targetGuise.id]);
+
+        // Current system lists
+        const secondary = Array.isArray(actor.system?.secondaryGuises)
+          ? [...actor.system.secondaryGuises]
+          : [];
+
+        const movesGuiseId = actor.system?.movesGuiseId ?? null;
+
+        // 3) Update system state depending on what got removed
+        if (!targetIsPrimary) {
+          // Removing SECONDARY
+          const nextSecondary = secondary.filter(id => id !== targetGuise.id);
+
+          // If we were rendering moves from the removed secondary, fall back to primary
+          const nextMovesGuiseId =
+            (movesGuiseId === targetGuise.id)
+              ? (primaryGuise?.id ?? null)
+              : movesGuiseId;
+
+          await actor.update({
+            "system.secondaryGuises": nextSecondary,
+            "system.movesGuiseId": nextMovesGuiseId
+          });
+
+          ui.notifications?.info(`Removed secondary Guise: ${targetGuise.name}`);
+          this.render(true);
+          return;
+        }
+
+        // Removing PRIMARY
+        // Recompute remaining guises after deletion
+        const remainingGuises = actor.items.filter(i => i.type === "guise");
+        if (!remainingGuises.length) {
+          // No guises left
+          await actor.update({
+            "system.guiseId": null,
+            "system.guise": null,
+            "system.movesGuiseId": null,
+            "system.secondaryGuises": []
+          });
+
+          ui.notifications?.info(`Removed primary Guise: ${targetGuise.name}`);
+          this.render(true);
+          return;
+        }
+
+        // Choose a remaining guise to become new primary
+        // Prefer one that used to be in secondaryGuises, otherwise first remaining
+        const preferred =
+          remainingGuises.find(g => secondary.includes(g.id)) ||
+          remainingGuises[0];
+
+        // IMPORTANT: if that preferred guise had injected “secondary” moves,
+        // delete them now so we don’t render them twice after promotion.
+        await deleteInjectedFromGuiseId(preferred.id);
+
+        // Remove promoted guise from secondary list (it’s primary now)
+        const nextSecondary = secondary.filter(id => id !== preferred.id);
+
+        await actor.update({
+          // keep both shapes filled to avoid “hasPrimary” weirdness later
+          "system.guiseId": preferred.id,
+          "system.guise": preferred.uuid,
+          "system.movesGuiseId": preferred.id,
+          "system.secondaryGuises": nextSecondary
         });
 
+        ui.notifications?.info(`Removed primary Guise: ${targetGuise.name}. Promoted: ${preferred.name}`);
         this.render(true);
       });
-
+      
       //Attribute Roll Logic and Base Edit
       html.find(".attribute-modifier").on("contextmenu", async (event) => {
         event.preventDefault();
@@ -4519,9 +4709,17 @@ _mgOpenChatCropper() {
         return [];
       }
 
-      // FIRST GUISE: do nothing else here.
-      // The actor.js hook will apply full stats/resources AND set system.guiseId + movesGuiseId.
+      // FIRST GUISE: set the primary pointer to the EMBEDDED ITEM ID
+      // (Actor.prepareData expects system.guise to resolve via this.items.get(id))
       if (!hasPrimary) {
+        await this.actor.update({
+          "system.guise": embeddedGuise.id,
+          "system.movesGuiseId": embeddedGuise.id,
+
+          // optional safety: if you still have legacy fields floating around
+          "system.guiseId": embeddedGuise.id
+        });
+
         ui.notifications?.info(`${embeddedGuise.name} assigned as primary Guise.`);
         this.render(false);
         return [];
@@ -4529,9 +4727,8 @@ _mgOpenChatCropper() {
 
       // SECOND+ GUISE:
       // Add ONLY Signature Perk + Basic Moves as embedded Move items.
-      // Do NOT change system.guiseId / guise / movesGuiseId.
 
-      // Track secondary guises list (optional but useful)
+      // Track secondary guises list
       const existing = Array.isArray(this.actor.system.secondaryGuises)
         ? this.actor.system.secondaryGuises
         : [];
@@ -4565,6 +4762,7 @@ _mgOpenChatCropper() {
         moveCreates.push({
           name: sigName,
           type: "move",
+          flags: { "midnight-gambit": { fromGuiseUuid: embeddedGuise.uuid } },
           system: {
             description: sigDesc,
             tags: [],
@@ -4585,6 +4783,7 @@ _mgOpenChatCropper() {
         moveCreates.push({
           name: n,
           type: "move",
+          flags: { "midnight-gambit": { fromGuiseUuid: embeddedGuise.uuid } },
           system: {
             description: String(m?.description ?? ""),
             tags: Array.isArray(m?.tags) ? m.tags : [],
@@ -4633,7 +4832,7 @@ _mgOpenChatCropper() {
     /* Learned Move drop-on-actor
     ---------------------------------------------------------------------*/
     if (itemData.type === "move") {
-      console.log("✅ Dropped a MOVE on actor");
+      console.log("✅ Dropped a Move on actor");
 
       // 1) Hydrate move data whether from compendium UUID or raw data
       let moveDoc;
@@ -4674,15 +4873,27 @@ _mgOpenChatCropper() {
         return [];
       }
 
-      // 3) Mark as LEARNED so the sheet can sort it into the right area
+      // 3) Respect Signature Perk flag
       moveDoc.system = moveDoc.system || {};
-      moveDoc.system.learned = true;
+      const isSignature = Boolean(moveDoc.system.isSignature);
+
+      // If it's a Signature Perk, do NOT force learned=true.
+      // If it's a normal Move drop, keep your current behavior (learned=true).
+      if (!isSignature) {
+        moveDoc.system.learned = true;
+      } else {
+        moveDoc.system.learned = false; // keeps it out of "Learned Moves"
+      }
 
       // 4) Create on actor
       const [embedded] = await this.actor.createEmbeddedDocuments("Item", [moveDoc]);
 
-      // 5) Nice feedback + refresh
-      ui.notifications.info(`Learned Move added: ${embedded.name}`);
+      // 5) Feedback + refresh
+      ui.notifications.info(
+        isSignature
+          ? `Signature Perk added: ${embedded.name}`
+          : `Learned Move added: ${embedded.name}`
+      );
       this.render(false);
       return [];
     }
@@ -4938,11 +5149,93 @@ _mgOpenChatCropper() {
     $root.find("[data-requires-guise]").toggle(hasGuise);
     $root.find("[data-hides-with-guise]").toggle(!hasGuise);
   }  
+
   async _onDrop(event) {
+    // Helper: what zone did we drop onto?
+    const dropzone =
+      event?.target?.closest?.("[data-dropzone]")?.dataset?.dropzone ?? null;
+
     try {
       const data = TextEditor.getDragEventData(event);
+
       if (data?.type === "Item" && data?.uuid) {
         const src = await fromUuid(data.uuid).catch(() => null);
+
+        // ----------------------------
+        // MOVES / SIGNATURE PERKS
+        // ----------------------------
+        if (src?.documentName === "Item" && src.type === "move") {
+          // Hydrate into raw object data we can create
+          let moveDoc = src.toObject();
+          moveDoc.system = moveDoc.system || {};
+
+          // De-dupe by sourceId or name
+          const existing = this.actor.items.find(i =>
+            i.type === "move" && (
+              (i.flags?.core?.sourceId && i.flags.core.sourceId === moveDoc.flags?.core?.sourceId) ||
+              (i.name?.toLowerCase?.() === moveDoc.name?.toLowerCase?.())
+            )
+          );
+          if (existing) {
+            ui.notifications?.warn(`${moveDoc.name} is already on ${this.actor.name}.`);
+            return false;
+          }
+
+          // === NPC routing ===
+          if (this.actor.type === "npc") {
+            if (dropzone === "signature") {
+              moveDoc.system.npcSignature = true;
+              moveDoc.system.npcMove = false;
+              moveDoc.system.isSignature = true;
+              moveDoc.system.learned = false;
+
+              const [embedded] = await this.actor.createEmbeddedDocuments("Item", [moveDoc]);
+              ui.notifications?.info(`NPC Signature Perk added: ${embedded.name}`);
+              this.render(false);
+              return false;
+            }
+
+            if (dropzone === "moves") {
+              moveDoc.system.npcMove = true;
+              moveDoc.system.npcSignature = false;
+              moveDoc.system.isSignature = false;
+              moveDoc.system.learned = false;
+
+              const [embedded] = await this.actor.createEmbeddedDocuments("Item", [moveDoc]);
+              ui.notifications?.info(`NPC Move added: ${embedded.name}`);
+              this.render(false);
+              return false;
+            }
+
+            // Not dropped on a known zone: let Foundry handle it normally
+            return super._onDrop?.(event) ?? false;
+          }
+
+          // === Character routing ===
+          if (this.actor.type === "character") {
+            // ONLY intercept signature zone drops.
+            // Everything else should behave like normal Foundry drop (learned move, etc.)
+            if (dropzone === "signature") {
+              moveDoc.system.isSignature = true;
+              moveDoc.system.learned = false;
+
+              // Ensure NPC-only flags don't accidentally block it later
+              moveDoc.system.npcMove = false;
+              moveDoc.system.npcSignature = false;
+
+              const [embedded] = await this.actor.createEmbeddedDocuments("Item", [moveDoc]);
+              ui.notifications?.info(`Signature Perk added: ${embedded.name}`);
+              this.render(false);
+              return false;
+            }
+
+            return super._onDrop?.(event) ?? false;
+          }
+        }
+
+        // ----------------------------
+        // GAMBITS
+        // ----------------------------
         if (src?.documentName === "Item" && src.type === "gambit") {
           const tier = String(src.system?.tier ?? "").toLowerCase();
 
@@ -4955,9 +5248,9 @@ _mgOpenChatCropper() {
           // Deck capacity confirm (players)
           const g = this.actor.system?.gambits ?? {};
           const deck = Array.isArray(g.deck) ? g.deck : [];
-          const deckMax = this._mgGetPlayerGambitMax();
+          const deckMax = this._mgGetPlayerGambitMax?.() ?? 0;
 
-          if (deck.length >= deckMax) {
+          if (deckMax && deck.length >= deckMax) {
             const ok = await Dialog.confirm({
               title: "Over Deck Limit?",
               content: `
@@ -4970,9 +5263,14 @@ _mgOpenChatCropper() {
             });
             if (!ok) return false;
           }
+
+          // Let Foundry do the actual drop handling (so it still creates the embedded item)
+          return super._onDrop?.(event) ?? false;
         }
       }
-    } catch (_) { /* no-op */ }
+    } catch (err) {
+      console.warn("MG | _onDrop intercept failed (non-fatal):", err);
+    }
 
     return super._onDrop?.(event) ?? false;
   }
