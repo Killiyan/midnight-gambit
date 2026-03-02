@@ -11,6 +11,8 @@ export class GuiseSheet extends ItemSheet {
     sys.riskDice      ??= 5;
     sys.casterType    ??= "none";
     sys.signaturePerk ??= "";
+    sys.signatureTags    ??= [];
+    sys.signatureTagsCsv ??= "";
     sys.sparkAttribute ??= "guile";
 
     // --- Ensure moves is a TRUE array for the template ---
@@ -21,10 +23,36 @@ export class GuiseSheet extends ItemSheet {
         .sort((a,b) => Number(a) - Number(b))
         .map(k => obj[k]);
     }
-    sys.moves = Array.isArray(sys.moves) ? sys.moves : [];
+
+    // Ensure each move has tags and a tagsCsv helper for the form
+    sys.moves = (sys.moves || []).map(m => ({
+      name: m?.name ?? "",
+      description: m?.description ?? "",
+      tags: Array.isArray(m?.tags) ? m.tags : [],
+      tagsCsv: Array.isArray(m?.tags) ? m.tags.join(",") : (m?.tagsCsv ?? "")
+    }));
+
+    // Signature tags CSV helper for the form
+    sys.signatureTags = Array.isArray(sys.signatureTags) ? sys.signatureTags : [];
+    sys.signatureTagsCsv = sys.signatureTags.join(",");
+
+    // Global tag library (includes global custom tags if you merge them into CONFIG)
+    const tagList = Array.isArray(CONFIG.MidnightGambit?.ITEM_TAGS)
+      ? CONFIG.MidnightGambit.ITEM_TAGS
+      : [];
+
+    // Precompute selected maps so the template can do lookup without needing an "includes" helper
+    const signatureTagSelected = Object.fromEntries((sys.signatureTags || []).map(id => [id, true]));
+    const moveTagSelected = sys.moves.map(m => Object.fromEntries((m.tags || []).map(id => [id, true])));
 
     base.system = sys;
     base.attributeKeys = ["tenacity","finesse","resolve","guile","instinct","presence"];
+
+    // NEW template context
+    base.tags = tagList;
+    base.signatureTagSelected = signatureTagSelected;
+    base.moveTagSelected = moveTagSelected;
+
     return base;
   }
 
@@ -46,7 +74,7 @@ export class GuiseSheet extends ItemSheet {
     // Add Move
     html.find(".add-move").off("click.mgAddMove").on("click.mgAddMove", async () => {
       const moves = toArray(this.item.system?.moves);
-      moves.push({ name: "", description: "" });
+      moves.push({ name: "", description: "", tags: [] });
       await this.item.update({ "system.moves": moves });
       this.render(true);
     });
@@ -90,6 +118,45 @@ export class GuiseSheet extends ItemSheet {
       .then(() => { el.dataset.tiny = "1"; })
       .catch(console.error);
     });
+
+    // Tag toggles (item-sheet style: no re-render, live UI update, keep TinyMCE intact)
+    html.off("click.mgTag", ".tag-selector .tag-pill").on("click.mgTag", ".tag-selector .tag-pill", async (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+
+      const pill  = ev.currentTarget;
+      const tagId = pill.dataset.tagId;
+      if (!tagId) return;
+
+      const selector = pill.closest(".tag-selector");
+      const targetPath = selector?.dataset?.tagsTarget; // "signatureTags" or "moves.0.tags"
+      if (!targetPath) return;
+
+      // 1) Toggle the tag set from the CURRENT document data
+      const current = foundry.utils.getProperty(this.item.system, targetPath) ?? [];
+      const set = new Set(Array.isArray(current) ? current : []);
+
+      if (set.has(tagId)) set.delete(tagId);
+      else set.add(tagId);
+
+      const next = Array.from(set);
+
+      // 2) Persist to the Item WITHOUT re-rendering (prevents TinyMCE wipe)
+      await this.item.update({ [`system.${targetPath}`]: next }, { render: false });
+
+      // 3) Live-update ONLY the pills in this selector
+      selector.querySelectorAll(".tag-pill").forEach((el) => {
+        const id = el.dataset.tagId;
+        if (!id) return;
+        el.classList.toggle("selected", set.has(id));
+        el.classList.toggle("active", set.has(id)); // if you use .active anywhere
+      });
+
+      // 4) Keep the form in sync so your header Save doesn't overwrite tags
+      const root = html instanceof jQuery ? html[0] : html;
+      const hidden = root.querySelector(`input[data-tags-csv="${CSS.escape(targetPath)}"]`);
+      if (hidden) hidden.value = next.join(",");
+    });
   }
 
   // DROP-IN: normalize payload before saving
@@ -99,6 +166,26 @@ export class GuiseSheet extends ItemSheet {
 
     // Expand the flat form object into nested data
     const expanded = foundry.utils.expandObject(formData);
+
+    const parseCsv = (v) =>
+      String(v ?? "")
+        .split(",")
+        .map(s => s.trim())
+        .filter(Boolean);
+
+    // Signature tags
+    const sigCsv = foundry.utils.getProperty(expanded, "system.signatureTagsCsv");
+
+    // Only overwrite signatureTags if the form actually submitted the CSV field.
+    // Otherwise, preserve what is already stored on the item (prevents "Save" nuking tags).
+    if (sigCsv !== undefined) {
+      foundry.utils.setProperty(expanded, "system.signatureTags", parseCsv(sigCsv));
+    } else {
+      const existingSig = Array.isArray(this.item.system?.signatureTags) ? this.item.system.signatureTags : [];
+      foundry.utils.setProperty(expanded, "system.signatureTags", existingSig);
+    }
+
+    if (expanded.system) delete expanded.system.signatureTagsCsv;      
 
     // Pull whatever the form produced for moves
     const movesRaw = foundry.utils.getProperty(expanded, "system.moves");
@@ -112,7 +199,8 @@ export class GuiseSheet extends ItemSheet {
           const m = movesRaw[k] ?? {};
           return {
             name: typeof m.name === "string" ? m.name : "",
-            description: typeof m.description === "string" ? m.description : ""
+            description: typeof m.description === "string" ? m.description : "",
+            tags: parseCsv(m.tagsCsv ?? m.tags ?? "")
           };
         });
       foundry.utils.setProperty(expanded, "system.moves", arr);
@@ -122,6 +210,32 @@ export class GuiseSheet extends ItemSheet {
     if (!Array.isArray(foundry.utils.getProperty(expanded, "system.moves"))) {
       foundry.utils.setProperty(expanded, "system.moves", []);
     }
+
+    // If moves is already an array, still parse tagsCsv -> tags
+    const movesArr = foundry.utils.getProperty(expanded, "system.moves");
+    if (Array.isArray(movesArr)) {
+      const existingMoves = Array.isArray(this.item.system?.moves) ? this.item.system.moves : [];
+
+      foundry.utils.setProperty(
+        expanded,
+        "system.moves",
+        movesArr.map((m, idx) => {
+          const hasTagFields = (m?.tagsCsv !== undefined) || (m?.tags !== undefined);
+
+          // If the form submitted tags/tagsCsv, respect it.
+          // If it did NOT, preserve the already-saved tags at this index.
+          const preserved = Array.isArray(existingMoves?.[idx]?.tags) ? existingMoves[idx].tags : [];
+
+          const nextTags = hasTagFields
+            ? (Array.isArray(m?.tags) ? m.tags : parseCsv(m?.tagsCsv ?? m?.tags ?? ""))
+            : preserved;
+
+          const out = { ...m, tags: nextTags };
+          delete out.tagsCsv;
+          return out;
+        })
+      );
+    }  
 
     // Light trims (won't nuke rich text)
     const sig = foundry.utils.getProperty(expanded, "system.signatureDescription");
@@ -137,7 +251,7 @@ static get defaultOptions() {
   return foundry.utils.mergeObject(super.defaultOptions, {
     template: "systems/midnight-gambit/templates/items/guise-sheet.html",
     width: 500,
-    height: 400,
+    height: 800,
     submitOnChange: false,
     submitOnClose:  false,
     closeOnSubmit:  false

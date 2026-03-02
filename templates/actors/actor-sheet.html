@@ -340,6 +340,30 @@
                 <div class="move-content">
                   {{{signatureHtml}}}
                 </div>
+
+                {{#if signatureTags.length}}
+                  <div class="tags-wrap">
+                    <div class="item-tags">
+                      {{#each signatureTags as |tagId|}}
+                        {{#with (lookup ../../CONFIG.MidnightGambit.ITEM_TAGS tagId) as |tag|}}
+                          <div class="item-tag tag" data-tag-id="{{tagId}}">
+                            <span data-tooltip="{{tag.description}}">
+                              {{tag.label}}
+                            </span>
+                          </div>
+                        {{else}}
+                          <div class="item-tag tag" data-tag-id="{{tagId}}">
+                            <span>{{tagId}}</span>
+                          </div>
+                        {{/with}}
+                      {{/each}}
+                    </div>
+
+                    <span class="tags-toggle" hidden>
+                      <i class="fa-solid fa-angle-down"></i>
+                    </span>
+                  </div>
+                {{/if}}              
               </div>
               
               {{#if enrichedSecondarySignatureMoves.length}}
@@ -359,6 +383,30 @@
                       <div class="move-content">
                         {{{this.html}}}
                       </div>
+
+                      {{#if this.tags.length}}
+                        <div class="tags-wrap">
+                          <div class="item-tags">
+                            {{#each this.tags as |tagId|}}
+                              {{#with (lookup ../../CONFIG.MidnightGambit.ITEM_TAGS tagId) as |tag|}}
+                                <div class="item-tag tag" data-tag-id="{{tagId}}">
+                                  <span data-tooltip="{{tag.description}}">
+                                    {{tag.label}}
+                                  </span>
+                                </div>
+                              {{else}}
+                                <div class="item-tag tag" data-tag-id="{{tagId}}">
+                                  <span>{{tagId}}</span>
+                                </div>
+                              {{/with}}
+                            {{/each}}
+                          </div>
+
+                          <span class="tags-toggle" hidden>
+                            <i class="fa-solid fa-angle-down"></i>
+                          </span>
+                        </div>
+                      {{/if}}                     
                     </div>
                   {{/each}}
                 </div>
@@ -378,6 +426,30 @@
                     <div class="move-content">
                       {{{this.html}}}
                     </div>
+
+                    {{#if this.tags.length}}
+                      <div class="tags-wrap">
+                        <div class="item-tags">
+                          {{#each this.tags as |tagId|}}
+                            {{#with (lookup ../../CONFIG.MidnightGambit.ITEM_TAGS tagId) as |tag|}}
+                              <div class="item-tag tag" data-tag-id="{{tagId}}">
+                                <span data-tooltip="{{tag.description}}">
+                                  {{tag.label}}
+                                </span>
+                              </div>
+                            {{else}}
+                              <div class="item-tag tag" data-tag-id="{{tagId}}">
+                                <span>{{tagId}}</span>
+                              </div>
+                            {{/with}}
+                          {{/each}}
+                        </div>
+
+                        <span class="tags-toggle" hidden>
+                          <i class="fa-solid fa-angle-down"></i>
+                        </span>
+                      </div>
+                    {{/if}}                    
                   </div>
                 {{/each}}
 
@@ -392,6 +464,30 @@
                           <div class="move-content">
                             {{{this.html}}}
                           </div>
+
+                          {{#if this.tags.length}}
+                            <div class="tags-wrap">
+                              <div class="item-tags">
+                                {{#each this.tags as |tagId|}}
+                                  {{#with (lookup ../../CONFIG.MidnightGambit.ITEM_TAGS tagId) as |tag|}}
+                                    <div class="item-tag tag" data-tag-id="{{tagId}}">
+                                      <span data-tooltip="{{tag.description}}">
+                                        {{tag.label}}
+                                      </span>
+                                    </div>
+                                  {{else}}
+                                    <div class="item-tag tag" data-tag-id="{{tagId}}">
+                                      <span>{{tagId}}</span>
+                                    </div>
+                                  {{/with}}
+                                {{/each}}
+                              </div>
+
+                              <span class="tags-toggle" hidden>
+                                <i class="fa-solid fa-angle-down"></i>
+                              </span>
+                            </div>
+                          {{/if}}                          
                         </div>
                       {{/each}}
                 {{/if}}                 

@@ -6,8 +6,8 @@ export class MidnightGambitNpcSheet extends ActorSheet {
     return foundry.utils.mergeObject(super.defaultOptions, {
       classes: ["midnight-gambit", "sheet", "actor", "npc"],
       template: "systems/midnight-gambit/templates/actors/npc-sheet.html",
-      width: 760,
-      height: 860,
+      width: 850,
+      height: 950,
       tabs: [{ navSelector: ".sheet-tabs", contentSelector: ".sheet-body", initial: "general" }]
     });
   }

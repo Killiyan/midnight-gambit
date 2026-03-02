@@ -192,7 +192,7 @@
 
                 {{#if signatureMove.system.tags.length}}
                   <div class="tags-wrap" data-item-id="{{signatureMove._id}}">
-                    <div class="item-tags mg-seeall-wrap">
+                    <div class="item-tags">
                       {{#each signatureMove.system.tags as |tagId|}}
                         {{#with (lookup ../../CONFIG.MidnightGambit.ITEM_TAGS tagId) as |tag|}}
                           <div class="item-tag tag" data-item-id="{{../signatureMove._id}}" data-tag-id="{{tagId}}" title="Right-click to remove">
@@ -250,7 +250,7 @@
 
                       {{#if this.tags.length}}
                         <div class="tags-wrap" data-item-id="{{this._id}}">
-                          <div class="item-tags mg-seeall-wrap">
+                          <div class="item-tags">
                             {{#each this.tags as |tagId|}}
                               {{#with (lookup ../../CONFIG.MidnightGambit.ITEM_TAGS tagId) as |tag|}}
                                 <div class="item-tag tag" data-item-id="{{../this._id}}" data-tag-id="{{tagId}}" title="Right-click to remove">
@@ -308,7 +308,7 @@
 
                     {{#if this.tags.length}}
                       <div class="tags-wrap" data-item-id="{{this._id}}">
-                        <div class="item-tags mg-seeall-wrap">
+                        <div class="item-tags">
                           {{#each this.tags as |tagId|}}
                             {{#with (lookup ../../CONFIG.MidnightGambit.ITEM_TAGS tagId) as |tag|}}
                               <div class="item-tag tag" data-item-id="{{../_id}}" data-tag-id="{{tagId}}" title="Right-click to remove">

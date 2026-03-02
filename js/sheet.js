@@ -139,8 +139,31 @@ export class MidnightGambitActorSheet extends ActorSheet {
       context.primaryGuiseId = primaryGuiseId;
       context.movesGuiseId = movesGuiseId;
 
+      // --- Resolve an item ref that might be an embedded id OR a UUID ---
+      const resolveGuiseDoc = async (ref) => {
+        if (!ref) return null;
+
+        // 1) Embedded item id on this actor
+        let doc = this.actor.items.get(ref);
+        if (doc) return doc;
+
+        // 2) World item id
+        doc = game.items?.get(ref);
+        if (doc) return doc;
+
+        // 3) UUID (Actor...Item..., Item..., Compendium...)
+        try {
+          const uuidDoc = await fromUuid(ref);
+          return uuidDoc ?? null;
+        } catch (e) {
+          console.warn("MG | Failed to resolve guise ref:", ref, e);
+          return null;
+        }
+      };
+
       if (movesGuiseId) {
-        const guise = this.actor.items.get(movesGuiseId) || game.items.get(movesGuiseId);
+        const guise = await resolveGuiseDoc(movesGuiseId);
+
         if (guise?.type === "guise") {
           context.guise = guise;
 
@@ -152,9 +175,16 @@ export class MidnightGambitActorSheet extends ActorSheet {
           console.log("Primary Guise ID:", primaryGuiseId);
           console.log("Moves Guise ID:", movesGuiseId);
           console.log("Rendering Moves from:", guise.name);
+        } else {
+          // Ensure these are defined even if the ref is broken
+          context.isCaster = false;
+          context.isFullCaster = false;
+          context.isHalfCaster = false;
         }
       } else {
         context.isCaster = false;
+        context.isFullCaster = false;
+        context.isHalfCaster = false;
       }
       
       for (const item of context.actor.items) {
@@ -245,15 +275,38 @@ export class MidnightGambitActorSheet extends ActorSheet {
         const sig = String(context.guise.system?.signatureDescription ?? "");
         context.signatureHtml = await TextEditor.enrichHTML(sig, { async: true });
 
+        // Helper: normalize tags whether stored as array or CSV string
+        const parseTags = (v) => {
+          if (Array.isArray(v)) return v.filter(Boolean);
+          if (typeof v === "string") {
+            return v
+              .split(",")
+              .map(s => s.trim())
+              .filter(Boolean);
+          }
+          return [];
+        };
+
+        // Signature tags live on the guise item (selected in guise-sheet)
+        context.signatureTags = parseTags(context.guise.system?.signatureTags);
+
+        // Basic moves live inside guise.system.moves (array of objects)
         const rawMoves = Array.isArray(context.guise.system?.moves) ? context.guise.system.moves : [];
         context.enrichedMoves = await Promise.all(
-          rawMoves.map(async m => ({
-            ...m,
-            html: await TextEditor.enrichHTML(String(m.description ?? ""), { async: true })
-          }))
+          rawMoves.map(async (m) => {
+            // Support either m.tags (array) or m.tagsCsv (string)
+            const tags = parseTags(m?.tags ?? m?.tagsCsv);
+
+            return {
+              ...m,
+              tags,
+              html: await TextEditor.enrichHTML(String(m?.description ?? ""), { async: true })
+            };
+          })
         );
       } else {
         context.signatureHtml = "";
+        context.signatureTags = [];
         context.enrichedMoves = [];
       }
 
@@ -305,14 +358,28 @@ export class MidnightGambitActorSheet extends ActorSheet {
         i.type === "move" && i.system?.isSignature === true
       );
 
+      const parseTags = (v) => {
+        if (Array.isArray(v)) return v.filter(Boolean);
+        if (typeof v === "string") {
+          return v.split(",").map(s => s.trim()).filter(Boolean);
+        }
+        return [];
+      };
+
       context.embeddedSignatureMoves = await Promise.all(
-        embeddedSigItems.map(async (m) => ({
-          _id: m.id,
-          name: m.name,
-          description: m.system?.description ?? "",
-          html: await TextEditor.enrichHTML(String(m.system?.description ?? ""), { async: true })
-        }))
-      );      
+        embeddedSigItems.map(async (m) => {
+          const desc = String(m.system?.description ?? "");
+          const tags = parseTags(m.system?.tags ?? m.system?.tagsCsv);
+
+          return {
+            _id: m.id,
+            name: m.name,
+            description: desc,
+            tags,
+            html: await TextEditor.enrichHTML(desc, { async: true })
+          };
+        })
+      );   
 
       context.data = context;  // <- this makes all context vars available to the template root
       context.tags = CONFIG.MidnightGambit?.ITEM_TAGS ?? [];
@@ -794,6 +861,11 @@ _mgOpenChatCropper() {
         .on("click", "[data-tab]", (ev) => {
           const tab = ev.currentTarget.dataset.tab;
           if (tab) localStorage.setItem(TAB_KEY, tab);
+
+          // After the tab becomes visible, re-measure tag stacks so .short/toggles are correct
+          setTimeout(() => {
+            html[0]?._mgRefreshTagsOverflow?.();
+          }, 0);
         });
 
         // Move floating tab nav outside .window-content so it's not clipped
@@ -1479,7 +1551,6 @@ _mgOpenChatCropper() {
           title: "Remove Guise?",
           content: `
             ${pickerHtml}
-            <hr/>
             <p>This will remove the selected Guise item and also delete any Signature Perk / Moves that were added from it.</p>
           `,
           buttons: {
@@ -1597,7 +1668,7 @@ _mgOpenChatCropper() {
         ui.notifications?.info(`Removed primary Guise: ${targetGuise.name}. Promoted: ${preferred.name}`);
         this.render(true);
       });
-      
+
       //Attribute Roll Logic and Base Edit
       html.find(".attribute-modifier").on("contextmenu", async (event) => {
         event.preventDefault();
@@ -3110,107 +3181,126 @@ _mgOpenChatCropper() {
         initCards();
       }
 
-      // Inventory Tag Overflow (character sheet – same behavior as Crew Assets)
+      // Tag Overflow (Inventory + Moves) — chevron + smooth reveal
       {
         const $root = html instanceof jQuery ? html : $(html);
 
-        const COLLAPSED_MAX = 80;   // px of tag-stack height before clamping
+        const COLLAPSED_MAX = 44;   // px of tag-stack height before clamping
         const TRANSITION_MS = 500;  // keep in sync with your CSS transition
 
-        // Allow per-wrapper override, else fallback
-        const capFor = (wrap) => Number(wrap?.dataset?.seeallCap) || COLLAPSED_MAX;
+        // Helper: find the tags container inside a tags-wrap (works for both your layouts)
+        const getTagsEl = (wrap) =>
+          wrap?.querySelector(".item-tags") ||
+          wrap?.querySelector(".tags");
 
+        const ensureTransition = (el) => {
+          if (!el) return;
+          // If your CSS already sets this, this is harmless.
+          if (!el.style.transition) el.style.transition = "max-height 0.5s ease";
+          if (!el.style.overflow) el.style.overflow = "hidden";
+        };
 
-        // Measure one wrapper and decide if it needs a toggle
         const updateOne = (wrap) => {
           if (!wrap || wrap.classList.contains("animating")) return;
 
-          const content = wrap.querySelector(".mg-seeall-content");
-          const toggle  = wrap.querySelector(".mg-seeall-toggle");
-          if (!content || !toggle) return;
+          const tagsEl = getTagsEl(wrap);
+          const toggle = wrap.querySelector(".tags-toggle");
+          if (!tagsEl || !toggle) return;
 
-          const cap        = capFor(wrap);
-          const isExpanded = wrap.classList.contains("expanded");
-          const overflows  = content.scrollHeight > (cap + 1);
+          ensureTransition(tagsEl);
 
+          const overflows = tagsEl.scrollHeight > (COLLAPSED_MAX + 1);
+          const expanded  = wrap.classList.contains("expanded");
+
+          // If it doesn't overflow, mark short + hide toggle + remove clamp
           wrap.classList.toggle("short", !overflows);
-
           toggle.hidden = !overflows;
 
-          if (!toggle.querySelector("i")) {
+          // Make sure we have an icon
+          let icon = toggle.querySelector("i");
+          if (!icon) {
             toggle.innerHTML = '<i class="fa-solid fa-angle-down"></i>';
+            icon = toggle.querySelector("i");
           }
-
-          toggle.querySelector("i")?.classList.toggle("rotated", isExpanded);
+          icon?.classList.toggle("rotated", expanded);
 
           // Clamp only when collapsed AND overflowing
-          if (!isExpanded && overflows) {
-            content.style.maxHeight = `${cap}px`;
+          if (!expanded && overflows) {
+            tagsEl.style.maxHeight = `${COLLAPSED_MAX}px`;
           } else {
-            content.style.maxHeight = "";
+            tagsEl.style.maxHeight = "";
           }
         };
 
         const refreshAll = () => {
-          const wraps = $root[0]?.querySelectorAll(".tab-inventory .tags-wrap") || [];
+          const wraps =
+            $root[0]?.querySelectorAll(
+              '.tab-inventory .tags-wrap, .tab-moves .tags-wrap'
+            ) || [];
           wraps.forEach(updateOne);
         };
 
-        // Click handler for the chevron on the inventory tab
+        // Expose for tab-click remeasure (your tab click handler already calls this)
+        $root[0]._mgRefreshTagsOverflow = refreshAll;
+
+        // Also re-measure once after layout settles (fonts, rich text, etc.)
+        setTimeout(refreshAll, 0);        
+
+        // Click handler for BOTH tabs
         $root
-          .off("click.mgInvTagsToggle")
-          .on("click.mgInvTagsToggle", ".tab-inventory .tags-toggle", (ev) => {
+          .off("click.mgTagsToggle")
+          .on("click.mgTagsToggle", ".tab-inventory .tags-toggle, .tab-moves .tags-toggle", (ev) => {
             ev.preventDefault();
             ev.stopPropagation();
 
-            const wrap = ev.currentTarget.closest(".tags-wrap");
-            const tags =
-              wrap?.querySelector(".item-tags") ||
-              wrap?.querySelector(".tags");
-            const icon = ev.currentTarget.querySelector("i");
-            if (!wrap || !tags) return;
+            const toggle = ev.currentTarget;
+            const wrap   = toggle.closest(".tags-wrap");
+            const tagsEl = getTagsEl(wrap);
+            const icon   = toggle.querySelector("i");
+            if (!wrap || !tagsEl) return;
+
+            ensureTransition(tagsEl);
 
             const wasExpanded = wrap.classList.contains("expanded");
-            const startHeight = tags.clientHeight;
+            const startHeight = tagsEl.clientHeight;
 
-            // Target height: full scroll height if expanding, clamped if collapsing
+            // Expanding: go to scrollHeight
+            // Collapsing: go back to COLLAPSED_MAX
             const targetHeight = wasExpanded
               ? COLLAPSED_MAX
-              : Math.max(tags.scrollHeight, startHeight);
+              : Math.max(tagsEl.scrollHeight, startHeight);
 
-            // Prepare animation: set current height, then animate to target
-            tags.style.maxHeight = `${startHeight}px`;
+            // Animate max-height start -> target
+            tagsEl.style.maxHeight = `${startHeight}px`;
             // force reflow
             // eslint-disable-next-line no-unused-expressions
-            tags.offsetHeight;
-            tags.style.maxHeight = `${targetHeight}px`;
+            tagsEl.offsetHeight;
+            tagsEl.style.maxHeight = `${targetHeight}px`;
 
             wrap.classList.add("animating");
             wrap.classList.toggle("expanded", !wasExpanded);
-            if (icon) icon.classList.toggle("rotated", !wasExpanded);
+            icon?.classList.toggle("rotated", !wasExpanded);
 
             const onEnd = (e) => {
-              if (e && e.target !== tags) return;
+              if (e && e.target !== tagsEl) return;
 
-              tags.removeEventListener("transitionend", onEnd);
+              tagsEl.removeEventListener("transitionend", onEnd);
               wrap.classList.remove("animating");
 
-              // When collapsed, keep the clamp; when expanded, let it auto-size
+              // Expanded = let it auto-size, Collapsed = keep clamp if it still overflows
               if (wrap.classList.contains("expanded")) {
-                tags.style.maxHeight = "";
-              } else if (tags.scrollHeight > COLLAPSED_MAX + 1) {
-                tags.style.maxHeight = `${COLLAPSED_MAX}px`;
+                tagsEl.style.maxHeight = "";
+              } else if (tagsEl.scrollHeight > COLLAPSED_MAX + 1) {
+                tagsEl.style.maxHeight = `${COLLAPSED_MAX}px`;
               } else {
-                tags.style.maxHeight = "";
+                tagsEl.style.maxHeight = "";
               }
 
               updateOne(wrap);
             };
 
-            tags.addEventListener("transitionend", onEnd, { once: true });
-
-            // Failsafe in case transitionend doesn’t fire
-            setTimeout(onEnd, TRANSITION_MS + 100);
+            tagsEl.addEventListener("transitionend", onEnd, { once: true });
+            setTimeout(onEnd, TRANSITION_MS + 100); // failsafe
           });
 
         // Initial measurement when the sheet renders

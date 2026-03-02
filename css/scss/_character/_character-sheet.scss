@@ -13,7 +13,7 @@ h1,h2,h3,h4 {
   h2 {
     padding-bottom: .75rem;
     margin-bottom: 1rem;
-    border-bottom: 1px solid $mg-blue-main-2;
+    border-bottom: 2px solid $mg-blue-main-2;
     @include oswald();
     font-size: 1.25rem;
     font-style: italic;
@@ -22,7 +22,7 @@ h1,h2,h3,h4 {
   }
 
   h3 {
-    border-bottom: 1px solid $mg-blue-main-2;
+    border-bottom: 2px solid $mg-blue-main-2;
     padding-bottom: .75rem;
     @include oswald();
     font-size: 1rem;
@@ -218,7 +218,7 @@ h1,h2,h3,h4 {
       h2 {
         padding-bottom: .75rem;
         margin-bottom: 1rem;
-        border-bottom: 1px solid $mg-blue-main-2;
+        border-bottom: 2px solid $mg-blue-main-2;
         @include oswald();
         font-size: 1.25rem;
         font-style: italic;
@@ -1198,6 +1198,13 @@ h1,h2,h3,h4 {
   }
 
   //Start the Moves Tab of the character sheet
+  .tab-moves {
+    .tags-wrap {
+      margin: 1.25rem;
+      padding: 0;
+    }
+  }
+
   .tab-moves,
   .tab {
 
@@ -1226,7 +1233,7 @@ h1,h2,h3,h4 {
       box-shadow: 5px 5px 10px rgba(0,0,0,0.5);
 
       h3 {
-        border-bottom: 1px solid $mg-blue-main;
+        border-bottom: 2px solid $mg-blue-main;
         padding-bottom: .75rem;
         font-size: 1.25rem;
         @include oswald();
@@ -1299,13 +1306,29 @@ h1,h2,h3,h4 {
         display: flex;
         flex-direction: column;
         gap: 2.125rem;
-      }      
+      }
+
+      .tags-wrap {
+
+        .item-tags {
+          border: 2px solid rgba($mg-blue-3, .4);
+          background: rgba($mg-blue-4, .5);
+        }
+
+        .tag {
+          background: rgba($mg-blue-3, .35);
+        }
+
+        .tags-toggle {
+          background: $mg-blue-main-2;
+        }
+      }
     }
 
     .basic-moves,
     .moves-section {
       h3 {
-        border-bottom: 1px solid $mg-blue-main-2;
+        border-bottom: 2px solid $mg-blue-main-2;
         margin: 2.125rem 0;
         padding-bottom: .75rem;
         @include oswald();
@@ -1429,6 +1452,96 @@ h1,h2,h3,h4 {
         }
       }
     }
+
+  .tags-wrap {
+    position: relative;
+
+    --seeall-toggle-h: 2.65rem;
+    --seeall-gap: 0.25rem;
+
+      // Gradient overlay (same idea as your mg-seeall-wrap:after)
+      &::after {
+        content: "";
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: calc(var(--seeall-toggle-h) + var(--seeall-gap));
+        height: 0.85rem;
+        pointer-events: none;
+        background: linear-gradient(
+          to bottom,
+          rgba(0,0,0,0) 0%,
+          rgba($mg-blue-4, 0.8) 100%
+        );
+        backdrop-filter: blur(1px);
+        transition: opacity 0.5s ease;
+        border-radius: 0.5rem;
+        opacity: 1;
+        margin: 0 2px 2px 2px;
+    }
+
+    /* Hide gradient when opened or when no overflow */
+    &.expanded::after,
+    &.short::after {
+      opacity: 0;
+    }
+
+    /* The actual tag grid you render */
+    .item-tags {
+      overflow: hidden;
+      transition: max-height 0.5s ease;
+      max-height: 2.75rem; // default clamp; JS may override with inline maxHeight
+      border: 2px solid $mg-blue-main-2;
+      border-radius: .65rem;
+      background: rgba($mg-blue-4, .5);
+      padding: .5rem;
+    }
+
+    /* Expanded state */
+    &.expanded .item-tags {
+      max-height: none; // JS may also clear inline maxHeight in expanded state
+    }
+
+    /* Chevron button (your markup uses span.tags-toggle) */
+    .tags-toggle {
+      display: flex;              // span needs layout
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      height: var(--seeall-toggle-h);
+
+      margin-top: var(--seeall-gap);
+      background: $mg-blue-main;
+      border-radius: 8px;
+      opacity: 0.85;
+      transition: background 0.5s ease, opacity 0.5s ease, color 0.5s ease;
+      cursor: pointer;
+      user-select: none;
+
+      i {
+        color: $mg-ivory;
+        transition: transform 0.3s ease, color 0.5s ease;
+      }
+
+      i.rotated {
+        transform: rotate(180deg);
+      }
+
+      &:hover {
+        background: $mg-blue-1;
+        color: $mg-blue-4;
+
+        i {
+          color: $mg-blue-4;
+        }
+      }
+    }
+
+    /* Hide toggle when short (no overflow) */
+    &.short .tags-toggle {
+      display: none;
+    }
+  }    
   }
 
   //Styling the profile image on all tabs
@@ -1523,6 +1636,13 @@ h1,h2,h3,h4 {
     }
   }
  }
+}
+
+.sheet .npc-sheet {
+  .tags-wrap {
+    padding: 0;
+    margin: 1.25rem;
+  }
 }
 
 /*Animating Roll behavior
@@ -2006,6 +2126,7 @@ h1,h2,h3,h4 {
           display: flex;
           flex-direction: column;
           gap: 0;
+          background: rgba($mg-blue-4, .5);
 
           label:nth-of-type(2) {
             margin-top: .5rem;
@@ -2014,6 +2135,11 @@ h1,h2,h3,h4 {
           .wrapper {
             display: flex;
             gap: .5rem;
+          }
+
+          .strain-bubble {
+            background: $mg-blue-4;
+            border: 2px solid $mg-blue-main-2;
           }
         }
 
@@ -2053,6 +2179,10 @@ h1,h2,h3,h4 {
           }
         }
 
+        .mg-seeall-wrap:after {
+          margin: 0 2px 0 2px;
+        }        
+
         .desc {
           font-size: .9rem;
           opacity: .9;
@@ -2065,6 +2195,7 @@ h1,h2,h3,h4 {
           @include mg-border();
           padding: .5rem;
           margin: 0;
+          background: rgba($mg-blue-4, .5);
         }
 
         .item-tags {
@@ -2646,7 +2777,7 @@ h1,h2,h3,h4 {
     box-shadow: 5px 5px 10px rgba(0,0,0,0.5);
 
     h2 {
-      border-bottom: 1px solid $mg-blue-main-2;
+      border-bottom: 2px solid $mg-blue-main-2;
       padding-bottom: .75rem;
       @include oswald();
       font-size: 1.25rem;
@@ -2835,7 +2966,7 @@ h1,h2,h3,h4 {
 .mg-drag-hide { display: none !important; }
 
 .modal-headline {
-  border-bottom: 1px solid $mg-blue-main-2;
+  border-bottom: 2px solid $mg-blue-main-2;
   padding-bottom: .75rem;
   @include oswald();
   font-size: 1.25rem;

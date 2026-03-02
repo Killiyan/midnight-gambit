@@ -92,6 +92,39 @@
             button=false
           }}
         </div>
+
+        {{!-- SIGNATURE TAGS --}}
+
+        <div class="wrapper mg-content">
+          <label>Signature Tags</label>
+
+          <input type="hidden" name="system.moves.{{idx}}.tagsCsv" value="{{this.tagsCsv}}" data-tags-csv="moves.{{idx}}.tags">
+          <div class="tag-selector" data-tags-target="signatureTags">
+            {{#each tags}}
+              <div class="tag-container">
+                <button
+                  type="button"
+                  class="tag-pill {{#if (lookup ../signatureTagSelected this.id)}}selected{{/if}}"
+                  data-tag-id="{{this.id}}"
+                  title="{{this.description}}"
+                >
+                  {{this.label}}
+                </button>
+
+                {{#if this.isCustom}}
+                  <button
+                    type="button"
+                    class="delete-custom-tag"
+                    data-tag-id="{{this.id}}"
+                    title="Delete custom tag globally"
+                  >
+                    <i class="fa-solid fa-delete-left"></i>
+                  </button>
+                {{/if}}
+              </div>
+            {{/each}}
+          </div>
+        </div>  
       </div>
 
 
@@ -106,6 +139,39 @@
 
             <label>Move Description</label>
             <textarea name="system.moves.{{@index}}.description" class="mg-rich move-description">{{this.description}}</textarea>
+
+            {{!-- MOVE TAGS --}}
+
+            <div class="wrapper mg-content">
+              <label>Move Tags</label>
+
+              <input type="hidden" name="system.moves.{{idx}}.tagsCsv" value="{{this.tagsCsv}}" data-tags-csv="moves.{{idx}}.tags">
+              <div class="tag-selector" data-tags-target="moves.{{idx}}.tags">
+                {{#each ../tags}}
+                  <div class="tag-container">
+                    <button
+                      type="button"
+                      class="tag-pill {{#if (lookup (lookup ../../moveTagSelected idx) this.id)}}selected{{/if}}"
+                      data-tag-id="{{this.id}}"
+                      title="{{this.description}}"
+                    >
+                      {{this.label}}
+                    </button>
+
+                    {{#if this.isCustom}}
+                      <button
+                        type="button"
+                        class="delete-custom-tag"
+                        data-tag-id="{{this.id}}"
+                        title="Delete custom tag globally"
+                      >
+                        <i class="fa-solid fa-delete-left"></i>
+                      </button>
+                    {{/if}}
+                  </div>
+                {{/each}}             
+              </div>
+            </div>     
 
             <button type="button" class="remove-move" data-index="{{idx}}">Remove</button>
           </div>
