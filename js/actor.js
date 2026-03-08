@@ -71,33 +71,43 @@ export class MidnightGambitActor extends Actor {
     ------------------------------------------------------------------*/
     data.sto ??= {};
     data.sto.value = Number.isFinite(Number(data.sto.value)) ? Number(data.sto.value) : 0;
-    data.sto.value = Math.max(0, Math.min(6, data.sto.value));
+    data.sto.value = Math.max(0, data.sto.value);
 
 
     /* Risk & Spark defaults
-    ----------------------------------------------------------------------*/  
+    ----------------------------------------------------------------------*/
     data.baseRiskDice ??= 5;
     data.riskDiceCapacity = data.baseRiskDice;
+
+    data.sparkBonus ??= 0;
     data.sparkUsed ??= 0;
+    data.riskUsed  ??= 0;
 
-    // --- Resolve guise whether system.guise is an embedded id OR a UUID ---
-    const ref = data.guise;
-    let guise = null;
+    // --- Resolve a guise reference (embedded id preferred; uuid fallback) ---
+    const resolveGuiseRef = (ref) => {
+      if (!ref) return null;
 
-    if (ref) {
-      // 1) Prefer embedded Item id on the actor
-      guise = this.items.get(ref);
+      // 1) Embedded Item id on this actor
+      let g = this.items.get(ref);
 
-      // 2) Fallback to UUID (older actors / compendium reference)
-      if (!guise && typeof fromUuidSync === "function") {
-        try { guise = fromUuidSync(ref); } catch (_) {}
+      // 2) UUID fallback (older actors)
+      if (!g && typeof fromUuidSync === "function") {
+        try { g = fromUuidSync(ref); } catch (_) {}
       }
-    }
 
-    if (guise?.type === "guise") {
-      const gSys = guise.system || {};
+      return (g?.type === "guise") ? g : null;
+    };
 
-      // Spark casting attribute comes from the equipped Guise
+    // Build primary + secondary guises
+    const primary = resolveGuiseRef(data.guise);
+    const secondaryRefs = Array.isArray(data.secondaryGuises) ? data.secondaryGuises : [];
+    const secondary = secondaryRefs.map(resolveGuiseRef).filter(Boolean);
+
+    // Primary-only rules: attributes + capacity
+    if (primary) {
+      const gSys = primary.system || {};
+
+      // Spark casting attribute comes from PRIMARY (per your rule)
       data.sparkAttribute = gSys.sparkAttribute ?? "guile";
 
       const modifiers = gSys.modifiers ?? {};
@@ -111,24 +121,77 @@ export class MidnightGambitActor extends Actor {
       }
 
       // Apply Guise strain capacity if not manually overridden
-      if (!manual["mortal capacity"]) {
-        data.strain["mortal capacity"] = gSys.mortalCap ?? 0;
-      }
-      if (!manual["soul capacity"]) {
-        data.strain["soul capacity"] = gSys.soulCap ?? 0;
-      }
+      if (!manual["mortal capacity"]) data.strain["mortal capacity"] = gSys.mortalCap ?? 0;
+      if (!manual["soul capacity"])   data.strain["soul capacity"]   = gSys.soulCap   ?? 0;
 
-      // Apply other Guise fields
       data.baseStrainCapacity = {
         mortal: gSys.mortalCap ?? 0,
         soul:   gSys.soulCap   ?? 0
       };
-      data.sparkBonus ??= 0;
-      data.sparkSlots = (gSys.sparkSlots ?? 0) + (Number(data.sparkBonus) || 0);
-      data.riskDice   = gSys.riskDice   ?? 5;
-      data.casterType = gSys.casterType ?? null;
+    } else {
+      // fallback so sheet doesn't explode
+      data.sparkAttribute ??= "guile";
     }
 
+    // Multi-guise rules: Risk + Spark + casterType are "best of both"
+    const allGuises = [primary, ...secondary].filter(Boolean);
+
+    const casterRank = (t) => ((t === "full" || t === "caster") ? 2 : (t === "half" ? 1 : 0));
+    let casterTypeFromGuises = null;
+    for (const g of allGuises) {
+      const ct = g.system?.casterType ?? null;
+      if (!casterTypeFromGuises) casterTypeFromGuises = ct;
+      else if (casterRank(ct) > casterRank(casterTypeFromGuises)) casterTypeFromGuises = ct;
+    }
+
+    const baseSparkFromGuises = Math.max(0, ...allGuises.map(g => Number(g.system?.sparkSlots ?? 0) || 0));
+    const riskFromGuises      = Math.max(5, ...allGuises.map(g => Number(g.system?.riskDice   ?? 5) || 5));
+
+    // SparkSlots = best base + earned bonus, BUT only while you currently have a caster Guise.
+    // This enforces your rule: removing the caster Guise removes access to Spark (and the bar).
+    const isCasterNow = ["full", "half", "caster"].includes(casterTypeFromGuises ?? "none");
+
+    data.sparkSlots = isCasterNow
+      ? (baseSparkFromGuises + (Number(data.sparkBonus) || 0))
+      : 0;
+
+    // -------------------------
+    // Actor Settings Overrides
+    // -------------------------
+    // Risk is: DERIVED FROM GUISES + MANUAL BONUS
+    data.actorSettings ??= {};
+    if (!Object.prototype.hasOwnProperty.call(data.actorSettings, "riskDiceBonus")) {
+      data.actorSettings.riskDiceBonus = 0;
+    }
+
+    // Settings bonus layer for Spark Slots
+    data.actorSettings ??= {};
+    if (!Object.prototype.hasOwnProperty.call(data.actorSettings, "sparkSlotsBonus")) {
+      data.actorSettings.sparkSlotsBonus = 0;
+    }
+
+    data.derivedSparkSlots = Number(data.sparkSlots) || 0;
+
+    const sparkSlotsBonus = Number(data.actorSettings?.sparkSlotsBonus ?? 0) || 0;
+
+    // Final visible Spark slots = derived from guise/caster rules + manual settings bonus
+    data.sparkSlots = Math.max(0, data.derivedSparkSlots + sparkSlotsBonus);    
+
+    // Derived (what the game rules say right now from Guise logic)
+    const derivedRiskDice = Number(riskFromGuises) || 5;
+    data.derivedRiskDice = derivedRiskDice;
+
+    // Bonus layer (GM/player tweak from Settings tab)
+    const riskDiceBonus = Number(data.actorSettings?.riskDiceBonus ?? 0) || 0;
+
+    // Final (what the sheet/rolls actually use)
+    data.riskDice = Math.max(0, derivedRiskDice + riskDiceBonus);
+
+    data.casterType = casterTypeFromGuises;
+
+    // Clamp usage so UI can't show "used > total"
+    data.sparkUsed = Math.min(Number(data.sparkUsed) || 0, Number(data.sparkSlots) || 0);
+    data.riskUsed  = Math.min(Number(data.riskUsed)  || 0, Number(data.riskDice)   || 0);
 
     // === Crew defaults (non-destructive) ===
     if (this.type === "crew") {
@@ -490,14 +553,36 @@ export class MidnightGambitActor extends Actor {
       primaryId
     });
 
-    // Secondary OR already has primary → track only, don’t overwrite stats
+    // Secondary OR already has primary → add as secondary (max 1), and update only Risk/Spark/CasterType
     if (isSecondary || hasPrimary) {
       const existing = Array.isArray(this.system.secondaryGuises) ? this.system.secondaryGuises : [];
+
+      if (!existing.includes(guise.id) && existing.length >= 1) {
+        ui.notifications?.warn("You already have a secondary Guise. Remove it before adding another.");
+        return;
+      }
+
       const nextSecondary = existing.includes(guise.id) ? existing : [...existing, guise.id];
 
+      // Max-of-both for Risk and base Spark
+      const currRisk  = Number(this.system.riskDice ?? 5) || 5;
+      const currSpark = Number(this.system.sparkSlots ?? 0) || 0;
+
+      const nextRisk  = Math.max(currRisk,  Number(guise.system?.riskDice ?? 5)   || 5);
+      const nextSpark = Math.max(currSpark, Number(guise.system?.sparkSlots ?? 0) || 0);
+
+      const casterRank = (t) => ((t === "full" || t === "caster") ? 2 : (t === "half" ? 1 : 0));
+      const currCT = this.system.casterType ?? null;
+      const nextCT = guise.system?.casterType ?? null;
+      const bestCT = casterRank(nextCT) > casterRank(currCT) ? nextCT : currCT;
+
       await this.update({
-        "system.secondaryGuises": nextSecondary
+        "system.secondaryGuises": nextSecondary,
+        "system.riskDice": nextRisk,
+        "system.sparkSlots": nextSpark,
+        "system.casterType": bestCT
       });
+
       return;
     }
 
@@ -523,6 +608,90 @@ export class MidnightGambitActor extends Actor {
     console.log("MG | Applying PRIMARY Guise updates:", updates);
     await this.update(updates);
   }
+
+  // v11+ preferred — sanitize Multi-Guise derived resources when a Guise is removed.
+  // This is what makes "remove Gambler → risk drops" and "remove caster → Spark + schools disappear" work.
+  async _onDeleteDescendantDocuments(parent, collection, documents, ids, options, userId) {
+    if (collection !== "Item") return;
+
+    const deletedGuises = (documents ?? []).filter(d => d?.type === "guise");
+    if (!deletedGuises.length) return;
+
+    // Prune secondary list to only valid, still-embedded Guise IDs
+    const secondary = Array.isArray(this.system?.secondaryGuises) ? this.system.secondaryGuises.slice() : [];
+    const deletedIds = new Set(deletedGuises.map(g => g.id));
+    const nextSecondary = secondary.filter(id => !deletedIds.has(id) && this.items.has(id));
+
+    // Recompute best-of-both resources from remaining primary + secondary
+    const resolveGuiseRef = (ref) => {
+      if (!ref) return null;
+      let g = this.items.get(ref);
+      if (!g && typeof fromUuidSync === "function") {
+        try { g = fromUuidSync(ref); } catch (_) {}
+      }
+      return (g?.type === "guise") ? g : null;
+    };
+
+    let primaryRef = this.system?.guiseId || this.system?.guise || null;
+    let primary = resolveGuiseRef(primaryRef);
+
+    // If primary ref is stale (deleted), auto-promote the first remaining secondary to primary.
+    let promotedPrimaryId = null;
+    let workingSecondary = nextSecondary.slice();
+
+    if (!primary && workingSecondary.length) {
+      promotedPrimaryId = workingSecondary.shift(); // becomes new primary
+      primaryRef = promotedPrimaryId;
+      primary = resolveGuiseRef(primaryRef);
+    }
+
+    // Remaining secondaries after possible promotion
+    const secondaries = workingSecondary.map(resolveGuiseRef).filter(Boolean);
+    const allGuises = [primary, ...secondaries].filter(Boolean);
+
+    const casterRank = (t) => ((t === "full" || t === "caster") ? 2 : (t === "half" ? 1 : 0));
+    let bestCT = null;
+    for (const g of allGuises) {
+      const ct = g.system?.casterType ?? null;
+      if (!bestCT) bestCT = ct;
+      else if (casterRank(ct) > casterRank(bestCT)) bestCT = ct;
+    }
+
+    const baseSpark = Math.max(0, ...allGuises.map(g => Number(g.system?.sparkSlots ?? 0) || 0));
+    const bestRisk  = Math.max(5, ...allGuises.map(g => Number(g.system?.riskDice ?? 5) || 5));
+    const isCasterNow = ["full", "half", "caster"].includes(bestCT ?? "none");
+
+    // Persist a clean state so the sheet doesn't need a refresh to look right.
+    // NOTE: sparkBonus is preserved, but only applies when a caster Guise is present (see prepareData()).
+    const updates = {
+      "system.secondaryGuises": nextSecondary,
+      "system.riskDice": bestRisk,
+      "system.casterType": bestCT,
+      "system.sparkSlots": isCasterNow ? baseSpark : 0,
+      "system.riskUsed": Math.min(Number(this.system?.riskUsed ?? 0) || 0, bestRisk)
+    };
+
+    if (promotedPrimaryId) {
+      updates["system.guise"] = promotedPrimaryId;
+    }
+    updates["system.secondaryGuises"] = workingSecondary;    
+
+    if (!isCasterNow) {
+      // No caster Guise remaining → remove access to Spark entirely.
+      updates["system.sparkUsed"] = 0;
+      updates["system.sparkSchool1"] = null;
+      updates["system.sparkSchool2"] = null;
+      updates["system.sparkSchools"] = [];
+    } else {
+      // Clamp sparkUsed against a reasonable upper bound right now.
+      updates["system.sparkUsed"] = Math.min(
+        Number(this.system?.sparkUsed ?? 0) || 0,
+        baseSpark + (Number(this.system?.sparkBonus ?? 0) || 0)
+      );
+    }
+
+    await this.update(updates, { render: false });
+  }  
 
   // Optional shim: keep for older code paths / modules that might still call it.
   // You can remove this once you’re confident everything is v11+.

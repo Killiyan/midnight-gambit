@@ -230,7 +230,7 @@
             </label>
 
             <div class="sto-track" data-track="sto">
-              {{#range 1 6}}
+              {{#range 1 stoDisplayMax}}
                 <span class="sto-dot {{#if (lte this ../actor.system.sto.value)}}filled{{/if}}"
                       data-value="{{this}}"
                       data-tooltip="Left-click sets/toggles. Shift-click spends. Right-click clears.">
@@ -241,7 +241,7 @@
           </div>
         </div>
 
-        {{#if (or data.isFullCaster data.isHalfCaster)}}
+        {{#if (or isFullCaster isHalfCaster)}}
           <div class="spark-container">
             <label class="spark-label" data-tooltip="Spark slots represent mystical charges or energy. Click to spend or restore.">Sparks</label>
 
@@ -254,7 +254,7 @@
             </div>
 
 
-            {{#if data.isFullCaster}}
+            {{#if isFullCaster}}
               <div class="spark-school-selectors">
                 <label for="sparkSchool1">Schools</label>
                 <select id="spark-school-1" name="system.sparkSchool1">
@@ -285,11 +285,11 @@
 
               </div>
 
-            {{else if data.isHalfCaster}}
+            {{else if isHalfCaster}}
               <div class="spark-school-selectors">
                 <label for="sparkSchool1">Spark School</label>
                 <select class="spark-select" name="system.sparkSchool1">
-                  <option value="">-- Select --</option>
+                  <option value="">Select</option>
                   <option value="veiling" {{#if (eq system.sparkSchool1 "veiling")}}selected{{/if}}>Veiling</option>
                   <option value="sundering" {{#if (eq system.sparkSchool1 "sundering")}}selected{{/if}}>Sundering</option>
                   <option value="binding" {{#if (eq system.sparkSchool1 "binding")}}selected{{/if}}>Binding</option>
@@ -303,7 +303,7 @@
               </div>
             {{/if}}
 
-            {{#if (or data.isFullCaster data.isHalfCaster)}}
+            {{#if (or isFullCaster isHalfCaster)}}
               <div class="spark-track" data-resource="spark">
                 <div class="spark-boxes">
                   <label>Slots</label>
@@ -1439,17 +1439,112 @@
           
         </div>
 
-        <div class="guise-display mg-content">
-          <h3>Remove Guise</h2>
-          <p>Only do this if you have a glitch, or need to rework your character!</p>
-          
-          <span class="guise-name">
-            {{#if guise}}
-              <button type="button" class="remove-guise" title="Remove Guise">Remove Guise</button>
+        <div class="actor-settings mg-content">
+          <h2>Actor Settings</h2>
+
+          <!-- GUISE PRIMARY/SECONDARY -->
+          <section class="mg-setting-section">
+            <h3>Guise Priority</h3>
+            <p class="mg-muted">Your Primary Guise controls the actor's attributes and capacities.</p>
+
+            {{#if settingsGuises.length}}
+              <div class="guise-toggles">
+                {{#each settingsGuises as |g|}}
+                  <div class="guise-toggle-row" data-guise-id="{{g.id}}">
+
+                    <span class="guise-toggle-name">{{g.name}}</span>
+
+                    <button type="button"
+                            class="mg-primary-toggle {{#if g.isPrimary}}is-on{{else}}is-off{{/if}}"
+                            data-guise-id="{{g.id}}"
+                            aria-pressed="{{#if g.isPrimary}}true{{else}}false{{/if}}"
+                            title="Set as Primary Guise">
+                      <span class="mg-primary-toggle-track">
+                        <span class="mg-primary-toggle-knob"></span>
+                      </span>
+                      <span class="mg-primary-toggle-text">
+                        <span class="mg-primary-toggle-text">Primary</span>
+                      </span>
+                    </button>
+                  </div>
+                {{/each}}
+              </div>
             {{else}}
-              No Class Assigned
+              <div class="mg-muted">No Guise assigned.</div>
             {{/if}}
-          </span>
+          </section>
+
+          <!-- RESOURCES -->
+          <section class="mg-setting-section">
+            <h3>Resources</h3>
+
+            <div class="mg-settings-grid">
+              <div class="mg-setting-card">
+                <div class="mg-setting-row">
+                  <label>Risk Dice</label>
+                  <input type="number"
+                        class="mg-final-resource"
+                        data-resource="riskDice"
+                        data-derived="{{actorSettings.derivedRiskDice}}"
+                        min="0"
+                        value="{{system.riskDice}}">
+
+                  <button type="button"
+                          class="mg-reset-resource"
+                          data-resource="riskDice"
+                          {{#unless actorSettings.isRiskModified}}disabled{{/unless}}>
+                    Reset
+                  </button>
+                </div>
+              </div>
+
+              <div class="mg-setting-card">
+                <div class="mg-setting-row">
+                  <label>Spark Slots</label>
+                  <input type="number"
+                    class="mg-final-resource"
+                    data-resource="sparkSlots"
+                    data-derived="{{actorSettings.derivedSparkSlots}}"
+                    value="{{system.sparkSlots}}">
+
+                  <button type="button"
+                    class="mg-reset-resource"
+                    data-resource="sparkSlots"
+                    {{#unless actorSettings.isSparkModified}}disabled{{/unless}}>
+                    Reset
+                  </button>
+                </div>
+              </div>
+
+              <div class="mg-setting-card">
+
+                <div class="mg-setting-row">
+                  <label>STO</label>
+                  <input type="number"
+                        class="mg-final-resource"
+                        data-resource="stoValue"
+                        min="0"
+                        value="{{system.sto.value}}">
+
+                  <button type="button"
+                          class="mg-reset-resource"
+                          data-resource="stoValue"
+                          {{#unless actorSettings.isStoModified}}disabled{{/unless}}>
+                    Reset
+                  </button>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {{!-- EMERGENCY --}}
+          <section class="mg-setting-section">
+            <h3>Emergency Tools</h3>
+            <p class="mg-muted">Use only if you need to recover from a glitch.</p>
+            <div class="button-wrapper">
+              <button type="button" class="remove-guise" title="Remove Guise">Remove Guise</button>
+            </div>
+          </section>
         </div>
       </div>
 

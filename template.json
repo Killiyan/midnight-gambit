@@ -175,8 +175,10 @@
 		},
 		"sparkSlots": 0,
 		"sparkUsed": 0,
+		"sparkSlotsBonus": 0,
 		"riskDice": 5,
 		"riskUsed": 0,
+		"riskDiceBonus": 0,
 		"sto": {
 			"value": 0
 		},
