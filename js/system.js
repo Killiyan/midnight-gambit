@@ -21,7 +21,7 @@ Hooks.once("init", async () => {
   // Register Actor Sheet
   Actors.unregisterSheet("core", ActorSheet);
   Actors.registerSheet("midnight-gambit", MidnightGambitActorSheet, {
-    types: ["character"],
+    types: ["character", "npc"],
     makeDefault: true
   });
 
@@ -41,6 +41,15 @@ Hooks.once("init", async () => {
     type: Boolean,
     default: false
   });
+
+  //Enemy Aura register
+  game.settings.register("midnight-gambit", "activeAuraActorId", {
+    name: "Active Aura Actor ID",
+    scope: "world",
+    config: false,
+    type: String,
+    default: ""
+  });  
 
   //Setting custom tag rules so they persist
   game.settings.register("midnight-gambit", "customTags", {

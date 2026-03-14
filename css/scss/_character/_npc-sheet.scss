@@ -1,5 +1,119 @@
 .npc-sheet {
 
+	.mg-aura-toggle {
+		width: auto;
+		background: $mg-blue-main;
+		border: 2px solid $mg-blue-main-2;
+		display: flex;
+		align-items: center;
+		margin: 0;
+		padding: .5rem .5rem .5rem 1rem;
+		border-radius: .5rem;
+		gap: 1rem;
+		@include oswald();
+		font-size: 1rem;
+		color: $mg-ivory;
+		text-transform: uppercase;
+		position: absolute;
+		bottom: 4.125rem;
+		left: 17.5rem;
+		z-index: 9;
+		transition: transform .5s ease;
+
+		&.is-active {
+			background: $mg-blue-4;
+			border-color: $mg-blue-3;
+			overflow: hidden;
+			
+			&:hover,
+			&:focus {
+				background: $mg-blue-1;
+
+				i {
+				color: $mg-blue-3;
+				}
+			}
+
+			// Sheen sweep (matches lead initiative member)
+			&:after {
+				content: "";
+				position: absolute;
+				pointer-events: none;
+
+				// Keep it mostly top area like your initiative sheen
+				inset: -3% 0% auto -50%;
+				height: 200%;
+
+				// Match the tab shape so it doesn't look like a floating rectangle
+				border-radius: 0 .5rem .5rem 0;
+				overflow: hidden;
+
+				transform: rotate(var(--mg-gleam-tilt, -12deg)) translateX(-120%);
+				mix-blend-mode: screen;
+				opacity: var(--mg-gleam-opacity, 0.9);
+				z-index: 2;
+
+				background: linear-gradient(
+					90deg,
+					transparent 0%,
+					rgba($mg-blue-4, 0.0) 30%,
+					rgba($mg-blue-3, 0.35) 45%,
+					rgba($mg-blue-1, 0.90) 50%,
+					rgba($mg-blue-3, 0.35) 55%,
+					rgba($mg-blue-4, 0.0) 70%,
+					transparent 100%
+				);
+
+				filter: blur(0.6px);
+				animation: mg-gleam var(--mg-gleam-speed, 1.9s) ease-in-out infinite;
+			}
+
+			i {
+			animation: mg-edge-pulse 800ms ease-in-out infinite alternate;
+			color: $mg-blue-1;
+			}
+		}
+
+		@keyframes mg-gleam {
+			0%   { transform: rotate(var(--mg-gleam-tilt, -12deg)) translateX(-120%); opacity: 0; }
+			10%  { opacity: var(--mg-gleam-opacity, 0.9); }
+			45%  { transform: rotate(var(--mg-gleam-tilt, -12deg)) translateX(120%); opacity: var(--mg-gleam-opacity, 0.9); }
+			60%  { opacity: 0; }
+			100% { transform: rotate(var(--mg-gleam-tilt, -12deg)) translateX(120%); opacity: 0; }
+		}
+
+		i {
+			color: $mg-blue-3;
+		}		
+
+		label {
+			margin: 0;
+		}
+
+		i {
+			font-size: 1rem;
+			transition: color 0.2s ease;
+			color: $mg-blue-3;
+			display: block;
+		}
+
+		&:hover,
+		&:focus {
+			background: $mg-blue-1;
+			color: $mg-blue-4;
+			border-color: $mg-blue-1;
+			transform: translateX(3.45rem);
+
+			&:after {
+				transform: translateX(3.45rem);
+			}
+
+			i {
+			color: $mg-blue-3;
+			}
+		}
+	}   
+
 	.mg-seeall-wrap:after {
 		bottom: 0;
 	}

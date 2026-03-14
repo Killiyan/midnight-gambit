@@ -2,15 +2,27 @@ export async function evaluateRoll({
   formula,
   rollData = {},
   skillMod = 0,
+  modifierParts = null,
   label = "Roll",
   actor = null,
-  edge = false
+  edge = false,
+  auraLabel = "",
+  auraAttrMod = 0,
+  auraSourceActorId = "",
+  auraSourceTokenId = "",
+  auraIconClass = "fa-eye-evil"
 }) {
-  const displayFormula = skillMod !== 0 ? `${formula} + (${skillMod})` : formula;
-  const actualFormula  = skillMod !== 0
-    ? `${formula} ${skillMod >= 0 ? "+" : "-"} ${Math.abs(skillMod)}`
-    : formula;
+  const normalizedParts = Array.isArray(modifierParts)
+    ? modifierParts.map(n => Number(n)).filter(n => Number.isFinite(n) && n !== 0)
+    : [];
 
+  const displayFormula = normalizedParts.length
+    ? `${formula} ${normalizedParts.map(n => `${n >= 0 ? "+" : "-"} ${Math.abs(n)}`).join(" ")}`
+    : (skillMod !== 0 ? `${formula} ${skillMod >= 0 ? "+" : "-"} ${Math.abs(skillMod)}` : formula);
+
+  const actualFormula  = normalizedParts.length
+    ? `${formula} ${normalizedParts.map(n => `${n >= 0 ? "+" : "-"} ${Math.abs(n)}`).join(" ")}`
+    : (skillMod !== 0 ? `${formula} ${skillMod >= 0 ? "+" : "-"} ${Math.abs(skillMod)}` : formula);
   // Helper to evaluate one roll
   const doRoll = async () => {
     const r = new Roll(actualFormula, rollData);
@@ -102,6 +114,38 @@ export async function evaluateRoll({
   }
 
   // ------------------------------------------------------------
+  // Aura effect in chat badge
+  // ------------------------------------------------------------  
+  const auraBlock = (auraLabel && auraAttrMod !== 0)
+    ? `
+      <div class="mg-roll-aura-block">
+        <span class="mg-roll-aura-label">${auraLabel}</span>
+        <div class="mg-roll-aura-main">
+          <span class="mg-roll-aura-badge" title="${auraLabel}">
+            <i class="fa-solid ${auraIconClass}"></i>
+            ${auraAttrMod >= 0 ? "+" : ""}${auraAttrMod}
+          </span>
+        </div>
+
+        ${game.user.isGM && auraSourceActorId ? `
+          <button type="button"
+            class="mg-remove-aura"
+            data-aura-actor-id="${auraSourceActorId}"
+            data-roll-actor-id="${actor?.id ?? ""}"
+            data-label="${label}"
+            data-formula="${formula}"
+            data-skill-mod="${skillMod}"
+            data-edge="${edge ? "true" : "false"}"
+            data-modifier-parts='${JSON.stringify(modifierParts ?? []).replace(/'/g, "&#39;")}'
+            data-aura-attr-mod="${auraAttrMod}">
+            <i class="fa-solid fa-ban"></i>
+          </button>
+        ` : ""}
+      </div>
+    `
+    : "";
+
+  // ------------------------------------------------------------
   // Edge UI (OLD behavior): two boxes + dice panel (no Foundry tooltip)
   // ------------------------------------------------------------
   const diceResults = (r) => {
@@ -170,7 +214,7 @@ export async function evaluateRoll({
                 data-actor-id="${actor.id}"
                 data-kept="${kept.slice(0, 2).join(",")}"
                 data-skill-mod="${Number(skillMod) || 0}"
-                data-session-id="${sessionId}">
+                data-session-id="${sessionId}"
         <i class="fa-solid fa-dice-d6"></i> Risk It
       </button>
       <small class="hint">Replaces the lower kept die; a <strong>1</strong> causes 1 Strain.</small>`
@@ -180,6 +224,7 @@ export async function evaluateRoll({
     <div class="chat-roll" data-total="${total}">
       <div class="roll-container">
         <label>${label}</label><br/>
+        ${auraBlock}      
         <strong>${resultText}</strong>
       </div>
 

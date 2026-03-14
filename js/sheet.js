@@ -113,6 +113,29 @@ export class MidnightGambitActorSheet extends ActorSheet {
         spark: "Spark"
       };
 
+      const allSkillKeys = [
+        "brawl", "endure", "athletics",
+        "aim", "stealth", "sleight",
+        "will", "grit", "composure",
+        "lore", "investigate", "deceive",
+        "survey", "hunt", "nature",
+        "command", "charm", "perform",
+        "spark"
+      ];
+
+      const storedTempAttrBonuses = this.actor.system?.tempAttributeBonuses ?? {};
+      context.tempAttributeBonuses = Object.fromEntries(
+        context.attributeKeys.map((key) => [key, Number(storedTempAttrBonuses[key] ?? 0)])
+      );      
+
+      const storedTempSkillBonuses = this.actor.system?.tempSkillBonuses ?? {};
+
+      context.tempSkillBonuses = Object.fromEntries(
+        Object.keys(context.system.skills ?? {}).map((key) => [
+          key,
+          Number(storedTempSkillBonuses[key] ?? 0)
+        ])
+      );
       
       context.skillAttrShort = {
         brawl: "ten", endure: "ten", athletics: "ten",
@@ -1909,33 +1932,44 @@ _mgOpenChatCropper() {
         el.textContent = next >= 0 ? `+${next}` : `${next}`;
       });
 
-      // Rolling Attributes in chat with the right logic
       html.find(".attribute-modifier").on("click", async (event) => {
         const attrKey = event.currentTarget.dataset.key;
-        const mod = this.actor.system.attributes?.[attrKey] ?? 0;
 
-        const pool = 2 + Math.abs(mod);
-        const rollType = mod >= 0 ? "kh2" : "kl2";
+        const baseAttrMod = Number(this.actor.system.attributes?.[attrKey] ?? 0);
+        const tempAttrMod = Number(this.actor.system.tempAttributeBonuses?.[attrKey] ?? 0);
+
+        const aura = this._getActiveAuraPenalty(attrKey);
+        const auraAttrMod = Number(aura.value ?? 0);
+
+        // Aura should NOT change the dice pool anymore
+        const finalAttrMod = baseAttrMod + tempAttrMod;
+
+        const pool = 2 + Math.abs(finalAttrMod);
+        const rollType = finalAttrMod >= 0 ? "kh2" : "kl2";
         const formula = `${pool}d6${rollType}`;
 
         const edge = !!this.actor.system.edgeNext;
 
         await evaluateRoll({
           formula,
-          label: `Attribute Roll: ${attrKey.toUpperCase()}`,
+          skillMod: auraAttrMod,
+          modifierParts: [auraAttrMod],
+          label: `Attribute Roll: ${attrKey.charAt(0).toUpperCase() + attrKey.slice(1)}`,
           actor: this.actor,
-          edge
+          edge,
+          auraLabel: aura.label,
+          auraAttrMod,
+          auraSourceActorId: aura.sourceActorId,
+          auraSourceTokenId: aura.sourceTokenId
         });
 
-        // Consume Edge after the roll (one-and-done)
         if (edge) {
           await this.actor.update({ "system.edgeNext": false }, { render: false });
           const btn = html.find(".mg-edge-toggle")[0];
           if (btn) btn.classList.remove("is-active");
         }
       });
-
-
+      
       // Handle disabling duplicate spark school selections
       const select1 = html.find("#spark-school-1");
       const select2 = html.find("#spark-school-2");
@@ -1988,59 +2022,97 @@ _mgOpenChatCropper() {
         command: "Pre", charm: "Pre", perform: "Pre"
       };
 
+      const skillLabels = {
+        brawl: "Brawl",
+        endure: "Endure",
+        athletics: "Athletics",
+        aim: "Aim",
+        stealth: "Stealth",
+        sleight: "Sleight",
+        will: "Will",
+        grit: "Grit",
+        composure: "Composure",
+        lore: "Lore",
+        investigate: "Investigate",
+        deceive: "Deceive",
+        survey: "Survey",
+        hunt: "Hunt",
+        nature: "Nature",
+        command: "Command",
+        charm: "Charm",
+        perform: "Perform",
+        spark: "Spark"
+      };
 
-      html.find(".skill-name, .skill-value").off("click.mgSkillRoll").on("click.mgSkillRoll", async (event) => {
-        const skillKey = event.currentTarget.dataset.key;
-        const skillMod = this.actor.system.skills?.[skillKey] ?? 0;
+      html.find(".mg-temp-skill-bonuses")
+        .off("click.mgTempSkillBonuses")
+        .on("click.mgTempSkillBonuses", async (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          await this._mgOpenTempSkillBonusesDialog();
+        });      
 
-        const skillAttributeMap = {
-          brawl: "tenacity", endure: "tenacity", athletics: "tenacity",
-          aim: "finesse", stealth: "finesse", sleight: "finesse",
-          will: "resolve", grit: "resolve", composure: "resolve",
-          lore: "guile", investigate: "guile", deceive: "guile",
-          survey: "instinct", hunt: "instinct", nature: "instinct",
-          command: "presence", charm: "presence", perform: "presence",
+      html.find(".skill-name, .skill-value")
+        .off("click.mgSkillRoll")
+        .on("click.mgSkillRoll", async (event) => {
+          event.preventDefault();
+          event.stopPropagation();
 
-          // Spark: still mapped for now until we implement Guise casting attribute
-          spark: "guile"
-        };
+          const skillKey = event.currentTarget.dataset.key;
+          if (!skillKey) return;
 
+          const baseSkillMod = Number(this.actor.system.skills?.[skillKey] ?? 0);
+          const tempSkillMod = Number(this.actor.system.tempSkillBonuses?.[skillKey] ?? 0);
 
-        let attrKey = skillAttributeMap[skillKey];
+          let attrKey = skillAttributeMap[skillKey];
 
-        // Spark is Guise-dependent
-        if (skillKey === "spark") {
-          attrKey = this.actor.system.sparkAttribute ?? "guile";
-        }
+          // Spark is Guise-dependent
+          if (skillKey === "spark") {
+            attrKey = this.actor.system.sparkAttribute ?? "guile";
+          }
 
-        const attrMod = this.actor.system.attributes?.[attrKey] ?? 0;
+          const baseAttrMod = Number(this.actor.system.attributes?.[attrKey] ?? 0);
+          const tempAttrMod = Number(this.actor.system.tempAttributeBonuses?.[attrKey] ?? 0);
 
-        const pool = 2 + Math.abs(attrMod);
-        const rollType = attrMod >= 0 ? "kh2" : "kl2";
-        const formula = `${pool}d6${rollType}`;
+          const aura = this._getActiveAuraPenalty(attrKey);
+          const auraAttrMod = Number(aura.value ?? 0);
 
-        const edge = !!this.actor.system.edgeNext;
-        const skillLabel = context.skillLabels?.[skillKey] ?? skillKey;
-        const upperSkill = String(skillLabel).toUpperCase();
+          // Aura is now a flat final modifier, not dice-pool pressure
+          const finalAttrMod = baseAttrMod + tempAttrMod;
+          const finalSkillMod = baseSkillMod + tempSkillMod + auraAttrMod;
 
-        await evaluateRoll({
-          formula,
-          skillMod,
-          label: `Skill Roll: ${upperSkill}`,
-          actor: this.actor,
-          edge
-        });
+          const pool = 2 + Math.abs(finalAttrMod);
+          const rollType = finalAttrMod >= 0 ? "kh2" : "kl2";
+          const formula = `${pool}d6${rollType}`;
 
+          const edge = !!this.actor.system.edgeNext;
+          const skillLabel = skillLabels[skillKey] ?? skillKey;
 
-        // Consume Edge after the roll (one-and-done)
-        if (edge) {
-          await this.actor.update({ "system.edgeNext": false }, { render: false });
-          const btn = html.find(".mg-edge-toggle")[0];
-          if (btn) btn.classList.remove("is-active");
-        }
+          const bonusText =
+            (tempSkillMod !== 0 || auraAttrMod !== 0)
+              ? ` (${baseSkillMod >= 0 ? "+" : ""}${baseSkillMod} base, ${tempSkillMod >= 0 ? "+" : ""}${tempSkillMod} temp${auraAttrMod !== 0 ? `, ${auraAttrMod >= 0 ? "+" : ""}${auraAttrMod} aura` : ""})`
+              : "";
+
+          await evaluateRoll({
+            formula,
+            skillMod: finalSkillMod,
+            modifierParts: [baseSkillMod, tempSkillMod, auraAttrMod],
+            label: `Skill Roll: ${skillLabel.toUpperCase()}${bonusText}`,
+            actor: this.actor,
+            edge,
+            auraLabel: aura.label,
+            auraAttrMod,
+            auraSourceActorId: aura.sourceActorId,
+            auraSourceTokenId: aura.sourceTokenId
+          });
+
+          if (edge) {
+            await this.actor.update({ "system.edgeNext": false }, { render: false });
+            const btn = html.find(".mg-edge-toggle")[0];
+            if (btn) btn.classList.remove("is-active");
+          }
       });
-
-
+      
       // Skill base edit (numeric-safe, manual UI refresh)
       html.find(".skill-value").on("contextmenu", async (event) => {
         event.preventDefault();
@@ -4294,6 +4366,194 @@ _mgOpenChatCropper() {
   //END EVENT LISTENERS
   //---------------------------------------------------------------------------------------------------------------------------
 
+  /** Temp Skill bonus */
+  async _mgOpenTempSkillBonusesDialog() {
+    const attributeKeys = [
+      "tenacity",
+      "finesse",
+      "resolve",
+      "guile",
+      "instinct",
+      "presence"
+    ];
+
+    const skillBuckets = {
+      tenacity: ["brawl", "endure", "athletics"],
+      finesse: ["aim", "stealth", "sleight"],
+      resolve: ["will", "grit", "composure"],
+      guile: ["lore", "investigate", "deceive"],
+      instinct: ["survey", "hunt", "nature"],
+      presence: ["command", "charm", "perform"]
+    };
+
+    const skillLabels = {
+      brawl: "Brawl",
+      endure: "Endure",
+      athletics: "Athletics",
+      aim: "Aim",
+      stealth: "Stealth",
+      sleight: "Sleight",
+      will: "Will",
+      grit: "Grit",
+      composure: "Composure",
+      lore: "Lore",
+      investigate: "Investigate",
+      deceive: "Deceive",
+      survey: "Survey",
+      hunt: "Hunt",
+      nature: "Nature",
+      command: "Command",
+      charm: "Charm",
+      perform: "Perform",
+      spark: "Spark"
+    };
+
+    const current = this.actor.system?.tempSkillBonuses ?? {};
+    const currentAttrBonuses = this.actor.system?.tempAttributeBonuses ?? {};
+
+    const columnsHtml = `
+      <div class="attribute-container mg-temp-bonus-modal">
+        ${attributeKeys.map((attrKey) => {
+          const skills = skillBuckets[attrKey] ?? [];
+
+          return `
+            <div class="attribute-column" data-attr="${attrKey}">
+              <label class="attribute-label">${attrKey}</label>
+
+              <div class="attribute-interior">
+                <div class="attribute">
+                  <input
+                    class="attribute-modifier mg-temp-attr-input"
+                    type="number"
+                    name="temp-attr-${attrKey}"
+                    value="${Number(currentAttrBonuses[attrKey] ?? 0)}"
+                    step="1"
+                    data-key="${attrKey}"
+                  />
+                </div>
+
+                <hr>
+
+                <div class="attribute-skills">
+                  ${skills.map((skillKey) => {
+                    const label = skillLabels[skillKey] ?? skillKey;
+                    const value = Number(current[skillKey] ?? 0);
+
+                    return `
+                      <div class="skill-row">
+                        <div class="skill-name" data-key="${skillKey}">
+                          ${label}
+                        </div>
+
+                        <input
+                          class="skill-value mg-temp-skill-input"
+                          type="number"
+                          name="temp-${skillKey}"
+                          value="${value}"
+                          step="1"
+                          data-key="${skillKey}"
+                        />
+                      </div>
+                    `;
+                  }).join("")}
+                </div>
+              </div>
+            </div>
+          `;
+        }).join("")}
+      </div>
+    `;
+
+    const result = await new Promise((resolve) => {
+      const dlg = new Dialog({
+        title: "Temp Skill Bonuses",
+        content: `
+          <div class="mg-temp-bonus-dialog-content">
+            <h2 class="modal-headline">Temp Skill Bonuses</h2>
+            <p class="mg-temp-bonus-copy">
+              Set temporary bonuses or penalties that apply automatically when a skill is rolled.
+            </p>
+            ${columnsHtml}
+          </div>
+        `,
+        buttons: {
+          ok: {
+            label: this._mgBtn("Save", "fa-floppy-disk"),
+            callback: (html) => {
+              const skillOut = {};
+              const attrOut = {};
+
+              for (const attrKey of attributeKeys) {
+                attrOut[attrKey] = Number(html.find(`input[name="temp-attr-${attrKey}"]`).val() ?? 0) || 0;
+
+                for (const skillKey of (skillBuckets[attrKey] ?? [])) {
+                  skillOut[skillKey] = Number(html.find(`input[name="temp-${skillKey}"]`).val() ?? 0) || 0;
+                }
+              }
+
+              resolve({
+                skillBonuses: skillOut,
+                attributeBonuses: attrOut
+              });
+            }
+          },
+          cancel: {
+            label: this._mgBtn("Cancel", "fa-circle-xmark"),
+            callback: () => resolve(null)
+          }
+        },
+        default: "ok",
+        render: (html) => {
+          html.closest(".app").addClass("mg-temp-bonus");
+        }
+      });
+
+      dlg.render(true);
+    });
+
+    if (result === null) return;
+
+    await this.actor.update({
+      "system.tempSkillBonuses": result.skillBonuses,
+      "system.tempAttributeBonuses": result.attributeBonuses
+    }, { render: false });
+
+    this.render(false);
+  }
+
+  /** NPC Aura */
+  _getActiveAuraPenalty(attrKey) {
+    const activeAuraActorId = game.settings.get("midnight-gambit", "activeAuraActorId");
+    if (!activeAuraActorId) {
+      return { value: 0, label: "", sourceActorId: "", sourceTokenId: "" };
+    }
+
+    const actor = game.actors.get(activeAuraActorId);
+    if (!actor || actor.type !== "npc") {
+      return { value: 0, label: "", sourceActorId: "", sourceTokenId: "" };
+    }
+
+    const enabled = !!actor.system?.aura?.enabled;
+    if (!enabled) {
+      return { value: 0, label: "", sourceActorId: "", sourceTokenId: "" };
+    }
+
+    const npcAttr = Number(
+      actor.system?.attributes?.[attrKey] ??
+      actor.system?.baseAttributes?.[attrKey] ??
+      0
+    );
+
+    const label = String(actor.system?.aura?.label || "Oppressive Presence");
+
+    return {
+      value: -npcAttr,
+      label,
+      sourceActorId: actor.id,
+      sourceTokenId: ""
+    };
+  }
+
   /** Compute the player's Gambit deck/hand max from the LEVELS table with robust fallbacks. */
   _mgGetPlayerGambitMax() {
     const lvl = Number(this.actor.system?.level) || 1;
@@ -4317,7 +4577,6 @@ _mgOpenChatCropper() {
     const sys = this.actor.system?.gambits ?? {};
     return Number(sys.deckSize ?? sys.maxDeckSize ?? sys.maxDrawSize ?? 3) || 3;
   }
-
 
   /**
    * Centered overlay for a Gambit: shows name + description.
@@ -4675,17 +4934,29 @@ _mgOpenChatCropper() {
     return `${text} <i class="fa-solid ${faRight}"></i>`;
   }
 
-  /** Generic prompt with <h2> title in body and right-justified icon labels */
-  async _mgPrompt({ title, bodyHtml, okText = "Save", okIcon = "fa-check", cancelText = "Cancel", cancelIcon = "fa-circle-xmark", getValue }) {
+  async _mgPrompt({
+    title,
+    bodyHtml,
+    okText = "Save",
+    okIcon = "fa-check",
+    cancelText = "Cancel",
+    cancelIcon = "fa-circle-xmark",
+    getValue,
+    classes = [],
+    ...dialogOptions
+  }) {
     const result = await Dialog.wait({
-      title,                                    // plain title
-      content: `<h2 class="modal-headline">${title}</h2>${bodyHtml}`,  // visual H2 in content
+      title,
+      content: `<h2 class="modal-headline">${title}</h2>${bodyHtml}`,
       buttons: {
         ok: { label: this._mgBtn(okText, okIcon), callback: html => getValue($(html)) },
         cancel: { label: this._mgBtn(cancelText, cancelIcon), callback: () => null }
       },
-      default: "ok"
+      default: "ok",
+      classes,
+      ...dialogOptions
     });
+
     return result;
   }
 
@@ -5467,7 +5738,7 @@ _mgOpenChatCropper() {
     const $root = html instanceof jQuery ? html : $(html);
     $root.find("[data-requires-guise]").toggle(hasGuise);
     $root.find("[data-hides-with-guise]").toggle(!hasGuise);
-  }  
+  } 
 
   async _onDrop(event) {
     // Helper: what zone did we drop onto?

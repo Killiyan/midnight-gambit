@@ -222,6 +222,61 @@ Hooks.once("init", () => {
   }
 });
 
+Hooks.on("renderChatMessage", (message, html) => {
+  const btn = html[0]?.querySelector(".mg-remove-aura");
+  if (!btn || !game.user.isGM) return;
+
+  btn.addEventListener("click", async (ev) => {
+    ev.preventDefault();
+    ev.stopPropagation();
+
+    const auraActorId = btn.dataset.auraActorId;
+    const rollActorId = btn.dataset.rollActorId;
+    const label = btn.dataset.label || "Roll";
+    const formula = btn.dataset.formula || "2d6kh2";
+    const skillMod = Number(btn.dataset.skillMod ?? 0);
+    const edge = btn.dataset.edge === "true";
+    const auraAttrMod = Number(btn.dataset.auraAttrMod ?? 0);
+
+    let modifierParts = [];
+    try {
+      modifierParts = JSON.parse(btn.dataset.modifierParts || "[]");
+    } catch (_) {
+      modifierParts = [];
+    }
+
+    const auraActor = game.actors.get(auraActorId);
+    const rollActor = game.actors.get(rollActorId);
+
+    if (auraActor) {
+      await auraActor.update({ "system.aura.enabled": false }, { render: false });
+    }
+
+    // Remove the aura amount from the modifier parts for the replay roll
+    const replayParts = modifierParts.slice();
+    const idx = replayParts.lastIndexOf(auraAttrMod);
+    if (idx !== -1) replayParts.splice(idx, 1);
+
+    const replaySkillMod = skillMod - auraAttrMod;
+
+    await evaluateRoll({
+      formula,
+      rollData: {},
+      skillMod: replaySkillMod,
+      modifierParts: replayParts,
+      actor: rollActor,
+      edge,
+      auraLabel: "",
+      auraAttrMod: 0,
+      auraSourceActorId: "",
+      auraSourceTokenId: ""
+    });
+
+    btn.disabled = true;
+    btn.classList.add("is-disabled");
+  }, { once: true });
+});
+
 /* Get Crew Sheet Helper
 ==============================================================================================================================================*/
 function mgGetSettingSafe(module, key) {
@@ -2067,11 +2122,11 @@ Hooks.on("renderChatMessage", (message, html) => {
   const content = `
     <div class="mg-chat-card mg-risk-result chat-roll" data-total="${newTotal}">
       <div class="roll-container">
-        <label>Risk Result</label></br>
+        <label>Risk Result</label><br/>
         <strong>${resultText}</strong>
       </div>
-      ${keptSmall}
       <p class="dice-total risk-result">Replaced lower die <strong>${L} → ${R}</strong></p>
+      ${keptSmall}
       ${R === 1 ? `<p class="text-danger"><strong>Strain:</strong> choose a track and click to add 1.</p>` : ""}
       <div class="mg-roll-controls mg-risk-controls-again">
         ${againBtn}
@@ -2162,13 +2217,13 @@ Hooks.on("renderChatMessage", (message, html) => {
       speaker: ChatMessage.getSpeaker({ actor }),
       content: `
         <div class="chat-roll sto-upgrade roll-container" data-total="${finalTotal}">
-          <strong>
+          <div class="result-container">
             <div class="result-label">
               <i class="fa-solid ${resultIcon} ${resultClass}" aria-hidden="true"></i>
               <strong>${resultLabel}</strong>
             </div>
             <span>${resultText}</span>
-          </strong>
+          </div>
 
           <h4 class="dice-total">
             <strong>${finalTotal}</strong>

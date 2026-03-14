@@ -596,6 +596,31 @@ export class MidnightGambitNpcSheet extends ActorSheet {
     this.render(false);
   });
 
+
+  // NPC Aura Toggle
+  html.find(".mg-aura-toggle")
+    .off("click.mgAuraToggle")
+    .on("click.mgAuraToggle", async (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+
+      const btn = ev.currentTarget;
+      const next = !Boolean(this.actor.system?.aura?.enabled);
+
+      await this.actor.update({ "system.aura.enabled": next }, { render: false });
+
+      if (next) {
+        await game.settings.set("midnight-gambit", "activeAuraActorId", this.actor.id);
+      } else {
+        const current = game.settings.get("midnight-gambit", "activeAuraActorId");
+        if (current === this.actor.id) {
+          await game.settings.set("midnight-gambit", "activeAuraActorId", "");
+        }
+      }
+
+      btn.classList.toggle("is-active", next);
+    });
+
   }
 
   /** Wrap the profile img in a cropbox and apply saved vars from flags. */

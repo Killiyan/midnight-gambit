@@ -61,7 +61,11 @@
 					"soul capacity": false
 				}
 				},
-				"baseStrainCapacity": { "mortal": 0, "soul": 0 }
+				"baseStrainCapacity": { "mortal": 0, "soul": 0 },
+				"aura": {
+					"enabled": false,
+					"label": ""
+				}
 			}
 		}
 	},
@@ -163,6 +167,27 @@
 			"charm": 0,
 			"perform": 0
 		},
+		"tempSkillBonuses": {
+			"brawl": 0,
+			"endure": 0,
+			"athletics": 0,
+			"aim": 0,
+			"stealth": 0,
+			"sleight": 0,
+			"will": 0,
+			"grit": 0,
+			"composure": 0,
+			"lore": 0,
+			"investigate": 0,
+			"deceive": 0,
+			"survey": 0,
+			"hunt": 0,
+			"nature": 0,
+			"command": 0,
+			"charm": 0,
+			"perform": 0,
+			"spark": 0
+		},		
 		"strain": {
 			"mortal": 0,
 			"soul": 0,

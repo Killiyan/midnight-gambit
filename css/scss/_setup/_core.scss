@@ -24,10 +24,11 @@ input[type="text"], input[type="number"], input[type="password"], input[type="da
 
   &:hover,
   &:focus {
-    background: $mg-blue-3;
-    box-shadow: 0 0 .5rem $mg-ivory;
-    color: $white
-  }
+    background: $mg-blue-main-2;
+    border-color: $mg-blue-1;
+    box-shadow: none;
+    color: $mg-blue-1;
+  }   
 }
 
 .tab .header-search {
@@ -39,7 +40,7 @@ input[type="text"], input[type="number"], input[type="password"], input[type="da
     background: $mg-blue-main;
     border-radius: .5rem;
     color: $mg-blue-2;
-    transition: color .5s ease, border-color .5s ease, box-shadow 0.5s ease;
+    transition: color .5s ease, border-color .5s ease;
 
     &::placeholder {
       color: $mg-blue-2;
@@ -48,14 +49,14 @@ input[type="text"], input[type="number"], input[type="password"], input[type="da
 
     &:hover,
     &:focus {
-      color: $mg-ivory;
-      border-color: $mg-ivory;
-      box-shadow: 0 0 .5rem $mg-ivory;
+      background: $mg-blue-main-2;
+      border-color: $mg-blue-1;
+      color: $mg-blue-1;
 
       &::placeholder {
-        color: $mg-ivory;
+        color: $mg-blue-1;
       }
-    }
+    }     
   }
 }
 
@@ -73,7 +74,7 @@ form button,
   font-weight: 700;
   border: none;
   border-radius: .5rem;
-  transition: background 0.5s ease, color 0.5s ease, box-shadow .5s ease, border .5s ease;
+  transition: background 0.5s ease, color 0.5s ease, border .5s ease;
 
   &.mg-risk-it {
     margin-bottom: .5rem;
@@ -88,7 +89,7 @@ form button,
   &:focus {
     background: $mg-blue-1;
     color: $mg-blue-main-2;
-    box-shadow: 0 0 .5rem $mg-ivory;
+    box-shadow: none;
 
     i {
       color: $mg-blue-3;
@@ -235,6 +236,7 @@ button:disabled {
       height: 2px;
       width: 100%;
       border-radius: .5rem;
+      margin-top: 1rem;
     }
 
     .mg-chat-avatar-wrap {
@@ -406,11 +408,16 @@ button:disabled {
     .mg-edge-box {
       @include mg-border();
       background: rgba(0,0,0, .1);
-      margin: 0.5rem 0;
-      padding: 1.125rem;
-      border-radius: .5rem;
+      margin: 0;
+      padding: .25rem;
       border-color: $mg-blue-main-2;
       box-shadow: none;
+      transition: border-color .5s ease, color .5s ease;
+
+      &:hover {
+        border-color: $mg-blue-1;
+        color: $mg-blue-1;
+      }
 
       &.risk-result {
         display: flex;
@@ -429,7 +436,25 @@ button:disabled {
       }
     }
 
+    .dice-formula {
+      border-radius: .5rem .5rem 0 0 ;
+    }
+
+    .mg-edge-box {
+      border-radius: .5rem;
+    }
+    
+    .dice-total {
+      border-radius: 0 0 .5rem .5rem;
+      border-top: 0;
+      margin-bottom: .5rem;
+    }
+
     .mg-risk-kept {
+      margin-top: .5rem;
+      border-radius: .5rem;
+      border-top: 2px solid $mg-blue-main-2;
+
       p {
         display: flex;
         flex-direction: column;
@@ -460,9 +485,7 @@ button:disabled {
       font-style: italic;
       display: block;
       position: relative;
-      padding: 1.25rem;
-      @include mg-border();
-      border-radius: .5rem;
+      padding: 0;
 
       label {
         font-size: .75rem;
@@ -472,11 +495,82 @@ button:disabled {
         gap: 1rem;
         padding: 0.5rem;
         position: absolute;
-        top: 0;
-        left: 0;
+        top: -1.1rem;
+        left: -1rem;
         background: $mg-blue-4;
         border-radius: 0.5rem 0 0.5rem;
+        border-bottom: 2px solid $mg-blue-main-2;
+        border-right: 2px solid $mg-blue-main-2;
         opacity: .6;
+      }
+
+      .mg-roll-aura-block {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        overflow: hidden;
+        border-radius: .5rem;
+        @include mg-border();
+        background: rgba($mg-blue-4, .8);
+        margin: .5rem 0 1.25rem 0;
+        border-radius: .5rem;
+
+        .mg-roll-aura-badge,
+        .mg-roll-aura-label,
+        .mg-remove-aura {
+          padding: 0;
+        }
+
+        .mg-roll-aura-label {
+          grid-column: span 4;
+          text-align: center;
+          padding: .25rem;
+          border-bottom: 2px solid $mg-blue-main-2;
+          background: $mg-blue-main-2;
+          color: $mg-blue-1;
+          border-radius: 0;
+        }
+
+        .mg-roll-aura-main {
+          display: flex;
+          grid-column: span 3;
+
+
+          i {
+            border-radius: 0;
+          }
+        }
+
+        .mg-roll-aura-badge {
+          display: flex;
+          gap: .5rem;
+          align-items: center;
+          border: none;
+        }
+
+        .mg-remove-aura {
+          padding: .25rem;
+          justify-self: flex-end;
+          background: transparent;
+          border-radius: 0;
+          margin: 0;
+
+          &:hover,
+          &:focus {
+            background: $mg-blue-1;
+
+            i {
+              color: $mg-blue-4;
+            }
+          }
+
+          i {
+            background: transparent;
+            color: $mg-blue-3;
+            margin: 0;
+            padding: 0;
+            width: auto;
+          }
+        }
       }
 
       .result-label {
@@ -484,6 +578,10 @@ button:disabled {
         align-items: center;
         gap: .625rem;
         text-transform: uppercase;
+        @include mg-border();
+        background: rgba($mg-blue-4, .8);
+        border-radius: .5rem .5rem 0 0;
+        overflow: hidden;
 
         strong {
           color: $mg-ivory;
@@ -491,7 +589,12 @@ button:disabled {
       }
 
       span {
-        padding-left: 3rem;
+        @include mg-border();
+        border-top: 0;
+        border-radius: 0 0 .5rem .5rem;
+        padding: .25rem;
+        text-align: center;
+        background: rgba($mg-blue-4, .8);
         display: block;
       }
 
@@ -500,14 +603,13 @@ button:disabled {
         color: $mg-blue-4;
         background: $mg-blue-3;
         padding: .625rem;
-        border-radius: .5rem;
+        //border-radius: .5rem;
       }
     }
 
     .dice {
       display: flex;
       flex-direction: column;
-      gap: .5rem;
       
       .dice-rolls {
         display: flex;
@@ -731,7 +833,7 @@ button:disabled {
     background-color: rgba($black, 0.5);
     border-radius: .5rem;
     color: $mg-blue-2;
-    transition: color .5s ease, border-color .5s ease, box-shadow 0.5s ease;
+    transition: color .5s ease, border-color .5s ease, box-shadow 0.5s ease, background 0.5s ease;
 
     option {
       background-color: $mg-blue-main;

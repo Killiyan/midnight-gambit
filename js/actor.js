@@ -15,6 +15,12 @@ export class MidnightGambitActor extends Actor {
       data.baseAttributes[k] = Number.isFinite(n) ? n : 0;
     }
 
+    if (this.type === "npc") {
+      data.aura ??= {};
+      data.aura.enabled = Boolean(data.aura.enabled);
+      data.aura.label = String(data.aura.label ?? "");
+    }    
+
     // --- Skill defaults (ensures sheet renders even on older actors) ---
     data.skills ??= {};
 

@@ -148,8 +148,13 @@
               {{/range}}
             </div>
           </div>
-        </div>
+        </div> 
       </div>
+
+      <button type="button" class="mg-temp-skill-bonuses">
+        Temp Bonuses
+        <i class="fa-solid fa-handshake-angle"></i>
+      </button>   
 
 
       <div class="profile-image">
@@ -162,52 +167,72 @@
       <!--This is our General tab where Image, and general gameplay goes-->
       <div class="tab" data-group="main" data-tab="general" >
         
-      <div class="attribute-container">
-        {{#each attributeKeys as |key|}}
+        <div class="attribute-container">
+          {{#each attributeKeys as |key|}}
 
-          <div class="attribute-column" data-attr="{{key}}">
-            <label class="attribute-label">{{key}}</label>
+            <div class="attribute-column" data-attr="{{key}}">
+              <label class="attribute-label">{{key}}</label>
 
-            <div class="attribute-interior">
-              <!-- Attribute Header -->
-              <div class="attribute">
+              <div class="attribute-interior">
+                <!-- Attribute Header -->
+                <div class="attribute">
+                  <span class="attribute-modifier"
+                        data-tooltip="Click to roll | Right click to edit base Attribute"
+                        data-key="{{key}}"
+                        data-base="{{lookup ../system.baseAttributes key}}">
+                    {{#if (gte (lookup ../system.attributes key) 0)}}
+                      +{{lookup ../system.attributes key}}
+                    {{else}}
+                      {{lookup ../system.attributes key}}
+                    {{/if}}
+                  </span>
 
-                <span class="attribute-modifier"
-                      data-tooltip="Click to roll | Right click to edit base Attribute"
-                      data-key="{{key}}"
-                      data-base="{{lookup ../system.baseAttributes key}}">
-                  {{#if (gte (lookup ../system.attributes key) 0)}}
-                    +{{lookup ../system.attributes key}}
-                  {{else}}
-                    {{lookup ../system.attributes key}}
+                  {{#if (lookup ../tempAttributeBonuses key)}}
+                    <span class="attribute-temp-bonus"
+                          data-tooltip="Temporary Attribute Bonus">
+                      {{#if (gte (lookup ../tempAttributeBonuses key) 0)}}
+                        +{{lookup ../tempAttributeBonuses key}}
+                      {{else}}
+                        {{lookup ../tempAttributeBonuses key}}
+                      {{/if}}
+                    </span>
                   {{/if}}
-                </span>
-              </div>
+                </div>
 
-              <hr>
+                <hr>
 
-              <!-- Skills Under This Attribute -->
-              <div class="attribute-skills">
-                {{#each (lookup ../skillBuckets key) as |skillKey|}}
-                  <div class="skill-row">
-                    <div class="skill-name" data-key="{{skillKey}}">
-                      {{lookup ../../skillLabels skillKey}}
+                <!-- Skills Under This Attribute -->
+                <div class="attribute-skills">
+                  {{#each (lookup ../skillBuckets key) as |skillKey|}}
+                    <div class="skill-row">
+                      <div class="skill-name" data-key="{{skillKey}}">
+                        {{lookup ../../skillLabels skillKey}}
+                      </div>
+
+                      <div class="skill-value"
+                          data-key="{{skillKey}}"
+                          data-base="{{lookup ../../system.skills skillKey}}">
+                        {{lookup ../../system.skills skillKey}}
+
+                        {{#if (lookup ../../tempSkillBonuses skillKey)}}
+                          <span class="skill-temp-bonus"
+                                data-tooltip="Temporary Skill Bonus">
+                            {{#if (gte (lookup ../../tempSkillBonuses skillKey) 0)}}
+                              +{{lookup ../../tempSkillBonuses skillKey}}
+                            {{else}}
+                              {{lookup ../../tempSkillBonuses skillKey}}
+                            {{/if}}
+                          </span>
+                        {{/if}}
+                      </div>
                     </div>
-
-                    <div class="skill-value"
-                        data-key="{{skillKey}}"
-                        data-base="{{lookup ../../system.skills skillKey}}">
-                      {{lookup ../../system.skills skillKey}}
-                    </div>
-                  </div>
-                {{/each}}
+                  {{/each}}
+                </div>
               </div>
             </div>
-          </div>
 
-        {{/each}}
-      </div>
-
+          {{/each}}
+        </div>
 
         <div class="wrapper resource-container">
 
@@ -1445,93 +1470,95 @@
           <!-- GUISE PRIMARY/SECONDARY -->
           <section class="mg-setting-section">
             <h3>Guise Priority</h3>
-            <p class="mg-muted">Your Primary Guise controls the actor's attributes and capacities.</p>
 
-            {{#if settingsGuises.length}}
-              <div class="guise-toggles">
-                {{#each settingsGuises as |g|}}
-                  <div class="guise-toggle-row" data-guise-id="{{g.id}}">
+            <div class="wrapper">
+              <p class="mg-muted">Your Primary Guise controls the actor's attributes and capacities.</p>
 
-                    <span class="guise-toggle-name">{{g.name}}</span>
+              {{#if settingsGuises.length}}
+                <div class="guise-toggles">
+                  {{#each settingsGuises as |g|}}
+                    <div class="guise-toggle-row" data-guise-id="{{g.id}}">
 
-                    <button type="button"
-                            class="mg-primary-toggle {{#if g.isPrimary}}is-on{{else}}is-off{{/if}}"
-                            data-guise-id="{{g.id}}"
-                            aria-pressed="{{#if g.isPrimary}}true{{else}}false{{/if}}"
-                            title="Set as Primary Guise">
-                      <span class="mg-primary-toggle-track">
-                        <span class="mg-primary-toggle-knob"></span>
-                      </span>
-                      <span class="mg-primary-toggle-text">
-                        <span class="mg-primary-toggle-text">Primary</span>
-                      </span>
-                    </button>
-                  </div>
-                {{/each}}
-              </div>
-            {{else}}
-              <div class="mg-muted">No Guise assigned.</div>
-            {{/if}}
+                      <span class="guise-toggle-name">{{g.name}}</span>
+
+                      <button type="button"
+                              class="mg-primary-toggle {{#if g.isPrimary}}is-on{{else}}is-off{{/if}}"
+                              data-guise-id="{{g.id}}"
+                              aria-pressed="{{#if g.isPrimary}}true{{else}}false{{/if}}"
+                              title="Set as Primary Guise">
+                        <span class="mg-primary-toggle-track">
+                          <span class="mg-primary-toggle-knob"></span>
+                        </span>
+                      </button>
+                    </div>
+                  {{/each}}
+                </div>
+              {{else}}
+                <div class="mg-muted">No Guise assigned.</div>
+              {{/if}}
+            </div>
           </section>
 
           <!-- RESOURCES -->
           <section class="mg-setting-section">
             <h3>Resources</h3>
 
-            <div class="mg-settings-grid">
-              <div class="mg-setting-card">
-                <div class="mg-setting-row">
-                  <label>Risk Dice</label>
-                  <input type="number"
-                        class="mg-final-resource"
-                        data-resource="riskDice"
-                        data-derived="{{actorSettings.derivedRiskDice}}"
-                        min="0"
-                        value="{{system.riskDice}}">
-
-                  <button type="button"
-                          class="mg-reset-resource"
+            <div class="wrapper">
+              <div class="mg-settings-grid">
+                <div class="mg-setting-card">
+                  <div class="mg-setting-row">
+                    <label>Risk Dice</label>
+                    <input type="number"
+                          class="mg-final-resource"
                           data-resource="riskDice"
-                          {{#unless actorSettings.isRiskModified}}disabled{{/unless}}>
-                    Reset
-                  </button>
+                          data-derived="{{actorSettings.derivedRiskDice}}"
+                          min="0"
+                          value="{{system.riskDice}}">
+
+                    <button type="button"
+                            class="mg-reset-resource"
+                            data-resource="riskDice"
+                            {{#unless actorSettings.isRiskModified}}disabled{{/unless}}>
+                      Reset
+                    </button>
+                  </div>
                 </div>
-              </div>
 
-              <div class="mg-setting-card">
-                <div class="mg-setting-row">
-                  <label>Spark Slots</label>
-                  <input type="number"
-                    class="mg-final-resource"
-                    data-resource="sparkSlots"
-                    data-derived="{{actorSettings.derivedSparkSlots}}"
-                    value="{{system.sparkSlots}}">
+                <div class="mg-setting-card">
+                  <div class="mg-setting-row">
+                    <label>Spark Slots</label>
+                    <input type="number"
+                      class="mg-final-resource"
+                      data-resource="sparkSlots"
+                      data-derived="{{actorSettings.derivedSparkSlots}}"
+                      value="{{system.sparkSlots}}">
 
-                  <button type="button"
-                    class="mg-reset-resource"
-                    data-resource="sparkSlots"
-                    {{#unless actorSettings.isSparkModified}}disabled{{/unless}}>
-                    Reset
-                  </button>
+                    <button type="button"
+                      class="mg-reset-resource"
+                      data-resource="sparkSlots"
+                      {{#unless actorSettings.isSparkModified}}disabled{{/unless}}>
+                      Reset
+                    </button>
+                  </div>
                 </div>
-              </div>
 
-              <div class="mg-setting-card">
+                <div class="mg-setting-card">
 
-                <div class="mg-setting-row">
-                  <label>STO</label>
-                  <input type="number"
-                        class="mg-final-resource"
-                        data-resource="stoValue"
-                        min="0"
-                        value="{{system.sto.value}}">
-
-                  <button type="button"
-                          class="mg-reset-resource"
+                  <div class="mg-setting-row">
+                    <label>STO</label>
+                    <input type="number"
+                          class="mg-final-resource"
                           data-resource="stoValue"
-                          {{#unless actorSettings.isStoModified}}disabled{{/unless}}>
-                    Reset
-                  </button>
+                          min="0"
+                          value="{{system.sto.value}}">
+
+                    <button type="button"
+                            class="mg-reset-resource"
+                            data-resource="stoValue"
+                            {{#unless actorSettings.isStoModified}}disabled{{/unless}}>
+                      Reset
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1540,9 +1567,11 @@
           {{!-- EMERGENCY --}}
           <section class="mg-setting-section">
             <h3>Emergency Tools</h3>
-            <p class="mg-muted">Use only if you need to recover from a glitch.</p>
-            <div class="button-wrapper">
-              <button type="button" class="remove-guise" title="Remove Guise">Remove Guise</button>
+            <div class="wrapper">
+              <p class="mg-muted">Use only if you need to recover from a glitch.</p>
+              <div class="button-wrapper">
+                <button type="button" class="remove-guise" title="Remove Guise">Remove Guise</button>
+              </div>
             </div>
           </section>
         </div>

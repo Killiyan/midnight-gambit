@@ -115,6 +115,13 @@
         </div>
       </div>
 
+      {{#if (eq actor.type "npc")}}
+        <button type="button" class="mg-aura-toggle {{#if system.aura.enabled}}is-active{{/if}}">
+          Aura
+          <i class="fa-solid fa-eye-evil"></i>
+        </button>
+      {{/if}}      
+
       <!-- Profile image (same class so your crop system can reuse styling) -->
       <div class="profile-image">
         <img class="mg-profile-img" src="{{actor.img}}" data-edit="img" title="{{actor.name}}" />
