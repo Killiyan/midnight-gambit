@@ -2881,6 +2881,78 @@ Hooks.on("updateActor", (actor, diff) => {
   }
 });
 
+// --- Roll math: click to reveal dropped dice under the main bar ---
+Hooks.on("renderChatMessage", (_message, html) => {
+  const root = html[0];
+  if (!root) return;
+
+  const math = root.querySelector(".mg-roll-math");
+  const panel = root.querySelector(".mg-roll-dropped-panel");
+  if (!math || !panel) return;
+
+  const dur = 300;
+
+  const togglePanel = async () => {
+    const isOpen = panel.classList.contains("is-open");
+
+    if (isOpen) {
+      panel.style.overflow = "hidden";
+      panel.style.maxHeight = panel.scrollHeight + "px";
+      panel.offsetHeight; // force reflow
+      panel.style.transition = `max-height ${dur}ms ease`;
+      panel.style.maxHeight = "0px";
+
+      math.setAttribute("aria-expanded", "false");
+      math.classList.remove("tray-open");
+
+      await new Promise(r => setTimeout(r, dur));
+
+      panel.classList.remove("is-open");
+      panel.hidden = true;
+      panel.style.transition = "";
+      panel.style.maxHeight = "";
+      panel.style.overflow = "";
+      return;
+    }
+
+    panel.hidden = false;
+    panel.style.overflow = "hidden";
+    panel.style.maxHeight = "0px";
+    panel.offsetHeight; // force reflow
+    panel.style.transition = `max-height ${dur}ms ease`;
+    panel.style.maxHeight = panel.scrollHeight + "px";
+
+    math.setAttribute("aria-expanded", "true");
+    panel.classList.add("is-open");
+    math.classList.toggle("tray-open");
+    math.classList.add("tray-open");
+
+    await new Promise(r => setTimeout(r, dur));
+
+    panel.style.transition = "";
+    panel.style.maxHeight = "";
+    panel.style.overflow = "";
+  };
+
+  math.addEventListener("click", (ev) => {
+    // Don't toggle if the user clicked a button inside the bar
+    if (ev.target.closest("button")) return;
+    togglePanel().catch(console.error);
+  });
+
+  math.addEventListener("keydown", (ev) => {
+    if (ev.key !== "Enter" && ev.key !== " ") return;
+    ev.preventDefault();
+    togglePanel().catch(console.error);
+  });
+});
+
+// Remove Aura cancel for basic players
+Hooks.on("renderChatMessage", (_message, html) => {
+  if (game.user.isGM) return;
+
+  html.find(".mg-remove-aura").remove();
+});
 
 // ---------------------------------------------------------------------------
 // Default to LINKED tokens for Midnight Gambit

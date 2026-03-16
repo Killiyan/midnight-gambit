@@ -76,10 +76,6 @@ form button,
   border-radius: .5rem;
   transition: background 0.5s ease, color 0.5s ease, border .5s ease;
 
-  &.mg-risk-it {
-    margin-bottom: .5rem;
-  }
-
   i {
     transition: color .5s ease;
     color: $mg-blue-4;
@@ -116,6 +112,8 @@ button:disabled {
   background: $mg-blue-4;
 }
 
+/* Sidebar Styling
+==============================================================================================================================================*/
 #sidebar {
   background: $mg-blue-main;
   border: 3px solid $mg-blue-main-2;
@@ -178,12 +176,12 @@ button:disabled {
   .chat-message,
   .message,
   .whisper {
-    background: rgba($mg-blue-main, .7);
+    background: rgba($mg-blue-4, .8);
     background-image: none;
     @include mg-border();
     color: $white;
-    padding: 3rem 1.125rem 1.125rem 4.5rem;
-    margin: 1.25rem 1.125rem;
+    padding: 0 0 0 3.45rem;
+    margin: .5rem;
     backdrop-filter: blur(3px);
     position: relative;
     overflow: hidden;
@@ -205,10 +203,9 @@ button:disabled {
       background: $mg-blue-4;
       border-bottom: 2px solid $mg-blue-main-2;
       padding: .75rem 3.25rem .75rem .75rem;
-      margin: -3rem -1rem 0;
       top: 0;
       right: 0;
-      width: 117%;
+      width: 100%;
 
       .flavor-text {
         color: $mg-blue-2;
@@ -329,7 +326,6 @@ button:disabled {
       @include oswald();
       font-size: 1.5rem;
       letter-spacing: .05em;
-      display: flex;
       flex-direction: column;
       text-align: center;
       line-height: 1;
@@ -355,33 +351,33 @@ button:disabled {
 
   .message-content {
     color: $mg-blue-2;
-    padding-top: 1.125rem;
     position: relative;
     z-index: 5;
+    padding: .875rem;
 
     h2 {
-      @include oswald();
-      color: $mg-ivory;
+      @include tiller();
+      background: $mg-blue-main-2;
+      color: $mg-blue-1;
       font-weight: 700;
-      font-style: italic;
-      font-size: 1rem;
+      font-size: 1.125rem;
       line-height: 1.3;
       @include mg-border();
-      padding: .5625rem 1.125rem;
       border-radius: .5rem;
       margin-bottom: 1.125rem;
       display: flex;
-      align-items: center;
       gap: 0.5rem;
-      text-transform: uppercase;
+      padding: .5rem;
+      overflow: hidden;
 
       i {
-        display: block;
+        display: flex;
+        justify-content: center;
+        align-items: center;
         color: $mg-blue-4;
         background: $mg-blue-3;
-        padding: .625rem;
-        border-radius: .5rem;
-        align-self: flex-start;
+        padding: .5rem;
+        margin: -.5rem 0 -.5rem -.5rem
       }
     }
 
@@ -403,207 +399,348 @@ button:disabled {
       margin: 1rem 0;
     }
 
-    .dice-formula,
-    .dice-total,
-    .mg-edge-box {
-      @include mg-border();
-      background: rgba(0,0,0, .1);
-      margin: 0;
-      padding: .25rem;
-      border-color: $mg-blue-main-2;
-      box-shadow: none;
-      transition: border-color .5s ease, color .5s ease;
-
-      &:hover {
-        border-color: $mg-blue-1;
-        color: $mg-blue-1;
-      }
-
-      &.risk-result {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        font-size: .75rem;
-        opacity: .8;
-
-        strong {
-          font-size: 1.25rem;
-          font-weight: 700;
-          opacity: 1;
-          color: $mg-blue-1;
-        }
-      }
-    }
-
-    .dice-formula {
-      border-radius: .5rem .5rem 0 0 ;
-    }
-
-    .mg-edge-box {
-      border-radius: .5rem;
-    }
-    
-    .dice-total {
-      border-radius: 0 0 .5rem .5rem;
-      border-top: 0;
-      margin-bottom: .5rem;
-    }
-
-    .mg-risk-kept {
-      margin-top: .5rem;
-      border-radius: .5rem;
-      border-top: 2px solid $mg-blue-main-2;
-
-      p {
-        display: flex;
-        flex-direction: column;
-        gap: .5rem;
-        align-items: center;
-        align-content: center;
-        font-size: .75rem;
-        opacity: .8;
-        
-        strong {
-          font-size: 1.25rem;
-          font-weight: 700;
-          opacity: 1;
-        }
-      }
-    }
-
-    .risk-result strong {
+    &.mg-chat-body {
       display: flex;
       flex-direction: column;
-    }
+      gap: .75rem;
 
-    .roll-container {
-      @include oswald();
-      font-size: 1rem;
-      color: $mg-blue-2;
-      font-weight: 700;
-      font-style: italic;
-      display: block;
-      position: relative;
-      padding: 0;
-
-      label {
-        font-size: .75rem;
-        @include roboto();
+      .mg-roll-header {
         display: flex;
-        align-items: center;
-        gap: 1rem;
-        padding: 0.5rem;
-        position: absolute;
-        top: -1.1rem;
-        left: -1rem;
-        background: $mg-blue-4;
-        border-radius: 0.5rem 0 0.5rem;
-        border-bottom: 2px solid $mg-blue-main-2;
-        border-right: 2px solid $mg-blue-main-2;
-        opacity: .6;
-      }
+        justify-content: space-between;
+        margin: -.875rem;
 
-      .mg-roll-aura-block {
-        display: grid;
-        grid-template-columns: repeat(4, 1fr);
-        overflow: hidden;
-        border-radius: .5rem;
-        @include mg-border();
-        background: rgba($mg-blue-4, .8);
-        margin: .5rem 0 1.25rem 0;
-        border-radius: .5rem;
+        .mg-roll-label-wrap {
+          @include mg-border();
+          border-left: 0;
+          border-top: 0;
+          max-width: 50%;
+          padding: .5rem;
+          border-radius: 0 0 .5rem 0;
 
-        .mg-roll-aura-badge,
-        .mg-roll-aura-label,
-        .mg-remove-aura {
-          padding: 0;
-        }
-
-        .mg-roll-aura-label {
-          grid-column: span 4;
-          text-align: center;
-          padding: .25rem;
-          border-bottom: 2px solid $mg-blue-main-2;
-          background: $mg-blue-main-2;
-          color: $mg-blue-1;
-          border-radius: 0;
-        }
-
-        .mg-roll-aura-main {
-          display: flex;
-          grid-column: span 3;
-
-
-          i {
-            border-radius: 0;
+          .mg-roll-label {
+            font-size: .9rem;
+            color: $mg-blue-2;
+            @include oswald();
+            letter-spacing: -.02em;
           }
         }
 
-        .mg-roll-aura-badge {
+        .mg-aura-block {
+          max-width: 40%;
+          padding: .5rem;
           display: flex;
           gap: .5rem;
-          align-items: center;
-          border: none;
-        }
+          @include mg-border();
+          border-top: 0;
+          border-right: 0;
+          border-radius: 0 0 0 .5rem;
 
-        .mg-remove-aura {
-          padding: .25rem;
-          justify-self: flex-end;
-          background: transparent;
-          border-radius: 0;
-          margin: 0;
+          .mg-aura-main {
 
-          &:hover,
-          &:focus {
-            background: $mg-blue-1;
+            .mg-aura-badge {
+              display: flex;
+              align-items: center;
+              gap: .5rem;
+              @include oswald();
+              font-weight: 600;
+              font-size: .9rem;
+              color: $mg-ivory;
 
-            i {
-              color: $mg-blue-4;
+              i {
+                font-size: 1rem;
+                color: $mg-blue-2;
+              }
             }
           }
 
-          i {
+          .mg-remove-aura {
             background: transparent;
-            color: $mg-blue-3;
-            margin: 0;
             padding: 0;
             width: auto;
+            height: auto;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: .25rem;
+            margin: 0;
+            
+            i {
+              color: $mg-blue-1;
+              margin: 0;
+              padding: 0;
+              font-size: .75rem
+            }
           }
         }
       }
 
-      .result-label {
+      .roll-wrapper {
         display: flex;
-        align-items: center;
-        gap: .625rem;
-        text-transform: uppercase;
-        @include mg-border();
-        background: rgba($mg-blue-4, .8);
-        border-radius: .5rem .5rem 0 0;
-        overflow: hidden;
+        flex-direction: column;
+        gap: .875rem;
+        margin-top: 1.875rem;
 
-        strong {
-          color: $mg-ivory;
+        .mg-roll-outcome {
+          @include mg-border();
+          border-radius: .5rem;
+          display: flex;
+          flex-direction: column;
+          overflow: hidden;
+
+          .mg-roll-outcome-title {
+            background: $mg-blue-main-2;
+            padding: 0 .5rem 0 0;
+            display: flex;
+            gap: .5rem;
+            @include tiller();
+            font-size: 1.125rem;
+            font-weight: 700;
+            color: $mg-blue-1;
+
+            i {
+              padding: .5rem;
+              background: $mg-blue-3;
+              color: $mg-blue-4;
+              display: flex;
+              justify-content: center;
+              align-items: center;
+            }
+
+            strong {
+              padding: .5rem 0;
+            }
+          }
+
+          .mg-roll-outcome-text {
+            padding: .5rem .5rem .5rem 2.75rem;
+            @include oswald();
+            font-size: 1rem;
+            color: $mg-blue-2;
+            letter-spacing: 0.01em;
+          }
         }
-      }
 
-      span {
-        @include mg-border();
-        border-top: 0;
-        border-radius: 0 0 .5rem .5rem;
-        padding: .25rem;
-        text-align: center;
-        background: rgba($mg-blue-4, .8);
-        display: block;
-      }
+        .mg-roll-math-wrap.has-edge {
+          .mg-roll-tray-group {
+            width: 50%;
+            justify-content: center;
+            
+            &.mg-roll-tray-group-kept {
+              border-right: 2px solid $mg-blue-main-2;
+            }
+          }
+        }
 
-      i {
-        display: block;
-        color: $mg-blue-4;
-        background: $mg-blue-3;
-        padding: .625rem;
-        //border-radius: .5rem;
+        .mg-roll-math {
+          display: flex;
+          @include mg-border();
+          border-radius: .5rem;
+          justify-content: space-between;
+          transition: border-radius .5s ease, border-color .5s ease;
+          position: relative;
+
+          &.tray-open {
+            border-radius: .5rem .5rem 0 0;
+
+            .mg-roll-expand-indicator {
+              i {
+                transform: rotate(180deg);
+              }
+            }
+
+            .mg-roll-total-box {
+              border-radius: 0 .325rem 0 0;
+            }
+          }
+
+          &.is-interactive:hover {
+            border-color: $mg-blue-3;
+
+            .mg-roll-modifiers {
+              border-color: $mg-blue-3;
+            }
+
+            .mg-roll-expand-indicator {
+              color: $mg-blue-3;
+            }
+          }
+
+          .mg-roll-expand-indicator {
+            position: absolute;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            left: -3rem;
+            bottom: 0;
+            width: auto;
+            height: 100%;
+            padding: 1rem;
+            transition: color .5s ease, transform .5s ease;
+
+            i {
+              transition: transform .5s ease;
+            }
+          }
+
+          .mg-roll-math-column {
+            display: flex;
+            justify-content: space-between;
+            width: 80%;
+
+            .mg-roll-dice-list {
+              display: flex;
+              gap: .5rem;
+              padding: .5rem;
+              width: auto;
+
+              .mg-roll-die {
+                aspect-ratio: 1/1;
+                align-self: center;
+                padding: .5rem;
+                @include oswald();
+                font-size: 1.25rem;
+                color: $mg-blue-1;
+                background: $mg-blue-main-2;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                border-radius: .25rem;
+                border: 2px solid $mg-blue-main-2;
+                height: 1.875rem;
+                width: 1.875rem;
+              }
+            }
+
+            .mg-roll-modifiers {
+              display: flex;
+              height: 100%;
+              border-left: 2px solid $mg-blue-main-2;
+              transition: border .5s ease;
+
+              .mg-roll-modifier {
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                flex-direction: column;
+                height: 100%;                
+                gap: .5rem;
+                background: $mg-blue-main;
+                color: $mg-blue-1;
+                padding: 0.5rem;
+                @include oswald();
+                font-size: .875rem;
+
+                i {
+                  color: $mg-blue-3;
+                  font-size: .9rem;
+                }
+              }
+            }
+          }
+
+          .mg-roll-total-box {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            width: 20%;
+            @include oswald();
+            font-weight: 600;
+            font-size: 1.15rem;
+            background: $mg-blue-main-2;
+            color: $mg-ivory;
+            border-radius: 0 .325rem .325rem 0;
+            transition: border-radius .5s ease;
+          }
+        }
+
+        .mg-roll-dropped-panel.is-open {
+          max-height: 200px;
+          opacity: 1;
+        }
+
+        .mg-roll-dropped-panel {
+          max-height: 0;
+          opacity: 0;
+          overflow: hidden;
+          transition: max-height .6s ease, opacity .6s ease;
+
+          .mg-roll-dropped-list {
+            display: flex;
+            gap: .5rem;
+            @include mg-border();
+            border-top: 0;
+            border-radius: 0 0 .5rem .5rem;
+
+            .mg-roll-die.is-dropped,
+            .mg-roll-die.is-kept {
+              background: rgba($black, .4);
+              border: 2px solid rgba($black, .4);
+              color: $mg-blue-3;
+              height: 1.875rem;
+              width: 1.875rem;
+              aspect-ratio: 1/1;
+              align-self: center;
+              padding: .5rem;
+              @include oswald();
+              font-size: 1.25rem;
+              display: flex;
+              justify-content: center;
+              align-items: center;
+              border-radius: .25rem;
+            }
+
+            .mg-roll-die.is-kept {
+              background: $mg-blue-main-2;
+              color: $mg-blue-1;
+              border-color: $mg-blue-main-2;
+            }
+
+            .mg-roll-tray-group {
+              display: flex;
+              flex-wrap: wrap;
+              gap: .25rem;
+              padding: .5rem;           
+            }
+          }
+        }
+
+        .mg-roll-controls {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          @include mg-border();
+          background: $mg-blue-4;
+          border-radius: .5rem;
+          overflow: hidden;
+          gap: 2px;
+
+          button {
+            border-radius: 0;
+            width: 100%;
+            margin: 0;
+            background: $mg-blue-main;
+
+            i {
+              color: $mg-blue-2;
+            }
+
+            &:hover {
+              background: $mg-blue-3;
+
+              i {
+                color: $mg-blue-4;
+              }
+            }
+
+            &.is-disabled {
+              background: $mg-blue-4;
+              pointer-events: none;
+
+              i {
+                color: $mg-blue-main-2;
+              }
+            }
+          }
+        }
       }
     }
 
@@ -643,75 +780,31 @@ button:disabled {
         font-size: .75rem;
         color: $mg-blue-2;
       }
-    }
-
-    .mg-risk-controls,
-    .mg-risk-controls-again {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: .5rem;
-
-      .hint {
-        grid-column-start: 1;
-        grid-column-end: 3;
-      }
-
-      .mg-risk-it,
-      .mg-risk-again {
-        grid-column-start: 1;
-        grid-column-end: 3;
-      }
-
-      .mg-spend-sto {
-        column-span: 2;
-      }
-    }    
-
-    .mg-edge-dice-panel {
-      max-height: 0;
-      overflow: hidden;
-      transition: max-height .5s ease;
-
-      &.is-open {
-        max-height: 10rem;
-      }
-    }
+    } 
 
     .edge-label {
       font-size: .75rem;
       @include roboto();
       display: flex;
       align-items: center;
-      gap: 1rem;
-      padding: 0.5rem;
-      margin: 1.625rem 0 -7px 0;
-      background: $mg-blue-4;
-      border-radius: 0.5rem 0.5rem 0 0;
-      opacity: .6;
-    }
-
-    .mg-edge {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      text-align: center;
       gap: .5rem;
+      background: $mg-blue-main-2;
+      color: $mg-blue-1;
+      border-radius: .5rem;
+      overflow: hidden;
+      @include mg-border();
 
-      .mg-edge-box {
+      span {
+        padding: .5rem;
+      }
+
+      i {
+        padding: .5rem;
+        background: $mg-blue-3;
+        color: $mg-blue-4;
         display: flex;
-        flex-direction: column;
-        gap: .5rem;
-
-        i {
-          color: $mg-blue-2;
-          opacity: .5;
-          font-size: 1rem;
-        }
-
-        .mg-edge-total {
-          font-size: 1.25rem;
-          font-weight: 700;
-          margin: 0;
-        }
+        justify-content: center;
+        align-items: center;
       }
     }
   }
@@ -721,6 +814,11 @@ button:disabled {
   .nue,
   .flavor-text {
     color: $mg-ivory;
+  }
+
+  .message-metadata {
+    font-size: .75rem;
+    color: $mg-blue-2;
   }
 
   .whisper-to {
@@ -760,10 +858,10 @@ button:disabled {
   }
 
   .message-sender {
-    @include oswald();
+    @include tiller();
     font-weight: 700;
-    font-style: italic;
-    letter-spacing: .02em;
+    font-size: 1rem;
+    letter-spacing: -.02em;
     text-transform: uppercase;
     white-space: normal;
   }
@@ -871,6 +969,8 @@ button:disabled {
   }
 }
 
+/* Sidebar Popout Styling
+==============================================================================================================================================*/
 .sidebar-popout,
 .app.sidebar-popout {
   background: $mg-blue-main;
@@ -894,10 +994,10 @@ button:disabled {
   }
 
   .message-sender {
-    @include oswald();
+    @include tiller();
     font-weight: 700;
-    font-style: italic;
-    letter-spacing: .02em;
+    font-size: 1rem;
+    letter-spacing: -.02em;
     text-transform: uppercase;
     white-space: normal;
   }
@@ -909,8 +1009,8 @@ button:disabled {
     background-image: none;
     @include mg-border();
     color: $white;
-    padding: 3rem 1.125rem 1.125rem 4.5rem;
-    margin: 1.25rem 1.125rem;
+    padding: 0 0 0 3.45rem;
+    margin: .5rem;
     backdrop-filter: blur(3px);
     position: relative;
     overflow: hidden;
@@ -932,10 +1032,9 @@ button:disabled {
       background: $mg-blue-4;
       border-bottom: 2px solid $mg-blue-main-2;
       padding: .75rem 3.25rem .75rem .75rem;
-      margin: -3rem -1rem 0;
       top: 0;
       right: 0;
-      width: 113%;
+      width: 100%;
 
       .flavor-text {
         color: $mg-blue-2;
@@ -1079,70 +1178,44 @@ button:disabled {
     }
   }
 
-  .roll-container {
-    @include oswald();
-    font-size: 1rem;
+  .message-content {
     color: $mg-blue-2;
-    font-weight: 700;
-    font-style: italic;
-    display: block;
     position: relative;
-    padding: 1.25rem;
-    @include mg-border();
-    border-radius: .5rem;
+    z-index: 5;
+    padding: .875rem;
 
-    label {
-      font-size: .75rem;
-      @include roboto();
+    h2 {
+      @include tiller();
+      background: $mg-blue-main-2;
+      color: $mg-blue-1;
+      font-weight: 700;
+      font-size: 1.125rem;
+      line-height: 1.3;
+      @include mg-border();
+      border-radius: .5rem;
+      margin-bottom: 1.125rem;
       display: flex;
-      align-items: center;
-      gap: 1rem;
-      padding: 0.5rem;
-      position: absolute;
-      top: 0;
-      left: 0;
-      background: $mg-blue-4;
-      border-radius: 0.5rem 0 0.5rem;
-      opacity: .6;
-    }
+      gap: 0.5rem;
+      padding: .5rem;
+      overflow: hidden;
 
-    .result-label {
-      display: flex;
-      align-items: center;
-      gap: .625rem;
-      margin-top: 1.625rem;
-      text-transform: uppercase;
-
-      strong {
-        color: $mg-ivory;
+      i {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        color: $mg-blue-4;
+        background: $mg-blue-3;
+        padding: .5rem;
+        margin: -.5rem 0 -.5rem -.5rem
       }
     }
 
-    span {
-      padding-left: 3rem;
-      display: block;
-    }
-
-    i {
-      display: block;
-      color: $mg-blue-4;
-      background: $mg-blue-3;
-      padding: .625rem;
-      border-radius: .5rem;
-    }
-  }
-
-  .message-content {
-    color: $mg-blue-2;
-    padding-top: 1.125rem;
-    z-index: 5;
-
-    h2 {
+    h3 {
       @include oswald();
       color: $mg-ivory;
       font-weight: 700;
       font-style: italic;
-      font-size: 1rem;
+      font-size: .85rem;
       line-height: 1.3;
       @include mg-border();
       padding: .5625rem 1.125rem;
@@ -1152,120 +1225,452 @@ button:disabled {
       align-items: center;
       gap: 0.5rem;
       text-transform: uppercase;
-
-      i {
-        display: block;
-        color: $mg-blue-4;
-        background: $mg-blue-3;
-        padding: .625rem;
-        border-radius: .5rem;
-        align-self: flex-start;
-      }
+      margin: 1rem 0;
     }
 
-    .dice-formula,
-    .dice-total,
-    .mg-edge-box {
-      @include mg-border();
-      background: rgba(0,0,0, .1);
-      margin: 0.5rem 0;
-      padding: 1.125rem;
-      border-radius: .5rem;
-      border-color: $mg-blue-main-2;
-      box-shadow: none;
+    &.mg-chat-body {
+      display: flex;
+      flex-direction: column;
+      gap: .75rem;
 
-      &.risk-result {
+      .mg-roll-header {
+        display: flex;
+        justify-content: space-between;
+        margin: -.875rem;
+
+        .mg-roll-label-wrap {
+          @include mg-border();
+          border-left: 0;
+          border-top: 0;
+          max-width: 50%;
+          padding: .5rem;
+          border-radius: 0 0 .5rem 0;
+
+          .mg-roll-label {
+            font-size: .9rem;
+            color: $mg-blue-2;
+            @include oswald();
+            text-transform: none;
+            font-weight: 400;
+            letter-spacing: -.02em;
+          }
+        }
+
+        .mg-aura-block {
+          max-width: 40%;
+          padding: .5rem;
+          display: flex;
+          gap: .5rem;
+          @include mg-border();
+          border-top: 0;
+          border-right: 0;
+          border-radius: 0 0 0 .5rem;
+
+          .mg-aura-main {
+
+            .mg-aura-badge {
+              display: flex;
+              align-items: center;
+              gap: .5rem;
+              @include oswald();
+              font-weight: 600;
+              font-size: .9rem;
+              color: $mg-ivory;
+
+              i {
+                font-size: 1rem;
+                color: $mg-blue-2;
+              }
+            }
+          }
+
+          .mg-remove-aura {
+            background: transparent;
+            padding: 0;
+            width: auto;
+            height: auto;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: .25rem;
+            margin: 0;
+            
+            i {
+              color: $mg-blue-1;
+              margin: 0;
+              padding: 0;
+              font-size: .75rem
+            }
+          }
+        }
+      }
+
+      .roll-wrapper {
         display: flex;
         flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        font-size: .75rem;
-        opacity: .8;
+        gap: .875rem;
+        margin-top: 1.875rem;
 
-        strong {
-          font-size: 1.25rem;
-          font-weight: 700;
+        .mg-roll-outcome {
+          @include mg-border();
+          border-radius: .5rem;
+          display: flex;
+          flex-direction: column;
+          overflow: hidden;
+
+          .mg-roll-outcome-title {
+            background: $mg-blue-main-2;
+            padding: 0 .5rem 0 0;
+            display: flex;
+            gap: .5rem;
+            @include tiller();
+            font-size: 1.125rem;
+            font-weight: 700;
+            color: $mg-blue-1;
+
+            i {
+              padding: .5rem;
+              background: $mg-blue-3;
+              color: $mg-blue-4;
+              display: flex;
+              justify-content: center;
+              align-items: center;
+            }
+
+            strong {
+              padding: .5rem 0;
+            }
+          }
+
+          .mg-roll-outcome-text {
+            padding: .5rem .5rem .5rem 2.75rem;
+            @include oswald();
+            font-size: 1rem;
+            color: $mg-blue-2;
+            letter-spacing: 0.01em;
+          }
+        }
+
+        .mg-roll-math-wrap.has-edge {
+          .mg-roll-tray-group {
+            justify-content: center;
+            width: 50%;
+
+            &.mg-roll-tray-group-kept {
+              border-right: 2px solid $mg-blue-main-2;
+            }
+          }
+        }
+
+        .mg-roll-math {
+          display: flex;
+          @include mg-border();
+          border-radius: .5rem;
+          justify-content: space-between;
+          transition: border-radius .5s ease, border-color .5s ease;
+          position: relative;
+
+          &.tray-open {
+            border-radius: .5rem .5rem 0 0;
+
+            .mg-roll-expand-indicator {
+              i {
+                transform: rotate(180deg);
+              }
+            }
+
+            .mg-roll-total-box {
+              border-radius: 0 .325rem 0 0;
+            }
+          }
+
+          &.is-interactive:hover {
+            border-color: $mg-blue-3;
+
+            .mg-roll-modifiers {
+              border-color: $mg-blue-3;
+            }
+
+            .mg-roll-expand-indicator {
+              color: $mg-blue-3;
+            }
+          }
+
+          .mg-roll-expand-indicator {
+            position: absolute;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            left: -3rem;
+            bottom: 0;
+            width: auto;
+            height: 100%;
+            padding: 1rem;
+            transition: color .5s ease, transform .5s ease;
+
+            i {
+              transition: transform .5s ease;
+            }
+          }
+
+          .mg-roll-math-column {
+            display: flex;
+            justify-content: space-between;
+            width: 80%;
+
+            .mg-roll-dice-list {
+              display: flex;
+              gap: .5rem;
+              padding: .5rem;
+              width: auto;
+
+              .mg-roll-die {
+                aspect-ratio: 1/1;
+                align-self: center;
+                padding: .5rem;
+                @include oswald();
+                font-size: 1.25rem;
+                color: $mg-blue-1;
+                background: $mg-blue-main-2;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                border-radius: .25rem;
+                border: 2px solid $mg-blue-main-2;
+                height: 1.875rem;
+                width: 1.875rem;
+              }
+            }
+
+            .mg-roll-modifiers {
+              display: flex;
+              height: 100%;
+              border-left: 2px solid $mg-blue-main-2;
+              transition: border .5s ease;
+
+              .mg-roll-modifier {
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                flex-direction: column;
+                height: 100%;                
+                gap: .5rem;
+                background: $mg-blue-main;
+                color: $mg-blue-1;
+                padding: 0.5rem;
+                @include oswald();
+                font-size: .875rem;
+
+                i {
+                  color: $mg-blue-3;
+                  font-size: .9rem;
+                }
+              }
+            }
+          }
+
+          .mg-roll-total-box {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            width: 20%;
+            @include oswald();
+            font-weight: 600;
+            font-size: 1.15rem;
+            background: $mg-blue-main-2;
+            color: $mg-ivory;
+            border-radius: 0 .325rem .325rem 0;
+            transition: border-radius .5s ease;
+          }
+        }
+
+        .mg-roll-dropped-panel.is-open {
+          max-height: 200px;
           opacity: 1;
-          color: $mg-blue-1;
+        }
+
+        .mg-roll-dropped-panel {
+          max-height: 0;
+          opacity: 0;
+          overflow: hidden;
+          transition: max-height .6s ease, opacity .6s ease;
+
+          .mg-roll-dropped-list {
+            display: flex;
+            gap: .5rem;
+            @include mg-border();
+            border-top: 0;
+            border-radius: 0 0 .5rem .5rem;
+
+            .mg-roll-die.is-dropped,
+            .mg-roll-die.is-kept {
+              background: rgba($black, .4);
+              border: 2px solid rgba($black, .4);
+              color: $mg-blue-3;
+              height: 1.875rem;
+              width: 1.875rem;
+              aspect-ratio: 1/1;
+              align-self: center;
+              padding: .5rem;
+              @include oswald();
+              font-size: 1.25rem;
+              display: flex;
+              justify-content: center;
+              align-items: center;
+              border-radius: .25rem;
+            }
+
+            .mg-roll-die.is-kept {
+              background: $mg-blue-main-2;
+              color: $mg-blue-1;
+              border-color: $mg-blue-main-2;
+            }
+
+            .mg-roll-tray-group {
+              display: flex;
+              flex-wrap: wrap;
+              gap: .25rem;
+              padding: .5rem;         
+            }
+          }
+        }
+
+        .mg-roll-controls {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          @include mg-border();
+          background: $mg-blue-4;
+          border-radius: .5rem;
+          overflow: hidden;
+          gap: 2px;
+
+          button {
+            border-radius: 0;
+            width: 100%;
+            margin: 0;
+            background: $mg-blue-main;
+
+            i {
+              color: $mg-blue-2;
+            }
+
+            &:hover {
+              background: $mg-blue-3;
+
+              i {
+                color: $mg-blue-4;
+              }
+            }
+
+            &.is-disabled {
+              background: $mg-blue-4;
+              pointer-events: none;
+
+              i {
+                color: $mg-blue-main-2;
+              }
+            }
+          }
         }
       }
     }
 
-    .mg-risk-kept {
-      p {
+    .dice {
+      display: flex;
+      flex-direction: column;
+      
+      .dice-rolls {
+        display: flex;
+        gap: .5rem;
+        background: $mg-blue-4;
+        @include mg-border();
+        border-radius: 0.5rem;
+        padding: .5rem;
+        margin: 0 0 .5rem 0;
+
+        .die {
+          background: $mg-blue-2;
+          color: $mg-blue-4;
+          border-radius: .5rem;
+          @include mg-border();
+
+          &.discarded {
+            background: rgba($black, 0.5);
+          }
+        }
+      }
+    }
+
+    .sto-upgrade .dice-total {
+      font-weight: 700;
+      font-size: 1.25rem;
+      text-align: center;
+
+      .sto-spent {
+        padding: 0;
+        font-size: .75rem;
+        color: $mg-blue-2;
+      }
+    } 
+
+    .mg-edge-dice-panel {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height .5s ease;
+
+      &.is-open {
+        max-height: 10rem;
+      }
+    }
+
+    .edge-label {
+      font-size: .75rem;
+      @include roboto();
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+      background: $mg-blue-main-2;
+      color: $mg-blue-1;
+      border-radius: .5rem;
+      overflow: hidden;
+      @include mg-border();
+
+      span {
+        padding: .5rem;
+      }
+
+      i {
+        padding: .5rem;
+        background: $mg-blue-3;
+        color: $mg-blue-4;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+      }
+    }
+
+    .mg-edge {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      text-align: center;
+      gap: .5rem;
+
+      .mg-edge-box {
         display: flex;
         flex-direction: column;
         gap: .5rem;
-        align-items: center;
-        align-content: center;
-        font-size: .75rem;
-        opacity: .8;
-        
-        strong {
+
+        i {
+          color: $mg-blue-2;
+          opacity: .5;
+          font-size: 1rem;
+        }
+
+        .mg-edge-total {
           font-size: 1.25rem;
           font-weight: 700;
-          opacity: 1;
+          margin: 0;
         }
-      }
-    }
-
-    .risk-result strong {
-      display: flex;
-      flex-direction: column;
-    }
-
-    .roll-container {
-      @include oswald();
-      font-size: 1rem;
-      color: $mg-blue-2;
-      font-weight: 700;
-      font-style: italic;
-      display: block;
-      position: relative;
-      padding: 1.25rem;
-      @include mg-border();
-      border-radius: .5rem;
-
-      label {
-        font-size: .75rem;
-        @include roboto();
-        color: inherit;
-        display: flex;
-        align-items: center;
-        text-transform: none;
-        gap: 1rem;
-        padding: 0.5rem;
-        position: absolute;
-        top: 0;
-        left: 0;
-        background: $mg-blue-4;
-        border-radius: 0.5rem 0 0.5rem;
-        opacity: .6;
-      }
-
-      .result-label {
-        display: flex;
-        align-items: center;
-        gap: .625rem;
-        margin-top: 1.625rem;
-        text-transform: uppercase;
-
-        strong {
-          color: $mg-ivory;
-        }
-      }
-
-      span {
-        padding-left: 3rem;
-        display: block;
-      }
-
-      i {
-        display: block;
-        color: $mg-blue-4;
-        background: $mg-blue-3;
-        padding: .625rem;
-        border-radius: .5rem;
       }
     }
   }
@@ -1314,10 +1719,10 @@ button:disabled {
   }
 
   .message-sender {
-    @include oswald();
+    @include tiller();
     font-weight: 700;
-    font-style: italic;
-    letter-spacing: .02em;
+    font-size: 1rem;
+    letter-spacing: -.02em;
     text-transform: uppercase;
     white-space: normal;
   }
@@ -1436,6 +1841,10 @@ button:disabled {
 p {
   @include roboto();
   line-height: 1.5;
+
+  &:empty {
+    min-height: 0;
+  }
 }
 
 ::-webkit-scrollbar-thumb,

@@ -1954,13 +1954,22 @@ _mgOpenChatCropper() {
           formula,
           skillMod: auraAttrMod,
           modifierParts: [auraAttrMod],
-          label: `Attribute Roll: ${attrKey.charAt(0).toUpperCase() + attrKey.slice(1)}`,
+          modifierBreakdown: auraAttrMod !== 0 ? [
+            {
+              key: "aura",
+              label: aura.label || "Aura Modifier",
+              icon: "fa-eye-evil",
+              value: auraAttrMod
+            }
+          ] : [],
+          label: `Attr Roll: ${attrKey.charAt(0).toUpperCase() + attrKey.slice(1)}`,
           actor: this.actor,
           edge,
           auraLabel: aura.label,
           auraAttrMod,
           auraSourceActorId: aura.sourceActorId,
-          auraSourceTokenId: aura.sourceTokenId
+          auraSourceTokenId: aura.sourceTokenId,
+          auraIconClass: "fa-eye-evil"
         });
 
         if (edge) {
@@ -2097,7 +2106,27 @@ _mgOpenChatCropper() {
             formula,
             skillMod: finalSkillMod,
             modifierParts: [baseSkillMod, tempSkillMod, auraAttrMod],
-            label: `Skill Roll: ${skillLabel.toUpperCase()}${bonusText}`,
+            modifierBreakdown: [
+              {
+                key: "skill",
+                label: "Skill Bonus",
+                icon: "fa-user-plus",
+                value: baseSkillMod
+              },
+              {
+                key: "temp",
+                label: "Temporary Bonus",
+                icon: "fa-handshake-angle",
+                value: tempSkillMod
+              },
+              {
+                key: "aura",
+                label: aura.label || "Aura Modifier",
+                icon: "fa-eye-evil",
+                value: auraAttrMod
+              }
+            ],
+            label: `Skill Roll: ${skillLabel}`,
             actor: this.actor,
             edge,
             auraLabel: aura.label,
