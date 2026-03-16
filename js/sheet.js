@@ -153,8 +153,8 @@ export class MidnightGambitActorSheet extends ActorSheet {
       context.CONFIG = CONFIG;
 
       // --- Guise shown on-sheet (Moves/Signature) is allowed to differ from primary (stats) ---
-      const primaryGuiseId = this.actor.system?.guise || this.actor.system?.guiseId || null;
-      const movesGuiseId = this.actor.system?.movesGuiseId || primaryGuiseId;
+      const primaryGuiseId = this.actor.system?.guiseId || this.actor.system?.guise || null;
+      const movesGuiseId = primaryGuiseId;
 
       context.primaryGuiseId = primaryGuiseId;
       context.movesGuiseId = movesGuiseId;
@@ -226,7 +226,7 @@ export class MidnightGambitActorSheet extends ActorSheet {
       }
 
       // ----------------------------------------------------------------------
-      // Moves: learned vs “secondary guise injected” move-items
+      // Moves: learned moves + secondary guise content reconstructed from guise items
       // ----------------------------------------------------------------------
       const allMoves = this.actor.items.filter(i => i.type === "move");
 
@@ -236,33 +236,12 @@ export class MidnightGambitActorSheet extends ActorSheet {
         m.system?.isSignature !== true
       );
 
-      // Secondary Guise injected moves (created on 2nd+ guise drop)
-      const secondaryMoves = allMoves.filter(m => m.system?.fromSecondaryGuise === true);
-
-      context.secondarySignatureMoves = secondaryMoves.filter(m => m.system?.isSignature === true);
-      context.secondaryBasicMoves     = secondaryMoves.filter(m => m.system?.isSignature !== true);
-
-      context.enrichedSecondarySignatureMoves = await Promise.all(
-        context.secondarySignatureMoves.map(async m => ({
-          _id: m.id,
-          name: m.name,
-          description: m.system?.description ?? "",
-          html: await TextEditor.enrichHTML(String(m.system?.description ?? ""), { async: true }),
-          tags: Array.isArray(m.system?.tags) ? m.system.tags : [],
-          guiseSource: m.system?.guiseSource ?? null
-        }))
-      );
-
-      context.enrichedSecondaryBasicMoves = await Promise.all(
-        context.secondaryBasicMoves.map(async m => ({
-          _id: m.id,
-          name: m.name,
-          description: m.system?.description ?? "",
-          html: await TextEditor.enrichHTML(String(m.system?.description ?? ""), { async: true }),
-          tags: Array.isArray(m.system?.tags) ? m.system.tags : [],
-          guiseSource: m.system?.guiseSource ?? null
-        }))
-      );  
+      // We will build secondary signature/basic content directly from non-primary guise items,
+      // so the Moves tab always works even if no embedded "fromSecondaryGuise" moves exist yet.
+      context.secondarySignatureMoves = [];
+      context.secondaryBasicMoves = [];
+      context.enrichedSecondarySignatureMoves = [];
+      context.enrichedSecondaryBasicMoves = [];
 
       /* Level up / Undo context
       ----------------------------------------------------------------------*/
@@ -286,33 +265,49 @@ export class MidnightGambitActorSheet extends ActorSheet {
       };
       context.hasPending = Object.values(context.pending).some(n => Number(n) > 0);
 
-      // --- Enrich TinyMCE HTML for Signature + Moves (safe → HTML) ---
+      // --- Guise-driven Signature + Moves (primary + secondary) ----------------
+      const allGuises = this.actor.items.filter(i => i.type === "guise");
+
+      // Resolve primary guise robustly (system.guise might be an embedded id OR a uuid)
+      let primaryGuise = null;
+      const gRef = this.actor.system.guiseId || this.actor.system.guise;
+
+      if (gRef) {
+        primaryGuise =
+          this.actor.items.get(gRef) ||
+          allGuises.find(g => g.uuid === gRef) ||
+          null;
+      }
+
+      // Primary guise becomes the main `guise` used by your original HTML
+      context.guise = primaryGuise ?? null;
+
+      // Helper: normalize tags whether stored as array or CSV string
+      const parseTags = (v) => {
+        if (Array.isArray(v)) return v.filter(Boolean);
+        if (typeof v === "string") {
+          return v
+            .split(",")
+            .map(s => s.trim())
+            .filter(Boolean);
+        }
+        return [];
+      };
+
+      // PRIMARY signature + basic moves (feeds your original primary HTML block)
       if (context.guise) {
         const sig = String(context.guise.system?.signatureDescription ?? "");
         context.signatureHtml = await TextEditor.enrichHTML(sig, { async: true });
 
-        // Helper: normalize tags whether stored as array or CSV string
-        const parseTags = (v) => {
-          if (Array.isArray(v)) return v.filter(Boolean);
-          if (typeof v === "string") {
-            return v
-              .split(",")
-              .map(s => s.trim())
-              .filter(Boolean);
-          }
-          return [];
-        };
-
-        // Signature tags live on the guise item (selected in guise-sheet)
         context.signatureTags = parseTags(context.guise.system?.signatureTags);
 
-        // Basic moves live inside guise.system.moves (array of objects)
-        const rawMoves = Array.isArray(context.guise.system?.moves) ? context.guise.system.moves : [];
+        const rawMoves = Array.isArray(context.guise.system?.moves)
+          ? context.guise.system.moves
+          : [];
+
         context.enrichedMoves = await Promise.all(
           rawMoves.map(async (m) => {
-            // Support either m.tags (array) or m.tagsCsv (string)
             const tags = parseTags(m?.tags ?? m?.tagsCsv);
-
             return {
               ...m,
               tags,
@@ -326,24 +321,42 @@ export class MidnightGambitActorSheet extends ActorSheet {
         context.enrichedMoves = [];
       }
 
-      // --- Secondary guises (show in header) ---------------------------------
-      const allGuises = this.actor.items.filter(i => i.type === "guise");
+      // SECONDARY guise list (header / settings still use this)
+      const secondaryGuiseDocs = allGuises.filter(g => !primaryGuise || g.id !== primaryGuise.id);
 
-      // Resolve primary guise robustly (system.guise might be an embedded id OR a uuid)
-      let primaryGuise = null;
-      const gRef = this.actor.system.guiseId || this.actor.system.guise;
+      context.secondaryGuises = secondaryGuiseDocs.map(g => ({
+        id: g.id,
+        name: g.name
+      }));
 
-      if (gRef) {
-        primaryGuise =
-          this.actor.items.get(gRef) ||                      // embedded id case
-          allGuises.find(g => g.uuid === gRef) ||            // uuid case
-          null;
-      }
+      // SECONDARY signature perks reconstructed directly from guise items
+      context.enrichedSecondarySignatureMoves = await Promise.all(
+        secondaryGuiseDocs
+          .filter(g => (g.system?.signaturePerk ?? "").trim() || (g.system?.signatureDescription ?? "").trim())
+          .map(async (g) => ({
+            _id: g.id,
+            name: g.system?.signaturePerk ?? g.name,
+            description: g.system?.signatureDescription ?? "",
+            html: await TextEditor.enrichHTML(String(g.system?.signatureDescription ?? ""), { async: true }),
+            tags: parseTags(g.system?.signatureTags),
+            guiseSource: g.id
+          }))
+      );
 
-      // Everything else is “secondary”
-      context.secondaryGuises = allGuises
-        .filter(g => !primaryGuise || (g.id !== primaryGuise.id && g.uuid !== primaryGuise.uuid))
-        .map(g => ({ id: g.id, name: g.name }));
+      // SECONDARY basic moves reconstructed directly from guise items
+      context.enrichedSecondaryBasicMoves = await Promise.all(
+        secondaryGuiseDocs.flatMap((g) => {
+          const rawMoves = Array.isArray(g.system?.moves) ? g.system.moves : [];
+          return rawMoves.map(async (m) => ({
+            _id: `${g.id}-${m.name ?? "move"}`,
+            name: m.name ?? "Unnamed Move",
+            description: m.description ?? "",
+            html: await TextEditor.enrichHTML(String(m.description ?? ""), { async: true }),
+            tags: parseTags(m?.tags ?? m?.tagsCsv),
+            guiseSource: g.id
+          }));
+        })
+      );
         
       // --- Settings tab: Primary/Secondary toggles -------------------------------
       // Resolve refs to embedded ids first so UI state is stable.
@@ -399,14 +412,6 @@ export class MidnightGambitActorSheet extends ActorSheet {
       const embeddedSigItems = this.actor.items.filter(i =>
         i.type === "move" && i.system?.isSignature === true
       );
-
-      const parseTags = (v) => {
-        if (Array.isArray(v)) return v.filter(Boolean);
-        if (typeof v === "string") {
-          return v.split(",").map(s => s.trim()).filter(Boolean);
-        }
-        return [];
-      };
 
       context.embeddedSignatureMoves = await Promise.all(
         embeddedSigItems.map(async (m) => {

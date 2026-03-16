@@ -253,6 +253,13 @@ button:disabled {
       border-top: 0;
       border-radius: 0 0 0.5rem 0;
 
+      &:hover {
+        .mg-chat-avatar-hud {
+          opacity: 1;
+          transform: translate3d(0, 0, 0);
+        }
+      }
+
       &:before {
         position: absolute;
         inset: 0;
@@ -262,8 +269,56 @@ button:disabled {
         background: $mg-blue-main;
         z-index: 2;
         pointer-events: none;
-      }  
-      
+      }
+
+      .mg-chat-avatar-hud {
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        left: 0;
+        top: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 0;
+        opacity: 0;
+        will-change: transform, opacity;
+        transform: translate3d(0, 6px, 0);
+        transition: opacity 0.5s ease, transform 0.5s ease;
+        backface-visibility: hidden;
+        -webkit-font-smoothing: antialiased;
+        text-rendering: geometricPrecision;						
+        pointer-events: none; // so hover stays on the slice
+        z-index: 50;
+        font-style: normal;
+        @include oswald();
+        background-image: url("../assets/images/filigree-character.png");
+        background-size: 100%;
+        color: $white;
+
+        .mg-chat-avatar-stat {
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
+          align-items: center;
+          width: 100%;
+          height: 50%;
+          gap: .5rem;
+          color: $white;
+          font-size: 1.75rem;
+          @include oswald();
+          font-weight: 700;
+
+          i {
+            font-size: 1rem;
+            color: $mg-blue-2;
+          }
+
+          &:last-of-type {
+            border-top: 2px solid $mg-blue-main-2;
+          }				
+        }		        
+      }      
+    
       .mg-chat-avatar {
         width: 100%;
         height: 100%;
@@ -517,6 +572,30 @@ button:disabled {
             font-size: 1rem;
             color: $mg-blue-2;
             letter-spacing: 0.01em;
+          }
+
+          .mg-risk-swap-inline {
+            display: flex;
+            align-items: center;
+            padding: .5rem .5rem .5rem 0;
+            gap: .5rem;
+
+            .mg-risk-swap-die {
+              aspect-ratio: 1/1;
+              align-self: center;
+              padding: .5rem;
+              @include oswald();
+              font-size: 1.25rem;
+              color: $mg-blue-1;
+              background: $mg-blue-main-2;
+              display: flex;
+              justify-content: center;
+              align-items: center;
+              border-radius: .25rem;
+              border: 2px solid $mg-blue-main-2;
+              height: 1.875rem;
+              width: 1.875rem;
+            }            
           }
         }
 

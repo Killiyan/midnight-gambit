@@ -374,7 +374,9 @@ export async function evaluateRoll({
 
   const edgeClass = edge ? "has-edge" : "";
   const chatContent = `
-    <div class="mg-chat-card chat-roll mg-roll-card" data-total="${total}">
+    <div class="mg-chat-card chat-roll mg-roll-card"
+        data-total="${total}"
+        data-actor-id="${actor.id}">
       <div class="mg-roll-header">
         <div class="mg-roll-label-wrap">
           <label class="mg-roll-label">${esc(label)}</label>

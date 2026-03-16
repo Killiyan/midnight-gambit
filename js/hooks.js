@@ -1815,6 +1815,33 @@ Hooks.on("renderChatMessage", async (message, html) => {
       </div>
     `);
 
+    const actorIdForHud = message.speaker?.actor;
+    if (actorIdForHud) {
+      const actorForHud = game.actors.get(actorIdForHud);
+
+      if (actorForHud) {
+        const sto = Number(actorForHud.system?.sto?.value ?? 0);
+        const riskTotal = Number(actorForHud.system?.riskDice ?? 0);
+        const riskUsed = Number(actorForHud.system?.riskUsed ?? 0);
+        const riskRemaining = Math.max(0, riskTotal - riskUsed);
+
+        const $hud = $(`
+          <div class="mg-chat-avatar-hud">
+            <div class="mg-chat-avatar-stat mg-chat-avatar-stat-risk">
+              <i class="fa-solid fa-dice"></i>
+              <span>${riskRemaining}</span>
+            </div>
+            <div class="mg-chat-avatar-stat mg-chat-avatar-stat-sto">
+              <i class="fa-solid fa-cubes"></i>
+              <span>${sto}</span>
+            </div>
+          </div>
+        `);
+
+        $avatar.append($hud);
+      }
+    }
+
     // Apply per-actor chat framing (CSS vars) TO THE IMG (not the wrapper)
     const actorId = speaker.actor;
     const actor = actorId ? game.actors.get(actorId) : null;
@@ -2007,13 +2034,6 @@ Hooks.on("renderChatMessage", (message, html) => {
       stoSession.stoUndone = true;
     }
 
-
-    // If a 1, flash both strain tracks (player clicks to assign 1)
-    if (R === 1) {
-      flashStrain(actor);
-      ui.notifications.info(`${actor.name} Risked it: rolled a 1 — take 1 Strain.`);
-    }
-
     // Consume one Risk die (gray out one dot)
     try {
       const used  = Number(actor.system?.riskUsed ?? 0);
@@ -2029,73 +2049,137 @@ Hooks.on("renderChatMessage", (message, html) => {
   const canAgain = usedNow < totalRD;
 
   // --- Build resultText to match your original style, but for the NEW result ---
-  let resultText;
+  let resultLabel = "";
+  let resultDesc = "";
+  let resultIcon = "";
+  let resultClass = "";
+
   if (newDice.every(d => d === 6)) {
-    resultText = `<div class="result-label"><i class="fa-solid fa-star text-gold"></i> <strong>ACE!</strong></div><span>You steal the spotlight.</span>`;
+    resultLabel = "ACE!";
+    resultDesc = "You steal the spotlight.";
+    resultIcon = "fa-star text-gold";
+    resultClass = "result-ace";
   } else if (newDice.every(d => d === 1)) {
-    resultText = `<div class="result-label"><i class="fa-solid fa-skull-crossbones"></i> <strong>Critical Failure</strong></div><span>It goes horribly wrong.</span>`;
+    resultLabel = "Critical Failure";
+    resultDesc = "It goes horribly wrong.";
+    resultIcon = "fa-skull-crossbones";
+    resultClass = "result-crit";
   } else if (newTotal <= 6) {
-    resultText = `<div class="result-label"><i class="fa-solid fa-fire-flame result-fail"></i> <strong>Failure</strong></div><span>something goes awry.</span>`;
+    resultLabel = "Failure";
+    resultDesc = "Something goes awry.";
+    resultIcon = "fa-fire-flame result-fail";
+    resultClass = "result-fail";
   } else if (newTotal <= 10) {
-    resultText = `<div class="result-label"><i class="fa-solid fa-swords result-mixed"></i> <strong>Complication</strong></div> <span>success with a cost.</span>`;
+    resultLabel = "Complication";
+    resultDesc = "Success with a cost.";
+    resultIcon = "fa-swords result-mixed";
+    resultClass = "result-complication";
   } else {
-    resultText = `<div class="result-label"><i class="fa-solid fa-sparkles flourish-animate"></i> <strong class="flourish-animate">Flourish</strong></div><span>narrate your success.</span>`;
+    resultLabel = "Flourish";
+    resultDesc = "Narrate your success.";
+    resultIcon = "fa-crown";
+    resultClass = "result-flourish";
   }
 
-  // --- Small kept-dice line under the outcome ---
-  const modStr = skillMod
-    ? (skillMod > 0 ? ` + ${skillMod}` : ` − ${Math.abs(skillMod)}`)
-    : "";
-  const keptSmall = `<div class="mg-risk-kept dice-total"><p>Kept: [${newDice[0]}, ${newDice[1]}]${modStr} = <strong>${newTotal}</strong></p></div>`;
+  // --- Compact swap display shown inside the outcome body ---
+  const swapHtml = `
+    <div class="mg-risk-swap-inline">
+      <span class="mg-risk-swap-die">${L}</span>
+      <i class="fa-solid fa-arrow-right"></i>
+      <span class="mg-risk-swap-die">${R}</span>
+    </div>
+  `;
 
-  // --- Build "Risk Again" control (HTML, not boolean!) ---
+  const diceHtml = `
+    <div class="mg-roll-dice-list">
+      ${newDice.map((die, i) => `
+        <div class="mg-roll-die ${i === idx ? "is-risk-replaced" : ""}">
+          ${die}
+        </div>
+      `).join("")}
+    </div>
+  `;  
+
+  const modifiersHtml = `
+    <div class="mg-roll-modifiers ${skillMod !== 0 ? "" : "is-empty"}">
+      ${skillMod !== 0 ? `
+        <div class="mg-roll-modifier" data-mod-key="skill" title="Skill Bonus">
+          <i class="fa-solid fa-user-plus"></i>
+          <span class="mg-roll-mod-value">${skillMod > 0 ? "+" : ""}${skillMod}</span>
+        </div>
+      ` : ""}
+    </div>
+  `;
+
   const againBtn = canAgain
     ? `<button type="button"
-              class="mg-risk-again"
+              class="mg-roll-action mg-risk-again"
               data-actor-id="${actor.id}"
               data-kept="${newDice.join(",")}"
               data-skill-mod="${skillMod}"
-              data-session-id="${sessionId}">
-        <i class="fa-solid fa-dice-d6"></i> Risk Again
-      </button>
-      <small class="hint">Replaces the lower; a <strong>1</strong> causes 1 Strain.</small>`
-    : `<small class="hint">No Risk dice remaining.</small>`;
+              data-session-id="${sessionId}"
+              title="Risk">
+        <i class="fa-solid fa-dice"></i>
+      </button>`
+    : `<button type="button"
+              class="mg-roll-action is-disabled"
+              disabled
+              aria-disabled="true"
+              title="Risk unavailable">
+        <i class="fa-solid fa-dice"></i>
+      </button>`;
 
   // ------------------------------------------------------------
   // STO buttons for the Risk Result card (owner-only rendering is handled elsewhere)
   // Shows ONLY if spending STO upgrades the outcome band.
   // ------------------------------------------------------------
-  let stoBtn = "";
+  let stoCompBtn = `
+    <button type="button"
+      class="mg-roll-action is-disabled"
+      disabled
+      aria-disabled="true"
+      title="Upgrade to Complication unavailable">
+      <i class="fa-solid fa-swords"></i>
+    </button>`;
+
+  let stoFlourishBtn = `
+    <button type="button"
+      class="mg-roll-action is-disabled"
+      disabled
+      aria-disabled="true"
+      title="Upgrade to Flourish unavailable">
+      <i class="fa-solid fa-crown"></i>
+    </button>`;
+
   const stoValue = Number(actor.system?.sto?.value ?? 0);
 
-  // Never allow STO -> Ace, and no need to show STO if already Flourish+
-  if (stoValue > 0 && !newDice.every(d => d === 6) && newTotal <= 10) {
-    // From Failure -> Complication / Flourish
+  if (stoValue > 0) {
+    // From Failure -> Complication or Flourish
     if (newTotal <= 6) {
       const needComp = 7 - newTotal;
       const needFlourish = 11 - newTotal;
 
       if (needComp > 0 && needComp <= stoValue) {
-        stoBtn += `
+        stoCompBtn = `
           <button type="button"
-            class="mg-spend-sto sto-complication"
+            class="mg-roll-action mg-spend-sto sto-complication"
             data-actor-id="${actor.id}"
             data-spend="${needComp}"
             data-total="${newTotal}"
             title="Upgrade to Complication">
-            <i class="fa-solid fa-swords"></i> STO
+            <i class="fa-solid fa-swords"></i>
           </button>`;
       }
 
       if (needFlourish > 0 && needFlourish <= stoValue) {
-        stoBtn += `
+        stoFlourishBtn = `
           <button type="button"
-            class="mg-spend-sto sto-flourish"
+            class="mg-roll-action mg-spend-sto sto-flourish"
             data-actor-id="${actor.id}"
             data-spend="${needFlourish}"
             data-total="${newTotal}"
             title="Upgrade to Flourish">
-            <i class="fa-solid fa-crown"></i> STO
+            <i class="fa-solid fa-crown"></i>
           </button>`;
       }
     }
@@ -2105,36 +2189,66 @@ Hooks.on("renderChatMessage", (message, html) => {
       const needFlourish = 11 - newTotal;
 
       if (needFlourish > 0 && needFlourish <= stoValue) {
-        stoBtn += `
+        stoFlourishBtn = `
           <button type="button"
-            class="mg-spend-sto sto-flourish"
+            class="mg-roll-action mg-spend-sto sto-flourish"
             data-actor-id="${actor.id}"
             data-spend="${needFlourish}"
             data-total="${newTotal}"
             title="Upgrade to Flourish">
-            <i class="fa-solid fa-crown"></i> STO
+            <i class="fa-solid fa-crown"></i>
           </button>`;
       }
     }
   }
 
-  // --- Compose the follow-up message ---
-  const content = `
-    <div class="mg-chat-card mg-risk-result chat-roll" data-total="${newTotal}">
-      <div class="roll-container">
-        <label>Risk Result</label><br/>
-        <strong>${resultText}</strong>
-      </div>
-      <p class="dice-total risk-result">Replaced lower die <strong>${L} → ${R}</strong></p>
-      ${keptSmall}
-      ${R === 1 ? `<p class="text-danger"><strong>Strain:</strong> choose a track and click to add 1.</p>` : ""}
-      <div class="mg-roll-controls mg-risk-controls-again">
-        ${againBtn}
-        ${stoBtn}
-      </div>
+  const controlButtons = `
+    <div class="mg-roll-controls mg-risk-controls-again">
+      ${againBtn}
+      ${stoCompBtn}
+      ${stoFlourishBtn}
     </div>
   `;
   
+  // --- Compose the follow-up message ---
+  const content = `
+    <div class="mg-chat-card chat-roll mg-roll-card mg-risk-result" data-total="${newTotal}">
+      <div class="mg-roll-header">
+        <div class="mg-roll-label-wrap">
+          <label class="mg-roll-label">Risk Result</label>
+        </div>
+      </div>
+
+      <div class="roll-wrapper">
+        <div class="mg-roll-outcome ${resultClass}">
+          <div class="mg-roll-outcome-title">
+            <i class="fa-solid ${resultIcon}"></i>
+            <strong>${resultLabel}</strong>
+          </div>
+
+          <div class="mg-roll-outcome-text">
+            ${resultDesc}
+            ${swapHtml}
+          </div>
+        </div>
+
+        <div class="mg-roll-math-wrap">
+          <div class="mg-roll-math" tabindex="0" aria-expanded="false">
+            <div class="mg-roll-math-column">
+              ${diceHtml}
+              ${modifiersHtml}
+            </div>
+
+            <div class="mg-roll-total-box">
+              <strong class="mg-roll-total">${newTotal}</strong>
+            </div>
+          </div>
+        </div>
+
+        ${controlButtons}
+      </div>
+    </div>
+  `;
 
   const newMsg = await ChatMessage.create({
     speaker: ChatMessage.getSpeaker({ actor }),
