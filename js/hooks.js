@@ -1911,6 +1911,153 @@ Hooks.on("renderChatMessage", async (message, html) => {
   }
 });
 
+/* Vanilla Foundry Roll -> MG Structure
+----------------------------------------------------------------------*/
+
+Hooks.on("renderChatMessage", (message, html) => {
+  try {
+    const root = html[0];
+    if (!root) return;
+
+    // Skip cards that are already using MG markup
+    if (
+      root.querySelector(".mg-chat-card") ||
+      root.querySelector(".mg-risk-result") ||
+      root.querySelector(".gambit-card")
+    ) return;
+
+    // Need an actual Foundry roll message
+    const rollContainer = root.querySelector(".dice-roll");
+    const roll = message?.roll;
+
+    if (!rollContainer || !roll) return;
+    if (rollContainer.dataset.mgVanillaProcessed === "true") return;
+    rollContainer.dataset.mgVanillaProcessed = "true";
+
+    // Pull dice results from the first Die term
+    const dieTerm = roll.terms?.find(t => Array.isArray(t?.results));
+    const allDice = (dieTerm?.results ?? []).map((r, index) => ({
+      index,
+      value: Number(r.result) || 0,
+      active: !!r.active
+    }));
+
+    const keptDice = allDice.filter(d => d.active);
+    const droppedDice = allDice.filter(d => !d.active);
+
+    const visibleDice = keptDice.length ? keptDice : allDice;
+    const hasDroppedDice = droppedDice.length > 0;
+
+    const formula = String(roll.formula ?? "").trim();
+    const total = Number(roll.total ?? 0);
+
+    const diceHtml = `
+      <div class="mg-roll-dice-list">
+        ${visibleDice.map((die, displayIndex) => `
+          <div
+            class="mg-roll-die ${die.active ? "is-kept" : "is-dropped"}"
+            data-die-index="${die.index}"
+            data-display-index="${displayIndex}">
+            ${die.value}
+          </div>
+        `).join("")}
+      </div>
+    `;
+
+    const droppedDiceHtml = hasDroppedDice ? `
+      <div class="mg-roll-dropped-panel vanilla-roll" hidden>
+        <div class="mg-roll-dropped-list">
+          <div class="mg-roll-tray-group mg-roll-tray-group-kept">
+            ${allDice.map((die, displayIndex) => `
+              <div
+                class="mg-roll-die ${die.active ? "is-kept" : "is-dropped"}"
+                data-die-index="${die.index}"
+                data-display-index="${displayIndex}">
+                ${die.value}
+              </div>
+            `).join("")}
+          </div>
+
+          <div class="mg-roll-formula-line">${formula}</div>
+        </div>
+      </div>
+    ` : `
+      <div class="mg-roll-dropped-panel vanilla-roll" hidden>
+        <div class="mg-roll-dropped-list">
+          <div class="mg-roll-formula-line">${formula}</div>
+        </div>
+      </div>
+    `;
+
+    const mathChevron = `
+      <div class="mg-roll-expand-indicator" aria-hidden="true">
+        <i class="fa-solid fa-chevron-down"></i>
+      </div>
+    `;
+
+    const vanillaCard = `
+      <div class="mg-chat-card chat-roll mg-roll-card mg-vanilla-roll-card"
+          data-total="${total}">
+        <div class="mg-roll-header">
+          <div class="mg-roll-label-wrap">
+            <label class="mg-roll-label">Roll</label>
+          </div>
+        </div>
+
+        <div class="roll-wrapper">
+          <div class="mg-roll-math-wrap">
+            <div class="mg-roll-math is-interactive"
+                role="button"
+                tabindex="0"
+                aria-expanded="false">
+              <div class="mg-roll-math-column">
+                ${diceHtml}
+              </div>
+
+              ${mathChevron}
+
+              <div class="mg-roll-total-box">
+                <strong class="mg-roll-total">${total}</strong>
+              </div>
+            </div>
+
+            ${droppedDiceHtml}
+          </div>
+        </div>
+      </div>
+    `;
+
+    rollContainer.innerHTML = vanillaCard;
+
+    const math = rollContainer.querySelector(".mg-roll-math");
+    const panel = rollContainer.querySelector(".mg-roll-dropped-panel");
+
+    const setOpen = (open) => {
+      math.classList.toggle("open", open);
+      math.setAttribute("aria-expanded", open ? "true" : "false");
+      if (panel) panel.hidden = !open;
+    };
+
+    setOpen(false);
+
+    math?.addEventListener("click", () => {
+      const open = math.classList.contains("open");
+      setOpen(!open);
+    });
+
+    math?.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        const open = math.classList.contains("open");
+        setOpen(!open);
+      }
+    });
+
+  } catch (err) {
+    console.error("Midnight Gambit | Vanilla roll MG render failed:", err);
+  }
+});
+
 // --- Risk It: one-use per message; subsequent risks via the spawned result card ---
 Hooks.on("renderChatMessage", (message, html) => {
   const root = html[0];

@@ -5775,7 +5775,6 @@ _mgOpenChatCropper() {
   } 
 
   async _onDrop(event) {
-    // Helper: what zone did we drop onto?
     const dropzone =
       event?.target?.closest?.("[data-dropzone]")?.dataset?.dropzone ?? null;
 
@@ -5789,17 +5788,16 @@ _mgOpenChatCropper() {
         // MOVES / SIGNATURE PERKS
         // ----------------------------
         if (src?.documentName === "Item" && src.type === "move") {
-          // Hydrate into raw object data we can create
           let moveDoc = src.toObject();
           moveDoc.system = moveDoc.system || {};
 
-          // De-dupe by sourceId or name
           const existing = this.actor.items.find(i =>
             i.type === "move" && (
               (i.flags?.core?.sourceId && i.flags.core.sourceId === moveDoc.flags?.core?.sourceId) ||
               (i.name?.toLowerCase?.() === moveDoc.name?.toLowerCase?.())
             )
           );
+
           if (existing) {
             ui.notifications?.warn(`${moveDoc.name} is already on ${this.actor.name}.`);
             return false;
@@ -5831,19 +5829,14 @@ _mgOpenChatCropper() {
               return false;
             }
 
-            // Not dropped on a known zone: let Foundry handle it normally
             return super._onDrop?.(event) ?? false;
           }
 
           // === Character routing ===
           if (this.actor.type === "character") {
-            // ONLY intercept signature zone drops.
-            // Everything else should behave like normal Foundry drop (learned move, etc.)
             if (dropzone === "signature") {
               moveDoc.system.isSignature = true;
               moveDoc.system.learned = false;
-
-              // Ensure NPC-only flags don't accidentally block it later
               moveDoc.system.npcMove = false;
               moveDoc.system.npcSignature = false;
 
@@ -5853,7 +5846,16 @@ _mgOpenChatCropper() {
               return false;
             }
 
-            return super._onDrop?.(event) ?? false;
+            // Default PC move drop = learned move
+            moveDoc.system.isSignature = false;
+            moveDoc.system.learned = true;
+            moveDoc.system.npcMove = false;
+            moveDoc.system.npcSignature = false;
+
+            const [embedded] = await this.actor.createEmbeddedDocuments("Item", [moveDoc]);
+            ui.notifications?.info(`Learned Move added: ${embedded.name}`);
+            this.render(false);
+            return false;
           }
         }
 
@@ -5863,13 +5865,11 @@ _mgOpenChatCropper() {
         if (src?.documentName === "Item" && src.type === "gambit") {
           const tier = String(src.system?.tier ?? "").toLowerCase();
 
-          // Block Crew-tier on players
           if (tier === "crew") {
             ui.notifications?.warn("Crew-tier Gambits can only be added to the Crew.");
             return false;
           }
 
-          // Deck capacity confirm (players)
           const g = this.actor.system?.gambits ?? {};
           const deck = Array.isArray(g.deck) ? g.deck : [];
           const deckMax = this._mgGetPlayerGambitMax?.() ?? 0;
@@ -5883,12 +5883,13 @@ _mgOpenChatCropper() {
                 <p><em>Only add this if your Director approves!</em></p>
               `,
               defaultYes: false,
-              yes: () => true, no: () => false
+              yes: () => true,
+              no: () => false
             });
+
             if (!ok) return false;
           }
 
-          // Let Foundry do the actual drop handling (so it still creates the embedded item)
           return super._onDrop?.(event) ?? false;
         }
       }
