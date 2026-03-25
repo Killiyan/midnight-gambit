@@ -443,7 +443,7 @@ h1,h2,h3,h4 {
             bottom: 4.125rem;
             left: 13.5rem;
             z-index: 9;
-            transition: transform .5s ease;
+            transition: transform .5s ease, background .5s ease, color .5s ease, border .5s ease;
 
             label {
               margin: 0;
