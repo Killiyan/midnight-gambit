@@ -4,6 +4,8 @@ import { MGInitiativeController } from "./initiative-controller.js";
 const MG_NS = "midnight-gambit";
 const END_ID = "__MG_END__";
 const VISIBLE_SLOTS = 5;
+const NAME_LEAVE_PX = 140;
+const NAME_TRANS_MS = 260;
 
 function mgEscapeHTML(input) {
   const s = String(input ?? "");
@@ -347,6 +349,57 @@ export class MGInitiativeSidebar {
     if (name) name.textContent = a?.name ?? "—";
   }
 
+  _afterTransition(el, timeout = 430) {
+    return new Promise((resolve) => {
+      let done = false;
+
+      const finish = () => {
+        if (done) return;
+        done = true;
+        el?.removeEventListener?.("transitionend", onEnd);
+        resolve();
+      };
+
+      const onEnd = (ev) => {
+        if (ev?.propertyName && ev.propertyName !== "transform" && ev.propertyName !== "opacity") return;
+        finish();
+      };
+
+      el?.addEventListener?.("transitionend", onEnd, { once: true });
+      setTimeout(finish, timeout);
+    });
+  }
+
+  async _animateNextNameChange(newName) {
+    const root = document.getElementById("mg-initiative-sidebar");
+    const label = root?.querySelector('[data-role="nextname"]');
+    if (!label) return;
+
+    // same behavior as main initiative bar: start off to the right, then slide in
+    label.style.willChange = "transform, opacity";
+    label.style.transition = "none";
+    label.style.transform = `translateX(${NAME_LEAVE_PX}px)`;
+    label.style.opacity = "0";
+
+    void label.offsetWidth;
+
+    label.textContent = newName;
+    label.style.transition =
+      `transform ${NAME_TRANS_MS}ms cubic-bezier(.2,.8,.2,1), ` +
+      `opacity ${NAME_TRANS_MS}ms cubic-bezier(.2,.8,.2,1)`;
+    label.style.transform = "translateX(0)";
+    label.style.opacity = "1";
+
+    try {
+      await this._afterTransition(label, NAME_TRANS_MS + 170);
+    } finally {
+      label.style.removeProperty("transition");
+      label.style.removeProperty("transform");
+      label.style.removeProperty("opacity");
+      label.style.willChange = "";
+    }
+  }  
+
   _paintSlots(windowIdsOverride = null) {
     const root = document.getElementById("mg-initiative-sidebar");
     if (!root) return;
@@ -368,10 +421,16 @@ export class MGInitiativeSidebar {
     const windowIds = Array.isArray(windowIdsOverride) ? windowIdsOverride : this._windowIds();
 
     // next name
+    // next name
     const nextNameEl = root.querySelector('[data-role="nextname"]');
     const topId = windowIds[0];
-    const topActor = topId ? game.actors.get(topId) : null;
-    if (nextNameEl) nextNameEl.textContent = topActor?.name ?? (this._isEndActive() ? "End of Round" : "—");
+    const topActor = topId && topId !== END_ID ? game.actors.get(topId) : null;
+    const nextName = topActor?.name ?? (topId === END_ID ? "End of Round" : "—");
+
+    // Only hard-set here when we are not mid animation.
+    if (nextNameEl && !this._animating) {
+      nextNameEl.textContent = nextName;
+    }
 
     // paint slots content only
     windowIds.forEach((id, slotIdx) => {
@@ -486,11 +545,11 @@ export class MGInitiativeSidebar {
 
     const nextWindow = this._windowIds();
 
-    // Update "Up next" label from nextWindow[0]
-    const nextNameEl = root.querySelector('[data-role="nextname"]');
+    // Animate "Up next" label like the main initiative bar
     const topId = nextWindow[0];
     const topActor = topId && topId !== END_ID ? game.actors.get(topId) : null;
-    if (nextNameEl) nextNameEl.textContent = topActor?.name ?? (topId === END_ID ? "End of Round" : "—");
+    const nextName = topActor?.name ?? (topId === END_ID ? "End of Round" : "—");
+    this._animateNextNameChange(nextName).catch(console.error);
 
     // 3) FLIP-like slide: move existing card DOM nodes up one slot
     // IMPORTANT: remove leavingCard so slot-0 doesn't temporarily contain two cards.

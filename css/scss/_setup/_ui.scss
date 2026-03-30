@@ -281,9 +281,9 @@
 				}
 
 				.next-name {
-					@include oswald();
-					font-size: 1.25rem;
-					font-style: italic;
+					@include tiller();
+					font-size: 1.5rem;
+					font-style: normal;
 					font-weight: 700;
 					color: $mg-ivory;
 					text-transform: uppercase;
@@ -305,6 +305,26 @@
 				bottom: 1rem;
 				width: 14rem;
 				z-index: 30;
+
+				button {
+					border: 1px solid $mg-blue-3;
+					background: $mg-blue-main;
+
+					&:hover,
+					&:focus {
+						background: $mg-blue-3;
+						color: $mg-blue-4;
+
+						i {
+							color: $mg-blue-4;
+						}
+					}
+
+					i {
+						color: $mg-blue-1;
+						margin: 0;
+					}
+				}
 			}
 		}
 
@@ -542,9 +562,9 @@
 
 			.mg-ini-watermark {
 				position: absolute;
-				right: 0;
-				bottom: 0;
-				@include oswald();
+				right: -.25rem;
+				bottom: -.35rem;
+				@include tiller();
 				font-size: 3.4375rem;
 				color: $mg-blue-main-2;
 				font-weight: 700;
@@ -710,6 +730,30 @@
 				border-radius: .5rem;
 				z-index: 2;
 			}
+		}
+	}
+}
+
+/* Token UI Styling
+----------------------------------------------------------------------*/
+
+.placeable-hud {
+	.control-icon {
+		background: rgba($mg-blue-4, .8);
+		@include mg-border();
+	}
+
+	input[type="text"] {
+		background: $mg-blue-4;
+		@include mg-border();
+		color: $mg-blue-1;
+		transition: color .5s ease, border .5s ease;
+
+		&:hover,
+		&:focus {
+			box-shadow: none;
+			border-color: $mg-blue-1;
+			color: $mg-ivory;
 		}
 	}
 }

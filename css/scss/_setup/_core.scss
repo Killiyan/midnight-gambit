@@ -225,7 +225,8 @@ button:disabled {
 
 .chat-message,
 .message,
-.whisper {
+.whisper,
+.chat-message.whisper {
   background: rgba($mg-blue-4, .8);
   background-image: none;
   @include mg-border();
@@ -509,6 +510,10 @@ button:disabled {
     flex-direction: column;
     gap: .75rem;
 
+    .sto-upgrade .roll-wrapper .mg-roll-math .mg-roll-math-column {
+      justify-content: flex-end;
+    }
+
     .mg-roll-header {
       display: flex;
       justify-content: space-between;
@@ -521,8 +526,20 @@ button:disabled {
         max-width: 50%;
         padding: .5rem;
         border-radius: 0 0 .5rem 0;
+        display: flex;
+        gap: .5rem;
+        align-items: center;
+
+        .mg-roll-privacy-badge {
+          order: 1;
+          height: 100%;
+          display: flex;
+          justify-content: center;
+          align-items: center;
+        }
 
         .mg-roll-label {
+          order: 2;
           font-size: .9rem;
           color: $mg-blue-2;
           @include oswald();
@@ -582,8 +599,17 @@ button:disabled {
       }
     }
 
-    .mg-vanilla-roll-card .mg-roll-dice-list {
-      flex-wrap: wrap;
+    .mg-vanilla-roll-card {
+
+      .roll-wrapper .mg-roll-math .mg-roll-expand-indicator {
+        right: 2.875rem;
+        padding: .5rem;
+        left: unset;
+      }
+
+      .mg-roll-dice-list {
+        flex-wrap: wrap;
+      }
     }
 
     .roll-wrapper {
@@ -629,6 +655,12 @@ button:disabled {
           font-size: 1rem;
           color: $mg-blue-2;
           letter-spacing: 0.01em;
+
+          .sto-spent {
+            display: block;
+            font-size: .75rem;
+            font-weight: 700;
+          }
         }
 
         .mg-risk-swap-inline {
@@ -790,6 +822,10 @@ button:disabled {
           color: $mg-ivory;
           border-radius: 0 .325rem .325rem 0;
           transition: border-radius .5s ease;
+
+          .mg-roll-total {
+            filter: drop-shadow(1px 1px 2px #000);
+          }
         }
       }
 
@@ -914,18 +950,6 @@ button:disabled {
     }
   }
 
-  .sto-upgrade .dice-total {
-    font-weight: 700;
-    font-size: 1.25rem;
-    text-align: center;
-
-    .sto-spent {
-      padding: 0;
-      font-size: .75rem;
-      color: $mg-blue-2;
-    }
-  } 
-
   .edge-label {
     font-size: .75rem;
     @include roboto();
@@ -1007,7 +1031,7 @@ button:disabled {
   font-size: 1rem;
   letter-spacing: -.02em;
   text-transform: uppercase;
-  white-space: normal;
+  white-space: normal !important;
 }
 
 .nue {

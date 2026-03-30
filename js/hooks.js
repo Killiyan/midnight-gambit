@@ -1911,6 +1911,96 @@ Hooks.on("renderChatMessage", async (message, html) => {
   }
 });
 
+/* Permissions override
+----------------------------------------------------------------------*/
+function mgIsRestrictedMessage(message) {
+  return !!message?.blind || (Array.isArray(message?.whisper) && message.whisper.length > 0);
+}
+
+function mgCanViewerSeeRoll(message) {
+  return !!message?.isContentVisible;
+}
+
+function mgCanRevealToEveryone(message) {
+  // GM can always try. Authors can try to reveal their own rolls.
+  return !!(game.user.isGM || message.isAuthor);
+}
+
+function mgRestrictedBadgeHtml(message) {
+  if (!mgIsRestrictedMessage(message) || !mgCanViewerSeeRoll(message)) return "";
+
+  const icon = message.blind ? "fa-user-secret" : "fa-eye-slash";
+  const label = message.blind ? "Blind Roll" : "Hidden Roll";
+
+  return `
+    <div class="mg-roll-privacy-badge" title="${label}">
+      <i class="fa-solid ${icon}" aria-hidden="true"></i>
+    </div>
+  `;
+}
+
+async function mgPromptRevealToEveryone(message) {
+  if (!mgCanRevealToEveryone(message)) return;
+
+  const ok = await Dialog.confirm({
+    title: "Reveal Roll?",
+    content: `<p>Reveal this hidden roll to everyone in chat?</p>`,
+    yes: () => true,
+    no: () => false,
+    defaultYes: false
+  });
+
+  if (!ok) return;
+
+  try {
+    await message.update({
+      blind: false,
+      whisper: []
+    });
+
+    ui.notifications?.info("Roll revealed to everyone.");
+  } catch (err) {
+    console.error("MG | Failed to reveal roll to everyone:", err);
+    ui.notifications?.error("Could not reveal this roll to everyone.");
+  }
+}
+
+function mgBuildObscuredRollCard() {
+  return `
+    <div class="mg-chat-card chat-roll mg-roll-card mg-roll-card-obscured">
+      <div class="mg-roll-header">
+        <div class="mg-roll-label-wrap">
+          <label class="mg-roll-label">Hidden Message</label>
+        </div>
+      </div>
+
+      <div class="roll-wrapper">
+        <div class="mg-roll-outcome result-hidden">
+          <div class="mg-roll-outcome-title">
+            <i class="fa-solid fa-eye-slash"></i>
+            <strong>Hidden Roll</strong>
+          </div>
+
+          <div class="mg-roll-outcome-text">
+            This result is hidden.
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function mgBuildRestrictedChatData(sourceMessage, base = {}) {
+  const data = { ...base };
+
+  if (sourceMessage?.blind) data.blind = true;
+  if (Array.isArray(sourceMessage?.whisper) && sourceMessage.whisper.length) {
+    data.whisper = [...sourceMessage.whisper];
+  }
+
+  return data;
+}
+
 /* Vanilla Foundry Roll -> MG Structure
 ----------------------------------------------------------------------*/
 
@@ -1926,13 +2016,29 @@ Hooks.on("renderChatMessage", (message, html) => {
       root.querySelector(".gambit-card")
     ) return;
 
-    // Need an actual Foundry roll message
     const rollContainer = root.querySelector(".dice-roll");
     const roll = message?.roll;
-
     if (!rollContainer || !roll) return;
+
     if (rollContainer.dataset.mgVanillaProcessed === "true") return;
     rollContainer.dataset.mgVanillaProcessed = "true";
+
+    const isRestricted = mgIsRestrictedMessage(message);
+    const canSeeContent = mgCanViewerSeeRoll(message);
+    const canRevealToEveryone = mgCanRevealToEveryone(message);
+
+    // If THIS viewer cannot see the roll, render the hidden shell
+    if (isRestricted && !canSeeContent) {
+      const messageContent = root.querySelector(".message-content");
+
+      if (messageContent) {
+        messageContent.innerHTML = mgBuildObscuredRollCard();
+      } else {
+        rollContainer.innerHTML = mgBuildObscuredRollCard();
+      }
+
+      return;
+    }
 
     // Pull dice results from the first Die term
     const dieTerm = roll.terms?.find(t => Array.isArray(t?.results));
@@ -1995,12 +2101,18 @@ Hooks.on("renderChatMessage", (message, html) => {
       </div>
     `;
 
+    const privacyBadge = mgRestrictedBadgeHtml(message);
+
+    const revealHint = (isRestricted && canRevealToEveryone)
+      ? `<div class="mg-roll-reveal-hint"><small>Right-click to reveal to everyone.</small></div>`
+      : "";
+
     const vanillaCard = `
-      <div class="mg-chat-card chat-roll mg-roll-card mg-vanilla-roll-card"
-          data-total="${total}">
+      <div class="mg-chat-card chat-roll mg-roll-card mg-vanilla-roll-card ${isRestricted ? "is-restricted-roll" : ""}" data-total="${total}">
         <div class="mg-roll-header">
           <div class="mg-roll-label-wrap">
             <label class="mg-roll-label">Roll</label>
+            ${privacyBadge}
           </div>
         </div>
 
@@ -2023,6 +2135,7 @@ Hooks.on("renderChatMessage", (message, html) => {
 
             ${droppedDiceHtml}
           </div>
+          ${revealHint}
         </div>
       </div>
     `;
@@ -2052,6 +2165,16 @@ Hooks.on("renderChatMessage", (message, html) => {
         setOpen(!open);
       }
     });
+
+    // Restricted visible rolls: right-click to reveal to everyone
+    if (isRestricted && canRevealToEveryone) {
+      const card = rollContainer.querySelector(".mg-roll-card");
+      card?.addEventListener("contextmenu", async (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        await mgPromptRevealToEveryone(message);
+      });
+    }
 
   } catch (err) {
     console.error("Midnight Gambit | Vanilla roll MG render failed:", err);
@@ -2363,6 +2486,7 @@ Hooks.on("renderChatMessage", (message, html) => {
       <div class="mg-roll-header">
         <div class="mg-roll-label-wrap">
           <label class="mg-roll-label">Risk Result</label>
+          ${mgRestrictedBadgeHtml(message)}
         </div>
       </div>
 
@@ -2397,11 +2521,41 @@ Hooks.on("renderChatMessage", (message, html) => {
     </div>
   `;
 
-  const newMsg = await ChatMessage.create({
+  const newMsg = await ChatMessage.create(mgBuildRestrictedChatData(message, {
+    user: game.user.id,
     speaker: ChatMessage.getSpeaker({ actor }),
     content,
     type: CONST.CHAT_MESSAGE_TYPES.OTHER
-  });
+  }));
+
+  function mgRestrictedTargetLabel(message) {
+    if (!mgIsRestrictedMessage(message)) return "";
+
+    // Self roll / blind style
+    if (message?.blind) return "Hidden Roll";
+
+    const ids = Array.isArray(message?.whisper) ? message.whisper : [];
+    if (!ids.length) return "Hidden Roll";
+
+    const names = ids
+      .map(id => game.users.get(id)?.name)
+      .filter(Boolean);
+
+    if (!names.length) return "Hidden Roll";
+
+    return `To: ${names.join(", ")}`;
+  }
+
+  function mgRestrictedMetaHtml(message) {
+    if (!mgIsRestrictedMessage(message) || !mgCanViewerSeeRoll(message)) return "";
+
+    return `
+      <div class="mg-roll-private-meta">
+        <i class="fa-solid fa-eye-slash" aria-hidden="true"></i>
+        <span>${mgRestrictedTargetLabel(message)}</span>
+      </div>
+    `;
+  }  
 
   // Carry STO session forward so the next Risk Again click is still the same session
   try { await newMsg.setFlag("midnight-gambit", "stoSession", stoSession); } catch (e) {}
@@ -2473,27 +2627,56 @@ Hooks.on("renderChatMessage", (message, html) => {
       resultText = "Something goes awry.";
     }
 
-    await ChatMessage.create({
+    await ChatMessage.create(mgBuildRestrictedChatData(message, {
       user: game.user.id,
       speaker: ChatMessage.getSpeaker({ actor }),
       content: `
-        <div class="chat-roll sto-upgrade roll-container" data-total="${finalTotal}">
-          <div class="result-container">
-            <div class="result-label">
-              <i class="fa-solid ${resultIcon} ${resultClass}" aria-hidden="true"></i>
-              <strong>${resultLabel}</strong>
+        <div class="mg-chat-card chat-roll mg-roll-card sto-upgrade" data-total="${finalTotal}">
+          <div class="mg-roll-header">
+            <div class="mg-roll-label-wrap">
+              <label class="mg-roll-label">STO Upgrade</label>
+              ${mgRestrictedBadgeHtml(message)}
             </div>
-            <span>${resultText}</span>
           </div>
 
-          <h4 class="dice-total">
-            <strong>${finalTotal}</strong>
-            <span class="sto-spent">${spend} STO Spent</span>
-          </h4>
+          <div class="roll-wrapper">
+            <div class="mg-roll-outcome ${resultClass}">
+              <div class="mg-roll-outcome-title">
+                <i class="fa-solid ${resultIcon}" aria-hidden="true"></i>
+                <strong>${resultLabel}</strong>
+              </div>
+
+              <div class="mg-roll-outcome-text">
+                ${resultText}
+                <span class="sto-spent">${spend} STO Spent</span>
+              </div>
+            </div>
+
+            <div class="mg-roll-math-wrap">
+              <div class="mg-roll-math" tabindex="0" aria-expanded="false">
+                <div class="mg-roll-math-column">
+                  <div class="mg-roll-modifiers">
+                    <div class="mg-roll-modifier">
+                      <span class="label"><i class="fa-solid fa-user"></i></span>
+                      <strong>${baseTotal}</strong>
+                    </div>
+                    <div class="mg-roll-modifier">
+                      <span class="label"><i class="fa-solid fa-cubes"></i></span>
+                      <strong>+${spend}</strong>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="mg-roll-total-box">
+                  <strong class="mg-roll-total">${finalTotal}</strong>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       `,
       type: CONST.CHAT_MESSAGE_TYPES.OTHER
-    });
+    }));
 
   });
 });
@@ -3028,6 +3211,60 @@ Hooks.on("renderChatMessage", (_message, html) => {
   }
 });
 
+// --- Restricted MG cards: right-click to reveal to everyone ---
+Hooks.on("renderChatMessage", (message, html) => {
+  const root = html[0];
+  if (!root) return;
+
+  if (!mgIsRestrictedMessage(message)) return;
+  if (!mgCanViewerSeeRoll(message)) return;
+  if (!mgCanRevealToEveryone(message)) return;
+
+  const card = root.querySelector(
+    ".mg-chat-card, .mg-risk-result, .sto-upgrade"
+  );
+  if (!card) return;
+
+  // Mark it so CSS / debugging can tell it's restricted
+  card.classList.add("is-restricted-roll");
+
+  // Optional tooltip hint
+  card.setAttribute("title", "Right-click to reveal to everyone");
+
+  card.addEventListener("contextmenu", async (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    await mgPromptRevealToEveryone(message);
+  });
+});
+
+// --- Apply privacy badge + target line to ANY visible restricted MG roll ---
+Hooks.on("renderChatMessage", (message, html) => {
+  const root = html[0];
+  if (!root) return;
+
+  if (!mgIsRestrictedMessage(message)) return;
+  if (!mgCanViewerSeeRoll(message)) return;
+
+  const mgCards = root.querySelectorAll(".mg-chat-card");
+  if (!mgCards.length) return;
+
+  for (const card of mgCards) {
+    card.classList.add("is-restricted-roll");
+
+    // 1) Ensure the tiny privacy icon exists on ANY restricted MG roll
+    const labelWrap = card.querySelector(".mg-roll-label-wrap");
+    if (labelWrap && !labelWrap.querySelector(".mg-roll-privacy-badge")) {
+      labelWrap.insertAdjacentHTML("beforeend", mgRestrictedBadgeHtml(message));
+    }
+
+    // 2) Ensure the "To: Gamemaster" / target line exists on ANY restricted MG roll
+    const header = card.querySelector(".mg-roll-header");
+    if (header && !card.querySelector(".mg-roll-private-meta")) {
+      header.insertAdjacentHTML("afterend", mgRestrictedMetaHtml(message));
+    }
+  }
+});
 
 /* MG Initiative Sidebar Button (works in Electron + Web)
 ----------------------------------------------------------------------*/

@@ -93,6 +93,26 @@
     .mg-ini-side-controls {
       display: flex;
       gap: .5rem;
+      
+      button {
+        border: 1px solid $mg-blue-3;
+        background: $mg-blue-main;
+
+        &:hover,
+        &:focus {
+          background: $mg-blue-3;
+          color: $mg-blue-4;
+
+          i {
+            color: $mg-blue-4;
+          }
+        }
+
+        i {
+          color: $mg-blue-1;
+          margin: 0;
+        }
+      }      
     }    
   }
 
@@ -117,18 +137,20 @@
       font-size: .75rem;
       letter-spacing: .05em;
       color: $mg-blue-2;
+      text-transform: none
     }
   }
 
   .mg-ini-side-nextname {
-    @include oswald();
+    @include tiller();
     text-transform: uppercase;
-    font-size: 1.75rem;
+    font-size: 1.5rem;
     font-weight: 700;
     color: $mg-ivory;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    font-style: normal;
   }
 
   .mg-ini-side-stack {
@@ -352,6 +374,7 @@
     /* keep names readable on bright art */
     background: linear-gradient(182deg,rgba(18, 33, 55, 0) 0%, rgba(18, 33, 55, 1) 70%);
     text-transform: uppercase;
+    @include tiller();
     font-style: italic;
     padding: 1rem 1rem 1rem 1.5rem;
     width: 135%;
