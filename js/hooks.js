@@ -83,7 +83,7 @@ function renderGambitHand(actor) {
         speaker: ChatMessage.getSpeaker({ actor }),
         content: `
           <div class="gambit-chat-card">
-            <h2><i class="fa-solid fa-cards"></i> ${card.name}</h2>
+            <h2><i class="fa-kit fa-gambits"></i> ${card.name}</h2>
             <p>${card.system.description}</p>
           </div>
         `
@@ -1828,11 +1828,11 @@ Hooks.on("renderChatMessage", async (message, html) => {
         const $hud = $(`
           <div class="mg-chat-avatar-hud">
             <div class="mg-chat-avatar-stat mg-chat-avatar-stat-risk">
-              <i class="fa-solid fa-dice"></i>
+              <i class="fa-kit fa-risk"></i>
               <span>${riskRemaining}</span>
             </div>
             <div class="mg-chat-avatar-stat mg-chat-avatar-stat-sto">
-              <i class="fa-solid fa-cubes"></i>
+              <i class="fa-kit fa-sto"></i>
               <span>${sto}</span>
             </div>
           </div>
@@ -2389,14 +2389,14 @@ Hooks.on("renderChatMessage", (message, html) => {
               data-skill-mod="${skillMod}"
               data-session-id="${sessionId}"
               title="Risk">
-        <i class="fa-solid fa-dice"></i>
+        <i class="fa-kit fa-risk"></i>
       </button>`
     : `<button type="button"
               class="mg-roll-action is-disabled"
               disabled
               aria-disabled="true"
               title="Risk unavailable">
-        <i class="fa-solid fa-dice"></i>
+        <i class="fa-kit fa-risk"></i>
       </button>`;
 
   // ------------------------------------------------------------
@@ -2661,7 +2661,7 @@ Hooks.on("renderChatMessage", (message, html) => {
                       <strong>${baseTotal}</strong>
                     </div>
                     <div class="mg-roll-modifier">
-                      <span class="label"><i class="fa-solid fa-cubes"></i></span>
+                      <span class="label"><i class="fa-kit fa-sto"></i></span>
                       <strong>+${spend}</strong>
                     </div>
                   </div>

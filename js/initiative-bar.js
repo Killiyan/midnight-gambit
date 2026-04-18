@@ -410,7 +410,7 @@ export class MGInitiativeBar extends Application {
         <div class="mg-ini-hoverstats" aria-hidden="true">
           <div class="mg-ini-hs-row" data-type="mortal">
             <span class="mg-ini-hs-pill">
-              <i class="fa-solid fa-dagger"></i>
+              <i class="fa-kit fa-mortal-strain"></i>
               <span class="mg-ini-hs-track" data-field="track">0</span>
             </span>          
             <span class="mg-ini-hs-pill">
@@ -421,7 +421,7 @@ export class MGInitiativeBar extends Application {
 
           <div class="mg-ini-hs-row" data-type="soul">
             <span class="mg-ini-hs-pill">
-              <i class="fa-solid fa-moon-over-sun"></i>
+              <i class="fa-kit fa-soul-strain"></i>
               <span class="mg-ini-hs-track" data-field="track">0</span>
             </span>          
             <span class="mg-ini-hs-pill">

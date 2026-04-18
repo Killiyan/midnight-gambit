@@ -170,50 +170,6 @@ export async function evaluateRoll({
     `
     : "";
 
-  const edgeBoxes = edge && rollB
-    ? (() => {
-        const diceA = JSON.stringify(
-          (rollA.terms?.[0]?.results ?? []).map(r => ({
-            r: Number(r.result) || 0,
-            a: !!r.active
-          }))
-        ).replace(/'/g, "&#39;");
-
-        const diceB = JSON.stringify(
-          (rollB.terms?.[0]?.results ?? []).map(r => ({
-            r: Number(r.result) || 0,
-            a: !!r.active
-          }))
-        ).replace(/'/g, "&#39;");
-
-        const keptIsB = keptRoll === rollB;
-
-        return `
-          <div class="mg-edge">
-            <div class="mg-edge-box ${!keptIsB ? "is-kept" : ""}"
-              role="button"
-              tabindex="0"
-              data-edge="A"
-              data-dice='${diceA}'>
-              <i class="fa-solid fa-dice-one"></i>
-              <h4 class="mg-edge-total">${rollA.total}</h4>
-            </div>
-
-            <div class="mg-edge-box ${keptIsB ? "is-kept" : ""}"
-              role="button"
-              tabindex="0"
-              data-edge="B"
-              data-dice='${diceB}'>
-              <i class="fa-solid fa-dice-two"></i>
-              <h4 class="mg-edge-total">${rollB.total}</h4>
-            </div>
-          </div>
-
-          <div class="mg-edge-dice-panel dice" hidden></div>
-        `;
-      })()
-    : "";
-
   const sessionId = foundry.utils.randomID();
   const usedRisk = Number(actor?.system?.riskUsed ?? 0);
   const totalRisk = Number(actor?.system?.riskDice ?? 0);
@@ -229,7 +185,7 @@ export async function evaluateRoll({
         data-session-id="${sessionId}"
         ${canRisk ? "" : 'disabled aria-disabled="true"'}
         title="Risk It">
-        <i class="fa-solid fa-dice"></i>
+        <i class="fa-kit fa-risk"></i>
       </button>
     `
     : "";
@@ -356,7 +312,7 @@ export async function evaluateRoll({
     <div class="mg-roll-controls mg-risk-controls">
       ${riskBtn || `
         <button type="button" class="mg-roll-action is-disabled" disabled aria-disabled="true" title="Risk unavailable">
-          <i class="fa-solid fa-dice"></i>
+          <i class="fa-kit fa-risk"></i>
         </button>
       `}
       ${stoCompBtn}

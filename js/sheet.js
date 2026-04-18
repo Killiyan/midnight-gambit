@@ -1262,7 +1262,7 @@ _mgOpenChatCropper() {
         if (spent) {
           const chatContent = `
             <div class="chat-move">
-              <h2><i class="fa-solid fa-dice-d10"></i> Spark has been used!</h2>
+              <h2><i class="fa-kit fa-spark"></i> Spark has been used!</h2>
             </div>
           `;
 
@@ -2533,13 +2533,13 @@ _mgOpenChatCropper() {
               <div class="bubble-wrapper">
                 ${mortal ? `
                   <p class="strain-bubble">
-                    <i class="fa-solid fa-dagger"></i>
+                    <i class="fa-kit fa-mortal-strain"></i>
                     <span class="remaining-number">${mortal}</span>
                   </p>` : ""
                 }
                 ${soul ? `
                   <p class="strain-bubble">
-                    <i class="fa-solid fa-moon-over-sun"></i>
+                    <i class="fa-kit fa-soul-strain"></i>
                     <span class="remaining-number">${soul}</span>
                   </p>` : ""
                 }
@@ -2557,11 +2557,11 @@ _mgOpenChatCropper() {
               <label>Capacity</label>
               <div class="bubble-wrapper">
                 <p class="strain-bubble">
-                  <i class="fa-solid fa-dagger"></i>
+                  <i class="fa-kit fa-mortal-strain"></i>
                   <span class="remaining-number">${mc}</span>
                 </p>
                 <p class="strain-bubble">
-                  <i class="fa-solid fa-moon-over-sun"></i>
+                  <i class="fa-kit fa-soul-strain"></i>
                   <span class="remaining-number">${sc}</span>
                 </p>
               </div>`;
@@ -2579,13 +2579,13 @@ _mgOpenChatCropper() {
               <div class="bubble-wrapper">
                 ${mortalSD ? `
                   <p class="strain-bubble">
-                    <i class="fa-solid fa-dagger"></i>
+                    <i class="fa-kit fa-mortal-strain"></i>
                     <span class="remaining-number">${mortalSD}</span>
                   </p>` : ""
                 }
                 ${soulSD ? `
                   <p class="strain-bubble">
-                    <i class="fa-solid fa-moon-over-sun"></i>
+                    <i class="fa-kit fa-soul-strain"></i>
                     <span class="remaining-number">${soulSD}</span>
                   </p>` : ""
                 }
@@ -2600,13 +2600,13 @@ _mgOpenChatCropper() {
               <div class="bubble-wrapper">
                 ${mc ? `
                   <p class="strain-bubble">
-                    <i class="fa-solid fa-dagger"></i>
+                    <i class="fa-kit fa-mortal-strain"></i>
                     <span class="remaining-number">${mc}</span>
                   </p>` : ""
                 }
                 ${sc ? `
                   <p class="strain-bubble">
-                    <i class="fa-solid fa-moon-over-sun"></i>
+                    <i class="fa-kit fa-soul-strain"></i>
                     <span class="remaining-number">${sc}</span>
                   </p>` : ""
                 }
@@ -3879,7 +3879,7 @@ _mgOpenChatCropper() {
         const content = `
           <div class="mg-chat-card gambit-card">
             <header class="mg-card-header">
-              <h3 class="mg-card-title"><i class="fa-solid fa-cards"></i> ${escapeHtml(item.name)}</h3>
+              <h3 class="mg-card-title"><i class="fa-kit fa-gambits"></i> ${escapeHtml(item.name)}</h3>
             </header>
             <section class="mg-card-body">
               ${item.system?.description ?? ""}
@@ -3931,7 +3931,7 @@ _mgOpenChatCropper() {
         await ChatMessage.create({
           user: game.user.id,
           speaker: ChatMessage.getSpeaker({ actor: this.actor }),
-          content: `<h2><i class="fa-solid fa-cards"></i> ${item.name}</h2><p>${item.system.description}</p>`
+          content: `<h2><i class="fa-kit fa-gambits"></i> ${item.name}</h2><p>${item.system.description}</p>`
         });
 
         // 2. Remove from drawn, add to discard
@@ -4687,7 +4687,7 @@ _mgOpenChatCropper() {
         // 1) Post to chat
         const chatContent = `
           <div class="chat-move">
-            <h2><i class="fa-solid fa-cards"></i> ${name}</h2>
+            <h2><i class="fa-kit fa-gambits"></i> ${name}</h2>
             <p>${description}</p>
           </div>
         `;
@@ -4945,7 +4945,7 @@ _mgOpenChatCropper() {
 
     const html = `
       <div class="gambit-chat-card">
-        <h2><i class="fa-solid fa-cards"></i> ${name}</h2>
+        <h2><i class="fa-kit fa-gambits"></i> ${name}</h2>
         <p><strong>Tier:</strong> ${tier.charAt(0).toUpperCase() + tier.slice(1)}</p>
         ${tagLabels ? `<p><strong>Tags:</strong> ${tagLabels}</p>` : ""}
         <p>${description}</p>

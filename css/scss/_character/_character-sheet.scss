@@ -917,6 +917,12 @@ h1,h2,h3,h4 {
                   color: $mg-blue-main-2;
                   transition: color .5s ease, transform .5s ease;
 
+                  i {
+                    font-size: 1.5rem;
+                    display: block;
+                    width: auto;
+                  }
+
                   &:hover {
                     transform: scale(1.25);
                   }
@@ -1191,6 +1197,12 @@ h1,h2,h3,h4 {
           font-size: 1rem;
           color: $mg-blue-main-2;
 
+          i {
+            display: block;
+            width: auto;
+            font-size: 1.25rem;
+          }
+
           &:hover {
             transform: scale(1.2);
           }
@@ -1199,6 +1211,10 @@ h1,h2,h3,h4 {
             color: $mg-blue-2;
           }
         }
+
+        .risk-dot i {
+          font-size: 1.5rem;
+        }        
       }
     }
 
@@ -1213,7 +1229,7 @@ h1,h2,h3,h4 {
       display: flex;
       width: 100%;
       @include mg-border();
-      background: $mg-blue-main;
+      background: $mg-blue-4;
       border-radius: .625rem;
       margin-bottom: 2.125rem;
       box-shadow: 5px 5px 10px rgba(0,0,0,0.5);
@@ -1231,9 +1247,8 @@ h1,h2,h3,h4 {
       .spark-track,
       .risk-track,
       .skills-label {
-        padding: 1rem;
         display: flex;
-        gap: .625rem;
+        gap: 1rem;
         align-items: center;
         border-right: 0.125rem solid $mg-blue-main-2;
 
@@ -1243,8 +1258,9 @@ h1,h2,h3,h4 {
       }
 
       .spark-label {
-        padding: 1rem 0 1rem 1rem;
-        border-right: none;
+        padding: 1rem;
+        border-right: 2px solid $mg-blue-main-2;
+        background: $mg-blue-main;
       }
 
       .spark-skill-row {
@@ -1287,9 +1303,17 @@ h1,h2,h3,h4 {
       .spark-school-selectors,
       .spark-track {
         width: 100%;
+        padding-right: 1rem;
 
         label {
           color: $mg-blue-1;
+          border-right: 2px solid $mg-blue-main-2;
+          background: $mg-blue-main;
+          padding: 1rem;
+          height: 100%;
+          display: flex;
+          justify-content: center;
+          align-items: center;
         }
       }
 
@@ -1299,17 +1323,25 @@ h1,h2,h3,h4 {
 
         .spark-boxes {
           display: flex;
-          gap: 2.125rem;
+          gap: 1rem;
+          width: 100%;
+          height: 100%;
           align-items: center;
 
           .box-container {
             display: flex;
             gap: .625rem;
+            flex-wrap: wrap;
+            padding: 1rem 0;
           }
         }
 
         .spark-dot {
           transition: color 0.5s ease, transform .5s ease;
+
+          i {
+            font-size: 1.35rem;
+          }
 
           &:hover {
             transform: scale(1.2);
@@ -3129,6 +3161,11 @@ h1,h2,h3,h4 {
           background: $mg-blue-main;
           border-radius: .65rem;
           padding: 1rem;
+
+          label i {
+            font-size: 1.25rem;
+            color: $mg-blue-1;
+          }
         }
       }      
     }

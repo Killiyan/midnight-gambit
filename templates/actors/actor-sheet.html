@@ -2,7 +2,7 @@
 
   <nav class="sheet-tabs floating" data-group="main">
     <a class="item" data-tab="general"><i class="fas fa-user"></i> <span>General</span></a>
-    <a class="item" data-tab="moves"><i class="fa-solid fa-dagger"></i> <span>Moves</span></a>
+    <a class="item" data-tab="moves"><i class="fa-kit fa-mortal-strain"></i> <span>Moves</span></a>
     <a class="item" data-tab="gambits"><i class="fa-solid fa-cards"></i> <span>Gambits</span></a>
     <a class="item" data-tab="inventory"><i class="fa-solid fa-treasure-chest"></i> <span>Inventory</span></a>
     <a class="item" data-tab="journal"><i class="fa-solid fa-book-open-cover"></i> <span>Journal</span></a>
@@ -113,7 +113,7 @@
                 <span class="strain-dot {{#if (lte this ../actor.system.strain.mortal)}}filled{{/if}}"
                       data-value="{{this}}"
                       data-type="mortal">
-                  <i class="fa-solid fa-dagger"></i>
+                  <i class="fa-kit fa-mortal-strain"></i>
                 </span>
               {{/range}}
             </div>
@@ -143,7 +143,7 @@
                 <span class="strain-dot {{#if (lte this ../actor.system.strain.soul)}}filled{{/if}}"
                       data-value="{{this}}"
                       data-type="soul">
-                  <i class="fa-solid fa-moon-over-sun"></i>
+                  <i class="fa-kit fa-soul-strain"></i>
                 </span>
               {{/range}}
             </div>
@@ -243,7 +243,7 @@
               {{#range 1 actor.system.riskDice}}
                 <span class="risk-dot {{#if (riskShouldFill this ../actor.system.riskDice ../actor.system.riskUsed)}}filled{{/if}}"
                       data-value="{{this}}">
-                  <i class="fa-solid fa-dice"></i>
+                  <i class="fa-kit fa-risk"></i>
                 </span>
               {{/range}}
             </div>
@@ -259,7 +259,7 @@
                 <span class="sto-dot {{#if (lte this ../actor.system.sto.value)}}filled{{/if}}"
                       data-value="{{this}}"
                       data-tooltip="Left-click sets/toggles. Shift-click spends. Right-click clears.">
-                  <i class="fa-solid fa-cubes"></i>
+                  <i class="fa-kit fa-sto"></i>
                 </span>
               {{/range}}
             </div>
@@ -336,7 +336,7 @@
                     {{#range 1 actor.system.sparkSlots}}
                       <span class="spark-dot {{#if (sparkShouldFill this ../actor.system.sparkSlots ../actor.system.sparkUsed)}}filled{{/if}}"
                             data-value="{{this}}">
-                        <i class="fa-solid fa-dice-d10"></i>
+                        <i class="fa-kit fa-spark"></i>
                       </span>
                     {{/range}}
                   </div>
@@ -718,7 +718,7 @@
 
                             {{!-- Mortal strain: prefer new field; fallback to legacy strainDamage --}}
                             <p class="strain-bubble">
-                              <i class="fa-solid fa-dagger"></i>
+                              <i class="fa-kit fa-mortal-strain"></i>
                               <span class="remaining-number">
                                 {{#if (ne item.system.mortalStrainDamage undefined)}}
                                   {{item.system.mortalStrainDamage}}
@@ -733,7 +733,7 @@
 
                             {{!-- Soul strain: new field only --}}
                             <p class="strain-bubble">
-                              <i class="fa-solid fa-moon-over-sun"></i>
+                              <i class="fa-kit fa-soul-strain"></i>
                               <span class="remaining-number">
                                 {{#if (ne item.system.soulStrainDamage undefined)}}
                                   {{item.system.soulStrainDamage}}
@@ -747,7 +747,7 @@
                           <label>Capacity</label>
                           <div class="bubble-wrapper">
                             <p class="strain-bubble">
-                              <i class="fa-solid fa-dagger"></i>
+                              <i class="fa-kit fa-mortal-strain"></i>
                               <span class="remaining-number">
                                 {{#if (ne item.system.remainingCapacity.mortal undefined)}}
                                   {{item.system.remainingCapacity.mortal}}
@@ -757,7 +757,7 @@
                             </p>
 
                             <p class="strain-bubble">
-                              <i class="fa-solid fa-moon-over-sun"></i>
+                              <i class="fa-kit fa-soul-strain"></i>
                               <span class="remaining-number">
                                 {{#if (ne item.system.remainingCapacity.soul undefined)}}
                                   {{item.system.remainingCapacity.soul}}
@@ -900,14 +900,14 @@
                           <div class="bubble-wrapper">
                             {{#if (gt item.system.mortalStrainDamage 0)}}
                             <p class="strain-bubble">
-                              <i class="fa-solid fa-dagger"></i>
+                              <i class="fa-kit fa-mortal-strain"></i>
                               <span class="remaining-number">{{item.system.mortalStrainDamage}}</span>
                             </p>
                             {{/if}}
 
                             {{#if (gt item.system.soulStrainDamage 0)}}
                             <p class="strain-bubble">
-                              <i class="fa-solid fa-moon-over-sun"></i>
+                              <i class="fa-kit fa-soul-strain"></i>
                               <span class="remaining-number">{{item.system.soulStrainDamage}}</span>
                             </p>
                             {{/if}}
@@ -1031,11 +1031,11 @@
                           <label>Capacity</label>
                           <div class="bubble-wrapper">
                             <p class="strain-bubble">
-                              <i class="fa-solid fa-dagger"></i>
+                              <i class="fa-kit fa-mortal-strain"></i>
                               <span class="remaining-number">{{item.system.remainingCapacity.mortal}}</span>
                             </p>
                             <p class="strain-bubble">
-                              <i class="fa-solid fa-moon-over-sun"></i>
+                              <i class="fa-kit fa-soul-strain"></i>
                               <span class="remaining-number">{{item.system.remainingCapacity.soul}}</span>
                             </p>
                           </div>
@@ -1178,7 +1178,7 @@
 
                             {{!-- Mortal strain: prefer new field; fallback to legacy strainDamage --}}
                             <p class="strain-bubble">
-                              <i class="fa-solid fa-dagger"></i>
+                              <i class="fa-kit fa-mortal-strain"></i>
                               <span class="remaining-number">
                                 {{#if (ne item.system.mortalStrainDamage undefined)}}
                                   {{item.system.mortalStrainDamage}}
@@ -1193,7 +1193,7 @@
 
                             {{!-- Soul strain: new field only --}}
                             <p class="strain-bubble">
-                              <i class="fa-solid fa-moon-over-sun"></i>
+                              <i class="fa-kit fa-soul-strain"></i>
                               <span class="remaining-number">
                                 {{#if (ne item.system.soulStrainDamage undefined)}}
                                   {{item.system.soulStrainDamage}}
@@ -1207,7 +1207,7 @@
                           <label>Capacity</label>
                           <div class="bubble-wrapper">
                             <p class="strain-bubble">
-                              <i class="fa-solid fa-dagger"></i>
+                              <i class="fa-kit fa-mortal-strain"></i>
                               <span class="remaining-number">
                                 {{#if (ne item.system.remainingCapacity.mortal undefined)}}
                                   {{item.system.remainingCapacity.mortal}}
@@ -1217,7 +1217,7 @@
                             </p>
 
                             <p class="strain-bubble">
-                              <i class="fa-solid fa-moon-over-sun"></i>
+                              <i class="fa-kit fa-soul-strain"></i>
                               <span class="remaining-number">
                                 {{#if (ne item.system.remainingCapacity.soul undefined)}}
                                   {{item.system.remainingCapacity.soul}}
@@ -1507,7 +1507,7 @@
               <div class="mg-settings-grid">
                 <div class="mg-setting-card">
                   <div class="mg-setting-row">
-                    <label>Risk Dice</label>
+                    <label><i class="fa-kit fa-risk"></i> Risk Dice</label>
                     <input type="number"
                           class="mg-final-resource"
                           data-resource="riskDice"
@@ -1526,7 +1526,7 @@
 
                 <div class="mg-setting-card">
                   <div class="mg-setting-row">
-                    <label>Spark Slots</label>
+                    <label><i class="fa-kit fa-spark"></i> Spark Slots</label>
                     <input type="number"
                       class="mg-final-resource"
                       data-resource="sparkSlots"
@@ -1545,7 +1545,7 @@
                 <div class="mg-setting-card">
 
                   <div class="mg-setting-row">
-                    <label>STO</label>
+                    <label><i class="fa-kit fa-sto"></i> STO</label>
                     <input type="number"
                           class="mg-final-resource"
                           data-resource="stoValue"

@@ -36,6 +36,8 @@
   pointer-events: auto;
   z-index: 110;
   max-height: 90vh;
+  position: relative;
+  z-index: 6;
 
   .mg-ini-side-wrap {
     height: 100%;
@@ -63,7 +65,7 @@
 
   .mg-ini-side-handle {
     position: absolute;
-    left: -1.7rem;
+    left: -2.26rem;
     top: calc(50% - 1.875rem);
     width: auto;
     height: auto;
