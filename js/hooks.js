@@ -34,16 +34,25 @@ Hooks.on("createActor", async (actor) => {
 
 Hooks.on("createItem", async (item, options, userId) => {
   const actor = item.actor;
+  if (!actor) return;
+  if (item.type !== "move") return;
 
-  if (!actor) return; // Item not owned
-  if (!["weapon", "armor", "misc"].includes(item.type)) return;
+  const state = actor.getFlag("midnight-gambit", "state") ?? {};
+  const pendingMoves = Number(state?.pending?.moves ?? 0);
 
-  ui.notifications.info(`${item.name} added to ${actor.name}'s inventory.`);
+  if (pendingMoves <= 0) return;
 
-  // Only re-render if the current user owns the actor
-  if (actor.isOwner) {
-    actor.sheet.render(false); // Refresh sheet without popping it open
-  }
+  const pending = {
+    ...(state.pending ?? {}),
+    moves: Math.max(0, pendingMoves - 1)
+  };
+
+  await actor.setFlag("midnight-gambit", "state", {
+    ...state,
+    pending
+  });
+
+  ui.notifications.info(`Learned Move added: ${item.name}`);
 });
 
 Hooks.on("renderActorSheet", async (app, html, data) => {
@@ -83,7 +92,7 @@ function renderGambitHand(actor) {
         speaker: ChatMessage.getSpeaker({ actor }),
         content: `
           <div class="gambit-chat-card">
-            <h2><i class="fa-kit fa-gambits"></i> ${card.name}</h2>
+            <h2><i class="fa-solid fa-cards"></i> ${card.name}</h2>
             <p>${card.system.description}</p>
           </div>
         `
@@ -1506,6 +1515,40 @@ function mgPruneClockDOM() {
   });
 }
 
+// Only GMs may create NPC actors.
+// Put this OUTSIDE every function, near your other createActor/preCreateActor hooks.
+Hooks.on("preCreateActor", (actor, data, options, userId) => {
+  const user = game.users.get(userId);
+  const type = data?.type ?? actor?.type;
+
+  if (type !== "npc") return;
+
+  if (!user?.isGM) {
+    if (game.user.id === userId) {
+      ui.notifications?.warn("Only the GM can create NPCs.");
+    }
+    return false;
+  }
+});
+
+// Hide NPC actor type from non-GM Create Actor dialogs.
+Hooks.on("renderDialog", (_dialog, html) => {
+  if (game.user.isGM) return;
+
+  const root = html instanceof jQuery ? html[0] : html;
+  if (!root) return;
+
+  root.querySelectorAll('select[name="type"] option[value="npc"]').forEach(option => {
+    const select = option.closest("select");
+    option.remove();
+
+    if (select?.value === "npc") {
+      select.value = "character";
+      select.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+  });
+});
+
 /* Attaching clock to the scene and saving position
 ----------------------------------------------------------------------*/
 async function mgRenderAllClocks() {
@@ -2527,6 +2570,17 @@ Hooks.on("renderChatMessage", (message, html) => {
     content,
     type: CONST.CHAT_MESSAGE_TYPES.OTHER
   }));
+  
+  function mgRestrictedMetaHtml(message) {
+  if (!mgIsRestrictedMessage(message) || !mgCanViewerSeeRoll(message)) return "";
+
+  return `
+    <div class="mg-roll-private-meta">
+      <i class="fa-solid fa-eye-slash" aria-hidden="true"></i>
+      <span>${mgRestrictedTargetLabel(message)}</span>
+    </div>
+  `;
+}
 
   function mgRestrictedTargetLabel(message) {
     if (!mgIsRestrictedMessage(message)) return "";
@@ -2544,17 +2598,6 @@ Hooks.on("renderChatMessage", (message, html) => {
     if (!names.length) return "Hidden Roll";
 
     return `To: ${names.join(", ")}`;
-  }
-
-  function mgRestrictedMetaHtml(message) {
-    if (!mgIsRestrictedMessage(message) || !mgCanViewerSeeRoll(message)) return "";
-
-    return `
-      <div class="mg-roll-private-meta">
-        <i class="fa-solid fa-eye-slash" aria-hidden="true"></i>
-        <span>${mgRestrictedTargetLabel(message)}</span>
-      </div>
-    `;
   }  
 
   // Carry STO session forward so the next Risk Again click is still the same session

@@ -173,6 +173,10 @@
       display: grid;
       grid-template-columns: 1fr;
       gap: 1rem;
+
+      .tox-editor-container {
+        @include mg-border();
+      }
     }
   }
 }

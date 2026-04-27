@@ -186,10 +186,6 @@ export class MidnightGambitActorSheet extends ActorSheet {
 
         if (guise?.type === "guise") {
           context.guise = guise;
-
-          console.log("Primary Guise ID:", primaryGuiseId);
-          console.log("Moves Guise ID:", movesGuiseId);
-          console.log("Rendering Moves from:", guise.name);
         }
       }
 
@@ -719,6 +715,8 @@ _mgOpenChatCropper() {
         this._mgMakeReadOnly(html);
         return;
       }
+
+      this._mgBindSheetWideDrop(html);
 
       // Dynamically apply .narrow-mode based on sheet width
       const appWindow = html[0]?.closest(".window-app");
@@ -1904,37 +1902,27 @@ _mgOpenChatCropper() {
           }
         });
 
-      //Attribute Roll Logic and Base Edit
+      // Attribute base edit: fixed -2 to +3 picker
       html.find(".attribute-modifier").on("contextmenu", async (event) => {
         event.preventDefault();
 
-        const el  = event.currentTarget;
+        const el = event.currentTarget;
         const key = el.dataset.key;
-        const current = Number(el.getAttribute("data-base")) || 0;
+        const current = this._mgClampStatValue(el.getAttribute("data-base"));
 
-        const val = await this._mgPrompt({
+        const val = await this._mgOpenStatPicker({
           title: `Edit ${key}`,
-          bodyHtml: `<label>Base ${key}: <input type="number" value="${current}" name="value" /></label>`,
-          okText: "Save",
-          okIcon: "fa-floppy-disk",
-          cancelText: "Cancel",
-          cancelIcon: "fa-circle-xmark",
-          getValue: (html) => html.find('input[name="value"]').val()
+          current
         });
 
         if (val === null) return;
 
-        const next = Number(val);
-        if (!Number.isFinite(next)) {
-          ui.notifications.warn("Please enter a valid number.");
-          return;
-        }
+        const next = this._mgClampStatValue(val);
 
         await this.actor.update({ [`system.baseAttributes.${key}`]: next }, { render: false });
 
-        // Reflect immediately in the open sheet (no re-render)
         el.setAttribute("data-base", String(next));
-        el.textContent = next >= 0 ? `+${next}` : `${next}`;
+        el.textContent = this._mgFormatSigned(next);
       });
 
       html.find(".attribute-modifier").on("click", async (event) => {
@@ -2147,38 +2135,27 @@ _mgOpenChatCropper() {
           }
       });
       
-      // Skill base edit (numeric-safe, manual UI refresh)
+      // Skill base edit: fixed -2 to +3 picker
       html.find(".skill-value").on("contextmenu", async (event) => {
         event.preventDefault();
 
-        const el   = event.currentTarget;
-        const key  = el.dataset.key;
-        const curr = Number(el.getAttribute("data-base")) || 0;
+        const el = event.currentTarget;
+        const key = el.dataset.key;
+        const current = this._mgClampStatValue(el.getAttribute("data-base"));
 
-        const val = await this._mgPrompt({
+        const val = await this._mgOpenStatPicker({
           title: `Edit Skill: ${key}`,
-          bodyHtml: `<label>${key}: <input type="number" value="${curr}" name="value" /></label>`,
-          okText: "Save",
-          okIcon: "fa-floppy-disk",
-          cancelText: "Cancel",
-          cancelIcon: "fa-circle-xmark",
-          getValue: (html) => html.find('input[name="value"]').val()
+          current
         });
 
         if (val === null) return;
 
-        const next = Number(val);
-        if (!Number.isFinite(next)) {
-          ui.notifications.warn("Please enter a valid number.");
-          return;
-        }
+        const next = this._mgClampStatValue(val);
 
-        // Save without rerender (prevents mobile jump)
         await this.actor.update({ [`system.skills.${key}`]: next }, { render: false });
 
-        // Reflect immediately in the open sheet
         el.setAttribute("data-base", String(next));
-        el.textContent = String(next);              // or: (next >= 0 ? `+${next}` : `${next}`)
+        el.textContent = String(next);
       });
 
       // Setting values before Foundry Sheet refresh - Fixes Mortal and Soul Capacity
@@ -2481,6 +2458,7 @@ _mgOpenChatCropper() {
 
         if (confirmed) {
           await item.delete();
+          this.render(false);
         }
       });
 
@@ -3879,7 +3857,7 @@ _mgOpenChatCropper() {
         const content = `
           <div class="mg-chat-card gambit-card">
             <header class="mg-card-header">
-              <h3 class="mg-card-title"><i class="fa-kit fa-gambits"></i> ${escapeHtml(item.name)}</h3>
+              <h3 class="mg-card-title"><i class="fa-solid fa-cards"></i> ${escapeHtml(item.name)}</h3>
             </header>
             <section class="mg-card-body">
               ${item.system?.description ?? ""}
@@ -3931,7 +3909,7 @@ _mgOpenChatCropper() {
         await ChatMessage.create({
           user: game.user.id,
           speaker: ChatMessage.getSpeaker({ actor: this.actor }),
-          content: `<h2><i class="fa-kit fa-gambits"></i> ${item.name}</h2><p>${item.system.description}</p>`
+          content: `<h2><i class="fa-solid fa-cards"></i> ${item.name}</h2><p>${item.system.description}</p>`
         });
 
         // 2. Remove from drawn, add to discard
@@ -4098,43 +4076,6 @@ _mgOpenChatCropper() {
           });
         }
       }
-
-      /* Auto-spend pending Move when one is added
-      ----------------------------------------------------------------------*/
-      Hooks.on("createItem", async (item, options, userId) => {
-        try {
-          const actor = item?.parent;
-          if (!(actor instanceof Actor)) return;
-          if (item.type !== "move") return;
-
-          // Only if there are pending moves
-          const state = (await actor.getFlag("midnight-gambit", "state")) ?? {};
-          const pendingMoves = Number(state?.pending?.moves ?? 0);
-          if (pendingMoves <= 0) return;
-
-          // Make sure the move is flagged as learned
-          if (!item.system?.learned) {
-            await item.update({ "system.learned": true });
-          }
-
-          // Spend one pending move
-          if (typeof actor.mgSpendPending === "function") {
-            await actor.mgSpendPending("move", { itemId: item.id });
-          } else {
-            // fallback raw decrement
-            const p = { ...(state.pending ?? {}) };
-            p.moves = Math.max(0, p.moves - 1);
-            await actor.setFlag("midnight-gambit", "state", { ...state, pending: p });
-          }
-
-          // Soft refresh the actor’s sheet(s)
-          for (const appId of Object.keys(actor.apps ?? {})) {
-            actor.apps[appId]?.render(false);
-          }
-        } catch (err) {
-          console.warn("MG | auto-spend move failed:", err);
-        }
-      });
 
       this._mgBindMoveGrid(html);
 
@@ -4687,7 +4628,7 @@ _mgOpenChatCropper() {
         // 1) Post to chat
         const chatContent = `
           <div class="chat-move">
-            <h2><i class="fa-kit fa-gambits"></i> ${name}</h2>
+            <h2><i class="fa-solid fa-cards"></i> ${name}</h2>
             <p>${description}</p>
           </div>
         `;
@@ -4945,7 +4886,7 @@ _mgOpenChatCropper() {
 
     const html = `
       <div class="gambit-chat-card">
-        <h2><i class="fa-kit fa-gambits"></i> ${name}</h2>
+        <h2><i class="fa-solid fa-cards"></i> ${name}</h2>
         <p><strong>Tier:</strong> ${tier.charAt(0).toUpperCase() + tier.slice(1)}</p>
         ${tagLabels ? `<p><strong>Tags:</strong> ${tagLabels}</p>` : ""}
         <p>${description}</p>
@@ -4967,6 +4908,72 @@ _mgOpenChatCropper() {
   _mgBtn(text, faRight = "fa-arrow-right") {
     return `${text} <i class="fa-solid ${faRight}"></i>`;
   }
+
+  _mgClampStatValue(value) {
+    const n = Number(value);
+    if (!Number.isFinite(n)) return 0;
+    return Math.max(-2, Math.min(3, Math.trunc(n)));
+  }
+
+  _mgFormatSigned(n) {
+    const v = Number(n) || 0;
+    return v >= 0 ? `+${v}` : `${v}`;
+  }
+
+  _mgStatPickerHtml(current) {
+    const choices = [-2, -1, 0, 1, 2, 3];
+
+    return `
+      <div class="mg-stat-picker">
+        ${choices.map(v => `
+          <button
+            type="button"
+            class="mg-stat-choice ${v === current ? "selected" : ""}"
+            data-value="${v}"
+          >
+            ${this._mgFormatSigned(v)}
+          </button>
+        `).join("")}
+      </div>
+    `;
+  }
+
+async _mgOpenStatPicker({ title, current }) {
+  let settled = false;
+
+  return new Promise((resolve) => {
+    const dlg = new Dialog({
+      title,
+      content: `
+        <h2 class="modal-headline">${title}</h2>
+        ${this._mgStatPickerHtml(current)}
+      `,
+      buttons: {
+        cancel: {
+          label: this._mgBtn("Cancel", "fa-circle-xmark"),
+          callback: () => {
+            settled = true;
+            resolve(null);
+          }
+        }
+      },
+      render: (html) => {
+        html.closest(".app").addClass("mg-stat-picker-dialog");
+
+        html.find(".mg-stat-choice").on("click", (ev) => {
+          settled = true;
+          resolve(Number(ev.currentTarget.dataset.value));
+          dlg.close();
+        });
+      },
+      close: () => {
+        if (!settled) resolve(null);
+      }
+    });
+
+    dlg.render(true);
+  });
+}  
 
   async _mgPrompt({
     title,
@@ -5071,8 +5078,17 @@ _mgOpenChatCropper() {
 
     // 2) Spend Attribute Points
     while ((pending = await readPending()).attributes > 0) {
-      const keys = ["tenacity","finesse","resolve","guile","instinct","presence"];
-      const options = keys.map(k => `<option value="${k}">${k.toUpperCase()}</option>`).join("");
+      const keys = ["tenacity","finesse","resolve","guile","instinct","presence"]
+        .filter(k => Number(actor.system?.baseAttributes?.[k] ?? actor.system?.attributes?.[k] ?? 0) < 3);
+
+      if (!keys.length) {
+        ui.notifications.warn("All Attributes are already at the maximum of +3.");
+        break;
+      }
+
+      const options = keys
+        .map(k => `<option value="${k}">${k.toUpperCase()} (${this._mgFormatSigned(actor.system?.baseAttributes?.[k] ?? actor.system?.attributes?.[k] ?? 0)})</option>`)
+        .join("");
       const content = `
         <p>Spend 1 <strong>Attribute</strong> point:</p>
         <select name="attrKey">${options}</select>
@@ -5095,8 +5111,18 @@ _mgOpenChatCropper() {
 
     // 3) Spend Skill Points
     while ((pending = await readPending()).skills > 0) {
-      const skills = Object.keys(actor.system?.skills || {}).sort();
-      const options = skills.map(k => `<option value="${k}">${k}</option>`).join("");
+    const skills = Object.keys(actor.system?.skills || {})
+      .filter(k => Number(actor.system?.skills?.[k] ?? 0) < 3)
+      .sort();
+
+    if (!skills.length) {
+      ui.notifications.warn("All Skills are already at the maximum of +3.");
+      break;
+    }
+
+    const options = skills
+      .map(k => `<option value="${k}">${k} (${this._mgFormatSigned(actor.system?.skills?.[k] ?? 0)})</option>`)
+      .join("");
       const content = `
         <p>Spend 1 <strong>Skill</strong> point:</p>
         <select name="skillKey">${options}</select>
@@ -5191,9 +5217,309 @@ _mgOpenChatCropper() {
     this.render(false);
   }
 
+  _mgEnsureSheetDropCSS() {
+    if (document.getElementById("mg-character-drop-css")) return;
+
+    const style = document.createElement("style");
+    style.id = "mg-character-drop-css";
+    style.textContent = `
+      .mg-character-drop-overlay {
+        position: fixed;
+        z-index: 999999;
+        pointer-events: none;
+        display: none;
+        place-items: center;
+        background: rgba(0, 0, 0, 0.45);
+        backdrop-filter: blur(2px);
+        border: 2px dashed rgba(162, 215, 41, 0.85);
+        box-shadow: inset 0 0 40px rgba(162, 215, 41, 0.18);
+      }
+
+      .mg-character-drop-overlay.is-active {
+        display: grid;
+      }
+
+      .mg-character-drop-label {
+        padding: 14px 22px;
+        border-radius: 14px;
+        background: rgba(10, 12, 16, 0.9);
+        color: white;
+        font-weight: 900;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        box-shadow: 0 0 24px rgba(162, 215, 41, 0.35);
+      }
+
+      .mg-character-drop-overlay.is-denied {
+        border-color: rgba(255, 80, 80, 0.9);
+        box-shadow: inset 0 0 40px rgba(255, 80, 80, 0.18);
+      }
+
+      .mg-character-drop-overlay.is-denied .mg-character-drop-label {
+        box-shadow: 0 0 24px rgba(255, 80, 80, 0.35);
+      }
+    `;
+
+    document.head.appendChild(style);
+  }
+
+  _mgCharacterAllowedDropTypes() {
+    return new Set(["weapon", "armor", "misc", "gambit", "guise", "move"]);
+  }
+
+  _mgIsInternalSheetDrag(event) {
+    const types = Array.from(event?.dataTransfer?.types ?? []);
+
+    // Your internal Gambit hand drag uses this MIME.
+    if (types.includes("application/x-midnightgambit-gambit")) return true;
+
+    // Move reordering starts from inside the sheet. Do not let the sheet-wide catcher eat it.
+    const path = event?.composedPath?.() ?? [];
+    return path.some(el =>
+      el?.classList?.contains?.("move-block") ||
+      el?.classList?.contains?.("gambit-card") ||
+      el?.classList?.contains?.("gambit-hand-card")
+    );
+  }
+
+  _mgGetDropLabelForType(type) {
+    if (this._mgCharacterAllowedDropTypes().has(type)) return "Drop Here";
+    if (type === "asset") return "Assets go on Crew sheets";
+    return "Cannot drop this here";
+  }
+
+  async _mgResolveDropItemData(event) {
+    let data = null;
+
+    try {
+      data = TextEditor.getDragEventData(event);
+    } catch (_err) {
+      return null;
+    }
+
+    if (data?.type !== "Item") return null;
+
+    // Prefer UUID resolution because sidebar / compendium drags are cleaner this way.
+    if (data.uuid) {
+      const doc = await fromUuid(data.uuid).catch(() => null);
+      if (doc?.documentName === "Item") return doc.toObject();
+    }
+
+    // Fallback for raw item payloads.
+    return data.data || data;
+  }
+
+  _mgGetDraggedItemTypeFromElement(event) {
+    const el = event.target?.closest?.("[data-document-id], [data-entry-id], [data-item-id], .directory-item");
+    if (!el) return null;
+
+    const id =
+      el.dataset.documentId ||
+      el.dataset.entryId ||
+      el.dataset.itemId ||
+      el.dataset.id;
+
+    if (!id) return null;
+
+    const item = game.items?.get(id);
+    return item?.type ?? null;
+  }  
+
+  _mgBindSheetWideDrop(html) {
+    this._mgEnsureSheetDropCSS();
+
+    const root = html?.[0];
+    const app = root?.closest?.(".window-app");
+    if (!app) return;
+
+    // Remove old listeners if this sheet re-rendered.
+    if (this._mgSheetWideDropHandlers) {
+      const h = this._mgSheetWideDropHandlers;
+      app.removeEventListener("dragenter", h.dragenter, true);
+      app.removeEventListener("dragover", h.dragover, true);
+      app.removeEventListener("dragleave", h.dragleave, true);
+      app.removeEventListener("drop", h.drop, true);
+
+      document.removeEventListener("dragstart", h.documentDragStart, true);
+      document.removeEventListener("dragend", h.documentDragEnd, true);
+      document.removeEventListener("drop", h.documentDragEnd, true);      
+    }
+
+    let overlay = document.querySelector(`#mg-character-drop-overlay-${this.actor.id}`);
+    if (!overlay) {
+      overlay = document.createElement("div");
+      overlay.id = `mg-character-drop-overlay-${this.actor.id}`;
+      overlay.className = "mg-character-drop-overlay";
+      overlay.innerHTML = `<div class="mg-character-drop-label">Drop Here</div>`;
+      document.body.appendChild(overlay);
+    }
+
+    const syncOverlayToSheet = () => {
+      const rect = app.getBoundingClientRect();
+
+      overlay.style.left = `${rect.left}px`;
+      overlay.style.top = `${rect.top}px`;
+      overlay.style.width = `${rect.width}px`;
+      overlay.style.height = `${rect.height}px`;
+    };
+
+    let dragDepth = 0;
+    let mgCompatibleDragActive = false;
+    let mgKnownDragChecked = false;
+
+    const clearState = () => {
+      dragDepth = 0;
+      overlay.classList.remove("is-active", "is-denied");
+      const label = overlay.querySelector(".mg-character-drop-label");
+      if (label) label.textContent = "Drop Here";
+    };
+
+    const setOverlay = (allowed, labelText = "Drop Here") => {
+      syncOverlayToSheet();
+
+      const label = overlay.querySelector(".mg-character-drop-label");
+      if (label) label.textContent = labelText;
+
+      overlay.classList.add("is-active");
+      overlay.classList.toggle("is-denied", !allowed);
+    };
+
+    const dragenter = (event) => {
+      if (this._mgIsInternalSheetDrag(event)) return;
+
+      dragDepth += 1;
+
+      // If we already know this drag is not compatible, never show the overlay.
+      if (mgKnownDragChecked && !mgCompatibleDragActive) {
+        clearState();
+        return;
+      }
+
+      if (mgCompatibleDragActive) {
+        setOverlay(true, "Drop Here");
+      }
+    };
+
+    const dragover = (event) => {
+      if (this._mgIsInternalSheetDrag(event)) return;
+
+      event.preventDefault();
+      event.stopPropagation();
+
+      // If this drag is not a valid Character drop, keep the overlay hidden.
+      if (mgKnownDragChecked && !mgCompatibleDragActive) {
+        if (event.dataTransfer) event.dataTransfer.dropEffect = "none";
+        clearState();
+        return;
+      }
+
+      if (event.dataTransfer) event.dataTransfer.dropEffect = "copy";
+
+      if (mgCompatibleDragActive) {
+        setOverlay(true, "Drop Here");
+      }
+    };
+
+    const dragleave = (event) => {
+      if (this._mgIsInternalSheetDrag(event)) return;
+
+      dragDepth = Math.max(0, dragDepth - 1);
+
+      // If this drag began as a valid Character item, keep the landing pad visible
+      // until the item is dropped or the drag ends.
+      if (mgCompatibleDragActive) {
+        setOverlay(true, "Drop Here");
+        return;
+      }
+
+      if (dragDepth === 0) clearState();
+    };
+
+    const drop = async (event) => {
+      if (this._mgIsInternalSheetDrag(event)) return;
+
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+
+      try {
+        const itemData = await this._mgResolveDropItemData(event);
+        if (!itemData) {
+          clearState();
+          return;
+        }
+
+        const type = itemData.type;
+        const allowed = this._mgCharacterAllowedDropTypes().has(type);
+
+        if (!allowed) {
+          setOverlay(false, this._mgGetDropLabelForType(type));
+          ui.notifications?.warn(`${type || "That item"} cannot be dropped on a Character sheet.`);
+          setTimeout(clearState, 450);
+          return;
+        }
+
+        await this._onDropItemCreate(itemData);
+      } catch (err) {
+        console.error("MG | Character sheet-wide drop failed:", err);
+        ui.notifications?.error("Drop failed. See console.");
+      } finally {
+        clearState();
+      }
+    };
+
+    const documentDragStart = (event) => {
+      if (this._mgIsInternalSheetDrag(event)) return;
+
+      const itemType = this._mgGetDraggedItemTypeFromElement(event);
+
+      mgKnownDragChecked = true;
+      mgCompatibleDragActive = !!itemType && this._mgCharacterAllowedDropTypes().has(itemType);
+
+      if (!mgCompatibleDragActive) {
+        clearState();
+        return;
+      }
+
+      setOverlay(true, "Drop Here");
+    };
+
+    const documentDragEnd = () => {
+      mgCompatibleDragActive = false;
+      mgKnownDragChecked = false;
+      clearState();
+    };
+
+    this._mgSheetWideDropHandlers = {
+      dragenter,
+      dragover,
+      dragleave,
+      drop,
+      documentDragStart,
+      documentDragEnd
+    };
+
+    app.addEventListener("dragenter", dragenter, true);
+    app.addEventListener("dragover", dragover, true);
+    app.addEventListener("dragleave", dragleave, true);
+    app.addEventListener("drop", drop, true);
+
+    document.addEventListener("dragstart", documentDragStart, true);
+    document.addEventListener("dragend", documentDragEnd, true);
+    document.addEventListener("drop", documentDragEnd, true);
+  }  
+
   /* Drag and Drop onto Character Sheet
   ==============================================================================*/
   async _onDropItemCreate(itemData) {
+
+    const rawType = itemData?.type ?? itemData?.system?.type;
+    const allowedCharacterTypes = this._mgCharacterAllowedDropTypes();
+
+    if (!allowedCharacterTypes.has(rawType)) {
+      ui.notifications?.warn(`${rawType || "That item"} cannot be added to a Character sheet.`);
+      return [];
+    }    
 
     // --- Guard: block Crew-tier Gambits from being dropped on Character sheets ---
     try {
@@ -5541,7 +5867,16 @@ _mgOpenChatCropper() {
     } catch (_) {}
 
 
-    return super._onDropItemCreate(itemData);
+    // Normal inventory items: let Foundry create them, then refresh the sheet
+    const created = await super._onDropItemCreate(itemData);
+
+    // Only force refresh for regular inventory items that fall through here.
+    // Guises, Gambits, and Moves return earlier and manage their own refresh.
+    if (["weapon", "armor", "misc", "item"].includes(itemData.type)) {
+      this.render(false);
+    }
+
+    return created;
   }
 
   /** Preserve scroll position across re-renders + fix header paint glitches. */
@@ -5733,26 +6068,39 @@ _mgOpenChatCropper() {
     // Re-apply saved order once on render
     this._mgApplyMoveOrderToDom($grid);
 
-    // Track Move create/delete while this sheet is open
+    // Track Move create/delete while this sheet is open.
+    // Important: activateListeners runs after every render, so remove old hooks first.
+    if (this._mgMoveCreateHook) Hooks.off("createItem", this._mgMoveCreateHook);
+    if (this._mgMoveDeleteHook) Hooks.off("deleteItem", this._mgMoveDeleteHook);
+
     this._mgMoveCreateHook = async (item) => {
       if (item?.parent !== this.actor || item.type !== "move") return;
+
       setTimeout(async () => {
         const $grid2 = this.element.find(".moves-grid");
         if (!$grid2.length) return;
+
         const order = (await this.actor.getFlag("midnight-gambit", "moveOrder")) ?? [];
-        if (!order.includes(item.id)) {
-          const ids = $grid2.find(".move-block").map((_i, el) => el.dataset.itemId).get();
-          await this.actor.setFlag("midnight-gambit", "moveOrder", ids);
-        }
+        if (order.includes(item.id)) return;
+
+        const ids = $grid2.find(".move-block").map((_i, el) => el.dataset.itemId).get();
+        await this.actor.setFlag("midnight-gambit", "moveOrder", ids);
       }, 0);
     };
+
     this._mgMoveDeleteHook = async (item) => {
       if (item?.parent !== this.actor || item.type !== "move") return;
+
       const order = (await this.actor.getFlag("midnight-gambit", "moveOrder")) ?? [];
-      if (order.includes(item.id)) {
-        await this.actor.setFlag("midnight-gambit", "moveOrder", order.filter(id => id !== item.id));
-      }
+      if (!order.includes(item.id)) return;
+
+      await this.actor.setFlag(
+        "midnight-gambit",
+        "moveOrder",
+        order.filter(id => id !== item.id)
+      );
     };
+
     Hooks.on("createItem", this._mgMoveCreateHook);
     Hooks.on("deleteItem", this._mgMoveDeleteHook);
   }

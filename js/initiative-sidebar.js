@@ -29,6 +29,8 @@ export class MGInitiativeSidebar {
     this._unsub = null;
     this._raf = null;
     this._lastSyncId = null;
+    this._foilEl = null;
+    this._foilFadeInMs = 700;
 
     this._ids = [];
     this._activeIndex = 0; // includes END slot
@@ -224,6 +226,12 @@ export class MGInitiativeSidebar {
               </div>
             </div>
           `).join("")}
+
+          <div class="mg-ini-foil" style="display:none; opacity:0;">
+            <svg class="mg-ini-foil-svg" xmlns="http://www.w3.org/2000/svg">
+              <rect class="mg-ini-foil__ring" x="0.5" y="0.5" width="1" height="1" rx="0" ry="0"></rect>
+            </svg>
+          </div>          
         </div>
 
 
@@ -232,6 +240,243 @@ export class MGInitiativeSidebar {
 
     this._bind(root);
   }
+
+  _syncFoilToTopSlot({ reset = false, fade = false } = {}) {
+    const root = document.getElementById("mg-initiative-sidebar");
+    const topSlot = root?.querySelector('.mg-ini-side-slot[data-slot="0"]');
+    const slice = topSlot?.querySelector(".mg-ini-side-card") || topSlot?.querySelector(".mg-ini-slice");
+
+    const actorId = topSlot?.dataset?.actorId;
+    const show = !!slice && !!actorId && actorId !== END_ID && !topSlot.classList.contains("is-empty");
+
+    this._syncFoilToSlice(show ? slice : null, show);
+
+    if (show && reset) this._resetFoilStroke();
+    if (show && fade) this._foilFadeIn().catch(() => {});
+  }  
+
+  _ensureFoilLayer() {
+    this._ensureFoilCSS();
+
+    const root = document.getElementById("mg-initiative-sidebar");
+    const stack = root?.querySelector(".mg-ini-side-stack");
+    if (!stack) return null;
+
+    let foil = stack.querySelector(":scope > .mg-ini-foil");
+
+    if (!foil) {
+      foil = document.createElement("div");
+      foil.className = "mg-ini-foil";
+      foil.style.display = "none";
+      foil.style.opacity = "0";
+      foil.innerHTML = `
+        <svg class="mg-ini-foil-svg" xmlns="http://www.w3.org/2000/svg">
+          <rect class="mg-ini-foil__ring" x="0.5" y="0.5" width="1" height="1" rx="0" ry="0"/>
+        </svg>
+      `;
+      stack.appendChild(foil);
+    }
+
+    this._foilEl = foil;
+    return foil;
+  }
+
+  _syncFoilToSlice(sliceEl, isFeatured) {
+    const root = document.getElementById("mg-initiative-sidebar");
+    const stack = root?.querySelector(".mg-ini-side-stack");
+    if (!stack) return;
+
+    const foil = this._ensureFoilLayer();
+    if (!foil) return;
+
+    if (!sliceEl || !isFeatured) {
+      foil.style.display = "none";
+      return;
+    }
+
+    const stackRect = stack.getBoundingClientRect();
+    const sliceRect = sliceEl.getBoundingClientRect();
+
+    const foilW = sliceEl.offsetWidth || sliceRect.width;
+    const foilH = sliceEl.offsetHeight || sliceRect.height;
+
+    const skewDeg = -20;
+
+    // Anchor to the visible bottom-left of the slice.
+    const x = sliceRect.left - stackRect.left;
+    const bottomY = sliceRect.bottom - stackRect.top;
+    const y = bottomY - foilH;
+
+    foil.style.display = "";
+    if (!this._animating) foil.style.opacity = "1";
+
+    foil.style.width = `${foilW}px`;
+    foil.style.height = `${foilH}px`;
+
+    const comp = getComputedStyle(sliceEl);
+
+    foil.style.transform = `translate(${x}px, ${y}px) skewY(${skewDeg}deg)`;
+    foil.style.transformOrigin = "bottom left";
+
+    // Sidebar cards are sharp skewed panels, so force square foil corners.
+    const r = 0;
+    foil.style.setProperty("--mg-foil-radius", "0px");
+
+    const svg = foil.querySelector(".mg-ini-foil-svg");
+    const ring = foil.querySelector(".mg-ini-foil__ring");
+    if (!svg || !ring) return;
+
+    svg.setAttribute("width", String(foilW));
+    svg.setAttribute("height", String(foilH));
+
+    const sw = Math.max(2, parseFloat(getComputedStyle(ring).strokeWidth) || 3);
+    const inset = sw / 2;
+
+    ring.setAttribute("x", String(inset));
+    ring.setAttribute("y", String(inset));
+    ring.setAttribute("width", String(Math.max(0, foilW - sw)));
+    ring.setAttribute("height", String(Math.max(0, foilH - sw)));
+    ring.setAttribute("rx", String(Math.max(0)));
+    ring.setAttribute("ry", String(Math.max(0)));
+
+    const wPrime = Math.max(0, foilW - sw);
+    const hPrime = Math.max(0, foilH - sw);
+    const rPrime = Math.max(0, Math.min(r - inset, wPrime * 0.5, hPrime * 0.5));
+    const perimeter = 2 * (wPrime + hPrime - 2 * rPrime) + 2 * Math.PI * rPrime;
+
+    const wispLen = Math.max(48, perimeter * 0.18);
+    const gapLen = Math.max(1, perimeter - wispLen);
+
+    foil.style.setProperty("--mg-perimeter", `${perimeter.toFixed(2)}px`);
+    foil.style.setProperty("--mg-dash-on", `${wispLen.toFixed(2)}px`);
+    foil.style.setProperty("--mg-dash-off", `${gapLen.toFixed(2)}px`);
+
+    const slotStroke = comp.getPropertyValue("--slot-stroke")?.trim();
+    if (slotStroke) foil.style.setProperty("--slot-stroke", slotStroke);
+  }
+
+  _ensureFoilCSS() {
+    if (document.getElementById("mg-foil-css")) return;
+
+    const css = `
+      .mg-ini-foil {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 0;
+        height: 0;
+        pointer-events: none;
+        z-index: 50;
+        opacity: 1;
+        transition: opacity 180ms cubic-bezier(.2,.8,.2,1);
+      }
+
+      .mg-ini-foil::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        border-radius: var(--mg-foil-radius, 12px);
+        padding: var(--mg-foil-width, 3px);
+        -webkit-mask:
+          linear-gradient(#000 0 0) content-box,
+          linear-gradient(#000 0 0);
+        -webkit-mask-composite: xor;
+                mask:
+          linear-gradient(#000 0 0) content-box,
+          linear-gradient(#000 0 0);
+                mask-composite: exclude;
+        background: color-mix(in oklab, var(--mg-halo-color, var(--slot-stroke, #4173BE)) 85%, white 20%);
+        filter: blur(var(--mg-halo-blur, 12px));
+        opacity: var(--mg-halo-opacity, 0.45);
+      }
+
+      .mg-ini-foil-svg {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        overflow: visible;
+      }
+
+      .mg-ini-foil__ring {
+        fill: none;
+        stroke: var(--slot-stroke, #A2D729);
+        stroke-width: var(--mg-foil-stroke, 3px);
+        stroke-linecap: butt;
+        stroke-linejoin: miter;
+        vector-effect: non-scaling-stroke;
+        stroke-dasharray: var(--mg-dash-on, 80px) var(--mg-dash-off, 4000px);
+        stroke-dashoffset: 0;
+        filter:
+          drop-shadow(0 0 var(--mg-glow1, 8px) color-mix(in oklab, var(--mg-glow-color, var(--slot-stroke, #A2D729)) 90%, transparent))
+          drop-shadow(0 0 var(--mg-glow2, 16px) color-mix(in oklab, var(--mg-glow-color, var(--slot-stroke, #A2D729)) 65%, transparent))
+          drop-shadow(0 0 var(--mg-glow3, 28px) color-mix(in oklab, var(--mg-glow-color, var(--slot-stroke, #A2D729)) 45%, transparent));
+        animation: mg-foil-dash var(--mg-foil-speed, 3800ms) linear infinite;
+      }
+
+      @keyframes mg-foil-dash {
+        to { stroke-dashoffset: calc(-1 * var(--mg-perimeter, 1000px)); }
+      }
+    `;
+
+    const tag = document.createElement("style");
+    tag.id = "mg-foil-css";
+    tag.textContent = css;
+    document.head.appendChild(tag);
+  }
+
+  _resetFoilStroke() {
+    const ring = this._foilEl?.querySelector(".mg-ini-foil__ring");
+    if (!ring) return;
+
+    ring.style.strokeDashoffset = "0px";
+
+    const prev = ring.style.animation;
+    ring.style.animation = "none";
+
+    if (typeof ring.getBBox === "function") void ring.getBBox();
+    else void ring.getBoundingClientRect();
+
+    if (prev) ring.style.animation = prev;
+    else ring.style.removeProperty("animation");
+  }
+
+  async _foilFadeOut(ms = 180) {
+    const foil = this._foilEl ?? this._ensureFoilLayer();
+    if (!foil) return;
+
+    if (ms <= 0) {
+      foil.style.transition = "none";
+      foil.style.opacity = "0";
+      foil.style.display = "none";
+      return;
+    }
+
+    foil.style.transition = `opacity ${ms}ms cubic-bezier(.2,.8,.2,1)`;
+    foil.style.display = "";
+    void foil.offsetWidth;
+    foil.style.opacity = "0";
+    await this._afterTransition(foil, ms + 120);
+    foil.style.display = "none";
+  }
+
+  async _foilFadeIn(ms) {
+    const foil = this._foilEl ?? this._ensureFoilLayer();
+    if (!foil) return;
+
+    const dur = ms ?? this._foilFadeInMs ?? 700;
+
+    foil.style.transition = "none";
+    foil.style.display = "";
+    foil.style.opacity = "0";
+    void foil.offsetWidth;
+
+    foil.style.transition = `opacity ${dur}ms cubic-bezier(.2,.8,.2,1)`;
+    foil.style.opacity = "1";
+    await this._afterTransition(foil, dur + 120);
+    foil.style.removeProperty("transition");
+  }  
 
   // -----------------------------
   // Hover Stats: Strain Snapshot + Paint
@@ -398,7 +643,7 @@ export class MGInitiativeSidebar {
       label.style.removeProperty("opacity");
       label.style.willChange = "";
     }
-  }  
+  }
 
   _paintSlots(windowIdsOverride = null) {
     const root = document.getElementById("mg-initiative-sidebar");
@@ -485,6 +730,12 @@ export class MGInitiativeSidebar {
     // END ghost active
     const end = root.querySelector('[data-role="end"]');
     if (end) end.classList.toggle("is-active", this._isEndActive());
+
+    if (!this._animating) {
+      requestAnimationFrame(() => {
+        this._syncFoilToTopSlot({ reset: false, fade: false });
+      });
+    }
   }
 
   // -----------------------------
@@ -512,6 +763,8 @@ export class MGInitiativeSidebar {
       slots[i].classList.toggle("is-empty", !id);
       slots[i].dataset.actorId = id ?? "";
     });
+
+    await this._foilFadeOut().catch(() => {});
 
     // 1) Animate ONLY the top card leaving (on the CARD element, not the slot)
     const leavingCard = cards[0];
@@ -624,6 +877,14 @@ export class MGInitiativeSidebar {
     }, 320);
 
 
+    this._paintSlots(nextWindow);
+
+    // Wait until the slide cleanup has finished before placing the foil.
+    await new Promise(r => setTimeout(r, 340));
+    await new Promise(r => requestAnimationFrame(r));
+
+    this._syncFoilToTopSlot({ reset: true, fade: true });
+
     this._animating = false;
   }
 
@@ -635,6 +896,8 @@ export class MGInitiativeSidebar {
     this._activeIndex = 0;
     this._ids = this._getFullTrackIds();
     this._paintSlots();
+    await new Promise(r => requestAnimationFrame(r));
+    this._syncFoilToTopSlot({ reset: true, fade: true });
 
     this._animating = false;
   }

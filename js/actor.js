@@ -487,23 +487,33 @@ export class MidnightGambitActor extends Actor {
     const flags = this._mgFlags();
     const pending = this._ensurePending(flags.pending ?? {});
 
-    const dec = (k) => { if (pending[k] > 0) pending[k] -= 1; else throw new Error(`No pending ${k} to spend`); };
+    const dec = (k) => { if (pending[k] > 0) pending[k] -= 1; else throw new Error(`No pending ${k} to spend`); }; 
 
     switch (type) {
       case "attribute": {
         const key = String(payload.key);
         if (!this.system.baseAttributes?.hasOwnProperty(key)) throw new Error(`Bad attribute key: ${key}`);
-        dec("attributes");
+
         const curr = Number(this.system.baseAttributes[key]) || 0;
-        await this.update({ [`system.baseAttributes.${key}`]: curr + 1 });
+        if (curr >= 3) throw new Error(`${key} is already at the maximum of +3.`);
+
+        dec("attributes");
+
+        const next = Math.max(-2, Math.min(3, curr + 1));
+        await this.update({ [`system.baseAttributes.${key}`]: next });
         break;
       }
       case "skill": {
         const key = String(payload.key);
         if (!this.system.skills?.hasOwnProperty(key)) throw new Error(`Bad skill key: ${key}`);
-        dec("skills");
+
         const curr = Number(this.system.skills[key]) || 0;
-        await this.update({ [`system.skills.${key}`]: curr + 1 });
+        if (curr >= 3) throw new Error(`${key} is already at the maximum of +3.`);
+
+        dec("skills");
+
+        const next = Math.max(-2, Math.min(3, curr + 1));
+        await this.update({ [`system.skills.${key}`]: next });
         break;
       }
       case "spark": {

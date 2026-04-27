@@ -1001,3 +1001,25 @@
 
 .mg-clock .clock-major { font-size: 28px; line-height: 1; font-weight: 800; }
 .mg-clock .clock-small { font-size: 12px; opacity: 0.85; margin-left: 2px; }
+
+.mg-stat-picker {
+  display: flex;
+  gap: .5rem;
+
+	.mg-stat-choice {
+	@include mg-border();
+	border-radius: .5rem;
+	padding:  .5rem;
+	font-weight: 700;
+	cursor: pointer;
+	background: $mg-blue-4;
+	transition: color .5s ease, border .5s ease, background .5s ease;
+
+		&.selected,
+		&:hover {
+			border-color: $mg-blue-1;
+			background: $mg-blue-main-2;
+			color: $mg-blue-1;
+		}
+	}
+}

@@ -107,19 +107,45 @@ export class MidnightGambitNpcSheet extends ActorSheet {
     }    
 
     // ----------------------------------------------------
-    // Post Moves / Signature Perk to chat (same as PC sheet)
+    // Post Moves / Signature Perk to chat
+    // Includes NPC item notes for quick GM reference.
     // ----------------------------------------------------
-    html.find(".post-move").off("click.mgNpcPostMove").on("click.mgNpcPostMove", (event) => {
+    const enrichForChat = async (text) => {
+      const raw = String(text ?? "").trim();
+      if (!raw) return "";
+      return TextEditor.enrichHTML(raw, {
+        async: true,
+        secrets: this.actor.isOwner,
+        documents: true,
+        links: true,
+        rolls: true
+      });
+    };
+
+    html.find(".post-move").off("click.mgNpcPostMove").on("click.mgNpcPostMove", async (event) => {
       event.preventDefault();
       event.stopPropagation();
 
-      const name = event.currentTarget.dataset.moveName || "Unknown Move";
-      const description = event.currentTarget.dataset.moveDescription || "";
+      const li = event.currentTarget.closest("[data-item-id]");
+      const item = this.actor.items.get(li?.dataset?.itemId);
+
+      const name = item?.name || event.currentTarget.dataset.moveName || "Unknown Move";
+      const description = item?.system?.description ?? event.currentTarget.dataset.moveDescription ?? "";
+      const notes = item?.system?.notes ?? "";
+
+      const descHtml = await enrichForChat(description);
+      const notesHtml = await enrichForChat(notes);
 
       const chatContent = `
         <div class="chat-move">
           <h2><i class="fa-solid fa-hand-fist"></i> ${name}</h2>
-          <p>${description}</p>
+          ${descHtml ? `<div class="chat-move-desc">${descHtml}</div>` : ""}
+          ${notesHtml ? `
+            <div class="chat-move-notes">
+              <h3>Notes</h3>
+              ${notesHtml}
+            </div>
+          ` : ""}
         </div>
       `;
 
@@ -130,17 +156,30 @@ export class MidnightGambitNpcSheet extends ActorSheet {
       });
     });
 
-    html.find(".post-signature").off("click.mgNpcPostSignature").on("click.mgNpcPostSignature", (event) => {
+    html.find(".post-signature").off("click.mgNpcPostSignature").on("click.mgNpcPostSignature", async (event) => {
       event.preventDefault();
       event.stopPropagation();
 
-      const name = event.currentTarget.dataset.perkName || "Signature";
-      const description = event.currentTarget.dataset.perkDescription || "";
+      const li = event.currentTarget.closest("[data-item-id]");
+      const item = this.actor.items.get(li?.dataset?.itemId);
+
+      const name = item?.name || event.currentTarget.dataset.perkName || "Signature";
+      const description = item?.system?.description ?? event.currentTarget.dataset.perkDescription ?? "";
+      const notes = item?.system?.notes ?? "";
+
+      const descHtml = await enrichForChat(description);
+      const notesHtml = await enrichForChat(notes);
 
       const chatContent = `
         <div class="chat-move">
           <h2><i class="fa-solid fa-diamond"></i> Signature Perk: ${name}</h2>
-          <p>${description}</p>
+          ${descHtml ? `<div class="chat-move-desc">${descHtml}</div>` : ""}
+          ${notesHtml ? `
+            <div class="chat-move-notes">
+              <h3>Notes</h3>
+              ${notesHtml}
+            </div>
+          ` : ""}
         </div>
       `;
 
@@ -345,42 +384,91 @@ export class MidnightGambitNpcSheet extends ActorSheet {
 
     if (!isOwner) return;
 
-    // Settings: "Image Settings" (FilePicker) — same behavior as character sheet
+    // Settings: Change Profile Image
     html.off("click.mgPickAvatarNpc").on("click.mgPickAvatarNpc", ".mg-change-profile-image", async (ev) => {
       ev.preventDefault();
+      ev.stopPropagation();
+
+      if (!this.isEditable && !game.user.isGM) {
+        ui.notifications?.warn("You do not have permission to edit this NPC.");
+        return;
+      }
 
       const current =
         this.actor.img ||
         this.actor.prototypeToken?.texture?.src ||
         "icons/svg/mystery-man.svg";
 
-      const picker = new FilePicker({
-        type: "image",
-        activeSource: "data",
-        current,
-        callback: async (path) => {
-          const updates = { img: path };
+      const safePreviewSrc = (path) => {
+        const p = String(path ?? "").trim();
+        if (/^(https?:|data:|blob:)/i.test(p)) return p;
+        return foundry.utils.getRoute(p);
+      };
 
-          // If the prototype token was mirroring, mirror the new path too
-          try {
-            const proto = this.actor.prototypeToken;
-            const was = proto?.texture?.src;
-            if (proto && (was === current || !was)) {
-              updates["prototypeToken.texture.src"] = path;
-            }
-          } catch (_) {}
+      const applyImg = async (path) => {
+        const cleanPath = String(path ?? "").trim();
+        if (!cleanPath) return;
 
-          await this.actor.update(updates);
+        try {
+          const updates = { img: cleanPath };
 
-          // Soft refresh the visible portrait on the sheet
-          const routed = foundry.utils.getRoute(path);
-          this.element.find("img.mg-profile-img").attr("src", routed);
+          const proto = this.actor.prototypeToken;
+          const protoSrc = proto?.texture?.src;
 
-          ui.notifications?.info("Profile image updated.");
+          if (proto && (protoSrc === current || !protoSrc || protoSrc === this.actor.img)) {
+            updates["prototypeToken.texture.src"] = cleanPath;
+          }
+
+          await this.actor.update(updates, { render: false });
+
+          // Live preview without mangling external URLs
+          this.element.find("img.mg-profile-img").attr("src", safePreviewSrc(cleanPath));
+
+          ui.notifications?.info("NPC profile image updated.");
+        } catch (err) {
+          console.error("MG | Failed to update NPC profile image:", err);
+          ui.notifications?.error("Failed to update NPC profile image.");
         }
-      });
+      };
 
-      picker.render(true);
+      const canBrowse = game.user?.can?.("FILES_BROWSE") ?? game.user?.isTrusted ?? game.user.isGM;
+
+      if (canBrowse) {
+        const picker = new FilePicker({
+          type: "image",
+          current,
+          callback: applyImg
+        });
+
+        picker.render(true);
+        return;
+      }
+
+      new Dialog({
+        title: "Set NPC Profile Image",
+        content: `
+          <p>You don't have file browsing permissions, but you can still set an image by URL/path.</p>
+          <div class="form-group">
+            <label>Image URL or Path</label>
+            <input type="text" name="mgImgPath" value="${current}" style="width:100%;" />
+          </div>
+        `,
+        buttons: {
+          save: {
+            icon: '<i class="fa-solid fa-check"></i>',
+            label: "Save",
+            callback: (html) => {
+              const path = html.find('input[name="mgImgPath"]').val()?.trim();
+              if (path) applyImg(path);
+            }
+          },
+          cancel: {
+            icon: '<i class="fa-solid fa-xmark"></i>',
+            label: "Cancel"
+          }
+        },
+        default: "save"
+      }).render(true);
     });
 
     // Settings: "Frame Chat Image"
@@ -427,16 +515,18 @@ export class MidnightGambitNpcSheet extends ActorSheet {
       });
     });
 
-
     // ----------------------------
     // Capacity +/- buttons (cap-tick)
-    // Updates system.strain.<type> capacity + sets manualOverride flag
+    // Matches character sheet behavior:
+    // - Minus spends capacity first.
+    // - If capacity is already 0, minus adds strain track damage.
+    // - Plus restores capacity.
     // ----------------------------
     html.find(".cap-tick").on("click", async (event) => {
       event.preventDefault();
       event.stopPropagation();
 
-      const btn  = event.currentTarget;
+      const btn = event.currentTarget;
       const wrap = btn.closest(".capacity-controls");
       const type = wrap?.dataset?.type; // "mortal" or "soul"
       if (!type) return;
@@ -444,19 +534,49 @@ export class MidnightGambitNpcSheet extends ActorSheet {
       const dir = Number(btn.dataset.dir) || 0; // -1 or +1
       if (!dir) return;
 
-      const key = `${type} capacity`; // "mortal capacity" or "soul capacity"
-      const current = Number(foundry.utils.getProperty(this.actor.system, `strain.${key}`)) || 0;
-      const next = Math.max(0, current + dir);
+      const actor = this.actor;
+      if (!actor) return;
 
-      await this.actor.update({
-        [`system.strain.${key}`]: next,
-        [`system.strain.manualOverride.${key}`]: true
-      }, { render: false });
+      const capKey = `${type} capacity`; // "mortal capacity" or "soul capacity"
 
-      // Update the visible number immediately
-      html.find(`.capacity-value[data-type="${type}"]`).text(String(next));
+      const currentCap = Number(foundry.utils.getProperty(actor.system, `strain.${capKey}`)) || 0;
+      const currentTrack = Number(foundry.utils.getProperty(actor.system, `strain.${type}`)) || 0;
+
+      const updates = {
+        [`system.strain.manualOverride.${capKey}`]: true
+      };
+
+      // DAMAGE: reduce capacity first. If already 0, fill the strain track.
+      if (dir < 0) {
+        if (currentCap > 0) {
+          updates[`system.strain.${capKey}`] = Math.max(0, currentCap - 1);
+        } else {
+          const dotCount = html.find(`.strain-track[data-strain="${type}"] .strain-dot`).length;
+          const trackMax = Math.max(0, dotCount || 5);
+          updates[`system.strain.${type}`] = Math.min(trackMax, currentTrack + 1);
+        }
+      }
+
+      // HEAL/CORRECTION: restore capacity by 1.
+      if (dir > 0) {
+        updates[`system.strain.${capKey}`] = Math.max(0, currentCap + 1);
+      }
+
+      await actor.update(updates, { render: false });
+
+      const nextCap = updates[`system.strain.${capKey}`] ?? currentCap;
+      const nextTrack = updates[`system.strain.${type}`] ?? currentTrack;
+
+      // Update the visible capacity number immediately
+      html.find(`.capacity-value[data-type="${type}"]`).text(String(nextCap));
+
+      // Update the strain dots immediately
+      const $track = html.find(`.strain-track[data-strain="${type}"]`);
+      $track.find(".strain-dot").each((_, node) => {
+        const v = Number(node.dataset.value);
+        node.classList.toggle("filled", v <= nextTrack);
+      });
     });
-
 
     // ----------------------------
     // Attribute: right-click edit base (same behavior as PC sheet)
@@ -479,7 +599,7 @@ export class MidnightGambitNpcSheet extends ActorSheet {
 
       if (val === null) return;
 
-      const next = Number(val);
+      const next = this._mgClampStatValue(val);
       if (!Number.isFinite(next)) {
         ui.notifications.warn("Please enter a valid number.");
         return;
@@ -585,14 +705,34 @@ export class MidnightGambitNpcSheet extends ActorSheet {
     item?.sheet?.render(true);
   });
 
-  // Delete
+  // Delete NPC Move / Signature Perk
   html.find(".item-delete").off("click.mgNpcItemDelete").on("click.mgNpcItemDelete", async (ev) => {
     ev.preventDefault();
+    ev.stopPropagation();
+
     const li = ev.currentTarget.closest("[data-item-id]");
     const itemId = li?.dataset?.itemId;
     if (!itemId) return;
 
-    await this.actor.deleteEmbeddedDocuments("Item", [itemId]);
+    const item = this.actor.items.get(itemId);
+    if (!item) return;
+
+    const confirmed = await Dialog.wait({
+      title: `Delete ${item.name}?`,
+      content: `
+        <h2>Delete ${item.name}?</h2>
+        <p>Are you sure you want to permanently delete <strong>${item.name}</strong>?</p>
+      `,
+      buttons: {
+        yes: { label: "Delete", callback: () => true },
+        no:  { label: "Cancel", callback: () => false }
+      },
+      default: "no"
+    });
+
+    if (!confirmed) return;
+
+    await item.delete();
     this.render(false);
   });
 
@@ -663,7 +803,7 @@ export class MidnightGambitNpcSheet extends ActorSheet {
 
     // Build overlay
     const $ui = $(`
-      <div class="mg-crop-editor" role="dialog" aria-modal="true">
+      <div class="mg-crop-editor npc" role="dialog" aria-modal="true">
         <div class="mg-crop-panel">
           <div class="mg-row">
             <div><strong>Crop Actor Profile Image</strong></div>
@@ -747,101 +887,115 @@ export class MidnightGambitNpcSheet extends ActorSheet {
     document.body.appendChild($ui[0]);
   }
 
-  _mgOpenChatCropper(html) {
-    const $root = html instanceof jQuery ? html : $(html);
-
-    // Use current actor img as the chat portrait source
+  _mgOpenChatCropper() {
     const src = this.actor?.img;
     if (!src) return;
 
-    const flags = this.actor.getFlag("midnight-gambit", "crops") || {};
-    const chat = flags.chat || {};
-    const css = chat.css || {};
-
-    let x = Number.isFinite(css.x) ? css.x : 50;
-    let y = Number.isFinite(css.y) ? css.y : 50;
-    let s = Number.isFinite(css.scale) ? css.scale : 1;
+    // Current values
+    const saved = this.actor.getFlag("midnight-gambit", "crops")?.chat?.css || {};
+    let x = Number.isFinite(saved.x) ? saved.x : 50;
+    let y = Number.isFinite(saved.y) ? saved.y : 50;
+    let s = Number.isFinite(saved.scale) ? saved.scale : 1;
 
     const $ui = $(`
-      <div class="mg-crop-editor">
+      <div class="mg-crop-editor chat-crop" role="dialog" aria-modal="true">
         <div class="mg-crop-panel">
-          <div class="mg-row" style="display:flex;justify-content:space-between;align-items:center;gap:12px;">
-            <div><strong>Frame Chat Image</strong></div>
-            <div class="hint">Drag to pan • Mouse wheel to zoom</div>
+          <div class="mg-row">
+            <div><strong>Frame Chat Avatar</strong></div>
+            <div class="hint">Drag to pan • Mouse wheel to zoom • Esc to cancel</div>
           </div>
+
           <div class="mg-crop-stage">
-            <img src="${src}">
+            <img src="${src}" alt="preview" style="--x:${x}; --y:${y}; --s:${s}">
           </div>
+
           <div class="mg-actions">
-            <button class="ghost mg-cancel">Cancel</button>
-            <button class="primary mg-save">Save</button>
+            <button type="button" class="ghost mg-cancel">Cancel</button>
+            <button type="button" class="primary mg-save">Save</button>
           </div>
         </div>
       </div>
     `);
 
     const stage = $ui.find(".mg-crop-stage")[0];
-    const imgEl = $ui.find("img")[0];
-
-    const apply = () => {
-      // Make preview behave like a “cropped avatar”
-      imgEl.style.transformOrigin = "center center";
-      imgEl.style.transform = `translate(-50%, -50%) scale(${s})`;
-      imgEl.style.position = "absolute";
-      imgEl.style.left = `${x}%`;
-      imgEl.style.top = `${y}%`;
-    };
-
-    apply();
+    const imgEl = $ui.find(".mg-crop-stage img")[0];
 
     let dragging = false;
-    let lastX = 0;
-    let lastY = 0;
+    let last = { cx: 0, cy: 0 };
 
-    stage.style.position = "relative";
-    stage.style.overflow = "hidden";
+    const apply = () => {
+      imgEl.style.setProperty("--x", String(x));
+      imgEl.style.setProperty("--y", String(y));
+      imgEl.style.setProperty("--s", String(s));
+    };
 
     stage.addEventListener("pointerdown", (ev) => {
       dragging = true;
-      lastX = ev.clientX;
-      lastY = ev.clientY;
+      last = { cx: ev.clientX, cy: ev.clientY };
+      stage.setPointerCapture?.(ev.pointerId);
     });
 
     stage.addEventListener("pointermove", (ev) => {
       if (!dragging) return;
 
-      const dx = ev.clientX - lastX;
-      const dy = ev.clientY - lastY;
-      lastX = ev.clientX;
-      lastY = ev.clientY;
+      const dx = ev.clientX - last.cx;
+      const dy = ev.clientY - last.cy;
+      last = { cx: ev.clientX, cy: ev.clientY };
 
-      x -= (dx / stage.clientWidth) * 100;
-      y -= (dy / stage.clientHeight) * 100;
+      const w = stage.clientWidth || 1;
+      const h = stage.clientHeight || 1;
+
+      // Same feel as profile cropper (not hypersensitive)
+      const PAN = 0.45;
+      x -= ((dx / w) * 100) * PAN;
+      y -= ((dy / h) * 100) * PAN;
 
       apply();
     });
 
-    stage.addEventListener("pointerup", () => dragging = false);
-    stage.addEventListener("pointerleave", () => dragging = false);
+    stage.addEventListener("pointerup", () => { dragging = false; });
+    stage.addEventListener("pointercancel", () => { dragging = false; });
 
     stage.addEventListener("wheel", (ev) => {
       ev.preventDefault();
-      s = Math.max(0.5, Math.min(3, s - Math.sign(ev.deltaY) * 0.05));
+
+      // Zoom speed (hold Shift for faster zoom)
+      const step = ev.shiftKey ? 0.15 : 0.05;
+      const delta = Math.sign(ev.deltaY) * step;
+
+      // NO practical max; keep only a safety min so scale never hits 0
+      s = Math.max(0.05, s - delta);
+
       apply();
     }, { passive: false });
 
     $ui.on("click", ".mg-cancel", () => $ui.remove());
 
     $ui.on("click", ".mg-save", async () => {
-      const crops = (await this.actor.getFlag("midnight-gambit", "crops")) || {};
-      crops.chat = crops.chat || {};
-      crops.chat.css = { x, y, scale: s };
+      try {
+        const ns = "midnight-gambit";
+        const crops = (await this.actor.getFlag(ns, "crops")) || {};
+        crops.chat = crops.chat || {};
+        crops.chat.css = { x, y, scale: s };
+        await this.actor.setFlag(ns, "crops", crops);
 
-      await this.actor.setFlag("midnight-gambit", "crops", crops);
+        // Refresh chat so you don't need a new roll to test
+        ui.chat?.render?.(true);
 
-      ui.notifications?.info("Chat image framing saved.");
-      $ui.remove();
+        $ui.remove();
+      } catch (err) {
+        console.error("MG | Save chat crop failed:", err);
+        ui.notifications?.error("Failed to save chat framing. See console.");
+      }
     });
+
+    const onKey = (ev) => {
+      if (ev.key === "Escape") {
+        $ui.remove();
+        window.removeEventListener("keydown", onKey);
+      }
+    };
+    window.addEventListener("keydown", onKey);
 
     document.body.appendChild($ui[0]);
   }

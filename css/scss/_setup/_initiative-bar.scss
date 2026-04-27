@@ -55,6 +55,10 @@
     border-radius: .5rem;
   }
 
+  .mg-ini-foil__ring {
+    animation-duration: 6200ms;
+  }
+
   &.is-collapsed .mg-ini-side-wrap {
     transform: translateX(calc(100% - 5px));
 

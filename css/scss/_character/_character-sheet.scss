@@ -2351,7 +2351,7 @@ h1,h2,h3,h4 {
         border-radius: 0;
         aspect-ratio: 1/1;
         object-fit: cover;
-        max-height: 8rem;
+        max-height: 10rem;
         width: 100%;
       }
 
@@ -2716,6 +2716,7 @@ h1,h2,h3,h4 {
           font-weight: 700;
           font-style: italic;
           font-size: 1.25rem;
+          text-align: left;
           border-radius: 0;
           line-height: 1.1;
           padding:  1.25rem;
@@ -3209,15 +3210,21 @@ h1,h2,h3,h4 {
   pointer-events: none;
 }
 
-.mg-profile-crop.mg-cropbox > img {
+.mg-profile-crop.mg-cropbox > img,
+.npc .mg-profile-crop.mg-cropbox > img {
   position: absolute;
-  left: 50%; top: 50%;
+  left: 50%;
+  top: 50%;
+
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+
   transform:
     translate(calc(-1% * var(--mg-crop-x, 50)), calc(-1% * var(--mg-crop-y, 50)))
     scale(var(--mg-crop-scale, 1));
+
   transform-origin: center center;
-  min-width: 100%;
-  min-height: 100%;
   will-change: transform;
   transition: transform 180ms ease;
 }
@@ -3228,7 +3235,12 @@ h1,h2,h3,h4 {
   inset: 0; z-index: 10000; 
   background: rgba($mg-blue-main-2,0.55); 
   display: grid; 
-  place-items: center; 
+  place-items: center;
+
+  &.npc .mg-crop-stage {
+    width: 31rem;
+    height: 31rem;
+  }
 
   .mg-crop-panel { 
     width: 610px; 
@@ -3282,8 +3294,8 @@ h1,h2,h3,h4 {
   .mg-crop-stage { 
     position: relative;
     overflow: hidden; 
-    width: 30.875rem;
-    height: 34.5625rem; 
+    width: 31.25rem;
+    height: 35.9375rem; 
     aspect-ratio: 1/1;
     margin: 8px auto 12px; 
     background: $mg-blue-main; 
