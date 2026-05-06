@@ -237,7 +237,6 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 		const rawNotes = String(it.system?.notes ?? "");
 
 		it.descHtml  = await TextEditor.enrichHTML(rawDesc,  { async: true }); // TinyMCE formatting → safe HTML
-		it.notesHtml = await TextEditor.enrichHTML(rawNotes, { async: true });
 		}
 
 		return data;
@@ -250,33 +249,33 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 	 *  3) As a last resort, world/uuid lookup (harmless to try)
 	 */
 	async _getGuiseItem(actor) {
-	try {
-		const sys = actor.system ?? {};
-		const gid = sys.guise;
-
-		// 1) Embedded-by-id (common case)
-		if (gid && actor.items?.get) {
-		const embedded = actor.items.get(gid);
-		if (embedded) return embedded;
-		}
-
-		// 2) First embedded guise
-		const embeddedGuise = actor.items?.find?.(i => i?.type === "guise");
-		if (embeddedGuise) return embeddedGuise;
-
-		// 3) World/UUID (fallback)
-		if (gid) {
 		try {
-			const worldById = game.items?.get?.(gid);
-			if (worldById) return worldById;
+			const sys = actor.system ?? {};
+			const gid = sys.guise;
+
+			// 1) Embedded-by-id (common case)
+			if (gid && actor.items?.get) {
+			const embedded = actor.items.get(gid);
+			if (embedded) return embedded;
+			}
+
+			// 2) First embedded guise
+			const embeddedGuise = actor.items?.find?.(i => i?.type === "guise");
+			if (embeddedGuise) return embeddedGuise;
+
+			// 3) World/UUID (fallback)
+			if (gid) {
+			try {
+				const worldById = game.items?.get?.(gid);
+				if (worldById) return worldById;
+			} catch {}
+			try {
+				const from = await fromUuid(gid);
+				if (from?.documentName === "Item" && from.type === "guise") return from;
+			} catch {}
+			}
 		} catch {}
-		try {
-			const from = await fromUuid(gid);
-			if (from?.documentName === "Item" && from.type === "guise") return from;
-		} catch {}
-		}
-	} catch {}
-	return null;
+		return null;
 	}
 
 	/** Class name preference (to mirror your actor-sheet.html):
@@ -285,10 +284,10 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 	 *  - "—" otherwise
 	 */
 	async _resolveClassName(actor) {
-	const guise = await this._getGuiseItem(actor);
-	if (guise?.name) return guise.name;
-	const sysClass = actor.system?.class;
-	return sysClass ? String(sysClass) : "—";
+		const guise = await this._getGuiseItem(actor);
+		if (guise?.name) return guise.name;
+		const sysClass = actor.system?.class;
+		return sysClass ? String(sysClass) : "—";
 	}
 
 	/** Level preference (to mirror your actor-sheet.html):
@@ -297,72 +296,321 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 	 *  - "—" otherwise
 	 */
 	async _resolveLevel(actor) {
-	const sys = actor.system ?? {};
-	if (Number.isFinite(Number(sys.level))) return String(Number(sys.level));
-	const guise = await this._getGuiseItem(actor);
-	const gl = guise?.system?.level;
-	if (Number.isFinite(Number(gl))) return String(Number(gl));
-	return "—";
+		const sys = actor.system ?? {};
+		if (Number.isFinite(Number(sys.level))) return String(Number(sys.level));
+		const guise = await this._getGuiseItem(actor);
+		const gl = guise?.system?.level;
+		if (Number.isFinite(Number(gl))) return String(Number(gl));
+		return "—";
 	}
 
-  /** Convert Party member UUIDs into live data (+cache fallback). */
-	async _resolveMembers(uuids, cache) {
-		const out = [];
-    	for (const uuid of uuids) {
-      		let doc = null;
-      		try { doc = await fromUuid(uuid); } catch (e) {}
-      		if (doc?.documentName !== "Actor") doc = null;
+	/** Convert Party member UUIDs into live data (+cache fallback). */
+		async _resolveMembers(uuids, cache) {
+			const out = [];
+			for (const uuid of uuids) {
+				let doc = null;
+				try { doc = await fromUuid(uuid); } catch (e) {}
+				if (doc?.documentName !== "Actor") doc = null;
 
-      		let name = doc?.name ?? cache?.[uuid]?.name ?? "Unknown";
-      		let img  = doc?.img  ?? cache?.[uuid]?.img  ?? "icons/svg/mystery-man.svg";
-      		let type = doc?.type ?? cache?.[uuid]?.type ?? "character";
-			// Compute Class (Guise name) and Level to match actor-sheet.html
-			let className = "—";
-			let levelText = "—";
+				let name = doc?.name ?? cache?.[uuid]?.name ?? "Unknown";
+				let img  = doc?.img  ?? cache?.[uuid]?.img  ?? "icons/svg/mystery-man.svg";
+				let type = doc?.type ?? cache?.[uuid]?.type ?? "character";
+				// Compute Class (Guise name) and Level to match actor-sheet.html
+				let className = "—";
+				let levelText = "—";
 
-		if (doc) {
-		try {
-			className = await this._resolveClassName(doc);
-			levelText = await this._resolveLevel(doc);
+			if (doc) {
+			try {
+				className = await this._resolveClassName(doc);
+				levelText = await this._resolveLevel(doc);
 
-			// Soft fallback from cache if still unknown
-			if (className === "—" && cache?.[uuid]?.className) className = cache[uuid].className;
-			if (levelText === "—" && cache?.[uuid]?.level != null) levelText = String(cache[uuid].level);
-		} catch (e) {
-			// Last-ditch cache fallback
+				// Soft fallback from cache if still unknown
+				if (className === "—" && cache?.[uuid]?.className) className = cache[uuid].className;
+				if (levelText === "—" && cache?.[uuid]?.level != null) levelText = String(cache[uuid].level);
+			} catch (e) {
+				// Last-ditch cache fallback
+				className = cache?.[uuid]?.className ?? "—";
+				if (cache?.[uuid]?.level != null) levelText = String(cache[uuid].level);
+			}
+			} else {
+			// Missing actor -> cache only
 			className = cache?.[uuid]?.className ?? "—";
 			if (cache?.[uuid]?.level != null) levelText = String(cache[uuid].level);
+			}
+
+		// Strain snapshot (safe defaults)
+		const strain = doc?.system?.strain ?? {};
+		const mcCap = Number(strain["mortal capacity"] ?? 0) || 0;
+		const scCap = Number(strain["soul capacity"] ?? 0) || 0;
+		const mcTrk = Number(strain.mortal ?? 0) || 0;
+		const scTrk = Number(strain.soul ?? 0) || 0;		
+
+		out.push({
+			uuid,
+			actorId: doc?.id ?? null,
+			name,
+			img,
+			type,
+			className,
+			levelText,
+			missing: !doc,
+			mcCap,
+			scCap,
+			mcTrk,
+			scTrk		
+		});
 		}
-		} else {
-		// Missing actor -> cache only
-		className = cache?.[uuid]?.className ?? "—";
-		if (cache?.[uuid]?.level != null) levelText = String(cache[uuid].level);
+		return out;
+	}
+
+	_mgEnsureCrewDropCSS() {
+		if (document.getElementById("mg-crew-drop-css")) return;
+
+		const style = document.createElement("style");
+		style.id = "mg-crew-drop-css";
+		style.textContent = `
+			.mg-character-drop-overlay {
+				position: fixed;
+				z-index: 999999;
+				pointer-events: none;
+				display: none;
+				place-items: center;
+				background: rgba(0, 0, 0, 0.45);
+				backdrop-filter: blur(2px);
+				border: 2px dashed rgba(162, 215, 41, 0.85);
+				box-shadow: inset 0 0 40px rgba(162, 215, 41, 0.18);
+			}
+
+			.mg-character-drop-overlay.is-active {
+				display: grid;
+			}
+
+			.mg-character-drop-label {
+				padding: 14px 22px;
+				border-radius: 14px;
+				background: rgba(10, 12, 16, 0.9);
+				color: white;
+				font-weight: 900;
+				letter-spacing: 0.08em;
+				text-transform: uppercase;
+				box-shadow: 0 0 24px rgba(162, 215, 41, 0.35);
+			}
+		`;
+		document.head.appendChild(style);
+	}
+
+	_mgIsCrewInternalDrag(event) {
+		const types = Array.from(event?.dataTransfer?.types ?? []);
+		const path = event?.composedPath?.() ?? [];
+
+		return path.some(el =>
+			el?.classList?.contains?.("mg-init-card") ||
+			el?.classList?.contains?.("mg-init-placeholder") ||
+			el?.classList?.contains?.("mg-initiative-list")
+		);
+	}
+
+	async _mgGetCrewDropInfoFromElement(event) {
+		const el = event.target?.closest?.("[data-document-id], [data-entry-id], [data-item-id], .directory-item");
+		if (!el) return { allowed: false };
+
+		const id =
+			el.dataset.documentId ||
+			el.dataset.entryId ||
+			el.dataset.itemId ||
+			el.dataset.id;
+
+		if (!id) return { allowed: false };
+
+		const actor = game.actors?.get(id);
+		if (actor) {
+			return {
+				allowed: ["character", "npc"].includes(actor.type),
+				label: "Drop Actor Here"
+			};
 		}
 
-      // Strain snapshot (safe defaults)
-      const strain = doc?.system?.strain ?? {};
-      const mcCap = Number(strain["mortal capacity"] ?? 0) || 0;
-      const scCap = Number(strain["soul capacity"] ?? 0) || 0;
-      const mcTrk = Number(strain.mortal ?? 0) || 0;
-      const scTrk = Number(strain.soul ?? 0) || 0;		
+		const item = game.items?.get(id);
+		if (item) {
+			if (item.type === "asset") return { allowed: true, label: "Drop Asset Here" };
 
-      out.push({
-        uuid,
-		actorId: doc?.id ?? null,
-        name,
-        img,
-        type,
-        className,
-        levelText,
-        missing: !doc,
-        mcCap,
-        scCap,
-        mcTrk,
-        scTrk		
-      });
-    }
-    return out;
-  }
+			if (item.type === "gambit") {
+				const tier = String(item.system?.tier ?? "").toLowerCase();
+				return {
+					allowed: tier === "crew",
+					label: tier === "crew" ? "Drop Crew Gambit Here" : "Only Crew Gambits"
+				};
+			}
+		}
+
+		return { allowed: false };
+	}
+
+	_mgBindCrewWideDrop(html) {
+		this._mgEnsureCrewDropCSS();
+
+		const root = html?.[0];
+		const app = root?.closest?.(".window-app");
+		if (!app) return;
+
+		if (this._mgCrewWideDropHandlers) {
+			const h = this._mgCrewWideDropHandlers;
+			app.removeEventListener("dragenter", h.dragenter, true);
+			app.removeEventListener("dragover", h.dragover, true);
+			app.removeEventListener("dragleave", h.dragleave, true);
+			app.removeEventListener("drop", h.drop, true);
+
+			document.removeEventListener("dragstart", h.documentDragStart, true);
+			document.removeEventListener("dragend", h.documentDragEnd, true);
+			document.removeEventListener("drop", h.documentDragEnd, true);
+		}
+
+		let overlay = document.querySelector(`#mg-crew-drop-overlay-${this.actor.id}`);
+		if (!overlay) {
+			overlay = document.createElement("div");
+			overlay.id = `mg-crew-drop-overlay-${this.actor.id}`;
+			overlay.className = "mg-character-drop-overlay";
+			overlay.innerHTML = `<div class="mg-character-drop-label">Drop Here</div>`;
+			document.body.appendChild(overlay);
+		}
+
+		const syncOverlayToSheet = () => {
+			const rect = app.getBoundingClientRect();
+			overlay.style.left = `${rect.left}px`;
+			overlay.style.top = `${rect.top}px`;
+			overlay.style.width = `${rect.width}px`;
+			overlay.style.height = `${rect.height}px`;
+		};
+
+		let dragDepth = 0;
+		let crewCompatibleDragActive = false;
+		let crewKnownDragChecked = false;
+
+		const clearState = () => {
+			dragDepth = 0;
+			overlay.classList.remove("is-active", "is-denied");
+			const label = overlay.querySelector(".mg-character-drop-label");
+			if (label) label.textContent = "Drop Here";
+		};
+
+		const setOverlay = (labelText = "Drop Here") => {
+			syncOverlayToSheet();
+			const label = overlay.querySelector(".mg-character-drop-label");
+			if (label) label.textContent = labelText;
+			overlay.classList.add("is-active");
+			overlay.classList.remove("is-denied");
+		};
+
+		const dragenter = (event) => {
+			if (this._mgIsCrewInternalDrag(event)) return;
+
+			dragDepth += 1;
+
+			if (crewKnownDragChecked && !crewCompatibleDragActive) {
+				clearState();
+				return;
+			}
+
+			if (crewCompatibleDragActive) setOverlay("Drop Here");
+		};
+
+		const dragover = (event) => {
+			if (this._mgIsCrewInternalDrag(event)) return;
+
+			event.preventDefault();
+			event.stopPropagation();
+
+			if (crewKnownDragChecked && !crewCompatibleDragActive) {
+				if (event.dataTransfer) event.dataTransfer.dropEffect = "none";
+				clearState();
+				return;
+			}
+
+			if (event.dataTransfer) event.dataTransfer.dropEffect = "copy";
+			if (crewCompatibleDragActive) setOverlay("Drop Here");
+		};
+
+		const dragleave = (event) => {
+			if (this._mgIsCrewInternalDrag(event)) return;
+
+			dragDepth = Math.max(0, dragDepth - 1);
+
+			if (crewCompatibleDragActive) {
+				setOverlay("Drop Here");
+				return;
+			}
+
+			if (dragDepth === 0) clearState();
+		};
+
+		const drop = async (event) => {
+		if (this._mgIsCrewInternalDrag(event)) return;
+
+		event.preventDefault();
+		event.stopPropagation();
+		event.stopImmediatePropagation();
+
+		try {
+			// Do NOT trust only the dragstart pre-check.
+			// Actor drops can arrive in different shapes, so let _onDrop inspect the real payload.
+			const handled = await this._onDrop(event);
+
+			if (!handled && crewCompatibleDragActive) {
+			ui.notifications?.warn("That drop could not be handled by the Crew sheet.");
+			}
+
+			return handled;
+		} catch (err) {
+			console.error("MG | Crew sheet-wide drop failed:", err);
+			ui.notifications?.error("Drop failed. See console.");
+			return false;
+		} finally {
+			crewCompatibleDragActive = false;
+			crewKnownDragChecked = false;
+			clearState();
+		}
+		};
+
+		const documentDragStart = async (event) => {
+			if (this._mgIsCrewInternalDrag(event)) return;
+
+			const info = await this._mgGetCrewDropInfoFromElement(event);
+
+			crewKnownDragChecked = true;
+			crewCompatibleDragActive = !!info.allowed;
+
+			if (!crewCompatibleDragActive) {
+				clearState();
+				return;
+			}
+
+			setOverlay(info.label || "Drop Here");
+		};
+
+		const documentDragEnd = () => {
+			crewCompatibleDragActive = false;
+			crewKnownDragChecked = false;
+			clearState();
+		};
+
+		this._mgCrewWideDropHandlers = {
+			dragenter,
+			dragover,
+			dragleave,
+			drop,
+			documentDragStart,
+			documentDragEnd
+		};
+
+		app.addEventListener("dragenter", dragenter, true);
+		app.addEventListener("dragover", dragover, true);
+		app.addEventListener("dragleave", dragleave, true);
+		app.addEventListener("drop", drop, true);
+
+		document.addEventListener("dragstart", documentDragStart, true);
+		document.addEventListener("dragend", documentDragEnd, true);
+		document.addEventListener("drop", documentDragEnd, true);
+	}  
 
 	/** Top-level drop handler:
 	 *  - Accept Actor documents of type "character" onto the Party tab (your custom logic)
@@ -442,11 +690,54 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 
 		// === Party member (Actor) drop logic ===
 		if (data?.type === "Actor") {
-			const actor = await fromUuid(data.uuid);
-			if (!actor || actor.documentName !== "Actor") return false;
-			if (actor.type !== "character") {
-			ui.notifications?.warn("Only player characters can join the Crew (for now).");
-			return false;
+			event.preventDefault();
+			event.stopPropagation();
+
+			const resolveDroppedActor = async (dropData) => {
+				// Best case: Foundry gives us a UUID.
+				if (dropData?.uuid) {
+				const doc = await fromUuid(dropData.uuid).catch(() => null);
+
+				if (doc?.documentName === "Actor") return doc;
+				if (doc?.actor?.documentName === "Actor") return doc.actor;
+				if (doc?.parent?.documentName === "Actor") return doc.parent;
+				}
+
+				// Some drags provide an actor id instead.
+				const id =
+				dropData?.id ||
+				dropData?._id ||
+				dropData?.data?._id ||
+				dropData?.data?.id;
+
+				if (id) {
+				const actor = game.actors?.get(id);
+				if (actor?.documentName === "Actor") return actor;
+				}
+
+				// Some payloads tuck the UUID deeper.
+				if (dropData?.data?.uuid) {
+				const doc = await fromUuid(dropData.data.uuid).catch(() => null);
+
+				if (doc?.documentName === "Actor") return doc;
+				if (doc?.actor?.documentName === "Actor") return doc.actor;
+				if (doc?.parent?.documentName === "Actor") return doc.parent;
+				}
+
+				return null;
+			};
+
+			const actor = await resolveDroppedActor(data);
+
+			if (!actor || actor.documentName !== "Actor") {
+				console.warn("MG | Crew drop could not resolve Actor from drop data:", data);
+				ui.notifications?.warn("Could not resolve the dropped actor.");
+				return false;
+			}
+
+			if (!["character", "npc"].includes(actor.type)) {
+				ui.notifications?.warn("Only player characters and NPCs can join the Crew.");
+				return false;
 			}
 
 			const sys = this.actor.system ?? {};
@@ -761,73 +1052,104 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 
 		// Everything below this should only bind for owners (reorder/remove)
 		if (!this.isEditable) return;
+		this._mgBindCrewWideDrop(html);
 
-			// --- Remove member from this Crew (UUID-based, does both sides cleanly) ---
-			$root.off("click.mgRemoveMember").on("click.mgRemoveMember", ".mg-remove-member", async (ev) => {
-				ev.preventDefault();
-				ev.stopPropagation();
+		// --- Remove member from this Crew (UUID-based, works even if actor was deleted) ---
+		$root.off("click.mgRemoveMember").on("click.mgRemoveMember", ".mg-remove-member", async (ev) => {
+		ev.preventDefault();
+		ev.stopPropagation();
 
-				// Find the card and its UUID (your HTML sets data-uuid on .mg-member-card)
-				const card = ev.currentTarget.closest(".mg-member-card[data-uuid]");
-				const uuid = card?.dataset?.uuid;
-				if (!uuid) {
-					ui.notifications?.warn("Couldn’t determine which member to remove.");
-					return;
-				}
+		// Find the card and its UUID
+		const card = ev.currentTarget.closest(".mg-member-card[data-uuid]");
+		const uuid = card?.dataset?.uuid;
 
-				// Resolve the actual Actor from UUID (supports Token/other UUIDs too)
-				let doc = null;
-				try { doc = await fromUuid(uuid); } catch {}
-				const member = (doc?.documentName === "Actor") ? doc
-							: (doc?.actor) ? doc.actor
-							: null;
-				if (!member) {
-					ui.notifications?.warn("Member actor not found from UUID.");
-					return;
-				}
+		if (!uuid) {
+			ui.notifications?.warn("Couldn’t determine which member to remove.");
+			return;
+		}
 
-				// v11-safe esc
-				const esc = (s) => (window?.Handlebars?.escapeExpression)
-					? Handlebars.escapeExpression(String(s ?? ""))
-					: String(s ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;")
-									.replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");
+		// Try to resolve the actual Actor, but do NOT require it.
+		let doc = null;
+		try { doc = await fromUuid(uuid); } catch {}
 
-				const ok = await Dialog.confirm({
-					title: "Remove from Party?",
-					content: `<p>Remove <strong>${esc(member.name)}</strong> from this Crew?</p>`,
-					defaultYes: false
-				});
-				if (!ok) return;
+		const member =
+			(doc?.documentName === "Actor") ? doc :
+			(doc?.actor) ? doc.actor :
+			null;
 
-				try {
-					// 1) Remove member UUID from Crew party + initiative
-					const sys = this.actor.system ?? {};
-					const nextMembers = (sys.party?.members ?? []).filter(u => u !== uuid);
-					const nextOrder   = (sys.initiative?.order ?? []).filter(u => u !== uuid);
+		const sys = this.actor.system ?? {};
+		const party = sys.party ?? {};
+		const cache = foundry.utils.duplicate(party.cache ?? {});
 
-					await this.actor.update({
-					"system.party.members": nextMembers,
-					"system.initiative.order": nextOrder
-					}, { render: false });
+		// Fallback name for deleted actors:
+		// 1. live actor name
+		// 2. crew cache name
+		// 3. card title/name text
+		// 4. generic label
+		const fallbackName =
+			member?.name ||
+			cache?.[uuid]?.name ||
+			card?.querySelector(".mg-member-name, .name, h3, h4")?.textContent?.trim() ||
+			"Deleted Member";
 
-					// 2) Clear back-reference on the character if it pointed to THIS crew
-					if (member.system?.crewId === this.actor.id) {
-					await member.update({
-						"system.crewId": null,
-						"system.crewName": ""
-					}, { render: false });
-					}
+		// v11-safe esc
+		const esc = (s) => (window?.Handlebars?.escapeExpression)
+			? Handlebars.escapeExpression(String(s ?? ""))
+			: String(s ?? "")
+				.replace(/&/g, "&amp;")
+				.replace(/</g, "&lt;")
+				.replace(/>/g, "&gt;")
+				.replace(/"/g, "&quot;")
+				.replace(/'/g, "&#39;");
 
-					// 3) Soft refresh: this sheet + that actor’s open sheets
-					this.render(false);
-					Object.values(member.apps ?? {}).forEach(app => app?.render?.(false));
+		const missingCopy = member
+			? ""
+			: `<p class="notes">This actor no longer exists, so only the Crew reference will be removed.</p>`;
 
-					ui.notifications?.info(`${member.name} removed from the Crew.`);
-				} catch (err) {
-					console.error("MG | remove member failed:", err);
-					ui.notifications?.error("Failed to remove member. See console.");
-				}
-			});
+		const ok = await Dialog.confirm({
+			title: "Remove from Party?",
+			content: `
+			<p>Remove <strong>${esc(fallbackName)}</strong> from this Crew?</p>
+			${missingCopy}
+			`,
+			defaultYes: false
+		});
+
+		if (!ok) return;
+
+		try {
+			const nextMembers = (sys.party?.members ?? []).filter(u => u !== uuid);
+			const nextOrder = (sys.initiative?.order ?? []).filter(u => u !== uuid);
+			const nextHidden = (sys.initiative?.hidden ?? []).filter(u => u !== uuid);
+
+			// Clean stale cache entry too, otherwise the ghost can keep haunting the pantry.
+			delete cache[uuid];
+
+			await this.actor.update({
+			"system.party.members": nextMembers,
+			"system.party.cache": cache,
+			"system.initiative.order": nextOrder,
+			"system.initiative.hidden": nextHidden
+			}, { render: false });
+
+			// Only clear back-reference if the actor still exists.
+			if (member && member.system?.crewId === this.actor.id) {
+			await member.update({
+				"system.crewId": null,
+				"system.crewName": ""
+			}, { render: false });
+
+			Object.values(member.apps ?? {}).forEach(app => app?.render?.(false));
+			}
+
+			this.render(false);
+
+			ui.notifications?.info(`${fallbackName} removed from the Crew.`);
+		} catch (err) {
+			console.error("MG | remove member failed:", err);
+			ui.notifications?.error("Failed to remove member. See console.");
+		}
+		});
 
 		// Crew header pencil → edit Name via dialog (no inline input)
 		$root.off("click.mgCrewEditHeader").on("click.mgCrewEditHeader", ".mg-edit-name", async (ev) => {
@@ -1003,11 +1325,8 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 			const item = this.actor.items.get(id);
 			if (!item) return;
 
-			// Enrich both fields so TinyMCE formatting survives in chat
-			const descHtml  = await TextEditor.enrichHTML(String(item.system?.description ?? ""), { async: true });
-			const notesHtml = item.system?.notes
-			? await TextEditor.enrichHTML(String(item.system.notes), { async: true })
-			: "";
+			// Enrich Description so TinyMCE formatting survives in chat
+			const descHtml = await TextEditor.enrichHTML(String(item.system?.description ?? ""), { async: true });
 
 			const content = `
 			<div class="chat-item">
@@ -1024,7 +1343,6 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 					}</div>`
 				: ""
 				}
-				${notesHtml ? `<div class="asset-notes-chat"><strong>Notes:</strong><br>${notesHtml}</div>` : ""}
 			</div>
 			`;
 			await ChatMessage.create({
@@ -1034,7 +1352,7 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 			});
 		});
 
-		// Crew → Asset card "Edit": Quantity + Description (TinyMCE) + Notes (TinyMCE); OPEN/DELETE in header
+		// Crew → Asset card "Edit": Quantity + Description (TinyMCE); OPEN/DELETE in header
 		$root.off("click.mgCrewAssetEdit").on("click.mgCrewAssetEdit", ".asset-edit", async (ev) => {
 			ev.preventDefault();
 			ev.stopPropagation();
@@ -1048,11 +1366,9 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 			const safeName = (foundry.utils?.escapeHTML?.(item.name) ?? item.name);
 			const qty   = Math.max(0, Number(getProperty(item, "system.qty") ?? 0));
 			const desc  = String(getProperty(item, "system.description") ?? "");
-			const notes = String(getProperty(item, "system.notes") ?? "");
 
 			// Safe IDs that won't break querySelector
 			const descId  = `desc-${randomID()}`;
-			const notesId = `notes-${randomID()}`;
 
 			const content = `
 			<form class="mg-asset-edit" style="margin:0;">
@@ -1065,13 +1381,6 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 				<label>Description</label>
 				<div class="mg-editor-wrap">
 					<textarea id="${descId}" name="system.description" class="mg-rich ae-desc" style="width:100%;"></textarea>
-				</div>
-				</div>
-
-				<div class="input-wrapper">
-				<label>Notes</label>
-				<div class="mg-editor-wrap">
-					<textarea id="${notesId}" name="system.notes" class="mg-rich ae-notes" style="width:100%;"></textarea>
 				</div>
 				</div>
 			</form>
@@ -1094,7 +1403,7 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 			},
 			default: "save",
 			close: () => { $(`.${hdrKey}`).remove(); }
-			}, { classes: ["midnight-gambit", "dialog", "asset-notes-editor"], width: 560 });
+			}, { classes: ["midnight-gambit", "dialog", "asset-description-editor"], width: 560 });
 
 			dlg.render(true);
 
@@ -1134,14 +1443,12 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 
 			Hooks.once("closeDialog", (app) => { if (app === dlg) $(`.${hdrKey}`).remove(); });
 
-			// ----- Mount TinyMCE: Description + Notes (both awaited) -----
-			const descTarget  = $html.find(`[id='${descId}']`)[0];
-			const notesTarget = $html.find(`[id='${notesId}']`)[0];
-			if (!descTarget || !notesTarget) return;
+			// ----- Mount TinyMCE: Description -----
+			const descTarget = $html.find(`[id='${descId}']`)[0];
+			if (!descTarget) return;
 
 			// Seed existing HTML before init (so first paint matches)
 			descTarget.value  = desc;
-			notesTarget.value = notes;
 
 			// Clone your global config, give comfy caps, and allow internal scroll at cap
 			const mkCfg = (maxH) => {
@@ -1154,8 +1461,13 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 				return t;
 			};
 
-			await TextEditor.create({ target: descTarget,  name: "system.description", content: desc,  tinymce: mkCfg(440), height: null });
-			await TextEditor.create({ target: notesTarget, name: "system.notes",       content: notes, tinymce: mkCfg(320), height: null });
+			await TextEditor.create({
+				target: descTarget,
+				name: "system.description",
+				content: desc,
+				tinymce: mkCfg(440),
+				height: null
+			});
 
 			// Enter on qty submits the dialog (save)
 			$html.find(".ae-qty").on("keydown", (e) => {

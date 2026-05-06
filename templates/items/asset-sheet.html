@@ -1,7 +1,13 @@
 <form class="asset-sheet" autocomplete="off">
+
   <header class="sheet-header flexrow">
+    <div class="mg-item-type-badge sheet-body">
+        <h2><i class="fa-solid fa-vault"></i> Asset</h2>
+    </div>
+
     <img class="profile" src="{{item.img}}" data-edit="img" title="{{item.name}}" />
-    <h1 class="charname"><input name="name" type="text" value="{{item.name}}" /></h1>
+    
+    <h1 class="charname"><input name="name" type="text" value="{{item.name}}" /></h1>   
   </header>
 
   <section class="sheet-body">
@@ -12,20 +18,7 @@
         button=false
         editable=editable
         engine="tinymce"
-      }}
-    </div>
-
-    <div class="form-group stacked mg-content">
-      <label for="notes-{{item.id}}">Notes</label>
-      {{!-- Always-on TinyMCE; first arg is the content --}}
-      {{editor
-        system.notes
-        target="system.notes"
-        owner=owner
-        editable=editable
-        engine="tinymce"
-        button=false
-      }}
+      }}   
     </div>
 
     <div class="wrapper mg-content">
@@ -52,22 +45,22 @@
           </div>
         {{/each}}
       </div>
-    </div>
 
-    <!-- Optional: show chosen tags like the gear sheet -->
-    <div class="wrapper tag-wrapper mg-content">
-      <label>Selected Tags:</label>
-      {{#each system.tags}}
-        {{#with (findTag ../tags this) as |tag|}}
-          <span class="item-tag tag" data-tooltip="{{tag.description}}">{{tag.label}}</span>
-        {{else}}
-          <span class="item-tag tag">{{this}}</span>
-        {{/with}}
-      {{/each}}
+      <!-- Optional: show chosen tags like the gear sheet -->
+      <div class="wrapper tag-wrapper mg-content">
+        <label>Selected Tags:</label>
+        {{#each system.tags}}
+          {{#with (findTag ../tags this) as |tag|}}
+            <span class="item-tag tag" data-tooltip="{{tag.description}}">{{tag.label}}</span>
+          {{else}}
+            <span class="item-tag tag">{{this}}</span>
+          {{/with}}
+        {{/each}}
 
-      <button class="add-custom-tag">
-        <i class="fa-solid fa-plus"></i> Add Custom Tag
-      </button>
+        <button class="add-custom-tag">
+          <i class="fa-solid fa-plus"></i> Add Custom Tag
+        </button>
+      </div>      
     </div>
 
 

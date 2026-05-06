@@ -28,25 +28,83 @@
   }
 }
 
+/* Sheet Styles
+----------------------------------------------------------------------*/
 .sheet {
   .item-sheet,
   .asset-sheet,
   .guise-sheet {
-    .sheet-header {
+    padding: 2.125rem;
+    background: $mg-blue-4;
+    display: flex;
+    flex-direction: column;
+
+    .sheet-body {
       display: flex;
-      @include mg-border();
       flex-direction: column;
+    }  
+
+    .title-label {
+      grid-column: span 2;
+      padding-bottom: .5rem;
+      border-bottom: $mg-blue-main-2 2px solid;
+    } 
+
+    .sheet-header {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr 1fr;
+      @include mg-border();
+      background: $mg-blue-main;
+      box-shadow: 5px 5px 10px rgba(0,0,0,0.5);
       border-radius: .5rem;
       overflow: hidden;
-      margin-bottom: 2.125rem;
+      gap: 0;
+      margin-bottom: 2rem;
+
+      .mg-item-type-badge {
+        display: flex;
+        grid-column: span 4;
+
+        h2 {
+          @include tiller();
+          background: $mg-blue-main-2;
+          color: $mg-blue-1;
+          font-weight: 700;
+          font-size: 1.125rem;
+          line-height: 1.3;
+          border: none;
+          margin: 0;
+          display: flex;
+          gap: 0.5rem;
+          padding: .5rem;
+          overflow: hidden;
+
+          i {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: $mg-blue-4;
+            background: $mg-blue-3;
+            padding: .5rem;
+            margin: -.5rem 0 -.5rem -.5rem;
+            font-size: 1rem;
+            width: auto;
+          }        
+        }
+      }      
 
       img {
-        width: 100%;
         aspect-ratio: 1 / 1;
         height: auto;
         border: none;
         object-fit: cover;
         transition: background .5s ease, opacity .5s ease;
+        @include mg-border();
+        border-left: 0;
+        border-top: 0;
+        border-bottom: 0;
+        grid-column: span 2;
+        width: 100%;
 
         &:hover {
           opacity: .5;
@@ -56,6 +114,8 @@
 
       h1 {
         width: 100%;
+        grid-column: span 2;
+        padding: 0 1rem;
       }
     }
 
@@ -65,8 +125,15 @@
       flex-direction: column;
     }
 
-    .item-tag {
-      width: auto;
+    .tag-selector {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 0.5em;
+
+      .tag-pill.selected {
+        background: $mg-blue-main-2;
+        color: $mg-blue-2;
+      }
     }
 
     .tag-wrapper {
@@ -81,69 +148,34 @@
   }
 }
 
-.item-sheet,
-.guise-sheet,
-.asset-sheet {
-  padding: 2.125rem;
-  background: $mg-blue-4;
-  display: flex;
-  flex-direction: column;
-
-  .sheet-body {
-    display: flex;
-    flex-direction: column;
-
-    .tag-selector {
-      display: grid;
-      grid-template-columns: 1fr 1fr 1fr;
-      gap: 0.5em;
-
-      .tag-pill.selected {
-        background: $mg-blue-main-2;
-        color: $mg-blue-2;
-      }
-    }
-  }
-}
-
+/* Guise Sheet
+----------------------------------------------------------------------*/
 .guise-sheet {
   
   input {
     margin: 0;
   }
 
-  .guise-strain {
-    display: flex;
-    gap: 2.125rem;
-
-    .guise-capacity {
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: .5rem;
-    }
-  }
-
-  .guise-consumables {
-    display: flex;
-    gap: 2.125rem;
+  // Sheet Grouping styling
+  .guise-strain,
+  .guise-caster {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: .5rem;
 
     .guise-consumable-single {
       display: grid;
       grid-template-columns: 1fr;
       gap: .25rem;
-    }
-  }
+      grid-column: span 1;
+    } 
 
-  .guise-caster {
-    display: flex;
-    gap: .25rem;
-    width: 100%;
+    .guise-resource select {
+      width: 100%;
+    }
   }
 
   .attribute-modifiers {
-    label {
-      margin-bottom: .25rem;
-    }
 
     .grid {
       display: grid;
@@ -168,6 +200,10 @@
     display: flex;
     flex-direction: column;
     gap: 1rem;
+
+    .title-label {
+      grid-column: span 1;
+    }
 
     .move-block {
       display: grid;

@@ -108,7 +108,7 @@ export class MidnightGambitNpcSheet extends ActorSheet {
 
     // ----------------------------------------------------
     // Post Moves / Signature Perk to chat
-    // Includes NPC item notes for quick GM reference.
+    // Posts NPC move/signature descriptions to chat.
     // ----------------------------------------------------
     const enrichForChat = async (text) => {
       const raw = String(text ?? "").trim();
@@ -131,21 +131,13 @@ export class MidnightGambitNpcSheet extends ActorSheet {
 
       const name = item?.name || event.currentTarget.dataset.moveName || "Unknown Move";
       const description = item?.system?.description ?? event.currentTarget.dataset.moveDescription ?? "";
-      const notes = item?.system?.notes ?? "";
 
       const descHtml = await enrichForChat(description);
-      const notesHtml = await enrichForChat(notes);
 
       const chatContent = `
         <div class="chat-move">
           <h2><i class="fa-solid fa-hand-fist"></i> ${name}</h2>
           ${descHtml ? `<div class="chat-move-desc">${descHtml}</div>` : ""}
-          ${notesHtml ? `
-            <div class="chat-move-notes">
-              <h3>Notes</h3>
-              ${notesHtml}
-            </div>
-          ` : ""}
         </div>
       `;
 
@@ -165,21 +157,13 @@ export class MidnightGambitNpcSheet extends ActorSheet {
 
       const name = item?.name || event.currentTarget.dataset.perkName || "Signature";
       const description = item?.system?.description ?? event.currentTarget.dataset.perkDescription ?? "";
-      const notes = item?.system?.notes ?? "";
 
       const descHtml = await enrichForChat(description);
-      const notesHtml = await enrichForChat(notes);
 
       const chatContent = `
         <div class="chat-move">
           <h2><i class="fa-solid fa-diamond"></i> Signature Perk: ${name}</h2>
           ${descHtml ? `<div class="chat-move-desc">${descHtml}</div>` : ""}
-          ${notesHtml ? `
-            <div class="chat-move-notes">
-              <h3>Notes</h3>
-              ${notesHtml}
-            </div>
-          ` : ""}
         </div>
       `;
 
@@ -577,6 +561,134 @@ export class MidnightGambitNpcSheet extends ActorSheet {
         node.classList.toggle("filled", v <= nextTrack);
       });
     });
+
+    // ----------------------------
+    // Capacity: right-click exact value
+    // ----------------------------
+    html.find(".capacity-controls, .capacity-value, .label-box").on("contextmenu", async (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+
+      const actor = this.actor;
+      if (!actor) return;
+
+      const clicked = event.currentTarget;
+
+      // First try normal data attributes.
+      let type =
+        clicked.dataset?.type ||
+        clicked.closest("[data-type]")?.dataset?.type;
+
+      // If right-clicking the label badge, infer from visible label text.
+      // This catches badges like "MC 3" / "SC 3" even when they are not inside .capacity-controls.
+      if (!type && clicked.classList.contains("label-box")) {
+        const txt = String(clicked.textContent ?? "").toLowerCase();
+
+        if (txt.includes("mc") || txt.includes("mortal")) {
+          type = "mortal";
+        }
+
+        if (txt.includes("sc") || txt.includes("soul")) {
+          type = "soul";
+        }
+      }
+
+      // Final fallback: look nearby for a capacity-control/value with data-type.
+      if (!type) {
+        const parent =
+          clicked.closest(".capacity-ticker") ||
+          clicked.parentElement ||
+          clicked.closest(".strain-card") ||
+          clicked.closest(".strain-block");
+
+        type =
+          parent?.querySelector?.(".capacity-controls[data-type], .capacity-value[data-type]")?.dataset?.type ||
+          null;
+      }
+
+      if (!type) {
+        console.warn("MG | Could not determine capacity type from right-click target:", clicked);
+        return;
+      }
+
+      const capKey = `${type} capacity`;
+
+      const currentCap = Number(
+        foundry.utils.getProperty(actor.system, `strain.${capKey}`)
+      ) || 0;
+
+      const currentMax = Number(
+        foundry.utils.getProperty(actor.system, `strain.maxCapacity.${type}`)
+      ) || currentCap;
+
+      const label = type === "mortal" ? "Mortal Capacity" : "Soul Capacity";
+
+      const result = await Dialog.wait({
+        title: `Set ${label}`,
+        content: `
+          <form class="mg-form">
+            <div class="form-group">
+              <label>${label}</label>
+              <input type="number" name="value" value="${currentCap}" min="0" step="1" />
+            </div>
+
+            <p class="notes">
+              Current max: <strong>${currentMax}</strong>. Entering a higher number will add temporary capacity.
+            </p>
+          </form>
+        `,
+        buttons: {
+          ok: {
+            label: "Save",
+            callback: (dlgHtml) => {
+              return dlgHtml.find('input[name="value"]').val();
+            }
+          },
+          cancel: {
+            label: "Cancel",
+            callback: () => null
+          }
+        },
+        default: "ok"
+      });
+
+      if (result === null) return;
+
+      const nextCap = Math.max(0, Math.floor(Number(result)));
+
+      if (!Number.isFinite(nextCap)) {
+        ui.notifications.warn("Please enter a valid capacity number.");
+        return;
+      }
+
+      const updates = {
+        [`system.strain.${capKey}`]: nextCap,
+        [`system.strain.manualOverride.${capKey}`]: true
+      };
+
+      // If the new capacity is above the current max, store the difference as tempBonus.
+      // This lets bosses go to 25+ capacity without later logic shaving them back down.
+      if (nextCap > currentMax) {
+        const currentTemp = Number(
+          foundry.utils.getProperty(actor.system, `strain.tempBonus.${type}`)
+        ) || 0;
+
+        const extraNeeded = nextCap - currentMax;
+
+        updates[`system.strain.tempBonus.${type}`] = currentTemp + extraNeeded;
+        updates[`system.strain.maxCapacity.${type}`] = nextCap;
+      }
+
+      await actor.update(updates, { render: false });
+
+      // Patch the visible number immediately
+      html.find(`.capacity-value[data-type="${type}"]`).text(String(nextCap));
+
+      const maxEl = html[0]?.querySelector(`.capacity-max[data-type='${type}']`);
+      if (maxEl) maxEl.textContent = String(Math.max(nextCap, currentMax));
+
+      this.render(false);
+    });    
 
     // ----------------------------
     // Attribute: right-click edit base (same behavior as PC sheet)

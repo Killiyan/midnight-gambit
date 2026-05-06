@@ -910,22 +910,59 @@ export class MGInitiativeSidebar {
     if (syncId && this._lastSyncId === syncId) return;
     if (syncId) this._lastSyncId = syncId;
 
-    // Keep roster up-to-date, but animate based on event type
     if (evt?.type === "progress") {
-      if (this._animating) return; // ignore replicated echo
+      if (this._animating) return;
+
+      const payload = evt.payload ?? {};
+
+      if (Array.isArray(payload.ids)) {
+        this._ids = payload.ids.filter(id => !!game.actors.get(id));
+      } else {
+        this._ids = this._getFullTrackIds();
+      }
+
+      // Start the sidebar animation from the canonical previous index.
+      const prev = Number(payload.prev ?? payload.activeIndex ?? 0);
+      const L = this._trackLength();
+      this._activeIndex = ((prev % L) + L) % L;
+
       if (this._raf) cancelAnimationFrame(this._raf);
       this._raf = requestAnimationFrame(() => this._animateAdvance());
       return;
     }
 
     if (evt?.type === "reset") {
+      if (this._animating) return;
+
+      const payload = evt.payload ?? {};
+
+      if (Array.isArray(payload.ids)) {
+        this._ids = payload.ids.filter(id => !!game.actors.get(id));
+      } else {
+        this._ids = this._getFullTrackIds();
+      }
+
+      this._activeIndex = 0;
+
       if (this._raf) cancelAnimationFrame(this._raf);
       this._raf = requestAnimationFrame(() => this._animateReset());
       return;
     }
 
     if (evt?.type === "order") {
-      this._syncFromSource();
+      const payload = evt.payload ?? {};
+
+      if (Array.isArray(payload.ids)) {
+        this._ids = payload.ids.filter(id => !!game.actors.get(id));
+      } else {
+        this._syncFromSource();
+      }
+
+      if (Number.isFinite(Number(payload.activeIndex))) {
+        const L = this._trackLength();
+        this._activeIndex = ((Number(payload.activeIndex) % L) + L) % L;
+      }
+
       this._paintSlots();
     }
   }
@@ -933,6 +970,7 @@ export class MGInitiativeSidebar {
   // -----------------------------
   // Interaction
   // -----------------------------
+
   _bind(root) {
     if (this._bound) return;
     this._bound = true;
@@ -950,23 +988,25 @@ export class MGInitiativeSidebar {
         const next = !game.settings.get(MG_NS, "initiativeSidebarCollapsed");
         await game.settings.set(MG_NS, "initiativeSidebarCollapsed", next);
         root.classList.toggle("is-collapsed", next);
-        // update icon/title
         this._paintSlots();
         return;
       }
 
+      // During animation, ignore Next/Reset spam.
       if (this._animating) return;
 
       if (action === "next") {
-        // Optimistic local animation + replicated truth
-        this._animateAdvance().catch(console.error);
+        // Do NOT animate locally here.
+        // Ask the controller to advance. The replicated controller event will trigger animation.
         MGInitiativeController.instance.advance().catch(console.error);
         return;
       }
 
       if (action === "reset") {
-        this._animateReset().catch(console.error);
+        // Do NOT reset locally here.
+        // Ask the controller to reset. The replicated controller event will trigger reset.
         MGInitiativeController.instance.reset().catch(console.error);
+        return;
       }
     }, { passive: false });
   }

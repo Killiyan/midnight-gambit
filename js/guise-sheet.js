@@ -56,6 +56,37 @@ export class GuiseSheet extends ItemSheet {
     return base;
   }
 
+  _mgClearTinyMceFocus(html) {
+    const root = html instanceof jQuery ? html[0] : html;
+    const appEl = root?.closest?.(".window-app");
+    if (!appEl) return;
+
+    const clear = () => {
+      try {
+        const active = window.tinymce?.activeEditor;
+        const target = active?.targetElm || active?.getElement?.();
+
+        if (target && !appEl.contains(target)) return;
+
+        active?.blur?.();
+        active?.getWin?.()?.blur?.();
+        active?.getBody?.()?.blur?.();
+
+        const focused = document.activeElement;
+        if (focused?.closest?.(".tox-tinymce")) focused.blur();
+
+        appEl.setAttribute("tabindex", "-1");
+        appEl.focus({ preventScroll: true });
+      } catch (err) {
+        console.warn("MG | Guise TinyMCE focus clear failed:", err);
+      }
+    };
+
+    requestAnimationFrame(clear);
+    setTimeout(clear, 50);
+    setTimeout(clear, 150);
+  }  
+
   activateListeners(html) {
     super.activateListeners(html);
 
@@ -115,7 +146,10 @@ export class GuiseSheet extends ItemSheet {
         tinymce: mkCfg(),
         height: null
       })
-      .then(() => { el.dataset.tiny = "1"; })
+      .then(() => {
+        el.dataset.tiny = "1";
+        this._mgClearTinyMceFocus(html);
+      })
       .catch(console.error);
     });
 
@@ -250,7 +284,7 @@ export class GuiseSheet extends ItemSheet {
 static get defaultOptions() {
   return foundry.utils.mergeObject(super.defaultOptions, {
     template: "systems/midnight-gambit/templates/items/guise-sheet.html",
-    width: 500,
+    width: 800,
     height: 800,
     submitOnChange: false,
     submitOnClose:  false,

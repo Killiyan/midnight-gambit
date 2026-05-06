@@ -1,82 +1,32 @@
 <form class="item-sheet" autocomplete="off">
+
   <header class="sheet-header">
+    <div class="mg-item-type-badge sheet-body">
+      {{#if (eq itemType "weapon")}}
+        <h2><i class="fa-solid fa-swords"></i> Weapon</h2>
+      {{/if}}
+
+      {{#if (eq itemType "armor")}}
+        <h2><i class="fa-solid fa-shield-halved"></i> Armor</h2>
+      {{/if}}
+
+      {{#if (eq itemType "misc")}}
+        <h2><i class="fa-solid fa-rectangles-mixed"></i> Misc</h2>
+      {{/if}}
+
+      {{#if (eq itemType "gambit")}}
+        <h2><i class="fa-solid fa-cards"></i> Gambit</h2>
+      {{/if}}
+
+      {{#if (eq itemType "move")}}
+        <h2><i class="fa-solid fa-hand-fist"></i> Move</h2>
+      {{/if}}
+    </div>
     <img class="profile-img" src="{{item.img}}" data-edit="img" title="{{item.name}}" />
     <h1><input name="name" type="text" value="{{item.name}}" /></h1>
   </header>
 
-  <section class="sheet-body">
-    <div class="item-description wrapper mg-content">
-      <label>Description</label>
-      {{editor
-        system.description
-        target="system.description"
-        engine="tinymce"
-        owner=owner
-        editable=editable
-        button=false
-      }}
-    </div>
-
-    <div class="item-notes wrapper mg-content">
-      <label>Notes</label>
-      {{editor
-        system.notes
-        target="system.notes"
-        engine="tinymce"
-        owner=owner
-        editable=editable
-        button=false
-      }}
-    </div>
-
-    {{#if (eq itemType "move")}}
-      <div class="wrapper mg-content">
-        <div class="form-group signature-check">
-          <label>Signature Perk?</label>
-          <div class="form-wrap">
-            <input type="checkbox" name="system.isSignature" {{#if system.isSignature}}checked{{/if}} />
-            <p>If checked, this item will post and render as a Signature Perk instead of a Move.</p>
-          </div>
-        </div>
-      </div>
-    {{/if}}    
-
-    <div class="wrapper mg-content">
-      <label>Tags</label>
-      <div class="tag-selector">
-
-        {{#each tags}}
-          <div class="tag-container">
-            <button
-            type="button"
-            class="tag-pill {{#if (includes ../system.tags this.id)}}selected{{/if}}"
-            data-tag-id="{{this.id}}"
-            title="{{this.description}}"
-            >
-            {{this.label}}
-            </button>
-
-              {{#if this.isCustom}}
-                <button type="button" class="delete-custom-tag" data-tag-id="{{this.id}}" title="Delete custom tag globally"><i class="fa-solid fa-delete-left"></i></button>
-              {{/if}}
-          </div>
-        {{/each}}
-        
-      </div>
-    </div>
-    
-    <div class="wrapper tag-wrapper mg-content">
-      <label>Selected Tags:</label>
-      {{#each item.system.tags}}
-        {{#with (findTag ../tags this) as |tag|}}
-        <span class="item-tag tag" data-tooltip="{{tag.description}}">{{tag.label}}</span>
-        {{else}}
-        <span class="item-tag tag">{{this}}</span>
-        {{/with}}
-      {{/each}}
-      
-      <button class="add-custom-tag"><i class="fa-solid fa-plus"></i> Add Custom Tag</button>
-    </div>
+  <section class="sheet-body"> 
 
     {{#if (eq item.type "gambit")}}
       <div class="form-group mg-content">
@@ -89,9 +39,7 @@
           <option value="crew" {{#if (eq system.tier "crew")}}selected{{/if}}>Crew</option>
         </select>
       </div>
-    {{/if}}
-
-
+    {{/if}}    
 
     {{#if (eq itemType "weapon")}}
       <div class="wrapper mg-content">
@@ -170,6 +118,67 @@
         </div>
       </div>
     {{/if}}
+
+    <div class="item-description wrapper mg-content">
+      <label>Description</label>
+      {{editor
+        system.description
+        target="system.description"
+        engine="tinymce"
+        owner=owner
+        editable=editable
+        button=false
+      }}    
+    </div>
+
+    {{#if (eq itemType "move")}}
+      <div class="wrapper mg-content">
+        <div class="form-group signature-check">
+          <label>Signature Perk?</label>
+          <div class="form-wrap">
+            <input type="checkbox" name="system.isSignature" {{#if system.isSignature}}checked{{/if}} />
+            <p>If checked, this item will post and render as a Signature Perk instead of a Move.</p>
+          </div>
+        </div>
+      </div>
+    {{/if}}    
+
+    <div class="wrapper mg-content">
+      <label>Tags</label>
+      <div class="tag-selector">
+
+        {{#each tags}}
+          <div class="tag-container">
+            <button
+            type="button"
+            class="tag-pill {{#if (includes ../system.tags this.id)}}selected{{/if}}"
+            data-tag-id="{{this.id}}"
+            title="{{this.description}}"
+            >
+            {{this.label}}
+            </button>
+
+              {{#if this.isCustom}}
+                <button type="button" class="delete-custom-tag" data-tag-id="{{this.id}}" title="Delete custom tag globally"><i class="fa-solid fa-delete-left"></i></button>
+              {{/if}}
+          </div>
+        {{/each}}
+        
+      </div>
+
+      <div class="wrapper tag-wrapper">
+        <label>Selected Tags:</label>
+        {{#each item.system.tags}}
+          {{#with (findTag ../tags this) as |tag|}}
+          <span class="item-tag tag" data-tooltip="{{tag.description}}">{{tag.label}}</span>
+          {{else}}
+          <span class="item-tag tag">{{this}}</span>
+          {{/with}}
+        {{/each}}
+        
+        <button class="add-custom-tag"><i class="fa-solid fa-plus"></i> Add Custom Tag</button>
+      </div>      
+    </div>
 
   </section>
 </form>

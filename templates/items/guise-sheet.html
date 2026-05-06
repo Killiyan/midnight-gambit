@@ -1,12 +1,19 @@
 <form class="guise-sheet">
+
   <header class="sheet-header">
+    <div class="mg-item-type-badge sheet-body">
+      <h2><i class="fa-solid fa-masks-theater"></i> Guise</h2>
+    </div>
+
     <img class="profile" src="{{item.img}}" data-edit="img" title="{{item.name}}" />
+  
     <h1><input type="text" name="name" value="{{item.name}}" /></h1>
   </header>
 
   <div class="sheet-body">
+
     <div class="desription-group mg-content">
-      <label>Description</label>
+      <label class="title-label">Description</label>
       {{editor
         system.description
         target="system.description"
@@ -18,6 +25,9 @@
     </div>
 
     <div class="guise-strain mg-content">
+
+      <label class="title-label">Strain and Resurces</label>
+
       <div class="guise-capacity">
         <label>Mortal Strain Cap</label>
         <input type="number" name="system.mortalCap" value="{{system.mortalCap}}" />
@@ -27,9 +37,7 @@
         <label>Soul Strain Cap</label>
         <input type="number" name="system.soulCap" value="{{system.soulCap}}" />
       </div>
-    </div>
 
-    <div class="guise-consumables mg-content">
       <div class="guise-consumable-single">
         <label for="sparkSlots">Spark Slots</label>
         <input type="number" name="system.sparkSlots" value="{{system.sparkSlots}}" />
@@ -38,32 +46,36 @@
       <div class="guise-consumable-single">
         <label for="riskDice">Risk Dice</label>
         <input type="number" name="system.riskDice" value="{{system.riskDice}}" />
-      </div>
+      </div>      
     </div>
 
     <div class="guise-caster mg-content">
-      <label for="casterType">Caster Type</label>
-      <select name="system.casterType">
-        <option value="none" {{#if (eq system.casterType "none")}}selected{{/if}}>No Caster</option>
-        <option value="half" {{#if (eq system.casterType "half")}}selected{{/if}}>Half Caster</option>
-        <option value="full" {{#if (eq system.casterType "full")}}selected{{/if}}>Full Caster</option>
-      </select>
-    </div>
+      <label class="title-label">Spark</label>
 
-    <div class="form-group mg-content">
-      <label>Spark Attribute</label>
-      <select name="system.sparkAttribute">
-        {{#each attributeKeys as |k|}}
-          <option value="{{k}}" {{#if (eq ../system.sparkAttribute k)}}selected{{/if}}>
-            {{capitalize k}}
-          </option>
-        {{/each}}
-      </select>
+      <div class="guise-resource">
+        <label for="casterType">Caster Type</label>
+        <select name="system.casterType">
+          <option value="none" {{#if (eq system.casterType "none")}}selected{{/if}}>No Caster</option>
+          <option value="half" {{#if (eq system.casterType "half")}}selected{{/if}}>Half Caster</option>
+          <option value="full" {{#if (eq system.casterType "full")}}selected{{/if}}>Full Caster</option>
+        </select>
+      </div>
+
+      <div class="guise-resource">
+        <label>Spark Attribute</label>
+        <select name="system.sparkAttribute">
+          {{#each attributeKeys as |k|}}
+            <option value="{{k}}" {{#if (eq ../system.sparkAttribute k)}}selected{{/if}}>
+              {{capitalize k}}
+            </option>
+          {{/each}}
+        </select>
+      </div>   
     </div>
 
 
     <div class="attribute-modifiers mg-content">
-      <label>Attribute Modifiers</label>
+      <label class="title-label">Attribute Modifiers</label>
       <div class="grid">
         {{#each attributeKeys}}
           <div class="attr-row">
@@ -74,11 +86,11 @@
       </div>
     </div>
 
-    <!--This is rendering the Guise Basic moves/Signature Perk-->
+    <!--This is rendering the Guise Signature Perk-->
     <div class="guise-moves mg-content">
 
       <div class="guise-signature">
-        <label>Signature Perk</label>
+        <label class="title-label">Signature Perk</label>
         <input type="text" name="system.signaturePerk" value="{{system.signaturePerk}}" />
 
         <div class="desription-group">
@@ -126,62 +138,61 @@
           </div>
         </div>  
       </div>
+    </div>
 
+    <!--This is rendering the Guise Basic moves-->
+    <div class="guise-moves mg-content">
+      {{#each system.moves as |move idx|}}
+        <div class="move-block" data-index="{{idx}}">
+          <label class="title-label">Move Name</label>
+          
+          <input type="text"
+            name="system.moves.{{@index}}.name"
+            value="{{this.name}}"
+            class="move-name" />
 
-      <div class="guise-moves">
-        {{#each system.moves as |move idx|}}
-          <div class="move-block" data-index="{{idx}}">
-            <label>Move Name</label>
-              <input type="text"
-                name="system.moves.{{@index}}.name"
-                value="{{this.name}}"
-                class="move-name" />
+          <label>Move Description</label>
+          <textarea name="system.moves.{{@index}}.description" class="mg-rich move-description">{{this.description}}</textarea>
 
-            <label>Move Description</label>
-            <textarea name="system.moves.{{@index}}.description" class="mg-rich move-description">{{this.description}}</textarea>
+          {{!-- MOVE TAGS --}}
 
-            {{!-- MOVE TAGS --}}
+          <div class="wrapper mg-content">
+            <label>Move Tags</label>
 
-            <div class="wrapper mg-content">
-              <label>Move Tags</label>
+            <input type="hidden" name="system.moves.{{idx}}.tagsCsv" value="{{this.tagsCsv}}" data-tags-csv="moves.{{idx}}.tags">
+            <div class="tag-selector" data-tags-target="moves.{{idx}}.tags">
+              {{#each ../tags}}
+                <div class="tag-container">
+                  <button
+                    type="button"
+                    class="tag-pill {{#if (lookup (lookup ../../moveTagSelected idx) this.id)}}selected{{/if}}"
+                    data-tag-id="{{this.id}}"
+                    title="{{this.description}}"
+                  >
+                    {{this.label}}
+                  </button>
 
-              <input type="hidden" name="system.moves.{{idx}}.tagsCsv" value="{{this.tagsCsv}}" data-tags-csv="moves.{{idx}}.tags">
-              <div class="tag-selector" data-tags-target="moves.{{idx}}.tags">
-                {{#each ../tags}}
-                  <div class="tag-container">
+                  {{#if this.isCustom}}
                     <button
                       type="button"
-                      class="tag-pill {{#if (lookup (lookup ../../moveTagSelected idx) this.id)}}selected{{/if}}"
+                      class="delete-custom-tag"
                       data-tag-id="{{this.id}}"
-                      title="{{this.description}}"
+                      title="Delete custom tag globally"
                     >
-                      {{this.label}}
+                      <i class="fa-solid fa-delete-left"></i>
                     </button>
+                  {{/if}}
+                </div>
+              {{/each}}             
+            </div>
+          </div>     
 
-                    {{#if this.isCustom}}
-                      <button
-                        type="button"
-                        class="delete-custom-tag"
-                        data-tag-id="{{this.id}}"
-                        title="Delete custom tag globally"
-                      >
-                        <i class="fa-solid fa-delete-left"></i>
-                      </button>
-                    {{/if}}
-                  </div>
-                {{/each}}             
-              </div>
-            </div>     
-
-            <button type="button" class="remove-move" data-index="{{idx}}">Remove</button>
-          </div>
-        {{/each}}
+          <button type="button" class="remove-move" data-index="{{idx}}">Remove</button>
+        </div>
+      {{/each}}
 
 
-        <button type="button" class="add-move">+ Add Move</button>
-      </div>
-
-
+      <button type="button" class="add-move">+ Add Move</button>
     </div>
   </div>
 

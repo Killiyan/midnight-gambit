@@ -1,14 +1,52 @@
-import { MGInitiativeBar } from "./initiative-bar.js";
 import { MidnightGambitCrewSheet } from "./crew-sheet.js";
+import { MGInitiativeBar } from "./initiative-bar.js";
 import { MGInitiativeSidebar } from "./initiative-sidebar.js";
+import { MGInitiativeController } from "./initiative-controller.js";
 import { evaluateRoll } from "./roll-utils.js";
 
 
 
-// After Hooks.once("ready", ...) or add a new one
 Hooks.once("ready", () => {
   // Singleton access for debugging in console: game.mgInitiative
   game.mgInitiative = MGInitiativeBar.instance;
+
+  game.socket.on("system.midnight-gambit", async (data) => {
+    if (!data || data.type !== "makeGlobalItem") return;
+
+    // Only the GM should answer promotion requests.
+    if (!game.user.isGM) return;
+
+    try {
+      const itemData = foundry.utils.deepClone(data.itemData ?? {});
+      if (!itemData.name || !itemData.type) {
+        console.warn("MG | Invalid makeGlobalItem payload:", data);
+        return;
+      }
+
+      delete itemData._id;
+
+      const created = await Item.create(itemData, { renderSheet: false });
+
+      const requestingUser = game.users.get(data.requestingUserId);
+      const whisperTargets = requestingUser ? [requestingUser.id] : [];
+
+      await ChatMessage.create({
+        user: game.user.id,
+        whisper: whisperTargets,
+        content: `
+          <div class="chat-item">
+            <h2><i class="fa-solid fa-globe"></i> Global Item Created</h2>
+            <p><strong>${created.name}</strong> was added to the Items directory.</p>
+          </div>
+        `
+      });
+
+      ui.notifications?.info(`Created global item: ${created.name}`);
+    } catch (err) {
+      console.error("MG | Failed to make global item:", err);
+      ui.notifications?.error("Failed to make global item. See console.");
+    }
+  });
 });
 
 
@@ -2888,6 +2926,56 @@ Hooks.on("updateActor", (actor, changes) => {
   }
 });
 
+/* Inventory Item Update Sync
+------------------------------------------------------------------*/
+// When an embedded inventory item changes, refresh any open parent actor sheets.
+// This keeps tags, strain damage, capacity, quantity, etc. synced after editing
+// the item through its item sheet.
+Hooks.on("updateItem", (item, changes, options, userId) => {
+  try {
+    // Only react to embedded Items owned by an Actor.
+    const actor = item?.parent;
+    if (!actor || actor.documentName !== "Actor") return;
+
+    // Character inventory only. Crew assets have their own card/edit flow.
+    if (actor.type !== "character") return;
+
+    // Only inventory-ish item types.
+    if (!["weapon", "armor", "misc", "gambit", "asset"].includes(item.type)) return;
+
+    // If this client cannot see/own the actor, don't touch its sheet.
+    if (!actor.isOwner && !game.user.isGM) return;
+
+    // Re-render every open sheet for this actor on this client.
+    for (const app of Object.values(actor.apps ?? {})) {
+      app?.render?.(false);
+    }
+  } catch (err) {
+    console.warn("MG | updateItem inventory sync failed:", err);
+  }
+});
+
+/* Inventory Item Update Sync
+------------------------------------------------------------------*/
+// When an embedded inventory item changes, refresh any open parent actor sheets.
+// This keeps tags, strain damage, capacity, quantity, etc. synced after editing
+// the item through its item sheet.
+Hooks.on("updateItem", (item, changes, options, userId) => {
+  try {
+    const actor = item?.parent;
+    if (!actor || actor.documentName !== "Actor") return;
+    if (actor.type !== "character") return;
+    if (!["weapon", "armor", "misc", "gambit", "asset"].includes(item.type)) return;
+
+    if (!actor.isOwner && !game.user.isGM) return;
+
+    for (const app of Object.values(actor.apps ?? {})) {
+      app?.render?.(false);
+    }
+  } catch (err) {
+    console.warn("MG | updateItem inventory sync failed:", err);
+  }
+});
 
 /* Check if a guise has been added to the sheet, and then apply level up section
 ------------------------------------------------------------------*/
@@ -3212,6 +3300,97 @@ Hooks.once("ready", () => {
   // Run again whenever sidebar tabs re-render
   Hooks.on("renderSidebarTab", () => removeCombatTab());
 });
+
+/* MG: Prevent TinyMCE from auto-owning focus on sheets
+----------------------------------------------------------------------*/
+Hooks.on("renderApplication", (app, html) => {
+  const root = html instanceof jQuery ? html[0] : html;
+  const appEl = root?.closest?.(".window-app");
+  if (!appEl) return;
+
+  // Only Midnight Gambit sheets, not dialogs.
+  const isMgSheet =
+    appEl.classList.contains("midnight-gambit") &&
+    appEl.classList.contains("sheet");
+
+  if (!isMgSheet) return;
+
+  // Do NOT affect dialogs/edit modals where immediate typing may be wanted.
+  if (appEl.classList.contains("dialog")) return;
+
+  const clearTinyFocus = () => {
+    try {
+      const active = window.tinymce?.activeEditor;
+      const target = active?.targetElm || active?.getElement?.();
+
+      // Only clear TinyMCE focus if the active editor belongs to THIS sheet.
+      if (target && !appEl.contains(target)) return;
+
+      active?.blur?.();
+      active?.getWin?.()?.blur?.();
+      active?.getBody?.()?.blur?.();
+
+      const focused = document.activeElement;
+      if (focused?.closest?.(".tox-tinymce")) focused.blur();
+
+      appEl.setAttribute("tabindex", "-1");
+      appEl.focus({ preventScroll: true });
+    } catch (err) {
+      console.warn("MG | TinyMCE sheet focus clear failed:", err);
+    }
+  };
+
+  requestAnimationFrame(clearTinyFocus);
+  setTimeout(clearTinyFocus, 50);
+  setTimeout(clearTinyFocus, 150);
+});
+
+// ----------------------------------------------------
+// MG: Prevent TinyMCE from auto-owning focus on sheets
+// Keeps rich editors mounted, but moves focus back to the sheet window.
+// Does NOT run on dialogs.
+// ----------------------------------------------------
+function mgClearTinyMceSheetFocus(app, html) {
+  const root = html instanceof jQuery ? html[0] : html;
+  const appEl = root?.closest?.(".window-app");
+  if (!appEl) return;
+
+  if (!appEl.classList.contains("midnight-gambit")) return;
+  if (!appEl.classList.contains("sheet")) return;
+  if (appEl.classList.contains("dialog")) return;
+
+  const clearTinyFocus = () => {
+    try {
+      const active = window.tinymce?.activeEditor;
+      const target = active?.targetElm || active?.getElement?.();
+
+      // Only clear focus if the active TinyMCE editor belongs to this sheet.
+      if (target && !appEl.contains(target)) return;
+
+      active?.blur?.();
+      active?.getWin?.()?.blur?.();
+      active?.getBody?.()?.blur?.();
+
+      const focused = document.activeElement;
+      if (focused?.closest?.(".tox-tinymce")) focused.blur();
+
+      appEl.setAttribute("tabindex", "-1");
+      appEl.focus({ preventScroll: true });
+    } catch (err) {
+      console.warn("MG | TinyMCE sheet focus clear failed:", err);
+    }
+  };
+
+  requestAnimationFrame(clearTinyFocus);
+  setTimeout(clearTinyFocus, 50);
+  setTimeout(clearTinyFocus, 150);
+}
+
+// Actor sheets: Character, NPC, Crew
+Hooks.on("renderActorSheet", mgClearTinyMceSheetFocus);
+
+// Item sheets: Weapon, Armor, Misc, Gambit, Asset, Move, Guise
+Hooks.on("renderItemSheet", mgClearTinyMceSheetFocus);
 
 /* Force Chat to Start at Bottom (refresh-safe)
 ----------------------------------------------------------------------*/

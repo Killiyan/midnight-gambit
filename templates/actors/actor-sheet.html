@@ -658,6 +658,13 @@
               />
             </div>
 
+            <div class="inventory-create-wrap">
+              <label>Create Item</label>
+              <button type="button" class="mg-create-item" title="Create Item">
+                <i class="fa-solid fa-plus"></i>
+              </button>
+            </div>            
+
             <!-- Inventory search -->
             <div class="search-wrap">
               <label>Search Items</label>
@@ -808,21 +815,6 @@
                         </div>
                       {{/if}}
 
-                      {{#if (stripHTML item.system.notes)}}
-                        <div class="mg-seeall-wrap" data-item-id="{{item._id}}" data-seeall-cap="140">
-                          <div class="desc">
-                            <label>Notes</label>
-                            <div class="desc-content mg-seeall-content">
-                              {{{item.system.notes}}}
-                            </div>
-                          </div>
-
-                          <button class="mg-seeall-toggle" type="button">
-                            <i class="fa-solid fa-angle-down"></i>
-                          </button>
-                        </div>
-                      {{/if}}
-
                       <div class="info-wrapper">
                         <label>Quantity</label>
                         <input type="number" class="item-quantity" value="{{item.system.quantity}}" min="0" />
@@ -833,6 +825,14 @@
                         <input type="checkbox" class="item-equipped" {{#if item.system.equipped}}checked{{/if}} />
                         <label>Favorite</label>
                         <input type="checkbox" class="item-favorite" {{#if item.system.favorite}}checked{{/if}} />
+                        <label>Edit Item</label>
+                        <button
+                          type="button"
+                          class="item-edit"
+                          data-item-id="{{item.id}}"
+                          title="Edit Item">
+                          <i class="fa-regular fa-pen-to-square"></i>
+                        </button>                           
                       </div>                      
 
                       <div class="status-buttons">
@@ -847,10 +847,6 @@
                             </button>
                           {{/if}}
                         {{/if}}
-
-                        <button class="sync-tags" data-item-id="{{_id}}" title="Sync tags with global list">
-                          <i class="fa-solid fa-arrows-rotate"></i>
-                        </button>
 
                         <button class="item-delete" data-item-id="{{item._id}}" title="Delete Item">
                           <i class="fas fa-trash"></i>
@@ -929,6 +925,9 @@
                                 </div>
                               {{/with}}
                             {{/each}}
+                            <button class="sync-tags" data-item-id="{{_id}}" title="Sync tags with global list">
+                              <i class="fa-solid fa-arrows-rotate"></i>
+                            </button>
                           </div>
 
                           <div class="tags-toggle" hidden>
@@ -952,21 +951,6 @@
                         </div>
                       {{/if}}
 
-                      {{#if (stripHTML item.system.notes)}}
-                        <div class="mg-seeall-wrap" data-item-id="{{item._id}}" data-seeall-cap="140">
-                          <div class="desc">
-                            <label>Notes</label>
-                            <div class="desc-content mg-seeall-content">
-                              {{{item.system.notes}}}
-                            </div>
-                          </div>
-
-                          <button class="mg-seeall-toggle" type="button">
-                            <i class="fa-solid fa-angle-down"></i>
-                          </button>
-                        </div>
-                      {{/if}}
-
                       <div class="info-wrapper">
                         <label>Quantity</label>
                         <input type="number" class="item-quantity" value="{{item.system.quantity}}" min="0" />
@@ -976,13 +960,18 @@
                         <label>Equip Item</label>
                         <input type="checkbox" class="item-equipped" {{#if item.system.equipped}}checked{{/if}} />
                         <label>Favorite</label>
-                        <input type="checkbox" class="item-favorite" {{#if item.system.favorite}}checked{{/if}} />                      
+                        <input type="checkbox" class="item-favorite" {{#if item.system.favorite}}checked{{/if}} />
+                        <label>Edit Item</label>
+                        <button
+                          type="button"
+                          class="item-edit"
+                          data-item-id="{{item.id}}"
+                          title="Edit Item">
+                          <i class="fa-regular fa-pen-to-square"></i>
+                        </button>   
                       </div>
 
                       <div class="status-buttons">
-                        <button class="sync-tags" data-item-id="{{_id}}" title="Sync tags with global list">
-                          <i class="fa-solid fa-arrows-rotate"></i>
-                        </button>
 
                         <button class="item-delete" data-item-id="{{item._id}}" title="Delete Item">
                           <i class="fas fa-trash"></i>
@@ -1056,6 +1045,9 @@
                                 </div>
                               {{/with}}
                             {{/each}}
+                            <button class="sync-tags" data-item-id="{{_id}}" title="Sync tags with global list">
+                              <i class="fa-solid fa-arrows-rotate"></i>
+                            </button>                            
                           </div>
 
                           <span class="tags-toggle" hidden>
@@ -1079,21 +1071,6 @@
                         </div>
                       {{/if}}
 
-                      {{#if (stripHTML item.system.notes)}}
-                        <div class="mg-seeall-wrap" data-item-id="{{item._id}}" data-seeall-cap="140">
-                          <div class="desc">
-                            <label>Notes</label>
-                            <div class="desc-content mg-seeall-content">
-                              {{{item.system.notes}}}
-                            </div>
-                          </div>
-
-                          <button class="mg-seeall-toggle" type="button">
-                            <i class="fa-solid fa-angle-down"></i>
-                          </button>
-                        </div>
-                      {{/if}}
-
                       <div class="info-wrapper">
                         <label>Quantity</label>
                         <input type="number" class="item-quantity" value="{{item.system.quantity}}" min="0" />
@@ -1103,7 +1080,15 @@
                         <label>Equip Item</label>
                         <input type="checkbox" class="item-equipped" {{#if item.system.equipped}}checked{{/if}} />
                         <label>Favorite</label>
-                        <input type="checkbox" class="item-favorite" {{#if item.system.favorite}}checked{{/if}} />                        
+                        <input type="checkbox" class="item-favorite" {{#if item.system.favorite}}checked{{/if}} />
+                        <label>Edit Item</label>
+                        <button
+                          type="button"
+                          class="item-edit"
+                          data-item-id="{{item.id}}"
+                          title="Edit Item">
+                          <i class="fa-regular fa-pen-to-square"></i>
+                        </button>                                               
                       </div>
 
                       <div class="status-buttons">
@@ -1118,10 +1103,6 @@
                             </button>
                           {{/if}}
                         {{/if}}
-
-                        <button class="sync-tags" data-item-id="{{_id}}" title="Sync tags with global list">
-                          <i class="fa-solid fa-arrows-rotate"></i>
-                        </button>
 
                         <button class="item-delete" data-item-id="{{item._id}}" title="Delete Item">
                           <i class="fas fa-trash"></i>
@@ -1245,6 +1226,9 @@
                                 </div>
                               {{/with}}
                             {{/each}}
+                            <button class="sync-tags" data-item-id="{{_id}}" title="Sync tags with global list">
+                              <i class="fa-solid fa-arrows-rotate"></i>
+                            </button>                            
                           </div>
 
                           <span class="tags-toggle" hidden>
@@ -1268,21 +1252,6 @@
                         </div>
                       {{/if}}
 
-                      {{#if (stripHTML item.system.notes)}}
-                        <div class="mg-seeall-wrap" data-item-id="{{item._id}}" data-seeall-cap="140">
-                          <div class="desc">
-                            <label>Notes</label>
-                            <div class="desc-content mg-seeall-content">
-                              {{{item.system.notes}}}
-                            </div>
-                          </div>
-
-                          <button class="mg-seeall-toggle" type="button">
-                            <i class="fa-solid fa-angle-down"></i>
-                          </button>
-                        </div>
-                      {{/if}}
-
                       <div class="info-wrapper">
                         <label>Quantity</label>
                         <input type="number" class="item-quantity" value="{{item.system.quantity}}" min="0" />
@@ -1292,7 +1261,15 @@
                         <label>Equip Item</label>
                         <input type="checkbox" class="item-equipped" {{#if item.system.equipped}}checked{{/if}} />
                         <label>Favorite</label>
-                        <input type="checkbox" class="item-favorite" {{#if item.system.favorite}}checked{{/if}} />                        
+                        <input type="checkbox" class="item-favorite" {{#if item.system.favorite}}checked{{/if}} />
+                        <label>Edit Item</label>
+                        <button
+                          type="button"
+                          class="item-edit"
+                          data-item-id="{{item.id}}"
+                          title="Edit Item">
+                          <i class="fa-regular fa-pen-to-square"></i>
+                        </button>                                               
                       </div>                
 
                       <div class="status-buttons">
@@ -1307,10 +1284,6 @@
                             </button>
                           {{/if}}
                         {{/if}}
-
-                        <button class="sync-tags" data-item-id="{{_id}}" title="Sync tags with global list">
-                          <i class="fa-solid fa-arrows-rotate"></i>
-                        </button>
 
                         <button class="item-delete" data-item-id="{{item._id}}" title="Delete Item">
                           <i class="fas fa-trash"></i>

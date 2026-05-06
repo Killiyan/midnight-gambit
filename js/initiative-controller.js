@@ -5,6 +5,16 @@
 const MG_NS = "midnight-gambit";
 const SOCKET_CHANNEL = "system.midnight-gambit";
 
+function mgGet(obj, path) {
+  return foundry.utils.getProperty(obj, path);
+}
+
+function mgNewSyncId() {
+  return foundry.utils.randomID?.()
+    ?? globalThis.crypto?.randomUUID?.()
+    ?? `${Date.now()}-${Math.random()}`;
+}
+
 export class MGInitiativeController {
   static #instance;
 
@@ -21,8 +31,7 @@ export class MGInitiativeController {
 
   /**
    * Subscribe to replicated initiative events.
-   * @param {(evt: {type: "progress"|"reset"|"order", payload: any}) => void} fn
-   * @returns {() => void} unsubscribe
+   * Bar/sidebar should listen here and render from payloads.
    */
   subscribe(fn) {
     if (typeof fn !== "function") return () => {};
@@ -30,17 +39,15 @@ export class MGInitiativeController {
     return () => this._subs.delete(fn);
   }
 
-  /** Turn on hooks + GM relay once. Safe to call multiple times. */
   activate() {
     if (this._wired) return;
     this._wired = true;
 
-    // Replicated updates: listen to Crew actor flag changes
     Hooks.on("updateActor", (actor, changed) => {
       const crew = this.resolveCrewActor();
       if (!crew || actor.id !== crew.id) return;
 
-      const progress = getProperty(changed, `flags.${MG_NS}.initiativeProgress`);
+      const progress = mgGet(changed, `flags.${MG_NS}.initiativeProgress`);
       if (progress && typeof progress === "object") {
         const { syncId } = progress;
         if (syncId && this._lastSyncId === syncId) return;
@@ -50,7 +57,7 @@ export class MGInitiativeController {
         return;
       }
 
-      const resetSig = getProperty(changed, `flags.${MG_NS}.initiativeReset`);
+      const resetSig = mgGet(changed, `flags.${MG_NS}.initiativeReset`);
       if (resetSig && typeof resetSig === "object") {
         const { syncId } = resetSig;
         if (syncId && this._lastSyncId === syncId) return;
@@ -60,28 +67,39 @@ export class MGInitiativeController {
         return;
       }
 
-      // Order changed (flag or system path)
-      const touchedFlag = getProperty(changed, `flags.${MG_NS}.initiativeOrder`);
-      const touchedSystem = getProperty(changed, "system.initiative.order");
-      if (touchedFlag || touchedSystem) {
-        this._emit({ type: "order", payload: { ids: this.getOrderActorIds() } });
+      const touchedFlag = mgGet(changed, `flags.${MG_NS}.initiativeOrder`);
+      const touchedSystem = mgGet(changed, "system.initiative.order");
+      const touchedHidden = mgGet(changed, "system.initiative.hidden");
+
+      if (touchedFlag || touchedSystem || touchedHidden) {
+        const ids = this.getOrderActorIds();
+        const activeIndex = this.getActiveIndex(ids);
+
+        this._emit({
+          type: "order",
+          payload: {
+            ids,
+            activeIndex,
+            syncId: mgNewSyncId(),
+            at: Date.now()
+          }
+        });
       }
     });
 
-    // GM relay: non-GMs request writes via socket if needed
+    // GM relay: non-GMs request writes here.
     if (game.socket) {
       game.socket.on(SOCKET_CHANNEL, async (msg) => {
         if (!game.user?.isGM) return;
         if (!msg || !msg.type) return;
 
-        const crew = this.resolveCrewActor();
-        if (!crew) return;
-
         try {
-          if (msg.type === "iniProgress") {
-            await crew.setFlag(MG_NS, "initiativeProgress", msg.payload);
-          } else if (msg.type === "iniReset") {
-            await crew.setFlag(MG_NS, "initiativeReset", msg.payload);
+          if (msg.type === "iniAdvanceRequest") {
+            await this.advance({ fromRelay: true });
+          }
+
+          if (msg.type === "iniResetRequest") {
+            await this.reset({ fromRelay: true });
           }
         } catch (e) {
           console.error("MG | GM initiative relay failed:", e);
@@ -92,41 +110,43 @@ export class MGInitiativeController {
 
   _emit(evt) {
     for (const fn of this._subs) {
-      try { fn(evt); } catch (e) { console.error("MG | Initiative subscriber error:", e); }
+      try {
+        fn(evt);
+      } catch (e) {
+        console.error("MG | Initiative subscriber error:", e);
+      }
     }
   }
 
-  // ----------------------------
+  // ------------------------------------------------------------------
   // Source-of-truth helpers
-  // ----------------------------
+  // ------------------------------------------------------------------
 
-  /** Null-safe: find the current Crew actor (mirrors your initiative-bar logic). */
   resolveCrewActor() {
     let crew = null;
 
-    // Preferred: world setting by Actor ID
     try {
       const id = game.settings.get(MG_NS, "crewActorId");
       if (id) crew = game.actors.get(id) || null;
     } catch (_) {}
 
-    // Legacy: world setting by Actor UUID string (e.g., "Actor.ABC123")
     if (!crew) {
       let legacy = null;
-      try { legacy = game.settings.get(MG_NS, "activeCrewUuid"); } catch (_) {}
+      try {
+        legacy = game.settings.get(MG_NS, "activeCrewUuid");
+      } catch (_) {}
+
       if (typeof legacy === "string" && legacy.startsWith("Actor.")) {
         const id = legacy.split(".")[1];
         crew = game.actors.get(id) || null;
       }
     }
 
-    // Fallback: any crew actor
     if (!crew) crew = game.actors.find(a => a.type === "crew") || null;
 
     return crew;
   }
 
-  /** Prefer Crew flag -> fallback to crew.system initiative -> fallback to owned PCs. */
   getOrderActorIds() {
     const crew = this.resolveCrewActor();
 
@@ -136,93 +156,163 @@ export class MGInitiativeController {
     }
 
     const uuids = crew?.system?.initiative?.order ?? [];
-    const hidden = new Set(Array.isArray(crew?.system?.initiative?.hidden) ? crew.system.initiative.hidden : []);
+    const hidden = new Set(
+      Array.isArray(crew?.system?.initiative?.hidden)
+        ? crew.system.initiative.hidden
+        : []
+    );
 
     if (Array.isArray(uuids) && uuids.length) {
       const ids = uuids
-        .filter(u => !hidden.has(u))
-        .map(u => (typeof u === "string" && u.startsWith("Actor.")) ? u.split(".")[1] : null)
+        .filter(uuid => !hidden.has(uuid))
+        .map(uuid => {
+          if (typeof uuid !== "string") return null;
+          if (uuid.startsWith("Actor.")) return uuid.split(".")[1];
+          return null;
+        })
         .filter(id => id && game.actors.get(id));
+
       if (ids.length) return ids;
     }
 
     return game.actors
       .filter(a =>
         a.type === "character" &&
-        (a.isOwner || Object.values(a.ownership || {}).some(x => x >= CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER))
+        (
+          a.isOwner ||
+          Object.values(a.ownership || {}).some(x => x >= CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER)
+        )
       )
       .map(a => a.id);
   }
 
-  /** Read durable activeIndex from Scene flag (written by your UI), else 0. */
-  getActiveIndex(ids) {
+  getCycleLength(ids = this.getOrderActorIds()) {
+    const count = Array.isArray(ids) ? ids.length : 0;
+    return Math.max(1, count + 1); // +1 for END
+  }
+
+  normalizeIndex(index, ids = this.getOrderActorIds()) {
+    const L = this.getCycleLength(ids);
+    const n = Number(index ?? 0);
+    return ((n % L) + L) % L;
+  }
+
+  getActiveIndex(ids = this.getOrderActorIds()) {
     try {
       const st = canvas?.scene?.getFlag?.(MG_NS, "initState");
-      const ai = Number(st?.activeIndex ?? 0);
-      const n = Array.isArray(ids) ? ids.length : 0;
-      const L = Math.max(1, n + 1); // + END
-      return ((ai % L) + L) % L;
+      return this.normalizeIndex(st?.activeIndex ?? 0, ids);
     } catch (_) {
       return 0;
     }
   }
 
-  // ----------------------------
-  // Actions (replicated writes)
-  // ----------------------------
+  getSnapshot() {
+    const ids = this.getOrderActorIds();
+    const activeIndex = this.getActiveIndex(ids);
 
-  async advance() {
+    return {
+      ids,
+      activeIndex,
+      syncId: null,
+      at: Date.now()
+    };
+  }
+
+  async _persistSceneState({ ids, activeIndex }) {
+    if (!game.user?.isGM) return;
+
+    try {
+      await canvas?.scene?.setFlag?.(MG_NS, "initState", {
+        orderIds: ids,
+        activeIndex: this.normalizeIndex(activeIndex, ids)
+      });
+    } catch (e) {
+      console.warn("MG | Failed to persist initiative scene state:", e);
+    }
+  }
+
+  // ------------------------------------------------------------------
+  // Actions
+  // ------------------------------------------------------------------
+
+  async advance({ fromRelay = false } = {}) {
     const crew = this.resolveCrewActor();
-    if (!crew) return ui.notifications?.warn("No Crew actor configured.");
+
+    if (!crew) {
+      ui.notifications?.warn("No Crew actor configured.");
+      return;
+    }
 
     const ids = this.getOrderActorIds();
-    if (!ids.length) return ui.notifications?.warn("No actors in Initiative to advance.");
+
+    if (!ids.length) {
+      ui.notifications?.warn("No actors in Initiative to advance.");
+      return;
+    }
+
+    // Non-GM asks the GM to perform the canonical write.
+    if (!game.user?.isGM && !fromRelay) {
+      game.socket?.emit(SOCKET_CHANNEL, { type: "iniAdvanceRequest" });
+      return;
+    }
 
     const prev = this.getActiveIndex(ids);
+    const next = this.normalizeIndex(prev + 1, ids);
 
     const payload = {
       ids,
       prev,
-      syncId: foundry.utils.randomID?.() ?? (crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`),
+      next,
+      activeIndex: next,
+      syncId: mgNewSyncId(),
       at: Date.now()
     };
 
     try {
+      await this._persistSceneState({ ids, activeIndex: next });
       await crew.setFlag(MG_NS, "initiativeProgress", payload);
     } catch (e) {
-      if (!game.user?.isGM && game.socket) {
-        game.socket.emit(SOCKET_CHANNEL, { type: "iniProgress", payload });
-        ui.notifications?.info("Requested GM to advance initiative.");
-        return;
-      }
-      console.error("MG | Failed to emit initiative progress:", e);
-      ui.notifications?.error("Couldn’t advance initiative (no permission).");
+      console.error("MG | Failed to advance initiative:", e);
+      ui.notifications?.error("Couldn’t advance initiative.");
     }
   }
 
-  async reset() {
+  async reset({ fromRelay = false } = {}) {
     const crew = this.resolveCrewActor();
-    if (!crew) return ui.notifications?.warn("No Crew actor configured.");
+
+    if (!crew) {
+      ui.notifications?.warn("No Crew actor configured.");
+      return;
+    }
 
     const ids = this.getOrderActorIds();
-    if (!ids.length) return ui.notifications?.warn("No actors in Initiative to reset.");
+
+    if (!ids.length) {
+      ui.notifications?.warn("No actors in Initiative to reset.");
+      return;
+    }
+
+    // Non-GM asks the GM to perform the canonical write.
+    if (!game.user?.isGM && !fromRelay) {
+      game.socket?.emit(SOCKET_CHANNEL, { type: "iniResetRequest" });
+      return;
+    }
 
     const payload = {
       ids,
-      syncId: foundry.utils.randomID?.() ?? (crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`),
+      prev: this.getActiveIndex(ids),
+      next: 0,
+      activeIndex: 0,
+      syncId: mgNewSyncId(),
       at: Date.now()
     };
 
     try {
+      await this._persistSceneState({ ids, activeIndex: 0 });
       await crew.setFlag(MG_NS, "initiativeReset", payload);
     } catch (e) {
-      if (!game.user?.isGM && game.socket) {
-        game.socket.emit(SOCKET_CHANNEL, { type: "iniReset", payload });
-        ui.notifications?.info("Requested GM to reset initiative.");
-        return;
-      }
-      console.error("MG | Failed to emit initiative reset:", e);
-      ui.notifications?.error("Couldn’t reset initiative (no permission).");
+      console.error("MG | Failed to reset initiative:", e);
+      ui.notifications?.error("Couldn’t reset initiative.");
     }
   }
 }

@@ -1509,44 +1509,159 @@ _mgOpenChatCropper() {
           return;
         }
 
-        // HEAL
+        // HEAL / RESTORE BUFFER
+        // Plus only restores/adds Capacity. It never heals the strain track.
+        // Track healing should happen through strain dots, rests, or specific healing effects.
         if (dir > 0) {
-          // IMPORTANT RULE:
-          // Track should ONLY heal from "+" when capacity is 0.
-          // This preserves "Piercing" scenarios where you can have track damage while still gaining capacity.
-          if (cap <= 0 && track > 0) {
-            const nextTrack = Math.max(0, track - 1);
-            await actor.update({ [`system.strain.${type}`]: nextTrack }, { render: false });
-            patchUI();
-            return;
-          }
-
-          // Otherwise, "+" only adds capacity (even if track > 0).
-          // Capacity should never be "hard capped" for play (shielding, buffs, fixing mistakes).
+          // Capacity should never be "hard capped" for play:
+          // shielding, buffs, and correction clicks can push it higher.
           // If we're already at the current derived max, auto-increase tempBonus so max grows too.
           if (cap >= max) {
             const curTemp = Number(actor.system?.strain?.tempBonus?.[type] ?? 0);
-            await actor.update({ [`system.strain.tempBonus.${type}`]: curTemp + 1 }, { render: false });
 
-            // Recompute derived max (base + gear + temp), but DON'T reset buffer.
+            await actor.update({
+              [`system.strain.tempBonus.${type}`]: curTemp + 1
+            }, { render: false });
+
             await recalcStrainFromGear({ resetToMax: false });
 
             const maxAfter = getMax();
             const capAfter = getCap();
             const nextCap = Math.min(maxAfter, capAfter + 1);
 
-            await actor.update({ [`system.strain.${capKey}`]: nextCap }, { render: false });
+            await actor.update({
+              [`system.strain.${capKey}`]: nextCap
+            }, { render: false });
+
             patchUI();
             return;
           }
 
-          // Otherwise, just restore buffer up to the current max.
+          // Otherwise, restore buffer up to current max.
           const nextCap = Math.min(max, cap + 1);
-          await actor.update({ [`system.strain.${capKey}`]: nextCap }, { render: false });
+
+          await actor.update({
+            [`system.strain.${capKey}`]: nextCap
+          }, { render: false });
+
           patchUI();
           return;
         }
       });
+
+      // Capacity ticker: right-click the current number/control area to set exact capacity
+      html
+        .off("contextmenu.mgCapacityExact")
+        .on("contextmenu.mgCapacityExact", ".capacity-controls, .capacity-value, .label-box, .label-box *", async (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+
+        const actor = this.actor;
+        if (!actor) return;
+
+        const clicked =
+          event.target.closest(".label-box") ||
+          event.target.closest(".capacity-controls") ||
+          event.target.closest(".capacity-value") ||
+          event.currentTarget;
+
+        // First try normal data attributes.
+        let type =
+          clicked.dataset?.type ||
+          clicked.closest("[data-type]")?.dataset?.type;
+
+        // If right-clicking the label badge, infer from visible label text.
+        // This catches badges like "MC 3" / "SC 3" even when they are not inside .capacity-controls.
+        if (!type && clicked.classList.contains("label-box")) {
+          const txt = String(clicked.textContent ?? "").toLowerCase();
+
+          if (txt.includes("mc") || txt.includes("mortal")) {
+            type = "mortal";
+          }
+
+          if (txt.includes("sc") || txt.includes("soul")) {
+            type = "soul";
+          }
+        }
+
+        // Final fallback: look nearby for a capacity-control/value with data-type.
+        if (!type) {
+          const parent =
+            clicked.closest(".capacity-ticker") ||
+            clicked.parentElement ||
+            clicked.closest(".strain-card") ||
+            clicked.closest(".strain-block");
+
+          type =
+            parent?.querySelector?.(".capacity-controls[data-type], .capacity-value[data-type]")?.dataset?.type ||
+            null;
+        }
+
+        if (!type) {
+          console.warn("MG | Could not determine capacity type from right-click target:", clicked);
+          return;
+        }
+
+        const capKey = `${type} capacity`;
+        const currentCap = Number(actor.system?.strain?.[capKey] ?? 0);
+        const currentMax = Number(actor.system?.strain?.maxCapacity?.[type] ?? currentCap);
+
+        const label = type === "mortal" ? "Mortal Capacity" : "Soul Capacity";
+
+        const val = await this._mgPrompt({
+          title: `Set ${label}`,
+          bodyHtml: `
+            <div class="form-group">
+              <label>${label}</label>
+              <input type="number" name="value" value="${currentCap}" min="0" step="1" />
+            </div>
+            <p class="notes">
+              Current max: <strong>${currentMax}</strong>. Entering a higher number will add temporary capacity.
+            </p>
+          `,
+          okText: "Save",
+          okIcon: "fa-floppy-disk",
+          cancelText: "Cancel",
+          cancelIcon: "fa-circle-xmark",
+          getValue: (html) => html.find('input[name="value"]').val()
+        });
+
+        if (val === null) return;
+
+        const nextCap = Math.max(0, Math.floor(Number(val)));
+
+        if (!Number.isFinite(nextCap)) {
+          ui.notifications.warn("Please enter a valid capacity number.");
+          return;
+        }
+
+        const updates = {
+          [`system.strain.${capKey}`]: nextCap,
+          [`system.strain.manualOverride.${capKey}`]: true
+        };
+
+        // If we set capacity above the current derived max, store the overflow as tempBonus.
+        // This keeps the max label honest and prevents later recalcs from shaving the number back down.
+        if (nextCap > currentMax) {
+          const currentTemp = Number(actor.system?.strain?.tempBonus?.[type] ?? 0);
+          const extraNeeded = nextCap - currentMax;
+
+          updates[`system.strain.tempBonus.${type}`] = currentTemp + extraNeeded;
+          updates[`system.strain.maxCapacity.${type}`] = nextCap;
+        }
+
+        await actor.update(updates, { render: false });
+
+        // Patch the visible ticker immediately
+        const valEl = html.find(`.capacity-value[data-type="${type}"]`)[0];
+        if (valEl) valEl.textContent = String(nextCap);
+
+        const maxEl = html[0]?.querySelector(`.capacity-max[data-type='${type}']`);
+        if (maxEl) maxEl.textContent = String(Math.max(nextCap, currentMax));
+
+        // Soft render so anything else derived catches up without doing weird click flicker
+        this.render(false);
+      });      
 
       // Update the capacity ticker numbers without re-rendering the sheet
       const updateCapacityTickerUI = (html, actor) => {
@@ -2189,6 +2304,110 @@ _mgOpenChatCropper() {
         input.blur();
       });
 
+      // Create a new Inventory item directly on this actor
+      html.find(".mg-create-item").on("click", async (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+
+        const result = await Dialog.wait({
+          title: "Create Inventory Item",
+          content: `
+            <form class="mg-create-item-dialog">
+              <div class="form-group">
+                <label>Item Name</label>
+                <input type="text" name="itemName" value="New Item" autofocus />
+              </div>
+
+              <div class="form-group">
+                <label>Item Type</label>
+                <select name="itemType">
+                  <option value="misc">Misc</option>
+                  <option value="weapon">Weapon</option>
+                  <option value="armor">Armor</option>
+                </select>
+              </div>
+            </form>
+          `,
+          buttons: {
+            create: {
+              label: this._mgBtn ? this._mgBtn("Create", "fa-plus") : "Create",
+              callback: (html) => {
+                const name = html.find('[name="itemName"]').val()?.trim();
+                const type = html.find('[name="itemType"]').val();
+
+                if (!name) return null;
+
+                return {
+                  name,
+                  type
+                };
+              }
+            },
+            cancel: {
+              label: this._mgBtn ? this._mgBtn("Cancel", "fa-circle-xmark") : "Cancel",
+              callback: () => null
+            }
+          },
+          default: "create"
+        });
+
+        if (!result) return;
+
+        const baseSystem = {
+          description: "",
+          tags: [],
+          quantity: 1,
+          equipped: false
+        };
+
+        if (result.type === "weapon") {
+          baseSystem.mortalStrainDamage = 0;
+          baseSystem.soulStrainDamage = 0;
+          baseSystem.strainDamage = 0;
+        }
+
+        if (result.type === "armor") {
+          baseSystem.mortalCapacity = 0;
+          baseSystem.soulCapacity = 0;
+          baseSystem.remainingCapacity = {
+            mortal: 0,
+            soul: 0
+          };
+        }
+
+        if (result.type === "misc") {
+          baseSystem.mortalStrainDamage = 0;
+          baseSystem.soulStrainDamage = 0;
+          baseSystem.strainDamage = 0;
+
+          baseSystem.mortalCapacity = 0;
+          baseSystem.soulCapacity = 0;
+          baseSystem.remainingCapacity = {
+            mortal: 0,
+            soul: 0
+          };
+        }
+
+        const created = await this.actor.createEmbeddedDocuments("Item", [{
+          name: result.name,
+          type: result.type,
+          system: baseSystem,
+          flags: {
+            "midnight-gambit": {
+              inventoryCreated: true
+            }
+          }
+        }]);
+
+        const item = created?.[0];
+
+        this.render(false);
+
+        if (item?.sheet) {
+          item.sheet.render(true);
+        }
+      });      
+
       html.find(".item-quantity").on("change", async (event) => {
         const itemId = event.currentTarget
           .closest(".inventory-card, .inventory-item")
@@ -2370,6 +2589,26 @@ _mgOpenChatCropper() {
         }
       });
 
+      // Open item sheet from an inventory card
+      html.find(".item-edit").on("click", async (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+
+        const itemId =
+          event.currentTarget.dataset.itemId ||
+          event.currentTarget.closest(".inventory-item")?.dataset?.itemId;
+
+        if (!itemId) return;
+
+        const item = this.actor.items.get(itemId);
+        if (!item) {
+          ui.notifications?.warn("Item not found.");
+          return;
+        }
+
+        item.sheet?.render(true);
+      });      
+
       //Repair Armor
       html.find(".repair-armor").on("click", async (event) => {
         const itemId = event.currentTarget.dataset.itemId;
@@ -2477,8 +2716,17 @@ _mgOpenChatCropper() {
         const { name, system, type } = item;
 
         // Safe HTML escape for labels/ids
-        const safe = (s) => String(s ?? "").replace(/[&<>"']/g, c =>
-          ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])
+        const safe = (s) => String(s ?? "").replace(/[&<>"'`=\/]/g, c =>
+          ({
+            "&": "&amp;",
+            "<": "&lt;",
+            ">": "&gt;",
+            '"': "&quot;",
+            "'": "&#39;",
+            "`": "&#96;",
+            "=": "&#61;",
+            "/": "&#47;"
+          }[c])
         );
 
         // Merge all known tag definitions so we get labels + descriptions
@@ -3703,6 +3951,28 @@ _mgOpenChatCropper() {
         refreshAll();
       }
 
+      // Hide Sync Tags for inventory-created items that have no base/global source.
+      html.find(".sync-tags").each((_, button) => {
+        const itemId = button.dataset.itemId;
+        const ownedItem = this.actor.items.get(itemId);
+        if (!ownedItem) return;
+
+        const inventoryCreated = ownedItem.getFlag?.("midnight-gambit", "inventoryCreated");
+        const sourceId = ownedItem.flags?.core?.sourceId;
+
+        const hasWorldMatch = game.items.some(i =>
+          i.id !== ownedItem.id &&
+          i.name === ownedItem.name &&
+          i.type === ownedItem.type
+        );
+
+        const hasBaseItem = Boolean(sourceId || hasWorldMatch);
+
+        if (inventoryCreated && !hasBaseItem) {
+          button.remove();
+        }
+      });      
+
       // Enable tooltips manually after rendering the sheet
       html.find(".sync-tags").on("click", async (event) => {
         event.preventDefault();
@@ -3725,7 +3995,7 @@ _mgOpenChatCropper() {
         }
 
         if (!sourceItem) {
-          ui.notifications.warn(`Could not find base item for ${ownedItem.name}`);
+          ui.notifications.info(`${ownedItem.name} is inventory-only, so there is no base item to sync from.`);
           return;
         }
 

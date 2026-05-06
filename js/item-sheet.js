@@ -1,21 +1,209 @@
 export class MidnightGambitItemSheet extends ItemSheet {
-  static get defaultOptions() {
-    return mergeObject(super.defaultOptions, {
-      classes: ["midnight-gambit", "sheet", "item"],
-      width: 500,
-      height: 700,
-      resizable: true
-    });
-  }
+	static get defaultOptions() {
+		return mergeObject(super.defaultOptions, {
+			classes: ["midnight-gambit", "sheet", "item"],
+			width: 700,
+			height: 700,
+			resizable: true,
+
+			// Do not auto-save/re-render while typing.
+			submitOnChange: false,
+			submitOnClose: true,
+			closeOnSubmit: false
+		});
+	}
+
+	_getHeaderButtons() {
+		const buttons = super._getHeaderButtons?.() ?? [];
+
+		buttons.unshift({
+			label: "Save",
+			class: "mg-save-item",
+			icon: "fa-solid fa-floppy-disk",
+			onclick: async () => {
+				await this.submit({ preventClose: true });
+				ui.notifications?.info(`${this.item.name} saved.`);
+			}
+		});
+
+		const canPromote =
+			this.item?.isEmbedded &&
+			this.item?.parent?.documentName === "Actor" &&
+			["weapon", "armor", "misc", "gambit", "asset"].includes(this.item.type);
+
+		if (canPromote) {
+			buttons.unshift({
+				label: "Make Global",
+				class: "mg-make-global",
+				icon: "fa-solid fa-globe",
+				onclick: async () => {
+					await this._mgMakeItemGlobal();
+				}
+			});
+		}
+
+		return buttons;
+	}
+
+	async _mgMakeItemGlobal() {
+		const sourceItem = this.item;
+		if (!sourceItem?.isEmbedded) {
+			ui.notifications?.info("This item is already global.");
+			return;
+		}
+
+		const parentActor = sourceItem.parent;
+		const itemData = sourceItem.toObject();
+
+		// Remove embedded-only ID so Foundry gives the global copy a fresh ID.
+		delete itemData._id;
+
+		// Optional: mark where it came from.
+		itemData.flags ??= {};
+		itemData.flags["midnight-gambit"] ??= {};
+		itemData.flags["midnight-gambit"].promotedFrom = {
+			actorId: parentActor?.id ?? null,
+			actorName: parentActor?.name ?? "",
+			itemId: sourceItem.id,
+			itemName: sourceItem.name,
+			at: Date.now()
+		};
+
+		const confirm = await Dialog.confirm({
+			title: "Make Global Item?",
+			content: `
+				<p>Create a reusable global copy of <strong>${sourceItem.name}</strong> in the Items directory?</p>
+				<p>The inventory copy will stay on <strong>${parentActor?.name ?? "this actor"}</strong>.</p>
+			`,
+			defaultYes: true
+		});
+
+		if (!confirm) return;
+
+		// GM can create the world item directly.
+		if (game.user.isGM) {
+			const created = await Item.create(itemData, { renderSheet: true });
+			ui.notifications?.info(`Created global item: ${created.name}`);
+			return;
+		}
+
+		// Player route: ask an active GM client to create it.
+		const activeGM = game.users.find(u => u.active && u.isGM);
+		if (!activeGM) {
+			ui.notifications?.warn("A GM must be online to make this item global.");
+			return;
+		}
+
+		game.socket.emit("system.midnight-gambit", {
+			type: "makeGlobalItem",
+			requestingUserId: game.user.id,
+			itemData
+		});
+
+		ui.notifications?.info(`Asked the GM to make "${sourceItem.name}" global.`);
+	}
+
+	_mgRefreshParentActorSheet() {
+		const parentActor = this.item?.parent;
+		if (parentActor?.documentName !== "Actor") return;
+
+		for (const app of Object.values(parentActor.apps ?? {})) {
+			app?.render?.(false);
+		}
+	}
 
 	async _updateObject(event, formData) {
-	if (this.item?.type === "asset" && Object.prototype.hasOwnProperty.call(formData, "system.tagsCsv")) {
-		const csv = String(formData["system.tagsCsv"] ?? "").trim();
-		const tags = csv ? csv.split(",").map(t => t.trim()).filter(Boolean) : [];
-		formData["system.tags"] = tags;
-		delete formData["system.tagsCsv"];
-	}
-	return super._updateObject(event, formData);
+		// Asset tag CSV conversion
+		if (
+			this.item?.type === "asset" &&
+			Object.prototype.hasOwnProperty.call(formData, "system.tagsCsv")
+		) {
+			const csv = String(formData["system.tagsCsv"] ?? "").trim();
+			const tags = csv
+				? csv.split(",").map(t => t.trim()).filter(Boolean)
+				: [];
+
+			formData["system.tags"] = tags;
+			delete formData["system.tagsCsv"];
+		}
+
+		// Normalize split strain fields for weapons and misc.
+		if (["weapon", "misc"].includes(this.item?.type)) {
+			const mortal = Number(
+				formData["system.mortalStrainDamage"] ??
+				this.item.system?.mortalStrainDamage ??
+				this.item.system?.strainDamage ??
+				0
+			);
+
+			const soul = Number(
+				formData["system.soulStrainDamage"] ??
+				this.item.system?.soulStrainDamage ??
+				0
+			);
+
+			const nextMortal = Number.isFinite(mortal) ? mortal : 0;
+			const nextSoul = Number.isFinite(soul) ? soul : 0;
+
+			formData["system.mortalStrainDamage"] = nextMortal;
+			formData["system.soulStrainDamage"] = nextSoul;
+
+			// Legacy fallback while old card/chat code still exists.
+			formData["system.strainDamage"] = nextMortal;
+		}
+
+		// Normalize capacity for armor and misc.
+		if (["armor", "misc"].includes(this.item?.type)) {
+			const oldMortalMax = Number(this.item.system?.mortalCapacity ?? 0);
+			const oldSoulMax = Number(this.item.system?.soulCapacity ?? 0);
+
+			const nextMortalMaxRaw =
+				formData["system.mortalCapacity"] ??
+				this.item.system?.mortalCapacity ??
+				0;
+
+			const nextSoulMaxRaw =
+				formData["system.soulCapacity"] ??
+				this.item.system?.soulCapacity ??
+				0;
+
+			const nextMortalMax = Number(nextMortalMaxRaw);
+			const nextSoulMax = Number(nextSoulMaxRaw);
+
+			const safeMortalMax = Number.isFinite(nextMortalMax) ? nextMortalMax : 0;
+			const safeSoulMax = Number.isFinite(nextSoulMax) ? nextSoulMax : 0;
+
+			const oldRemainingMortal = Number(
+				this.item.system?.remainingCapacity?.mortal ?? oldMortalMax
+			);
+
+			const oldRemainingSoul = Number(
+				this.item.system?.remainingCapacity?.soul ?? oldSoulMax
+			);
+
+			// If the item was undamaged, or if it was born at 0/0, carry remaining up to the new max.
+			const mortalWasUndamaged =
+				oldMortalMax === 0 ||
+				oldRemainingMortal >= oldMortalMax;
+
+			const soulWasUndamaged =
+				oldSoulMax === 0 ||
+				oldRemainingSoul >= oldSoulMax;
+
+			formData["system.mortalCapacity"] = safeMortalMax;
+			formData["system.soulCapacity"] = safeSoulMax;
+
+			formData["system.remainingCapacity.mortal"] = mortalWasUndamaged
+				? safeMortalMax
+				: Math.min(oldRemainingMortal, safeMortalMax);
+
+			formData["system.remainingCapacity.soul"] = soulWasUndamaged
+				? safeSoulMax
+				: Math.min(oldRemainingSoul, safeSoulMax);
+		}
+
+		await super._updateObject(event, formData);
+		this._mgRefreshParentActorSheet();
 	}
 
 	// One source of truth for template selection
@@ -148,58 +336,8 @@ export class MidnightGambitItemSheet extends ItemSheet {
 		return context;
 	}
 
-
-
-	// Mount TinyMCE editors on description/notes fields in item sheets
-	async _initRichEditors(html) {
-		const $root = html instanceof jQuery ? html : $(html);
-
-		// Clone global config and tweak per-field caps
-		const mkCfg = (maxH = 360) => {
-			const cfg = foundry.utils.deepClone(CONFIG.TinyMCE);
-			cfg.max_height = maxH;
-			cfg.min_height = cfg.min_height ?? 140;
-			cfg.resize = false; // disable manual resize handles (clean UI)
-			const extra = `
-			body.mce-content-body {
-				overflow-y: auto;
-				overscroll-behavior: contain;
-			}
-			`;
-			cfg.content_style = (cfg.content_style ? cfg.content_style + "\n" : "") + extra;
-			return cfg;
-		};
-
-		// Description (all item types have system.description)
-		const desc = $root.find("textarea[name='system.description']")[0];
-		if (desc) {
-			await TextEditor.create({
-			target: desc,
-			name: "system.description",
-			content: desc.value ?? "",
-			tinymce: mkCfg(440),
-			height: null
-			});
-		}
-
-		// Notes (currently used by Asset items)
-		const notes = $root.find("textarea[name='system.notes']")[0];
-		if (notes) {
-			await TextEditor.create({
-			target: notes,
-			name: "system.notes",
-			content: notes.value ?? "",
-			tinymce: mkCfg(320),
-			height: null
-			});
-		}
-	}
-
-
 	activateListeners(html) {
 		super.activateListeners(html);
-		// Mount rich text editors on this sheet’s textareas
-		this._initRichEditors(html).catch(console.error);
 
 		// Toggle tag on the item without re-rendering, and live-update both the
 		// top tag buttons and the bottom “selected tags” row.
@@ -502,6 +640,26 @@ export class MidnightGambitItemSheet extends ItemSheet {
 			this._rerenderOpenTagSheets(isAsset);
 		});
 		
+
+		// Open item sheet from an inventory card
+		html.find(".item-edit").on("click", async (event) => {
+		event.preventDefault();
+		event.stopPropagation();
+
+		const itemId =
+			event.currentTarget.dataset.itemId ||
+			event.currentTarget.closest(".inventory-item")?.dataset?.itemId;
+
+		if (!itemId) return;
+
+		const item = this.actor.items.get(itemId);
+		if (!item) {
+			ui.notifications?.warn("Item not found.");
+			return;
+		}
+
+		item.sheet?.render(true);
+		});		
 	}
 
 	/**

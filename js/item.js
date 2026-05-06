@@ -37,8 +37,7 @@ export class MidnightGambitItem extends Item {
           const q = Number(system.qty);
           system.qty = Number.isFinite(q) ? q : 1;
 
-          if (typeof system.notes !== "string") system.notes = "";
-          if (typeof system.description !== "string") system.description = ""; // ← ensure textarea has a value
+          if (typeof system.description !== "string") system.description = "";
           break;
         }
     }

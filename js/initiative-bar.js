@@ -40,6 +40,9 @@ export class MGInitiativeBar extends Application {
   async showBar() {
     this._ensureAttached();
 
+    MGInitiativeController.instance.activate();
+    this._wireInitiativeController();
+
     // GM: broadcast open to all clients
     if (game.user.isGM && game.socket) {
       game.socket.emit("system.midnight-gambit", {
@@ -48,9 +51,8 @@ export class MGInitiativeBar extends Application {
       });
     }
 
-    MGInitiativeController.instance.activate();
-    this._wireInitiativeController();
     this._wireLiveRefresh(); // live-update strain/cap when actor sheets change
+
     // keep the foil hidden until we finish layout/hydration
     this._foilFadeOut(0)?.catch(() => {});
     this._foilDefer = true;
@@ -1023,16 +1025,34 @@ export class MGInitiativeBar extends Application {
       if (tgt.closest(".mg-ini-reset")) {
         ev.preventDefault();
 
-        // Broadcast a reset to all clients; listener will rebuild/realign.
-        MGInitiativeController.instance.reset().catch(console.error);
+        if (this._animating) return;
+
+        this._animating = true;
+        this._setControlsLocked(true);
+
+        MGInitiativeController.instance.reset().catch((err) => {
+          console.error(err);
+          this._animating = false;
+          this._setControlsLocked(false);
+        });
+
         return;
       }
 
       if (tgt.closest(".mg-ini-next")) {
         ev.preventDefault();
 
-        // Emit a replicated progress tick; the updateActor listener will animate for everyone.
-        MGInitiativeController.instance.advance().catch(console.error);
+        if (this._animating) return;
+
+        this._animating = true;
+        this._setControlsLocked(true);
+
+        MGInitiativeController.instance.advance().catch((err) => {
+          console.error(err);
+          this._animating = false;
+          this._setControlsLocked(false);
+        });
+
         return;
       }
     });
@@ -1077,6 +1097,14 @@ export class MGInitiativeBar extends Application {
   // Schedule the next animation frame (used to line up all transitions in one paint)
   _nextFrame() {
     return new Promise((resolve) => requestAnimationFrame(() => resolve()));
+  }
+
+  /** Soft-lock main initiative controls during animation without changing button visuals. */
+  _setControlsLocked(locked) {
+    if (!this._root) return;
+
+    // Internal state only. No disabled attribute, no visual class.
+    this._root.dataset.controlsLocked = locked ? "true" : "false";
   }
 
   // Wait for any of the given elements to finish a transform/opacity transition.
@@ -1983,139 +2011,23 @@ export class MGInitiativeBar extends Application {
     if (this._wired) return;
     this._wired = true;
 
+    // Crew initiative progress/reset/order is now handled ONLY through
+    // MGInitiativeController -> _onInitiativeEvent().
+    //
+    // Keep this hook intentionally empty for Crew initiative changes so the
+    // bar does not process the same advance twice.
     Hooks.on("updateActor", (actor, changed) => {
       const crew = this._resolveCrewActor();
       if (!crew || actor.id !== crew.id) return;
 
-      // --- A) Progress tick (advance one) ---
-      const progress = getProperty(changed, "flags.midnight-gambit.initiativeProgress");
-      if (progress && typeof progress === "object") {
-        const { ids, prev, syncId } = progress;
+      const touchedInitiative =
+        getProperty(changed, "flags.midnight-gambit.initiativeProgress") != null ||
+        getProperty(changed, "flags.midnight-gambit.initiativeReset") != null ||
+        getProperty(changed, "flags.midnight-gambit.initiativeOrder") != null ||
+        getProperty(changed, "system.initiative.order") != null ||
+        getProperty(changed, "system.initiative.hidden") != null;
 
-        if (syncId && this._lastSyncId === syncId) return;
-        if (syncId) this._lastSyncId = syncId;
-
-        if (Array.isArray(ids) && ids.length) {
-          this._ids = ids.filter((id) => !!game.actors.get(id));
-        } else if (!Array.isArray(this._ids) || !this._ids.length) {
-          this._ids = this.getOrderActorIds();
-        }
-
-        const n = Array.isArray(this._ids) ? this._ids.length : 0;
-        const L = (n > 0 ? n + 1 : 1);
-        const clampedPrev = Number.isFinite(prev) ? ((prev % L) + L) % L : 0;
-        this._vOffset = clampedPrev;
-
-        if (this._attached) {
-          this._endTurn()
-            .then(() => {
-              this._renderActiveName();
-              return this._persistDurableInitState();
-            })
-            .catch(console.error);
-        } else {
-          // closed: still save durable state so reopen shows correct active
-          this._persistIniState().catch(() => {});
-          this._persistDurableInitState().catch(() => {});
-        }
-        return;
-      }
-
-      // --- B) Reset signal (go to start) ---
-      const resetSig = getProperty(changed, "flags.midnight-gambit.initiativeReset");
-      if (resetSig && typeof resetSig === "object") {
-        const { ids, syncId } = resetSig;
-
-        if (syncId && this._lastSyncId === syncId) return;
-        if (syncId) this._lastSyncId = syncId;
-
-        if (Array.isArray(ids) && ids.length) {
-          this._ids = ids.filter((id) => !!game.actors.get(id));
-        } else {
-          this._ids = this.getOrderActorIds();
-        }
-
-        this._vOffset = 0;
-
-        if (this._attached) {
-          // run the longer reset timing without making the whole hook async
-          (async () => {
-            const RESET_FADE_MS = 320;
-            this._foilDefer = true;
-
-            // 1) hide the wisp so it doesn't float during the shuffle
-            await this._foilFadeOut(RESET_FADE_MS).catch(() => {});
-
-            // 2) rebuild + relayout
-            const stage = this._root?.querySelector(".mg-ini-diag-stage");
-            if (stage) {
-              // Remove any stale slices that aren't part of the new set
-              const want = new Set([...this._ids, END_ID]);
-              stage.querySelectorAll(".mg-ini-slice").forEach(node => {
-                const id = node.getAttribute("data-actor-id");
-                if (!want.has(id)) node.remove();
-              });
-
-              // Ensure all needed slices exist (adds any missing)
-              this._ensureSlices(stage, [...this._ids, END_ID]);
-              this._normalizeEndSlices(stage);
-
-              // Make sure nothing is visually stuck hidden after the rebuild
-              this._revealAllCards?.();
-            }
-
-            this._layoutDiagonal(this._ids);
-            if (typeof this._autosizeFrame === "function") this._autosizeFrame();
-
-            // 3) animate the header name and wait for the featured slice's transform to finish
-            const firstId = this._ids[0] ?? null;
-            const resetName = firstId ? (game.actors.get(firstId)?.name ?? "—") : "End of Round";
-            const feat = this._root?.querySelector('.mg-ini-diag-stage .mg-ini-slice[data-slot="0"]');
-
-            await Promise.all([
-              this._animateActiveNameChange(resetName).catch(() => {}),
-              feat ? this._afterTransition(feat) : Promise.resolve()
-            ]);
-
-            {
-              const featNow = this._root?.querySelector('.mg-ini-diag-stage .mg-ini-slice[data-slot="0"]');
-              this._syncFoilToSlice(featNow, !!featNow);
-            }
-
-            // 4) reset the wisp lap, then fade it back in a hair slower for reset
-            this._resetFoilStroke();
-
-            // extra hold before showing the wisp again
-            const HOLD_AFTER_MS = 210;   // tweak to taste
-            await new Promise(r => setTimeout(r, HOLD_AFTER_MS));
-
-            this._foilDefer = true;
-
-            await this._foilFadeIn().catch(() => {}); // same slow fade as everything else
-
-            // 5) persist durable state for reopen/refresh
-            this._persistDurableInitState().catch(() => {});
-          })();
-        } else {
-          this._persistIniState().catch(() => {});
-          this._persistDurableInitState().catch(() => {});
-        }
-        return;
-      }
-
-      // --- C) Order changed (existing behavior) ---
-      const touchedFlag   = getProperty(changed, "flags.midnight-gambit.initiativeOrder");
-      const touchedSystem = getProperty(changed, "system.initiative.order");
-      if (touchedFlag || touchedSystem) {
-        this._ids = this.getOrderActorIds();
-        if (!this._attached) return;
-
-        const stage = this._root?.querySelector(".mg-ini-diag-stage");
-        if (stage) this._ensureSlices(stage, [...this._ids, END_ID]);
-        this._layoutDiagonal(this._ids);
-        if (typeof this._autosizeFrame === "function") this._autosizeFrame();
-        this._renderActiveName();
-      }
+      if (touchedInitiative) return;
     });
 
     // --- Hover stats live refresh ---
@@ -2197,6 +2109,10 @@ export class MGInitiativeBar extends Application {
   async _onInitiativeEvent(evt) {
     if (!evt || !evt.type) return;
 
+    const syncId = evt?.payload?.syncId;
+    if (syncId && this._lastSyncId === syncId) return;
+    if (syncId) this._lastSyncId = syncId;
+
     // --- A) Progress tick (advance one) ---
     if (evt.type === "progress") {
       const { ids, prev } = evt.payload ?? {};
@@ -2218,10 +2134,16 @@ export class MGInitiativeBar extends Application {
             this._renderActiveName();
             return this._persistDurableInitState();
           })
-          .catch(console.error);
+          .catch(console.error)
+          .finally(() => {
+            this._animating = false;
+            this._setControlsLocked(false);
+          });
       } else {
         this._persistIniState().catch(() => {});
         this._persistDurableInitState().catch(() => {});
+        this._animating = false;
+        this._setControlsLocked(false);
       }
       return;
     }
@@ -2281,10 +2203,17 @@ export class MGInitiativeBar extends Application {
           await this._foilFadeIn().catch(() => {});
 
           this._persistDurableInitState().catch(() => {});
-        })();
+        })()
+          .catch(console.error)
+          .finally(() => {
+            this._animating = false;
+            this._setControlsLocked(false);
+          });
       } else {
         this._persistIniState().catch(() => {});
         this._persistDurableInitState().catch(() => {});
+        this._animating = false;
+        this._setControlsLocked(false);
       }
       return;
     }

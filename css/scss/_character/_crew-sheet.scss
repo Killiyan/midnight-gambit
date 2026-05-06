@@ -760,8 +760,7 @@
 							flex-direction: column;
 							gap: 1rem;
 
-							.desc,
-							.asset-notes {
+							.desc {
 								padding: 1rem;
 								@include mg-border();
 								font-size: 1rem;
@@ -1068,32 +1067,5 @@
 				}
 			}
 		}
-	}
-}
-
-.asset-notes-editor {
-
-	.mg-asset-edit {
-		padding: 2.125rem;
-
-		.input-wrapper {
-			display: flex;
-			flex-direction: column;
-			margin: 0;
-		}
-
-		.actions-row {
-			display: flex;
-			width: 100%;
-
-			.left,
-			.right {
-				width: 50%;
-			}
-		}
-	}
-
-	.dialog-buttons {
-		padding: 0 2.125rem;
 	}
 }
