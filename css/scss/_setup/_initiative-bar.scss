@@ -64,13 +64,14 @@
 
     .mg-ini-side-handle {
       left: -2.25rem;
+      bottom: 0;
     }
   }
 
   .mg-ini-side-handle {
     position: absolute;
     left: -2.26rem;
-    top: calc(50% - 1.875rem);
+    bottom: 0;
     width: auto;
     height: auto;
     border: 0;

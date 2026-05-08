@@ -1,4 +1,5 @@
 import "./hooks.js";
+import "./mg-ui.js";
 import { MidnightGambitActor } from "./actor.js";
 import { MidnightGambitItem } from "./item.js";
 import { GuiseSheet } from "./guise-sheet.js";
@@ -6,6 +7,102 @@ import { MidnightGambitActorSheet } from "./sheet.js";
 import { MidnightGambitItemSheet } from "./item-sheet.js";
 import { MidnightGambitCrewSheet } from "./crew-sheet.js";
 import { MidnightGambitNpcSheet } from "./npc-sheet.js";
+
+/* MG HUD Mode
+==============================================================================================================================================*/
+
+const MG_HUD_CLASS = "mg-hud-enabled";
+
+const MG_HUD_TRANSITION_MS = 1000;
+
+let mgHudTransitionTimer = null;
+
+function mgClearHudTransitionClasses() {
+	document.body?.classList.remove(
+		"mg-ui-transitioning",
+		"mg-ui-exiting-foundry",
+		"mg-ui-entering-foundry",
+		"mg-ui-exiting-mg",
+		"mg-ui-entering-mg"
+	);
+}
+
+function mgApplyHudMode(enabled, options = {}) {
+	const animate = options.animate ?? false;
+	const body = document.body;
+	if (!body) return;
+
+	if (mgHudTransitionTimer) {
+		clearTimeout(mgHudTransitionTimer);
+		mgHudTransitionTimer = null;
+	}
+
+	mgClearHudTransitionClasses();
+
+	const currentlyEnabled = body.classList.contains(MG_HUD_CLASS);
+	const nextEnabled = !!enabled;
+
+	if (!animate || currentlyEnabled === nextEnabled) {
+		body.classList.toggle(MG_HUD_CLASS, nextEnabled);
+		game.mgUi?.refreshLogo?.();
+		return;
+	}
+
+	body.classList.add("mg-ui-transitioning");
+
+	if (nextEnabled) {
+		// 1) Old Foundry UI exits.
+		body.classList.add("mg-ui-exiting-foundry");
+
+		mgHudTransitionTimer = window.setTimeout(() => {
+			// 2) Switch actual UI state.
+			body.classList.add(MG_HUD_CLASS);
+			game.mgUi?.refreshLogo?.();
+
+			body.classList.remove("mg-ui-exiting-foundry");
+
+			// 3) New MG UI enters.
+			body.classList.add("mg-ui-entering-mg");
+
+			mgHudTransitionTimer = window.setTimeout(() => {
+				mgClearHudTransitionClasses();
+				mgHudTransitionTimer = null;
+			}, MG_HUD_TRANSITION_MS);
+		}, MG_HUD_TRANSITION_MS);
+
+		return;
+	}
+
+	// 1) Old MG UI exits.
+	body.classList.add("mg-ui-exiting-mg");
+
+	mgHudTransitionTimer = window.setTimeout(() => {
+		// 2) Switch actual UI state.
+		body.classList.remove(MG_HUD_CLASS);
+		game.mgUi?.refreshLogo?.();
+
+		body.classList.remove("mg-ui-exiting-mg");
+
+		// 3) Foundry UI enters.
+		body.classList.add("mg-ui-entering-foundry");
+
+		mgHudTransitionTimer = window.setTimeout(() => {
+			mgClearHudTransitionClasses();
+			mgHudTransitionTimer = null;
+		}, MG_HUD_TRANSITION_MS);
+	}, MG_HUD_TRANSITION_MS);
+}
+
+async function mgSetHudMode(enabled) {
+	await game.settings.set("midnight-gambit", "mgHudEnabled", !!enabled);
+
+	ui.notifications?.info(`Midnight Gambit HUD ${enabled ? "enabled" : "disabled"}.`);
+}
+
+async function mgToggleHudMode() {
+  const current = game.settings.get("midnight-gambit", "mgHudEnabled");
+  await mgSetHudMode(!current);
+}
 
 
 
@@ -67,6 +164,35 @@ Hooks.once("init", async () => {
     type: Array,
     default: []
   });
+
+  /* MG HUD Mode Toggle
+  ----------------------------------------------------------------------*/
+  game.settings.register("midnight-gambit", "mgHudEnabled", {
+    name: "Enable Midnight Gambit HUD",
+    hint: "Hides most default Foundry UI and shows the custom Midnight Gambit interface.",
+    scope: "client",
+    config: true,
+    type: Boolean,
+    default: false,
+    onChange: value => mgApplyHudMode(value, { animate: true })
+  });
+
+  game.keybindings.register("midnight-gambit", "toggleMgHud", {
+    name: "Toggle Midnight Gambit HUD",
+    hint: "Switch between default Foundry UI and Midnight Gambit HUD mode.",
+    editable: [
+      {
+        key: "KeyM",
+        modifiers: [KeyboardManager.MODIFIER_KEYS.CONTROL, KeyboardManager.MODIFIER_KEYS.SHIFT]
+      }
+    ],
+    onDown: () => {
+      mgToggleHudMode();
+      return true;
+    },
+    restricted: false,
+    precedence: CONST.KEYBINDING_PRECEDENCE.NORMAL
+  });  
 
   // Register Item Sheets
   Items.unregisterSheet("core", ItemSheet);
@@ -295,4 +421,18 @@ Hooks.once("init", async () => {
   } catch (e) {
     console.error("❌ Failed to load config data in init:", e);
   }
+});
+
+
+Hooks.once("ready", () => {
+	const enabled = game.settings.get("midnight-gambit", "mgHudEnabled");
+	mgApplyHudMode(enabled);
+
+	game.mgUi?.refreshLogo?.();
+
+	game.mgHud = {
+		enable: () => mgSetHudMode(true),
+		disable: () => mgSetHudMode(false),
+		toggle: () => mgToggleHudMode()
+	};
 });

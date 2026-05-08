@@ -1,3 +1,679 @@
+/* MG UI 2.0
+==============================================================================================================================================*/
+
+/* Setting Transitions on all UI Elements, and hiding Foundry/MG UI on Toggle
+----------------------------------------------------------------------*/
+body {
+	--mg-hud-transition-speed: 1000ms;
+	--mg-hud-transition-ease: cubic-bezier(.2, .8, .2, 1);
+
+	&:not(.mg-hud-enabled) {
+		#mg-ui-root {
+			visibility: hidden;
+			opacity: 0;
+			pointer-events: none;
+			transform: translateX(-2rem);
+		}
+
+		.mg-ini-side {
+			visibility: hidden;
+			opacity: 0;
+			pointer-events: none;
+			transform: translateX(2rem);
+		}		
+	}
+
+	/* Foundry exits */
+	&.mg-ui-exiting-foundry {
+		#logo,
+		#controls,
+		#navigation,
+		#players {
+			opacity: 0;
+			transform: translateX(-2rem);
+			pointer-events: none;
+		}
+
+		#hotbar {
+			opacity: 0;
+			transform: translatey(2rem);
+			pointer-events: none;
+		}			
+
+		#sidebar {
+			opacity: 0;
+			transform: translateX(2rem);
+			pointer-events: none;
+		}
+	}
+
+	/* MG starts slightly offscreen when entering */
+	&.mg-ui-entering-mg {
+		#mg-ui-root {
+			animation: mg-ui-slide-in-left var(--mg-hud-transition-speed) var(--mg-hud-transition-ease) both;
+		}
+
+		.mg-ini-side {
+			animation: mg-ui-slide-in-right var(--mg-hud-transition-speed) var(--mg-hud-transition-ease) both;
+		}		
+	}
+
+	/* MG exits */
+	&.mg-ui-exiting-mg {
+		#mg-ui-root,
+		#logo {
+			opacity: 0;
+			transform: translateX(-2rem);
+			pointer-events: none;
+		}	
+
+		.mg-ini-side,
+		#sidebar {
+			opacity: 0;
+			transform: translateX(2rem);
+			pointer-events: none;
+		}		
+	}
+
+	/* Foundry enters */
+	&.mg-ui-entering-foundry {
+		#logo,
+		#controls,
+		#navigation,
+		#players {
+			animation: mg-ui-slide-in-left var(--mg-hud-transition-speed) var(--mg-hud-transition-ease) both;
+		}
+
+		#sidebar {
+			animation: mg-ui-slide-in-right var(--mg-hud-transition-speed) var(--mg-hud-transition-ease) both;
+		}
+	}
+}
+
+/* UI pieces that transition when switching HUDs */
+#logo,
+#controls,
+#navigation,
+#players,
+#hotbar,
+#sidebar,
+#mg-ui-root,
+.mg-ini-side {
+	transition:
+		transform var(--mg-hud-transition-speed) var(--mg-hud-transition-ease),
+		opacity var(--mg-hud-transition-speed) ease;
+}
+
+/* Keyframes for the UI Animation
+----------------------------------------------------------------------*/
+@keyframes mg-ui-slide-in-left {
+	from {
+		opacity: 0;
+		transform: translateX(-2rem);
+	}
+
+	to {
+		opacity: 1;
+		transform: translateX(0);
+	}
+}
+
+@keyframes mg-ui-slide-in-right {
+	from {
+		opacity: 0;
+		transform: translateX(2rem);
+	}
+
+	to {
+		opacity: 1;
+		transform: translateX(0);
+	}
+}
+
+/* MG Hud Enabled styles - Changing up some of the styles to better fit the new UI
+----------------------------------------------------------------------*/
+body.mg-hud-enabled {
+	/* Left canvas controls */
+	#controls {
+		opacity: 0;
+		pointer-events: none;
+		transform: translateX(-120%);
+	}
+
+	#logo.mg-system-logo-active {
+		background-image: url("/systems/midnight-gambit/assets/images/MG-Icon.png") !important;
+		background-size: contain !important;
+		background-repeat: no-repeat !important;
+		background-position: center !important;
+		height: auto;
+		width: 7rem;
+		filter: drop-shadow(4px 4px 4px $black);
+	}
+
+	#ui-right {
+		padding: 1rem 1rem 1rem 0;
+	}
+
+	#mg-initiative-sidebar.mg-ini-side {
+
+		.mg-ini-side-wrap {
+			margin-bottom: 1rem;
+		}
+
+		&.is-collapsed .mg-ini-side-handle{
+			left: -3.5rem;
+		}
+	}
+
+	#sidebar-tabs {
+		display: none;
+	}
+
+	/* Scene navigation at the top */
+	#navigation {
+		opacity: 0;
+		pointer-events: none;
+		transform: translateY(-120%);
+	}
+
+	/* Bottom macro / hotbar */
+	#hotbar {
+		opacity: 0;
+		pointer-events: none;
+		transform: translateY(120%);
+	}
+
+	/* Player list */
+	#players {
+		opacity: 0;
+		pointer-events: none;
+		transform: translateX(-120%);
+	}
+
+	// Sidebar tabs removal
+	#sidebar-tabs {
+
+		a.item,
+		button.item {
+		display: none;
+		}
+	}
+
+	#sidebar {
+	background:
+		/* subtle pearly sheen (top-center) */
+		radial-gradient(circle at 50% 0%,
+		rgba(197, 212, 236, 0.22) 0%,
+		rgba(197, 212, 236, 0.10) 35%,
+		rgba(18, 33, 55, 0.00) 70%
+		),
+		/* texture */
+		url("../assets/images/filigree.jpg");
+
+	background-size: cover, cover;
+	background-position: center, center;
+	background-blend-mode: soft-light, multiply;
+	background-color: $mg-blue-4;
+	border: 1px solid rgba($mg-blue-1, .25);
+
+	& > * {
+		background: transparent;
+	}
+
+	#chat-log {
+		background: transparent;
+	}
+
+	#chat-form textarea{
+		//One off color for the darker forms on the dark UI
+		border-color: $mg-blue-main-2;
+		background: #0D1929;
+		border-radius: .5rem;
+	}
+
+	#chat-controls {
+		padding: 1rem 0;
+		display: grid;
+		grid-template-columns: repeat(4, 1fr);
+		gap: .5rem;
+		margin: 0 .65rem;
+
+		.chat-control-icon {
+			display: none;
+		}
+
+		select {
+			margin: 0;
+			padding: .25rem .5rem;
+			height: auto;
+			grid-column: span 3;
+			width: 100%;
+			border-radius: .5rem;
+			grid-column: 1 / -1;
+			border-radius: .5rem;
+			border-color: $mg-blue-main-2;
+			background: #0D1929;			
+		}
+
+		.control-buttons {
+			display: flex;
+			gap: .5rem;
+			
+			a {
+				background: $mg-blue-main;
+				@include mg-border();
+				padding: .25rem;
+				width: 50%;
+				border-radius: .5rem;
+
+				i {
+					font-size: .875rem;
+					color: $mg-blue-2;
+				}
+			}
+		}
+
+		// GM layout: only when buttons exist, put select beside them
+		&:has(.control-buttons a) {
+			select {
+				grid-column: span 3;
+			}
+
+			.control-buttons {
+				grid-column: span 1;
+			}
+		}		
+	}
+
+	&:after {
+		display: none;
+	}
+
+	.chat-message {
+		border: 1px solid rgba($mg-blue-1, .25);
+		box-shadow: 5px 5px 4px 0 rgba(0, 0, 0, 0.50);
+		backdrop-filter: blur(2px);
+	}
+	}
+}
+
+// Smooth enough to feel intentional, not so much that it gets slimy
+body {
+  #controls,
+  #navigation,
+  #hotbar,
+  #players {
+    transition:
+      opacity 180ms ease,
+      transform 180ms ease;
+  }
+}
+
+/* MG ORB: Horizontal Scene Control Rail
+----------------------------------------------------------------------*/
+
+#mg-ui-root {
+  position: fixed;
+  left: 1rem;
+  bottom: 1rem;
+  z-index: 80;
+  pointer-events: none;
+}
+
+body:not(.mg-hud-enabled) #mg-ui-root {
+  display: none;
+}
+
+.mg-orb-wrap {
+	position: relative;
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	pointer-events: auto;
+
+	.mg-orb-button {
+		width: 86px;
+		height: 86px;
+		border: 2px solid $mg-blue-main;
+		border-radius: 10px;
+		padding: 0;
+		position: relative;
+		background:
+			/* subtle pearly sheen (top-center) */
+			radial-gradient(circle at 50% 0%,
+			rgba(197, 212, 236, 0.22) 0%,
+			rgba(197, 212, 236, 0.10) 35%,
+			rgba(18, 33, 55, 0.00) 70%
+			),
+			/* texture */
+			url("../assets/images/filigree.jpg");
+
+		background-size: cover, cover;
+		background-position: center, center;
+		background-blend-mode: soft-light, multiply;
+		background-color: $mg-blue-4;
+		box-shadow:
+			0 0 0 1px rgba(2, 10, 24, 0.9),
+			0 12px 32px rgba(0, 0, 0, 0.45),
+			inset 0 0 18px rgba(60, 132, 220, 0.16);
+		cursor: pointer;
+		transition: background .5s ease;
+
+		&:hover {
+			background: $mg-blue-3;
+		}
+
+		.mg-orb-img {
+			width: 80%;
+			height: 80%;
+			object-fit: cover;
+			display: block;
+			border: none;
+			margin: 0 auto;
+			filter: drop-shadow(2px 2px 2px $black);
+		}
+
+		.mg-orb-selected-stack {
+			position: absolute;
+			top: 50%;
+			left: -1rem;
+			transform: translateY(-50%);
+
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			justify-content: center;
+			gap: .5rem;
+			padding: .5rem;
+
+			border-radius: 1rem;
+			border: 2px solid $mg-blue-main;
+			background:
+				/* subtle pearly sheen (top-center) */
+				radial-gradient(circle at 50% 0%,
+				rgba(197, 212, 236, 0.22) 0%,
+				rgba(197, 212, 236, 0.10) 35%,
+				rgba(18, 33, 55, 0.00) 70%
+				),
+				/* texture */
+				url("../assets/images/filigree.jpg");
+
+			background-size: cover, cover;
+			background-position: center, center;
+			background-blend-mode: soft-light, multiply;
+			background-color: $mg-blue-4;
+			box-shadow:
+				0 0 0 1px rgba($black, .65),
+				0 .5rem 1rem rgba($black, .45);
+
+			pointer-events: none;
+			opacity: 1;
+
+			transition: opacity .5s ease, transform .5s ease;
+		}
+
+		.mg-orb-selected-parent,
+		.mg-orb-selected-child,
+		.mg-orb-selected-divider {
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			width: 100%;
+
+			i {
+				color: $mg-blue-1;
+				font-size: .75rem;
+				line-height: 1;
+			}
+
+			&[hidden] {
+				display: none;
+			}
+		}
+		
+		.mg-orb-selected-divider i {
+			color: rgba($mg-blue-1, .9);
+			line-height: 1;
+		}
+
+		.mg-orb-selected-badge {
+			position: absolute;
+			top: -1.35rem;
+			right: -1.35rem;
+			aspect-ratio: 1/1;
+			padding: .5rem;
+
+			display: flex;
+			align-items: center;
+			justify-content: center;
+
+			border-radius: .75rem;
+			border: 2px solid $mg-blue-main;
+			background: rgba($mg-blue-4, .95);
+			box-shadow:
+				0 0 0 1px rgba($black, .7),
+				0 .35rem 1rem rgba($black, .45);
+
+			pointer-events: none;
+			opacity: 1;
+			transform: scale(1);
+
+			transition:
+				opacity .18s ease,
+				transform .18s ease;
+
+			i {
+				color: $mg-blue-1;
+				font-size: .85rem;
+			}
+		}		
+	}
+	
+	/* Rail starts tucked behind the Orb and slides horizontally out */
+	.mg-orb-rail {
+		display: flex;
+		align-items: center;
+		gap: 0;
+		border: 1px solid rgba($mg-blue-1, .25);
+		border-radius: .5rem;
+		background: rgba($mg-blue-4, .5);
+		box-shadow: 5px 5px 5px 0 rgba(0, 0, 0, 0.50);
+		backdrop-filter: blur(2px);
+		overflow: hidden;
+
+		opacity: 0;
+		transform: translateX(-18px) scaleX(0.88);
+		transform-origin: left center;
+		pointer-events: none;
+
+		transition:
+			opacity 180ms ease,
+			transform 220ms cubic-bezier(.2, .8, .2, 1);
+
+		.mg-orb-tool {
+			height: 100%;
+			width: auto;
+			padding: 1rem;
+			margin: 0;
+			display: flex;
+			background-color: transparent;
+			border-left: 2px solid transparent;
+			border-right: 2px solid transparent;
+			border-radius: 0;
+			justify-content: center;
+			align-items: center;
+			cursor: pointer;
+			transition: background .5s ease, border-color .5s ease, color .5s ease, transform .5s ease;
+
+			i {
+				color: $mg-blue-1;
+				padding: 0;
+				margin: 0;
+			}
+
+			&:hover {
+				color: $mg-blue-1;
+				background: $mg-blue-main-2;
+				border-color: rgba($mg-blue-1, .25);
+			}
+
+			&.is-active {
+				color: $mg-blue-1;
+				background: $mg-blue-main-2;
+				border-color: rgba($mg-blue-1, .25);
+			}
+
+			&:first-of-type {
+				border-left: 0;
+			}
+
+			&:last-of-type {
+				border-right: 0;
+			}
+		}			
+	}
+
+	&.is-open {
+		.mg-orb-button {
+			border: 2px solid $mg-green;
+		}
+
+		.mg-orb-selected-badge {
+			opacity: 0;
+			transform: scale(.86);
+		}
+		
+		.mg-orb-selected-stack {
+			opacity: 0;
+			transform: translateY(-50%) scale(.92);
+		}
+
+		.mg-orb-rail {
+			opacity: 1;
+			transform: translateX(0) scaleX(1);
+			pointer-events: auto;
+		}
+	}
+}
+
+.mg-orb-selected-badge[hidden] {
+	display: none;
+}
+
+/* MG ORB: Subtool Rail
+----------------------------------------------------------------------*/
+
+.mg-orb-stack {
+	position: relative;
+	display: flex;
+	flex-direction: column;
+
+	.mg-orb-subrail {
+		position: absolute;
+		left: 0;
+		bottom: calc(100% + 10px);
+		background: rgba($mg-blue-4, .5);
+		border: 1px solid rgba($mg-blue-1, .25);
+		border-radius: .5rem;
+
+		opacity: 0;
+		transform: translateY(10px) scaleY(0.94);
+		transform-origin: bottom left;
+		pointer-events: none;
+
+		transition:
+			opacity .22s ease,
+			transform .22s cubic-bezier(.2, .8, .2, 1);
+
+		&.is-open {
+			opacity: 1;
+			transform: translateY(0) scaleY(1);
+			pointer-events: auto;	
+		}
+
+		&.is-closing {
+			opacity: 0;
+			transform: translateY(10px) scaleY(0.94);
+			pointer-events: none;
+		}
+
+		&.no-side-motion {
+			transition:
+				opacity .5s ease,
+				transform .5s cubic-bezier(.18, .9, .22, 1) !important;
+		}
+
+		.mg-orb-subrail-tools {
+			display: flex;
+			align-items: center;
+			overflow: hidden;
+			border-radius: .5rem;
+
+			.mg-orb-subtool {
+				height: 48px;
+				min-width: 48px;
+				padding: 1rem;
+				margin: 0;
+				display: flex;
+				background-color: transparent;
+				border-left: 2px solid transparent;
+				border-right: 2px solid transparent;
+				border-radius: 0;
+				justify-content: center;
+				align-items: center;
+				cursor: pointer;
+				transition: background .5s ease, border-color .5s ease, color .5s ease, transform .5s ease;
+
+				&:first-of-type {
+					border-left: 0;
+				}
+
+				&:last-of-type {
+					border-right: 0;
+				}
+
+				i {
+					color: $mg-blue-1;
+					margin: 0;
+				}
+
+				&:hover {
+					color: $white;
+					background: $mg-blue-main;
+					border-color: rgba($mg-blue-1, .25);
+					transform: translateY(-1px);
+				}
+
+				&.is-active {
+					color: $mg-blue-1;
+					background: $mg-blue-main-2;
+					border-color: rgba($mg-blue-1, .25);
+					box-shadow: 0 0 5px 0 rgba(0, 0, 0, 0.75);
+				}
+			}		
+		}	
+		
+		/* The little triangle pointing down to the selected category */
+		.mg-orb-subrail-pointer {
+			position: absolute;
+			z-index: -2;
+			left: 24px;
+			bottom: -9px;
+
+			width: 18px;
+			height: 18px;
+
+			background: rgba($mg-blue-4, .5);
+			border-right: 1px solid rgba($mg-blue-1, .25);
+			border-bottom: 1px solid rgba($mg-blue-1, .25);
+
+			transform: translateX(-50%) rotate(45deg);
+
+			transition: opacity 120ms ease;
+		}			
+	} 
+}
+
 /* MG - Clock
 ==============================================================================================================================================*/
 /* Force the clock to be visible and sized 
@@ -217,6 +893,8 @@
 	}
 }
 
+/* Base System Changes
+==============================================================================================================================================*/
 /* On Screen Initiative
 ----------------------------------------------------------------------*/
 
@@ -988,7 +1666,6 @@
 	display: flex;
 	gap: .5rem;
 }
-
 
 /* Pointer Event Resets
 ----------------------------------------------------------------------*/
