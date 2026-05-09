@@ -5,10 +5,40 @@ import { MGInitiativeController } from "./initiative-controller.js";
 import { evaluateRoll } from "./roll-utils.js";
 
 
+async function mgEnsureBasicUserDrawingPermission() {
+  if (!game.user.isGM) return;
+
+  const permissionKey = "DRAWING_CREATE";
+  const playerRole = CONST.USER_ROLES?.PLAYER ?? 1;
+
+  try {
+    const permissions = foundry.utils.deepClone(game.settings.get("core", "permissions") ?? {});
+    const currentRole = permissions[permissionKey];
+
+    if (Array.isArray(currentRole)) {
+      if (currentRole.includes(playerRole)) return;
+      permissions[permissionKey] = [...currentRole, playerRole].sort((a, b) => a - b);
+      await game.settings.set("core", "permissions", permissions);
+      console.info("MG | Enabled drawing creation for basic users.");
+      return;
+    }
+
+    if (typeof currentRole === "number" && currentRole <= playerRole) return;
+
+    permissions[permissionKey] = playerRole;
+    await game.settings.set("core", "permissions", permissions);
+    console.info("MG | Enabled drawing creation for basic users.");
+  } catch (err) {
+    console.warn("MG | Could not update Foundry drawing permission.", err);
+  }
+}
+
 
 Hooks.once("ready", () => {
   // Singleton access for debugging in console: game.mgInitiative
   game.mgInitiative = MGInitiativeBar.instance;
+
+  mgEnsureBasicUserDrawingPermission();
 
   game.socket.on("system.midnight-gambit", async (data) => {
     if (!data || data.type !== "makeGlobalItem") return;
@@ -394,6 +424,7 @@ const MG_HANDLE_SIZE = 50;   // px (unscaled)
 ----------------------------------------------------------------------*/
 const FLAG_CLOCKS = "clocks";
 const UFLAG_UI    = "clockUi";
+const UFLAG_CLOCKS_HIDDEN = "clockUiHidden";
 
 // Small id helper
 function mgNewId() {
@@ -965,6 +996,28 @@ async function mgUiSave(id, patch) {
   await game.user.setFlag(MG_NS, UFLAG_UI, next);
 }
 
+function mgClocksAreHiddenForUser() {
+  return !!game.user?.getFlag?.(MG_NS, UFLAG_CLOCKS_HIDDEN);
+}
+
+function mgApplyUserClockVisibility() {
+  const hidden = mgClocksAreHiddenForUser();
+  document.querySelectorAll(".mg-clock").forEach(el => {
+    el.hidden = hidden;
+    el.setAttribute("aria-hidden", hidden ? "true" : "false");
+  });
+}
+
+async function mgSetUserClocksHidden(hidden) {
+  await game.user.setFlag(MG_NS, UFLAG_CLOCKS_HIDDEN, !!hidden);
+  mgApplyUserClockVisibility();
+  ui.notifications?.info(hidden ? "Clocks hidden." : "Clocks shown.");
+}
+
+async function mgToggleUserClocksHidden() {
+  await mgSetUserClocksHidden(!mgClocksAreHiddenForUser());
+}
+
 // Apply saved/default position to a clock wrapper
 function mgApplyPos($wrap) {
   const id = $wrap.data("clockId");
@@ -1508,6 +1561,7 @@ function mgRenderOneClock(id) {
 
   const $wrap = mgEnsureClockDOM(id);
   mgApplyPos($wrap);
+  mgApplyUserClockVisibility();
 
   // Set name + control perms like in mgRenderAllClocks
   const nameInput = $wrap.find(".mg-clock-name")[0];
@@ -1639,6 +1693,8 @@ async function mgRenderAllClocks() {
     mgDrawClock($wrap, id);
     mgBindClock($wrap, id);
   }
+
+  mgApplyUserClockVisibility();
 }
 
 /* Hooking clocks into scene
@@ -1744,6 +1800,52 @@ async function mgOpenCreateClockDialog() {
   });
 }
 
+async function mgCreateClockFromUi() {
+	if (!game.user.isGM) {
+		ui.notifications?.warn("Only the GM can create clocks.");
+		return;
+	}
+
+	const opts = await mgOpenCreateClockDialog();
+	if (!opts) return;
+
+	const id = await mgClockCreate(opts);
+
+	if (id) {
+		await mgRenderAllClocks();
+
+		// Public clocks play the sting for everyone.
+		if (!opts.gmOnly) {
+			AudioHelper.play(
+				{ src: MG_CLOCK_SFX, volume: 0.8, autoplay: true, loop: false },
+				true
+			);
+		}
+	}
+}
+
+async function mgClearAllClocksFromUi() {
+	if (!game.user.isGM) {
+		ui.notifications?.warn("Only the GM can clear clocks.");
+		return;
+	}
+
+	const ok = await Dialog.confirm({
+		title: "Clear All Clocks?",
+		content: "<p>This will remove all clocks from the current scene.</p>"
+	});
+
+	if (!ok) return;
+
+	const all = mgClocksGetAll();
+
+	for (const id of Object.keys(all)) {
+		await mgClockDeleteById(id);
+	}
+
+	mgClearAllClockDOM();
+}
+
 /* Midnight Gambit palette (queen icon): Initiative + Clocks + Crew
 ----------------------------------------------------------------------*/
 Hooks.on("getSceneControlButtons", (controls) => {
@@ -1844,6 +1946,18 @@ Hooks.on("getSceneControlButtons", (controls) => {
   };
 
   controls.splice(insertAt, 0, mg);
+});
+
+Hooks.once("ready", () => {
+	game.mgClocks = {
+		create: mgCreateClockFromUi,
+		clearAll: mgClearAllClocksFromUi,
+		renderAll: mgRenderAllClocks,
+		clearDom: mgClearAllClockDOM,
+		areHidden: mgClocksAreHiddenForUser,
+		setHidden: mgSetUserClocksHidden,
+		toggleHidden: mgToggleUserClocksHidden
+	};
 });
 
 

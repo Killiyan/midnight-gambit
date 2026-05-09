@@ -19,10 +19,14 @@ let mgActiveTool = null;
 let mgSubbarOpen = false;
 let mgSubbarCloseTimer = null;
 let mgPendingOpenTimer = null;
+let mgActiveSidebarTab = "player";
+let mgLeftSidebarCollapsed = false;
+let mgRightSidebarCollapsed = false;
+let mgPlayersOriginalParent = null;
+let mgPlayersOriginalNextSibling = null;
 
-/**
- * Main Foundry canvas control groups shown in the MG Orb rail.
- */
+/* Main Foundry canvas control groups shown in the MG Orb rail.
+----------------------------------------------------------------------*/  
 const MG_CANVAS_CONTROLS = [
 	{
 		id: "token",
@@ -82,10 +86,10 @@ const MG_CANVAS_CONTROLS = [
 	}
 ];
 
-/**
- * Fallback subtools in case Foundry's ui.controls data is incomplete.
- * These names should match common Foundry v11 tool names.
- */
+/*	Fallback subtools in case Foundry's ui.controls data is incomplete.
+	These names should match common Foundry v11 tool names.
+----------------------------------------------------------------------*/  
+
 const MG_FALLBACK_TOOLS = {
   token: [
     { name: "select", label: "Select", icon: "fa-solid fa-expand" },
@@ -105,7 +109,7 @@ const MG_FALLBACK_TOOLS = {
   ],
   drawings: [
     { name: "select", label: "Select Drawings", icon: "fa-solid fa-expand" },
-    { name: "rect", label: "Rectangle", icon: "fa-regular fa-square" },
+    { name: "rectangle", label: "Rectangle", icon: "fa-regular fa-square" },
     { name: "ellipse", label: "Ellipse", icon: "fa-regular fa-circle" },
     { name: "polygon", label: "Polygon", icon: "fa-solid fa-draw-polygon" },
     { name: "freehand", label: "Freehand", icon: "fa-solid fa-signature" },
@@ -135,6 +139,89 @@ const MG_FALLBACK_TOOLS = {
   ]
 };
 
+/* Clock Subtools
+----------------------------------------------------------------------*/  
+const MG_CUSTOM_TOOL_MENUS = {
+	clocks: {
+		label: "Clocks",
+		icon: "fa-solid fa-clock",
+		tools: [
+			{
+				name: "addClock",
+				label: "Add Clock",
+				icon: "fa-solid fa-clock",
+				gmOnly: true
+			},
+			{
+				name: "clearClocks",
+				label: "Clear All Clocks",
+				icon: "fa-solid fa-clock-rotate-left",
+				gmOnly: true
+			},
+			{
+				name: "hideClocks",
+				label: () => game.mgClocks?.areHidden?.() ? "Show Clocks" : "Hide Clocks",
+				icon: () => game.mgClocks?.areHidden?.() ? "fa-solid fa-eye" : "fa-solid fa-eye-slash"
+			}
+		]
+	}
+};
+
+/* Left MG Sidebar States/Constants
+----------------------------------------------------------------------*/  
+const MG_LEFT_SIDEBAR_TABS = [
+	{
+		id: "player",
+		label: "Player",
+		icon: "fa-solid fa-user"
+	},
+	{
+		id: "crew",
+		label: "Crew / Party",
+		icon: "fa-solid fa-users"
+	},
+	{
+		id: "initiative",
+		label: "Initiative",
+		icon: "fa-solid fa-swords"
+	},
+	{
+		id: "scenes",
+		label: "Scenes",
+		icon: "fa-solid fa-map"
+	},
+	{
+		id: "actors",
+		label: "Actors",
+		icon: "fa-solid fa-user"
+	},
+	{
+		id: "items",
+		label: "Items",
+		icon: "fa-solid fa-briefcase"
+	},
+	{
+		id: "journal",
+		label: "Journal",
+		icon: "fa-solid fa-book-open"
+	},
+	{
+		id: "compendiums",
+		label: "Compendiums",
+		icon: "fa-solid fa-table-cells-large"
+	},
+	{
+		id: "players",
+		label: "Players",
+		icon: "fa-solid fa-user-group"
+	},	
+	{
+		id: "settings",
+		label: "Settings",
+		icon: "fa-solid fa-gears"
+	}
+];
+
 /**
  * Creates the entire MG UI root once.
  */
@@ -145,7 +232,46 @@ function mgCreateUiRoot() {
   root.id = MG_UI_ID;
   root.className = "mg-ui-root";
 
-  root.innerHTML = `
+root.innerHTML = `
+	<button
+		type="button"
+		class="mg-sidebar-collapse-toggle mg-left-sidebar-collapse-toggle"
+		data-mg-collapse-sidebar="left"
+		title="Toggle left sidebar"
+		aria-label="Toggle left sidebar"
+	>
+		<i class="fa-solid fa-chevron-left"></i>
+	</button>
+
+	<aside class="mg-left-sidebar" data-mg-left-sidebar>
+		<div class="mg-left-sidebar-panel" data-mg-left-sidebar-panel>
+			<header class="mg-left-sidebar-header">
+				<div>
+					<span class="mg-left-sidebar-kicker">Midnight Gambit</span>
+					<h2 data-mg-left-sidebar-title>Character</h2>
+				</div>
+			</header>
+
+			<div class="mg-left-sidebar-body" data-mg-left-sidebar-body>
+				<!-- Sidebar content renders here -->
+			</div>
+		</div>
+
+		<nav class="mg-left-sidebar-tabs" data-mg-left-sidebar-tabs aria-label="Midnight Gambit Sidebar">
+			${mgRenderLeftSidebarTabs()}
+		</nav>
+	</aside>
+
+	<button
+		type="button"
+		class="mg-sidebar-collapse-toggle mg-right-sidebar-collapse-toggle"
+		data-mg-collapse-sidebar="right"
+		title="Toggle right sidebar"
+		aria-label="Toggle right sidebar"
+	>
+		<i class="fa-solid fa-chevron-right"></i>
+	</button>
+
     <div class="mg-orb-wrap" data-mg-orb-wrap>
 	<button type="button" class="mg-orb-button" data-mg-orb-toggle title="Midnight Gambit Controls">
 		<img class="mg-orb-img" src="systems/${game.system.id}/assets/images/mg-queen.png" alt="Midnight Gambit" />
@@ -178,9 +304,17 @@ function mgCreateUiRoot() {
     </div>
   `;
 
-  document.body.appendChild(root);
-  mgBindUiRoot(root);
-  mgRefreshActiveControl();
+	document.body.appendChild(root);
+
+	mgBindUiRoot(root);
+	mgBindLeftSidebar(root);
+	mgBindSidebarCollapse(root);
+	mgRestoreSidebarCollapseState();
+
+	const savedState = mgLoadUiState();
+	mgSetLeftSidebarTab(savedState.sidebarTab || "player");
+
+	mgRefreshActiveControl();
 }
 
 /**
@@ -189,6 +323,7 @@ function mgCreateUiRoot() {
 function mgRenderControlButtons() {
   const controls = MG_CANVAS_CONTROLS.filter(control => {
     if (control.gmOnly && !game.user.isGM) return false;
+    if (control.control !== "drawings" && !mgCanUseFoundryControl(control.control)) return false;
     return true;
   });
 
@@ -206,15 +341,15 @@ function mgRenderControlButtons() {
   `).join("");
 
   const mgButtons = `
-    <button
-      type="button"
-      class="mg-orb-tool mg-orb-tool-mg"
-      data-mg-action="clocks"
-      title="Clocks"
-      aria-label="Clocks"
-    >
-      <i class="fa-solid fa-clock"></i>
-    </button>
+	<button
+		type="button"
+		class="mg-orb-tool mg-orb-tool-mg"
+		data-mg-custom-menu="clocks"
+		title="Clocks"
+		aria-label="Clocks"
+	>
+		<i class="fa-solid fa-clock"></i>
+	</button>
 
     <button
       type="button"
@@ -223,11 +358,53 @@ function mgRenderControlButtons() {
       title="Initiative"
       aria-label="Initiative"
     >
-      <i class="fa-solid fa-forward-step"></i>
+      <i class="fa-solid fa-swords"></i>
     </button>
   `;
 
   return `${foundryButtons}${mgButtons}`;
+}
+
+/* Left Sidebar Rendering
+----------------------------------------------------------------------*/
+function mgGetAssignedCharacter() {
+	return game.user?.character || null;
+}
+
+function mgRenderLeftSidebarTabs() {
+	return MG_LEFT_SIDEBAR_TABS.map(tab => {
+		const actor = tab.id === "player" ? mgGetAssignedCharacter() : null;
+		const portrait = actor?.img || "";
+		const tabClass = `mg-left-sidebar-tab${portrait ? " has-portrait" : ""}`;
+		const iconHtml = portrait
+			? `<img class="mg-left-sidebar-tab-portrait" src="${portrait}" alt="" />`
+			: `<i class="${tab.icon}"></i>`;
+
+		return `
+		<button
+			type="button"
+			class="${tabClass}"
+			data-mg-left-tab="${tab.id}"
+			aria-label="${tab.label}"
+		>
+			${iconHtml}
+			<span class="mg-left-sidebar-tab-label">${tab.label}</span>
+		</button>
+	`;
+	}).join("");
+}
+
+function mgRefreshLeftSidebarTabs() {
+	const root = document.getElementById(MG_UI_ID);
+	const tabs = root?.querySelector("[data-mg-left-sidebar-tabs]");
+	if (!root || !tabs) return;
+
+	tabs.innerHTML = mgRenderLeftSidebarTabs();
+	mgBindLeftSidebar(root);
+
+	root.querySelectorAll("[data-mg-left-tab]").forEach(button => {
+		button.classList.toggle("is-active", button.dataset.mgLeftTab === mgActiveSidebarTab);
+	});
 }
 
 /* MG UI persistence
@@ -271,12 +448,48 @@ function mgSaveUiState(patch = {}) {
 }
 
 function mgGetControlMeta(controlName) {
+	if (controlName?.startsWith("mg:")) {
+		const menuName = controlName.slice(3);
+		const menu = MG_CUSTOM_TOOL_MENUS[menuName];
+
+		if (menu) {
+			return {
+				control: controlName,
+				label: menu.label,
+				icon: menu.icon
+			};
+		}
+	}
+
 	return MG_CANVAS_CONTROLS.find(c => c.control === controlName) ?? null;
 }
 
 function mgGetToolMeta(controlName, toolName) {
 	if (!controlName || !toolName) return null;
+
+	if (controlName.startsWith("mg:")) {
+		const menuName = controlName.slice(3);
+		return mgGetCustomToolsForMenu(menuName).find(t => t.name === toolName) ?? null;
+	}
+
 	return mgGetToolsForControl(controlName).find(t => t.name === toolName) ?? null;
+}
+
+function mgResolveToolValue(value) {
+	return typeof value === "function" ? value() : value;
+}
+
+function mgGetCustomToolsForMenu(menuName) {
+	const menu = MG_CUSTOM_TOOL_MENUS[menuName];
+	const tools = menu?.tools ?? [];
+
+	return tools
+		.filter(tool => !tool.gmOnly || game.user.isGM)
+		.map(tool => ({
+			...tool,
+			label: mgResolveToolValue(tool.label),
+			icon: mgResolveToolValue(tool.icon)
+		}));
 }
 
 function mgSetOrbBadge(controlName = mgActiveControl, toolName = mgActiveTool) {
@@ -376,6 +589,28 @@ function mgBindUiRoot(root) {
 		});
 	});
 
+	root.querySelectorAll("[data-mg-custom-menu]").forEach(button => {
+		button.addEventListener("click", event => {
+			event.preventDefault();
+			event.stopPropagation();
+
+			const menuName = button.dataset.mgCustomMenu;
+			const activeName = `mg:${menuName}`;
+			const isSameControl = mgActiveControl === activeName;
+			const shouldCloseSubbar = isSameControl && mgSubbarOpen;
+
+			mgActiveControl = activeName;
+			mgActiveTool = null;
+			mgRefreshActiveControl(activeName);
+
+			if (shouldCloseSubbar) {
+				mgCloseSubbar();
+			} else {
+				mgOpenCustomSubbar(menuName, button);
+			}
+		});
+	});	
+
 	root.querySelectorAll("[data-mg-action]").forEach(button => {
 		button.addEventListener("click", event => {
 		event.preventDefault();
@@ -451,6 +686,65 @@ function mgOpenSubbar(controlName, sourceButton) {
 	openFresh();
 }
 
+function mgOpenCustomSubbar(menuName, sourceButton) {
+	const root = document.getElementById(MG_UI_ID);
+	if (!root) return;
+
+	const subrail = root.querySelector("[data-mg-orb-subrail]");
+	const toolsWrap = root.querySelector("[data-mg-subrail-tools]");
+	const pointer = root.querySelector("[data-mg-subrail-pointer]");
+
+	if (!subrail || !toolsWrap) return;
+
+	if (mgSubbarCloseTimer) {
+		clearTimeout(mgSubbarCloseTimer);
+		mgSubbarCloseTimer = null;
+	}
+
+	if (mgPendingOpenTimer) {
+		clearTimeout(mgPendingOpenTimer);
+		mgPendingOpenTimer = null;
+	}
+
+	const wasOpen = subrail.classList.contains("is-open");
+
+	const openFresh = () => {
+		mgRenderCustomSubbarTools(menuName, toolsWrap);
+		mgPositionSubbar(sourceButton, subrail, pointer);
+
+		subrail.classList.remove("is-closing");
+		void subrail.offsetHeight;
+		subrail.classList.add("is-open");
+
+		mgSubbarOpen = true;
+		mgActiveControl = `mg:${menuName}`;
+		mgActiveTool = null;
+		mgRefreshActiveTool();
+
+		mgSaveUiState({
+			orbOpen: true,
+			subbarOpen: true,
+			activeControl: mgActiveControl,
+			activeTool: null
+		});
+
+		mgSetOrbBadge(mgActiveControl, null);
+	};
+
+	if (wasOpen) {
+		mgCloseSubbar();
+
+		mgPendingOpenTimer = window.setTimeout(() => {
+			mgPendingOpenTimer = null;
+			openFresh();
+		}, 170);
+
+		return;
+	}
+
+	openFresh();
+}
+
 /**
  * Renders the subtool buttons for the active control.
  */
@@ -477,6 +771,49 @@ function mgRenderSubbarTools(controlName, toolsWrap) {
 			const toolName = button.dataset.mgSubtool;
 			await mgActivateFoundryTool(controlName, toolName);
 			mgRefreshActiveTool(toolName);
+		});
+	});
+}
+
+/**
+ * Renders Midnight Gambit custom subtool buttons.
+ */
+function mgRenderCustomSubbarTools(menuName, toolsWrap) {
+	const tools = mgGetCustomToolsForMenu(menuName);
+
+	toolsWrap.innerHTML = tools.map(tool => `
+		<button
+			type="button"
+			class="mg-orb-subtool"
+			data-mg-custom-subtool="${tool.name}"
+			title="${tool.label}"
+			aria-label="${tool.label}"
+		>
+			<i class="${tool.icon}"></i>
+		</button>
+	`).join("");
+
+	toolsWrap.querySelectorAll("[data-mg-custom-subtool]").forEach(button => {
+		button.addEventListener("click", async event => {
+			event.preventDefault();
+			event.stopPropagation();
+
+			const toolName = button.dataset.mgCustomSubtool;
+			mgActiveControl = `mg:${menuName}`;
+			mgActiveTool = toolName;
+
+			mgRefreshActiveControl(mgActiveControl);
+			mgRefreshActiveTool(toolName);
+			mgSaveUiState({
+				activeControl: mgActiveControl,
+				activeTool: toolName
+			});
+			mgSetOrbBadge(mgActiveControl, toolName);
+
+			await mgRunCustomTool(menuName, toolName);
+
+			mgRenderCustomSubbarTools(menuName, toolsWrap);
+			mgSetOrbBadge(mgActiveControl, mgActiveTool);
 		});
 	});
 }
@@ -579,6 +916,518 @@ function mgPositionSubbar(sourceButton, subrail, pointer) {
 	});
 }
 
+/* Left Sidebar Binder
+==============================================================================================================================================*/
+function mgBindLeftSidebar(root) {
+	root.querySelectorAll("[data-mg-left-tab]").forEach(button => {
+		button.addEventListener("click", event => {
+			event.preventDefault();
+			event.stopPropagation();
+
+			const tabId = button.dataset.mgLeftTab;
+			mgSetLeftSidebarTab(tabId);
+		});
+	});
+}
+
+function mgBindSidebarCollapse(root) {
+	root.querySelectorAll("[data-mg-collapse-sidebar]").forEach(button => {
+		button.addEventListener("click", event => {
+			event.preventDefault();
+			event.stopPropagation();
+
+			const side = button.dataset.mgCollapseSidebar;
+			if (side === "left") {
+				mgSetSidebarCollapsed("left", !mgLeftSidebarCollapsed);
+			}
+
+			if (side === "right") {
+				mgSetSidebarCollapsed("right", !mgRightSidebarCollapsed);
+			}
+		});
+	});
+}
+
+function mgSetSidebarCollapsed(side, collapsed) {
+	const body = document.body;
+	const root = document.getElementById(MG_UI_ID);
+	if (!body || !root) return;
+
+	const isCollapsed = !!collapsed;
+
+	if (side === "left") {
+		mgLeftSidebarCollapsed = isCollapsed;
+		body.classList.toggle("mg-left-sidebar-collapsed", isCollapsed);
+
+		const button = root.querySelector('[data-mg-collapse-sidebar="left"]');
+		const icon = button?.querySelector("i");
+
+		if (icon) {
+			icon.className = isCollapsed
+				? "fa-solid fa-chevron-right"
+				: "fa-solid fa-chevron-left";
+		}
+
+		if (button) {
+			button.title = isCollapsed ? "Show left sidebar" : "Hide left sidebar";
+			button.setAttribute("aria-label", button.title);
+			button.setAttribute("aria-expanded", String(!isCollapsed));
+		}
+	}
+
+	if (side === "right") {
+		mgRightSidebarCollapsed = isCollapsed;
+		body.classList.toggle("mg-right-sidebar-collapsed", isCollapsed);
+
+		const button = root.querySelector('[data-mg-collapse-sidebar="right"]');
+		const icon = button?.querySelector("i");
+
+		if (icon) {
+			icon.className = isCollapsed
+				? "fa-solid fa-chevron-left"
+				: "fa-solid fa-chevron-right";
+		}
+
+		if (button) {
+			button.title = isCollapsed ? "Show right sidebar" : "Hide right sidebar";
+			button.setAttribute("aria-label", button.title);
+			button.setAttribute("aria-expanded", String(!isCollapsed));
+		}
+	}
+
+	mgSaveUiState({
+		leftSidebarCollapsed: mgLeftSidebarCollapsed,
+		rightSidebarCollapsed: mgRightSidebarCollapsed
+	});
+}
+
+function mgRestoreSidebarCollapseState() {
+	const state = mgLoadUiState();
+
+	mgSetSidebarCollapsed("left", !!state.leftSidebarCollapsed);
+	mgSetSidebarCollapsed("right", !!state.rightSidebarCollapsed);
+}
+
+function mgSetLeftSidebarTab(tabId) {
+	const root = document.getElementById(MG_UI_ID);
+	if (!root) return;
+
+	const tab = MG_LEFT_SIDEBAR_TABS.find(t => t.id === tabId) || MG_LEFT_SIDEBAR_TABS[0];
+	if (!tab) return;
+
+	mgUndockFoundryPlayersBox();
+
+	mgActiveSidebarTab = tab.id;
+
+	root.querySelectorAll("[data-mg-left-tab]").forEach(button => {
+		button.classList.toggle("is-active", button.dataset.mgLeftTab === tab.id);
+	});
+
+	const title = root.querySelector("[data-mg-left-sidebar-title]");
+	if (title) title.textContent = tab.label;
+
+	const body = root.querySelector("[data-mg-left-sidebar-body]");
+	if (body) body.innerHTML = mgRenderLeftSidebarContent(tab.id);
+
+	mgBindLeftSidebarContent(root, tab.id);
+
+	mgSaveUiState({
+		sidebarTab: tab.id
+	});
+}
+
+function mgRenderLeftSidebarContent(tabId) {
+	switch (tabId) {
+		case "player":
+			return mgRenderPlayerSidebarContent();
+
+		case "crew":
+			return mgRenderCrewSidebarContent();
+
+		case "initiative":
+			return mgRenderInitiativeSidebarContent();
+
+		case "scenes":
+			return mgRenderSceneSidebarContent();
+
+		case "actors":
+			return mgRenderActorSidebarContent();
+
+		case "items":
+			return mgRenderItemSidebarContent();
+
+		case "journal":
+			return mgRenderJournalSidebarContent();
+
+		case "compendiums":
+			return mgRenderCompendiumSidebarContent();
+
+		case "players":
+			return mgRenderPlayersSidebarContent();			
+
+		case "settings":
+			return mgRenderSettingsSidebarContent();
+
+		default:
+			return `<div class="mg-left-empty">Unknown tab.</div>`;
+	}
+}
+
+function mgBindLeftSidebarContent(root, tabId) {
+	if (tabId === "players") {
+		mgDockFoundryPlayersBox(root);
+	}
+
+	root.querySelectorAll("[data-mg-open-actor]").forEach(button => {
+		button.addEventListener("click", () => {
+			const actor = game.actors.get(button.dataset.mgOpenActor);
+			actor?.sheet?.render(true, { focus: true });
+		});
+	});
+
+	root.querySelectorAll("[data-mg-open-item]").forEach(button => {
+		button.addEventListener("click", () => {
+			const item = game.items.get(button.dataset.mgOpenItem);
+			item?.sheet?.render(true, { focus: true });
+		});
+	});
+
+	root.querySelectorAll("[data-mg-open-scene]").forEach(button => {
+		button.addEventListener("click", async () => {
+			const scene = game.scenes.get(button.dataset.mgOpenScene);
+			if (!scene) return;
+			await scene.view();
+		});
+	});
+
+	root.querySelectorAll("[data-mg-open-journal]").forEach(button => {
+		button.addEventListener("click", () => {
+			const journal = game.journal.get(button.dataset.mgOpenJournal);
+			journal?.sheet?.render(true, { focus: true });
+		});
+	});
+
+	root.querySelectorAll("[data-mg-open-pack]").forEach(button => {
+		button.addEventListener("click", () => {
+			const pack = game.packs.get(button.dataset.mgOpenPack);
+			pack?.render?.(true);
+		});
+	});
+
+	root.querySelector("[data-mg-show-initiative]")?.addEventListener("click", () => {
+		game.mgInitiative?.showBar?.();
+	});
+
+	root.querySelector("[data-mg-hide-initiative]")?.addEventListener("click", () => {
+		game.mgInitiative?.hideBar?.();
+	});
+
+	root.querySelector("[data-mg-mount-initiative-sidebar]")?.addEventListener("click", async () => {
+		await game.mgInitiativeSidebar?.mount?.();
+	});
+
+	root.querySelector("[data-mg-settings-config]")?.addEventListener("click", () => {
+		game.settings?.sheet?.render?.(true);
+	});
+
+	root.querySelector("[data-mg-settings-controls]")?.addEventListener("click", () => {
+		try {
+			new KeybindingsConfig().render(true);
+		} catch (err) {
+			ui.notifications?.warn("Could not open Configure Controls.");
+			console.warn("MG UI | Configure Controls failed.", err);
+		}
+	});
+
+	root.querySelector("[data-mg-settings-modules]")?.addEventListener("click", () => {
+		try {
+			new ModuleManagement().render(true);
+		} catch (err) {
+			ui.notifications?.warn("Could not open Manage Modules.");
+			console.warn("MG UI | Manage Modules failed.", err);
+		}
+	});
+}
+
+function mgRenderPlayersSidebarContent() {
+	return `
+		<section class="mg-left-section mg-left-players-section">
+			<div class="mg-left-players-dock" data-mg-players-dock>
+				<div class="mg-left-empty">
+					<i class="fa-solid fa-user-group"></i>
+					<p>Loading players...</p>
+				</div>
+			</div>
+		</section>
+	`;
+}
+
+function mgDockFoundryPlayersBox(root = document.getElementById(MG_UI_ID)) {
+	const dock = root?.querySelector("[data-mg-players-dock]");
+	if (!dock) return;
+
+	let players = document.getElementById("players");
+
+	if (!players) {
+		ui.players?.render?.(true);
+		window.setTimeout(() => mgDockFoundryPlayersBox(root), 50);
+		return;
+	}
+
+	if (!mgPlayersOriginalParent && players.parentElement !== dock) {
+		mgPlayersOriginalParent = players.parentElement;
+		mgPlayersOriginalNextSibling = players.nextSibling;
+	}
+
+	players.classList.add("mg-players-docked");
+	dock.innerHTML = "";
+	dock.appendChild(players);
+}
+
+function mgUndockFoundryPlayersBox() {
+	const players = document.getElementById("players");
+	if (!players?.classList.contains("mg-players-docked")) return;
+
+	players.classList.remove("mg-players-docked");
+
+	if (mgPlayersOriginalParent?.isConnected) {
+		if (mgPlayersOriginalNextSibling?.parentElement === mgPlayersOriginalParent) {
+			mgPlayersOriginalParent.insertBefore(players, mgPlayersOriginalNextSibling);
+		} else {
+			mgPlayersOriginalParent.appendChild(players);
+		}
+	} else {
+		document.body.appendChild(players);
+	}
+}
+
+function mgRefreshDockedPlayersBox() {
+	if (mgActiveSidebarTab !== "players") return;
+	window.setTimeout(() => mgDockFoundryPlayersBox(), 0);
+}
+
+function mgRenderPlayerSidebarContent() {
+	const actor =
+		game.user?.character ||
+		game.actors?.find(a => a.type === "character" && a.isOwner);
+
+	if (!actor) {
+		return `
+			<div class="mg-left-empty">
+				<i class="fa-solid fa-user"></i>
+				<p>No owned character found.</p>
+			</div>
+		`;
+	}
+
+	const img = actor.img || "icons/svg/mystery-man.svg";
+	const guiseName = actor.system?.guise?.name || actor.system?.guiseName || "Character";
+
+	return `
+		<section class="mg-left-card mg-left-character-card">
+			<img class="mg-left-card-img" src="${img}" alt="${actor.name}" />
+
+			<div class="mg-left-card-body">
+				<label>Character</label>
+				<h3>${actor.name}</h3>
+				<p>${guiseName}</p>
+
+				<button type="button" class="mg-left-action" data-mg-open-actor="${actor.id}">
+					<i class="fa-solid fa-up-right-from-square"></i>
+					Open Sheet
+				</button>
+			</div>
+		</section>
+	`;
+}
+
+function mgResolveCrewForSidebar() {
+	const crewId = (() => {
+		try {
+			return game.settings.get("midnight-gambit", "crewActorId");
+		} catch (_) {
+			return "";
+		}
+	})();
+
+	if (crewId) {
+		const crew = game.actors.get(crewId);
+		if (crew) return crew;
+	}
+
+	return game.actors?.find(a => a.type === "crew") ?? null;
+}
+
+function mgRenderCrewSidebarContent() {
+	const crew = mgResolveCrewForSidebar();
+
+	if (!crew) {
+		return `
+			<div class="mg-left-empty">
+				<i class="fa-solid fa-users"></i>
+				<p>No Crew actor found.</p>
+			</div>
+		`;
+	}
+
+	const img = crew.img || "systems/midnight-gambit/assets/images/mg-queen.png";
+
+	return `
+		<section class="mg-left-card mg-left-crew-card">
+			<img class="mg-left-card-img" src="${img}" alt="${crew.name}" />
+
+			<div class="mg-left-card-body">
+				<label>Crew / Party</label>
+				<h3>${crew.name}</h3>
+				<p>Shared party resources and crew sheet.</p>
+
+				<button type="button" class="mg-left-action" data-mg-open-actor="${crew.id}">
+					<i class="fa-solid fa-up-right-from-square"></i>
+					Open Crew
+				</button>
+			</div>
+		</section>
+	`;
+}
+
+function mgRenderInitiativeSidebarContent() {
+	return `
+		<section class="mg-left-section">
+			<button type="button" class="mg-left-action" data-mg-show-initiative>
+				<i class="fa-solid fa-swords"></i>
+				Show Initiative
+			</button>
+
+			<button type="button" class="mg-left-action" data-mg-hide-initiative>
+				<i class="fa-solid fa-eye-slash"></i>
+				Hide Initiative
+			</button>
+
+			<button type="button" class="mg-left-action" data-mg-mount-initiative-sidebar>
+				<i class="fa-solid fa-sidebar"></i>
+				Mount Sidebar Initiative
+			</button>
+		</section>
+	`;
+}
+
+function mgRenderSceneSidebarContent() {
+	const scenes = Array.from(game.scenes ?? []);
+
+	if (!scenes.length) {
+		return `<div class="mg-left-empty">No scenes found.</div>`;
+	}
+
+	return `
+		<section class="mg-left-list">
+			${scenes.map(scene => `
+				<button type="button" class="mg-left-list-row" data-mg-open-scene="${scene.id}">
+					<i class="fa-solid fa-map"></i>
+					<span>${scene.name}</span>
+				</button>
+			`).join("")}
+		</section>
+	`;
+}
+
+function mgRenderActorSidebarContent() {
+	const actors = Array.from(game.actors ?? [])
+		.filter(actor => game.user.isGM || actor.isOwner);
+
+	if (!actors.length) {
+		return `<div class="mg-left-empty">No visible actors found.</div>`;
+	}
+
+	return `
+		<section class="mg-left-list">
+			${actors.map(actor => `
+				<button type="button" class="mg-left-list-row" data-mg-open-actor="${actor.id}">
+					<img src="${actor.img || "icons/svg/mystery-man.svg"}" alt="" />
+					<span>${actor.name}</span>
+				</button>
+			`).join("")}
+		</section>
+	`;
+}
+
+function mgRenderItemSidebarContent() {
+	const items = Array.from(game.items ?? []);
+
+	if (!items.length) {
+		return `<div class="mg-left-empty">No world items found.</div>`;
+	}
+
+	return `
+		<section class="mg-left-list">
+			${items.map(item => `
+				<button type="button" class="mg-left-list-row" data-mg-open-item="${item.id}">
+					<img src="${item.img || "icons/svg/item-bag.svg"}" alt="" />
+					<span>${item.name}</span>
+				</button>
+			`).join("")}
+		</section>
+	`;
+}
+
+function mgRenderJournalSidebarContent() {
+	const journals = Array.from(game.journal ?? []);
+
+	if (!journals.length) {
+		return `<div class="mg-left-empty">No journal entries found.</div>`;
+	}
+
+	return `
+		<section class="mg-left-list">
+			${journals.map(journal => `
+				<button type="button" class="mg-left-list-row" data-mg-open-journal="${journal.id}">
+					<i class="fa-solid fa-book-open"></i>
+					<span>${journal.name}</span>
+				</button>
+			`).join("")}
+		</section>
+	`;
+}
+
+function mgRenderCompendiumSidebarContent() {
+	const packs = Array.from(game.packs ?? []);
+
+	if (!packs.length) {
+		return `<div class="mg-left-empty">No compendiums found.</div>`;
+	}
+
+	return `
+		<section class="mg-left-list">
+			${packs.map(pack => `
+				<button type="button" class="mg-left-list-row" data-mg-open-pack="${pack.collection}">
+					<i class="fa-solid fa-box-archive"></i>
+					<span>${pack.metadata?.label || pack.collection}</span>
+				</button>
+			`).join("")}
+		</section>
+	`;
+}
+
+function mgRenderSettingsSidebarContent() {
+	return `
+		<section class="mg-left-section">
+			<button type="button" class="mg-left-action" data-mg-settings-config>
+				<i class="fa-solid fa-gears"></i>
+				Configure Settings
+			</button>
+
+			<button type="button" class="mg-left-action" data-mg-settings-controls>
+				<i class="fa-solid fa-gamepad"></i>
+				Configure Controls
+			</button>
+
+			<button type="button" class="mg-left-action" data-mg-settings-modules>
+				<i class="fa-solid fa-cube"></i>
+				Manage Modules
+			</button>
+		</section>
+	`;
+}
+
 /* Centralized Foundry Scene Control Handling
 ==============================================================================================================================================*/
 
@@ -586,9 +1435,15 @@ function mgGetFoundryControl(controlName) {
   return ui.controls?.controls?.find(c => c.name === controlName) ?? null;
 }
 
+function mgCanUseFoundryControl(controlName) {
+	const foundryControl = mgGetFoundryControl(controlName);
+	return !!foundryControl && foundryControl.visible !== false;
+}
+
 function mgGetFoundryTool(controlName, toolName) {
   const control = mgGetFoundryControl(controlName);
-  return control?.tools?.find(t => t.name === toolName) ?? null;
+  const names = mgGetNativeToolNames(controlName, toolName);
+  return control?.tools?.find(t => names.includes(t.name)) ?? null;
 }
 
 function mgNextFrame() {
@@ -600,6 +1455,47 @@ function mgNextFrame() {
 function mgCssEscape(value) {
   if (window.CSS?.escape) return CSS.escape(String(value));
   return String(value).replace(/"/g, '\\"');
+}
+
+function mgGetNativeToolNames(controlName, toolName) {
+  const aliases = {
+    drawings: {
+      rect: ["rect", "rectangle"],
+      rectangle: ["rectangle", "rect"]
+    }
+  };
+
+  return aliases[controlName]?.[toolName] ?? [toolName];
+}
+
+async function mgInitializeNativeControl(controlName, toolName = null) {
+  const control = mgGetFoundryControl(controlName);
+  if (!control || typeof ui.controls?.initialize !== "function") return false;
+
+  const names = toolName ? mgGetNativeToolNames(controlName, toolName) : [null];
+
+  for (const name of names) {
+    try {
+      const update = {
+        control: controlName,
+        layer: control.layer
+      };
+
+      if (name) update.tool = name;
+
+      await ui.controls.initialize(update);
+      await mgNextFrame();
+
+      const activeControl = ui.controls?.activeControl || ui.controls?.control?.name;
+      const activeTool = ui.controls?.activeTool || ui.controls?.tool?.name || control.activeTool;
+
+      if (activeControl === controlName && (!name || activeTool === name)) return true;
+    } catch (err) {
+      console.warn("MG UI | Direct scene control activation failed.", { controlName, toolName: name, err });
+    }
+  }
+
+  return false;
 }
 
 /**
@@ -619,7 +1515,7 @@ async function mgClickNativeControl(controlName) {
 
   if (!nativeControl) {
     console.warn(`MG UI | Native control button not found: ${controlName}`);
-    return false;
+    return mgInitializeNativeControl(controlName);
   }
 
   nativeControl.dispatchEvent(new MouseEvent("click", {
@@ -629,7 +1525,11 @@ async function mgClickNativeControl(controlName) {
   }));
 
   await mgNextFrame();
-  return true;
+
+  const activeControl = ui.controls?.activeControl || ui.controls?.control?.name;
+  if (activeControl === controlName) return true;
+
+  return mgInitializeNativeControl(controlName);
 }
 
 /**
@@ -641,7 +1541,7 @@ async function mgClickNativeControl(controlName) {
 async function mgClickNativeTool(controlName, toolName) {
   if (!controlName || !toolName) return false;
 
-  const safeTool = mgCssEscape(toolName);
+  const toolNames = mgGetNativeToolNames(controlName, toolName);
 
   // First activate the parent control using Foundry's own button.
   const controlClicked = await mgClickNativeControl(controlName);
@@ -649,13 +1549,18 @@ async function mgClickNativeTool(controlName, toolName) {
 
   await mgNextFrame();
 
-  const candidates = Array.from(document.querySelectorAll([
-    `#controls [data-tool="${safeTool}"]`,
-    `#controls li.control-tool[data-tool="${safeTool}"]`,
-    `#controls li[data-tool="${safeTool}"]`,
-    `#controls button[data-tool="${safeTool}"]`,
-    `#controls a[data-tool="${safeTool}"]`
-  ].join(",")));
+  const selectors = toolNames.flatMap(name => {
+    const safeTool = mgCssEscape(name);
+    return [
+      `#controls [data-tool="${safeTool}"]`,
+      `#controls li.control-tool[data-tool="${safeTool}"]`,
+      `#controls li[data-tool="${safeTool}"]`,
+      `#controls button[data-tool="${safeTool}"]`,
+      `#controls a[data-tool="${safeTool}"]`
+    ];
+  });
+
+  const candidates = Array.from(document.querySelectorAll(selectors.join(",")));
 
   // Prefer buttons that are not disabled and are closest to the active subcontrols.
   const nativeButton =
@@ -672,7 +1577,7 @@ async function mgClickNativeTool(controlName, toolName) {
         classes: el.className
       }))
     );
-    return false;
+    return mgInitializeNativeControl(controlName, toolName);
   }
 
   nativeButton.dispatchEvent(new MouseEvent("click", {
@@ -682,7 +1587,11 @@ async function mgClickNativeTool(controlName, toolName) {
   }));
 
   await mgNextFrame();
-  return true;
+
+  const activeTool = ui.controls?.activeTool || ui.controls?.tool?.name || mgGetFoundryControl(controlName)?.activeTool;
+  if (toolNames.includes(activeTool)) return true;
+
+  return mgInitializeNativeControl(controlName, toolName);
 }
 
 /**
@@ -693,6 +1602,12 @@ async function mgActivateFoundryControl(controlName) {
 
 	const foundryControl = mgGetFoundryControl(controlName);
 	if (!foundryControl) {
+		if (controlName === "drawings") {
+			ui.notifications?.warn("MG UI: Drawing tools need Foundry's Create Drawing permission for Players.");
+			console.warn("MG UI | Drawing control missing. Check core permission DRAWING_CREATE for the Player role.");
+			return;
+		}
+
 		ui.notifications?.warn(`MG UI: Foundry control "${controlName}" was not found.`);
 		console.warn("MG UI | Available controls:", ui.controls?.controls?.map(c => c.name));
 		return;
@@ -777,33 +1692,91 @@ function mgRunMgAction(action) {
   }
 }
 
+async function mgRunCustomTool(menuName, toolName) {
+	if (menuName === "clocks") {
+		switch (toolName) {
+			case "addClock": {
+				if (!game.mgClocks?.create) {
+					ui.notifications?.warn("MG Clocks are not ready yet.");
+					return;
+				}
+
+				await game.mgClocks.create();
+				return;
+			}
+
+			case "clearClocks": {
+				if (!game.mgClocks?.clearAll) {
+					ui.notifications?.warn("MG Clocks are not ready yet.");
+					return;
+				}
+
+				await game.mgClocks.clearAll();
+				return;
+			}
+
+			case "hideClocks": {
+				if (!game.mgClocks?.toggleHidden) {
+					ui.notifications?.warn("MG Clocks are not ready yet.");
+					return;
+				}
+
+				await game.mgClocks.toggleHidden();
+				return;
+			}
+
+			default:
+				ui.notifications?.warn(`Unknown Clock tool: ${toolName}`);
+				return;
+		}
+	}
+
+	ui.notifications?.warn(`Unknown MG menu: ${menuName}`);
+}
+
 /**
  * Updates active visual state on the MG main rail.
  */
 function mgRefreshActiveControl(forcedControl = null) {
-  const active = forcedControl || ui.controls?.activeControl || ui.controls?.control?.name || "";
-  mgActiveControl = active || mgActiveControl;
+	const active =
+		forcedControl ||
+		(mgActiveControl?.startsWith("mg:") && mgSubbarOpen ? mgActiveControl : "") ||
+		ui.controls?.activeControl ||
+		ui.controls?.control?.name ||
+		"";
 
-  document.querySelectorAll(".mg-orb-tool[data-mg-control]").forEach(button => {
-    button.classList.toggle("is-active", button.dataset.mgControl === mgActiveControl);
-  });
+	mgActiveControl = active || mgActiveControl;
+
+	document.querySelectorAll(".mg-orb-tool").forEach(button => {
+		const controlName = button.dataset.mgControl;
+		const customMenu = button.dataset.mgCustomMenu ? `mg:${button.dataset.mgCustomMenu}` : null;
+
+		button.classList.toggle(
+			"is-active",
+			controlName === mgActiveControl || customMenu === mgActiveControl
+		);
+	});
 }
 
 /**
  * Updates active visual state on the subtool rail.
  */
 function mgRefreshActiveTool(forcedTool = null) {
-	const activeTool =
-		forcedTool ||
-		ui.controls?.activeTool ||
-		ui.controls?.tool?.name ||
-		mgActiveTool ||
-		"";
+	const activeTool = mgActiveControl?.startsWith("mg:")
+		? (forcedTool || mgActiveTool || "")
+		: (
+			forcedTool ||
+			ui.controls?.activeTool ||
+			ui.controls?.tool?.name ||
+			mgActiveTool ||
+			""
+		);
 
-	if (activeTool) mgActiveTool = activeTool;
+	mgActiveTool = activeTool || null;
 
-	document.querySelectorAll(".mg-orb-subtool[data-mg-subtool]").forEach(button => {
-		button.classList.toggle("is-active", button.dataset.mgSubtool === activeTool);
+	document.querySelectorAll(".mg-orb-subtool").forEach(button => {
+		const toolName = button.dataset.mgSubtool || button.dataset.mgCustomSubtool;
+		button.classList.toggle("is-active", toolName === activeTool);
 	});
 
 	mgSetOrbBadge(mgActiveControl, mgActiveTool);
@@ -816,8 +1789,16 @@ Hooks.on("renderSceneControls", () => {
   mgRefreshActiveTool();
 });
 
+Hooks.on("renderPlayers", mgRefreshDockedPlayersBox);
+Hooks.on("renderPlayerList", mgRefreshDockedPlayersBox);
+Hooks.on("updateUser", user => {
+	if (user?.id === game.user?.id) mgRefreshLeftSidebarTabs();
+	mgRefreshDockedPlayersBox();
+});
+
 async function mgRestoreUiState() {
 	const state = mgLoadUiState();
+	mgSetLeftSidebarTab(state.sidebarTab || "player");
 	if (!state || (!state.activeControl && !state.orbOpen)) return;
 
 	const root = document.getElementById(MG_UI_ID);
@@ -827,8 +1808,16 @@ async function mgRestoreUiState() {
 	mgActiveControl = state.activeControl || mgActiveControl;
 	mgActiveTool = state.activeTool || mgActiveTool;
 
+	if (mgActiveControl && !mgActiveControl.startsWith("mg:") && !mgCanUseFoundryControl(mgActiveControl)) {
+		mgActiveControl = null;
+		mgActiveTool = null;
+		mgSaveUiState({ activeControl: null, activeTool: null, subbarOpen: false });
+	}
+
 	// Restore Foundry's actual selected control/tool.
-	if (mgActiveControl && mgActiveTool) {
+	if (mgActiveControl?.startsWith("mg:")) {
+		mgRefreshActiveControl(mgActiveControl);
+	} else if (mgActiveControl && mgActiveTool) {
 		await mgActivateFoundryTool(mgActiveControl, mgActiveTool);
 	} else if (mgActiveControl) {
 		await mgActivateFoundryControl(mgActiveControl);
@@ -841,9 +1830,19 @@ async function mgRestoreUiState() {
 	if (state.orbOpen) {
 		wrap.classList.add("is-open");
 
-		const sourceButton = root.querySelector(`[data-mg-control="${mgActiveControl}"]`);
-		if (sourceButton) {
-			mgOpenSubbar(mgActiveControl, sourceButton);
+		if (mgActiveControl?.startsWith("mg:")) {
+			const menuName = mgActiveControl.slice(3);
+			const sourceButton = root.querySelector(`[data-mg-custom-menu="${menuName}"]`);
+
+			if (sourceButton) {
+				mgOpenCustomSubbar(menuName, sourceButton);
+			}
+		} else {
+			const sourceButton = root.querySelector(`[data-mg-control="${mgActiveControl}"]`);
+
+			if (sourceButton) {
+				mgOpenSubbar(mgActiveControl, sourceButton);
+			}
 		}
 	} else {
 		wrap.classList.remove("is-open");
@@ -977,8 +1976,9 @@ Hooks.once("ready", () => {
 		})) ?? [],
 		closeSubbar: mgCloseSubbar,
 		rebuild: () => {
-		document.getElementById(MG_UI_ID)?.remove();
-		mgCreateUiRoot();
+			mgUndockFoundryPlayersBox();
+			document.getElementById(MG_UI_ID)?.remove();
+			mgCreateUiRoot();
 		}
   };
 });

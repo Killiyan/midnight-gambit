@@ -7,8 +7,9 @@ body {
 	--mg-hud-transition-speed: 1000ms;
 	--mg-hud-transition-ease: cubic-bezier(.2, .8, .2, 1);
 
-	&:not(.mg-hud-enabled) {
-		#mg-ui-root {
+	&:not(.mg-hud-enabled):not(.mg-ui-transitioning) {
+		.mg-orb-wrap,
+		.mg-left-sidebar {
 			visibility: hidden;
 			opacity: 0;
 			pointer-events: none;
@@ -16,11 +17,12 @@ body {
 		}
 
 		.mg-ini-side {
-			visibility: hidden;
-			opacity: 0;
-			pointer-events: none;
-			transform: translateX(2rem);
-		}		
+			transform: translateX(calc(100% - 15.675rem));
+
+			.mg-ini-side-handle {
+				left: -2.25rem;
+			}			
+		}
 	}
 
 	/* Foundry exits */
@@ -40,39 +42,45 @@ body {
 			pointer-events: none;
 		}			
 
-		#sidebar {
+		#sidebar,
+		.mg-ini-side {
 			opacity: 0;
 			transform: translateX(2rem);
 			pointer-events: none;
 		}
 	}
 
-	/* MG starts slightly offscreen when entering */
+	// MG starts slightly offscreen when entering
 	&.mg-ui-entering-mg {
-		#mg-ui-root {
+		.mg-orb-wrap {
+			animation: mg-ui-slide-in-left var(--mg-hud-transition-speed) var(--mg-hud-transition-ease) both;
+		}
+
+		.mg-left-sidebar {
 			animation: mg-ui-slide-in-left var(--mg-hud-transition-speed) var(--mg-hud-transition-ease) both;
 		}
 
 		.mg-ini-side {
 			animation: mg-ui-slide-in-right var(--mg-hud-transition-speed) var(--mg-hud-transition-ease) both;
-		}		
+		}
 	}
 
-	/* MG exits */
+	// MG exits
 	&.mg-ui-exiting-mg {
-		#mg-ui-root,
+		.mg-orb-wrap,
+		.mg-left-sidebar,
 		#logo {
 			opacity: 0;
 			transform: translateX(-2rem);
 			pointer-events: none;
-		}	
+		}
 
 		.mg-ini-side,
 		#sidebar {
 			opacity: 0;
 			transform: translateX(2rem);
 			pointer-events: none;
-		}		
+		}
 	}
 
 	/* Foundry enters */
@@ -84,7 +92,8 @@ body {
 			animation: mg-ui-slide-in-left var(--mg-hud-transition-speed) var(--mg-hud-transition-ease) both;
 		}
 
-		#sidebar {
+		#sidebar,
+		.mg-ini-side {
 			animation: mg-ui-slide-in-right var(--mg-hud-transition-speed) var(--mg-hud-transition-ease) both;
 		}
 	}
@@ -97,7 +106,8 @@ body {
 #players,
 #hotbar,
 #sidebar,
-#mg-ui-root,
+.mg-orb-wrap,
+.mg-left-sidebar,
 .mg-ini-side {
 	transition:
 		transform var(--mg-hud-transition-speed) var(--mg-hud-transition-ease),
@@ -133,6 +143,7 @@ body {
 /* MG Hud Enabled styles - Changing up some of the styles to better fit the new UI
 ----------------------------------------------------------------------*/
 body.mg-hud-enabled {
+
 	/* Left canvas controls */
 	#controls {
 		opacity: 0;
@@ -148,6 +159,9 @@ body.mg-hud-enabled {
 		height: auto;
 		width: 7rem;
 		filter: drop-shadow(4px 4px 4px $black);
+		position: absolute;
+		top: 1rem;
+		left: calc(50vw - 3.5rem);
 	}
 
 	#ui-right {
@@ -161,7 +175,7 @@ body.mg-hud-enabled {
 		}
 
 		&.is-collapsed .mg-ini-side-handle{
-			left: -3.5rem;
+			left: -3.25rem;
 		}
 	}
 
@@ -200,100 +214,498 @@ body.mg-hud-enabled {
 	}
 
 	#sidebar {
-	background:
-		/* subtle pearly sheen (top-center) */
-		radial-gradient(circle at 50% 0%,
-		rgba(197, 212, 236, 0.22) 0%,
-		rgba(197, 212, 236, 0.10) 35%,
-		rgba(18, 33, 55, 0.00) 70%
-		),
-		/* texture */
-		url("../assets/images/filigree.jpg");
+		background:
+			/* subtle pearly sheen (top-center) */
+			radial-gradient(circle at 50% 0%,
+			rgba(197, 212, 236, 0.22) 0%,
+			rgba(197, 212, 236, 0.10) 35%,
+			rgba(18, 33, 55, 0.00) 70%
+			),
+			/* texture */
+			url("../assets/images/filigree.jpg");
 
-	background-size: cover, cover;
-	background-position: center, center;
-	background-blend-mode: soft-light, multiply;
-	background-color: $mg-blue-4;
-	border: 1px solid rgba($mg-blue-1, .25);
+		background-size: cover, cover;
+		background-position: center, center;
+		background-blend-mode: soft-light, multiply;
+		background-color: $mg-blue-4;
+		border: 1px solid rgba($mg-blue-1, .25);
+		margin: 0;
+		border-radius: .75rem;
 
-	& > * {
-		background: transparent;
-	}
+		& > * {
+			background: transparent;
+		}
 
-	#chat-log {
-		background: transparent;
-	}
+		#chat-log {
+			background: transparent;
+		}
 
-	#chat-form textarea{
-		//One off color for the darker forms on the dark UI
-		border-color: $mg-blue-main-2;
-		background: #0D1929;
-		border-radius: .5rem;
-	}
+		#chat-form textarea{
+			//One off color for the darker forms on the dark UI
+			border-color: $mg-blue-main-2;
+			background: #0D1929;
+			border-radius: .5rem;
+		}
 
-	#chat-controls {
-		padding: 1rem 0;
-		display: grid;
-		grid-template-columns: repeat(4, 1fr);
-		gap: .5rem;
-		margin: 0 .65rem;
+		#chat-controls {
+			padding: 1rem 0;
+			display: grid;
+			grid-template-columns: repeat(4, 1fr);
+			gap: .5rem;
+			margin: 0 .65rem;
 
-		.chat-control-icon {
+			.chat-control-icon {
+				display: none;
+			}
+
+			select {
+				margin: 0;
+				padding: .25rem .5rem;
+				height: auto;
+				grid-column: span 3;
+				width: 100%;
+				border-radius: .5rem;
+				grid-column: 1 / -1;
+				border-radius: .5rem;
+				border-color: $mg-blue-main-2;
+				background: #0D1929;			
+			}
+
+			.control-buttons {
+				display: flex;
+				gap: .5rem;
+				
+				a {
+					background: $mg-blue-main;
+					@include mg-border();
+					padding: .25rem;
+					width: 50%;
+					border-radius: .5rem;
+
+					i {
+						font-size: .875rem;
+						color: $mg-blue-2;
+					}
+				}
+			}
+
+			// GM layout: only when buttons exist, put select beside them
+			&:has(.control-buttons a) {
+				select {
+					grid-column: span 3;
+				}
+
+				.control-buttons {
+					grid-column: span 1;
+				}
+			}		
+		}
+
+		&:after {
 			display: none;
 		}
 
-		select {
-			margin: 0;
-			padding: .25rem .5rem;
-			height: auto;
-			grid-column: span 3;
-			width: 100%;
-			border-radius: .5rem;
-			grid-column: 1 / -1;
-			border-radius: .5rem;
-			border-color: $mg-blue-main-2;
-			background: #0D1929;			
+		.chat-message {
+			border: 1px solid rgba($mg-blue-1, .25);
+			box-shadow: 5px 5px 4px 0 rgba(0, 0, 0, 0.50);
+			backdrop-filter: blur(2px);
 		}
+	}
 
-		.control-buttons {
+	.mg-left {
+		&-sidebar {
+			position: fixed;
+			left: 0;
+			top: 0;
+			margin: 1rem;
+			height: calc(100% - 2rem);
+			z-index: 70;
+
 			display: flex;
-			gap: .5rem;
-			
-			a {
-				background: $mg-blue-main;
-				@include mg-border();
-				padding: .25rem;
-				width: 50%;
+			align-items: flex-start;
+			gap: .75rem;
+
+			pointer-events: auto;
+
+			&-panel {
+				width: 24rem;
+				max-width: 24rem;
+				height: 100%;
+
+				border: 1px solid rgba($mg-blue-1, .25);
+				border-radius: .75rem;
+				background:
+					radial-gradient(circle at 50% 0%, rgba($mg-blue-1, .16), transparent 55%),
+					rgba($mg-blue-4, .88);
+				box-shadow: 0 .75rem 2rem rgba($black, .45);
+				overflow: hidden;
+			}
+
+			&-header {
+				padding: 1rem;
+				border-bottom: 1px solid rgba($mg-blue-1, .2);
+
+				.mg-left-sidebar-kicker {
+					display: block;
+					font-size: .7rem;
+					letter-spacing: .08em;
+					text-transform: uppercase;
+					color: rgba($mg-blue-1, .75);
+				}
+
+				h2 {
+					margin: .15rem 0 0;
+					font-size: 1.25rem;
+				}
+			}
+
+			&-body {
+				height: calc(100% - 4.75rem);
+				padding: 1rem;
+				overflow: auto;
+			}
+
+			&-tabs {
+				display: flex;
+				flex-direction: column;
+				gap: 0;
+				border: 1px solid rgba($mg-blue-1, .25);
 				border-radius: .5rem;
+				background: rgba($mg-blue-4, .5);
+				backdrop-filter: blur(2px);
+				box-shadow: 5px 5px 5px 0 rgba(0, 0, 0, 0.50);
+				overflow: visible;
+			}
+
+			&-tab {
+				position: relative;
+				width: 2.75rem;
+				height: 2.75rem;
+				padding: 1rem;
+				margin: 0;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				border-top: 2px solid transparent;
+				border-bottom: 2px solid transparent;
+				border-radius: 0;
+				background-color: transparent;
+				color: $mg-blue-1;
+				cursor: pointer;
+
+				transition: background .5s ease, border-color .5s ease, color .5s ease, transform .5s ease;
 
 				i {
-					font-size: .875rem;
-					color: $mg-blue-2;
+					color: $mg-blue-1;
+					padding: 0;
+					margin: 0;
+				}
+
+				&-portrait {
+					width: 100%;
+					height: 100%;
+					object-fit: cover;
+					border: 1px solid rgba($mg-blue-1, .45);
+					box-shadow: 0 0 0 2px rgba($mg-blue-4, .5);
+				}
+
+				&-label {
+					position: absolute;
+					height: auto;
+					left: 100%;
+					top: 50%;
+					transform: translate(-.5rem, -50%);
+					z-index: 1;
+					padding: .45rem;
+					border: 1px solid rgba($mg-blue-1, .25);
+					border-radius: 0 .5rem .5rem 0;
+					background:
+						linear-gradient(90deg, rgba($mg-blue-4, .95), rgba($mg-blue-main, .82)),
+						url("../assets/images/filigree.jpg");
+					background-size: cover;
+					background-position: center;
+					box-shadow: 5px 5px 8px rgba($black, .45);
+
+					@include tiller();
+					color: $mg-ivory;
+					font-size: .75rem;
+					text-align: left;
+					white-space: nowrap;
+					opacity: 0;
+					pointer-events: none;
+					transition: opacity .2s ease, transform .2s ease;
+				}
+
+				&.has-portrait {
+					padding: 0;
+
+					.mg-left-sidebar-tab-portrait {
+						transition: filter .5s ease, background .5s ease;
+						border: 0;
+						border-radius: 0.5rem .5rem 0 0;
+						mix-blend-mode: screen;
+					}
+
+					&.is-active .mg-left-sidebar-tab-portrait {
+						filter: brightness(1.5);
+						background: $mg-blue-3;
+					}
+				}
+
+				&:hover,
+				&.is-active {
+					background: $mg-blue-main-2;
+					border-color: rgba($mg-blue-1, .25);
+					color: $mg-blue-1;
+				}
+
+				&:hover,
+				&:focus-visible {
+					.mg-left-sidebar-tab-label {
+						opacity: 1;
+						transform: translate(0, -50%);
+					}
+				}
+
+				&:first-of-type {
+					border-top: 0;
+				}
+
+				&:last-of-type {
+					border-bottom: 0;
 				}
 			}
 		}
 
-		// GM layout: only when buttons exist, put select beside them
-		&:has(.control-buttons a) {
-			select {
-				grid-column: span 3;
+		&-card {
+			display: grid;
+			grid-template-columns: 5rem minmax(0, 1fr);
+			gap: .9rem;
+
+			padding: .85rem;
+			border: 1px solid rgba($mg-blue-1, .22);
+			border-radius: .75rem;
+			background: rgba($mg-blue-4, .45);
+
+			&-img {
+				width: 5rem;
+				height: 5rem;
+				object-fit: cover;
+				border-radius: .5rem;
+				border: 1px solid rgba($mg-blue-1, .25);
 			}
 
-			.control-buttons {
-				grid-column: span 1;
+			&-body {
+				min-width: 0;
+
+				label {
+					display: block;
+					font-size: .7rem;
+					text-transform: uppercase;
+					letter-spacing: .08em;
+					color: rgba($mg-blue-1, .75);
+				}
+
+				h3 {
+					margin: .15rem 0 .25rem;
+					font-size: 1rem;
+				}
+
+				p {
+					margin: 0 0 .75rem;
+					color: rgba($white, .72);
+				}
 			}
-		}		
+		}
+
+		&-section {
+			display: grid;
+			gap: .65rem;
+		}
+
+		&-players {
+			&-section {
+				min-height: 0;
+			}
+
+			&-dock {
+				min-height: 8rem;
+			}
+		}
+
+		&-action,
+		&-list-row {
+			width: 100%;
+
+			display: flex;
+			align-items: center;
+			gap: .65rem;
+
+			padding: .65rem .75rem;
+			border: 1px solid rgba($mg-blue-1, .22);
+			border-radius: .5rem;
+			background: rgba($mg-blue-main, .35);
+			color: $white;
+			text-align: left;
+			cursor: pointer;
+
+			i {
+				width: 1.1rem;
+				text-align: center;
+				color: $mg-blue-1;
+			}
+
+			img {
+				width: 1.75rem;
+				height: 1.75rem;
+				border-radius: .35rem;
+				object-fit: cover;
+			}
+		}
+
+		&-list {
+			display: grid;
+			gap: .4rem;
+		}
+
+		&-empty {
+			display: grid;
+			place-items: center;
+			gap: .5rem;
+
+			min-height: 10rem;
+			padding: 1rem;
+			text-align: center;
+			color: rgba($white, .68);
+
+			i {
+				font-size: 1.75rem;
+				color: rgba($mg-blue-1, .7);
+			}
+		}
 	}
 
-	&:after {
-		display: none;
+	#players.mg-players-docked {
+		position: static !important;
+		inset: auto !important;
+		width: 100% !important;
+		max-width: none !important;
+		margin: 0 !important;
+		opacity: 1 !important;
+		transform: none !important;
+		pointer-events: auto !important;
+		visibility: visible !important;
+		box-shadow: none;
+
+		h3 {
+			margin: 0;
+			padding: .65rem .75rem;
+		}
+
+		ol {
+			margin: 0;
+			padding: .35rem;
+		}
+
+		.player,
+		li {
+			min-height: 2.25rem;
+			padding: .45rem .55rem;
+			border-radius: .35rem;
+			transition: background .2s ease;
+
+			&:hover {
+				background: rgba($mg-blue-main, .35);
+			}
+		}
+	}
+}
+
+/* Sidebar collapse toggles
+----------------------------------------------------------------------*/
+.mg-sidebar-collapse-toggle {
+	position: fixed;
+	z-index: 90;
+
+	width: 2.25rem;
+	height: 2.25rem;
+
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: 0 .235rem 0 .5rem;
+	border: 2px solid $mg-blue-3;
+	background: $mg-blue-4;
+	color: $mg-blue-1;
+	cursor: pointer;
+	pointer-events: auto;
+	transition:
+		transform .5s ease,
+		left .5s ease,
+		right .5s ease,
+		background .5s ease,
+		color .5s ease;
+
+	i {
+		color: $mg-blue-3;
+	}		
+
+	&:hover,
+	&:focus {
+		background: $mg-blue-main;
+
+		i {
+			color: $mg-blue-1;
+		}
 	}
 
-	.chat-message {
-		border: 1px solid rgba($mg-blue-1, .25);
-		box-shadow: 5px 5px 4px 0 rgba(0, 0, 0, 0.50);
-		backdrop-filter: blur(2px);
+	&.mg-left-sidebar-collapse-toggle {
+		border-radius: .235rem 0 .5rem 0;
 	}
+}
+
+.mg-left-sidebar-collapse-toggle {
+	left: .85rem;
+	top: .85rem;
+}
+
+.mg-right-sidebar-collapse-toggle {
+	right: .85rem;
+	top: .85rem;
+}
+
+/* Let the actual sidebars animate */
+.mg-left-sidebar,
+#ui-right,
+#sidebar,
+.mg-ini-side {
+	transition:
+		transform .35s cubic-bezier(.2, .8, .2, 1),
+		opacity .25s ease;
+}
+
+/* Left sidebar collapsed */
+body.mg-left-sidebar-collapsed {
+	.mg-left-sidebar {
+		transform: translateX(calc(-100% - 2rem));
+		pointer-events: none;
+	}
+}
+
+/* Right sidebar collapsed */
+body.mg-right-sidebar-collapsed {
+	#ui-right {
+		transform: translateX(calc(100% + 1.5rem));
+		pointer-events: none;
+	}
+
+	.mg-ini-side {
+		transform: translateX(calc(100% + 7.25rem));
+		right: 0;
+	}
+
+	.mg-right-sidebar-collapse-toggle {
+		right: .75rem;
 	}
 }
 
@@ -314,10 +726,9 @@ body {
 
 #mg-ui-root {
   position: fixed;
-  left: 1rem;
+  left: 27rem;
   bottom: 1rem;
   z-index: 80;
-  pointer-events: none;
 }
 
 body:not(.mg-hud-enabled) #mg-ui-root {
@@ -1334,7 +1745,7 @@ body:not(.mg-hud-enabled) #mg-ui-root {
 }
 
 .sheet {
-		nav {
+	nav {
 		&.sheet-tabs.floating {
 			position: absolute;
 			right: -53px;
@@ -1462,7 +1873,6 @@ body:not(.mg-hud-enabled) #mg-ui-root {
 		}
 	}
 }
-
 
 /* Global Tag Styling
 ----------------------------------------------------------------------*/

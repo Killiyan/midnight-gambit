@@ -1,21 +1,12 @@
-/* ==========================================
-   Midnight Gambit — initiative-bar.scss
-   Full drop-in replacement (SCSS)
-
-   IMPORTANT:
-   Your JS FLIP animation sets inline transforms on `.mg-ini-side-card`,
-   so we MUST NOT use CSS `transform` on that element for styling.
-   Angles are done with clip-path only.
-   ========================================== */
-
-/* ---------- Sidebar Initiative (Ini Design 3) ---------- */
+/* Sidebar Initiative
+----------------------------------------------------------------------*/
 #mg-initiative-sidebar.mg-ini-side {
-  /* panel sizing */
+  // panel sizing
   --mg-ini-panel-w: 320px;
   --mg-ini-pad-l: 34px;
   --mg-ini-pad-r: 14px;
 
-  /* slice sizing */
+  // slice sizing
   --mg-ini-slice-h: 90px;      /* normal slice */
   --mg-ini-slice-h0: 200px;    /* hero slice (slot-0) */
   --mg-ini-slice-gap: 14px;
@@ -25,11 +16,11 @@
   --mg-ini-img-y: -20px;        /* pan up/down */
   --mg-ini-img-scale: 1.12;   /* subtle zoom to protect edges */  
 
-  /* “angle” tuning (clip-path) */
+  // “angle” tuning (clip-path)
   --mg-ini-cut: 26px;          /* how deep the diagonal cuts are */
   --mg-ini-border: 3px;
 
-  /* motion (should match your JS numbers) */
+  // motion (should match your JS numbers)
   --mg-ini-trans: 260ms;
 
   width: var(--mg-ini-panel-w);
@@ -40,6 +31,7 @@
   z-index: 6;
 
   .mg-ini-side-wrap {
+    position: relative;
     height: 100%;
     width: 100%;
     pointer-events: auto;
@@ -53,6 +45,7 @@
     padding: 2.125rem;
     border: 3px solid $mg-blue-main-2;
     border-radius: .5rem;
+    z-index: 6;
   }
 
   .mg-ini-foil__ring {
@@ -64,14 +57,13 @@
 
     .mg-ini-side-handle {
       left: -2.25rem;
-      bottom: 0;
     }
   }
 
   .mg-ini-side-handle {
     position: absolute;
-    left: -2.26rem;
-    bottom: 0;
+    left: -2.5rem;
+    bottom: calc(50% - 2rem);
     width: auto;
     height: auto;
     border: 0;
@@ -170,8 +162,9 @@
     height: calc(var(--mg-ini-slice-h0) + (var(--mg-ini-slot-step) * 4));
   }
 
-  /* Slots are anchored; JS moves the cards */
-  .mg-ini-side-slot {
+  /* Slots are anchored; JS moves the cards
+  ----------------------------------------------------------------------*/  
+    .mg-ini-side-slot {
     position: absolute;
     left: 0;
     right: 0;
@@ -200,7 +193,7 @@
     position: relative;
     overflow: hidden;
 
-    /* make it obvious if skew is applying */
+    // make it obvious if skew is applying
     transform: skewY(-20deg);
     transform-origin: left center;
 
@@ -311,10 +304,10 @@
     height: var(--mg-ini-slice-h);
     border: var(--mg-ini-border) solid rgba(160, 190, 240, 0.72);
 
-    /* Parallelogram slice */
-    //clip-path: polygon(0 35%, 100% 0, 100% 65%, 0 100%);
+    // Parallelogram slice
+    // clip-path: polygon(0 35%, 100% 0, 100% 65%, 0 100%);
 
-    /* inner frame */
+    // inner frame
     &::before {
       content: "";
       position: absolute;
@@ -389,13 +382,13 @@
     white-space: nowrap;
   }
 
-  /* Slot border tinting */
+  // Slot border tinting
   .mg-ini-side-slot.slot-1 .mg-ini-side-card { border-color: $mg-blue-2; }
   .mg-ini-side-slot.slot-2 .mg-ini-side-card { border-color: $mg-blue-3; }
   .mg-ini-side-slot.slot-3 .mg-ini-side-card { border-color: $mg-blue-main-2 }
   .mg-ini-side-slot.slot-4 .mg-ini-side-card { border-color: $mg-blue-4 }
 
-  /* END card (when END_ID is painted into a slot) */
+  // END card (when END_ID is painted into a slot)
   .mg-ini-side-slot .mg-ini-side-card-name:empty {
     display: none;
   }

@@ -96,7 +96,7 @@ export class MGInitiativeSidebar {
     document.documentElement.style.setProperty("--sidebar-offset-right", `${w}px`);
 
     root.style.position = "fixed";
-    root.style.bottom = "5px";
+    root.style.bottom = "10px";
     root.style.right = `${w}px`;
     root.style.height = "auto";
     root.style.width = "250px"; // tweak later
