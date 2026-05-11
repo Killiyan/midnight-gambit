@@ -1965,6 +1965,9 @@ Hooks.once("ready", () => {
 ----------------------------------------------------------------------*/
 
 Hooks.on("renderChatMessage", async (message, html) => {
+  let speaker = {};
+  let $avatar = null;
+
   try {
     // Guard: avoid double-injection
     if (html[0]?.classList?.contains("mg-chat")) return;
@@ -1973,7 +1976,7 @@ Hooks.on("renderChatMessage", async (message, html) => {
     const source = game.settings.get("midnight-gambit", "chatPortraitSource"); // "token" | "actor" | "user"
 
     // Resolve an image without touching your message content
-    const speaker = message.speaker ?? {};
+    speaker = message.speaker ?? {};
     let img = null;
 
     // Try token texture if requested/available
@@ -2004,7 +2007,7 @@ Hooks.on("renderChatMessage", async (message, html) => {
     // Mark root for CSS and insert avatar right inside the message root
     html.addClass("mg-chat");
 
-    const $avatar = $(`
+    $avatar = $(`
       <div class="mg-chat-avatar-wrap">
         <img class="mg-chat-avatar" src="${img}" alt="" loading="lazy"/>
       </div>
@@ -2074,36 +2077,6 @@ Hooks.on("renderChatMessage", async (message, html) => {
     console.error("Midnight Gambit | Chat portrait injection error:", err);
   }
 
-  // Apply saved chat crop (flags.midnight-gambit.crops.chat.css) if an actor exists
-  try {
-    const actorId = speaker.actor;
-    const actor = actorId ? game.actors.get(actorId) : null;
-    const css = actor?.getFlag("midnight-gambit", "crops")?.chat?.css;
-
-    if (css) {
-      const x = Number.isFinite(css.x) ? css.x : 50;
-      const y = Number.isFinite(css.y) ? css.y : 50;
-      const s = Number.isFinite(css.scale) ? css.scale : 1;
-
-      const imgEl = $avatar.find("img")[0];
-      if (imgEl) {
-        imgEl.style.position = "absolute";
-        imgEl.style.left = `${x}%`;
-        imgEl.style.top = `${y}%`;
-        imgEl.style.transformOrigin = "center center";
-        imgEl.style.transform = `translate(-50%, -50%) scale(${s})`;
-      }
-
-      // Ensure wrap clips correctly
-      const wrapEl = $avatar[0];
-      if (wrapEl) {
-        wrapEl.style.position = "relative";
-        wrapEl.style.overflow = "hidden";
-      }
-    }
-  } catch (e) {
-    console.warn("MG | Chat crop apply failed:", e);
-  }
 });
 
 /* Permissions override
@@ -3545,6 +3518,13 @@ Hooks.on("renderChatMessage", (_message, html) => {
   if (distanceFromBottom < 40) {
     requestAnimationFrame(() => { log.scrollTop = log.scrollHeight; });
   }
+});
+
+Hooks.on("createChatMessage", () => {
+  if (!document.body?.classList?.contains("mg-right-sidebar-collapsed")) return;
+
+  const button = document.querySelector('[data-mg-collapse-sidebar="right"]');
+  button?.classList?.add("has-chat-notice");
 });
 
 // --- Restricted MG cards: right-click to reveal to everyone ---

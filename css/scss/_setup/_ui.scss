@@ -165,6 +165,12 @@ body.mg-hud-enabled {
 	}
 
 	#ui-right {
+		position: fixed;
+		top: 0;
+		right: 0;
+		bottom: 0;
+		height: 100vh;
+		box-sizing: border-box;
 		padding: 1rem 1rem 1rem 0;
 	}
 
@@ -214,6 +220,12 @@ body.mg-hud-enabled {
 	}
 
 	#sidebar {
+		height: 100%;
+		max-height: 100%;
+		min-height: 0;
+		box-sizing: border-box;
+		overflow: hidden;
+
 		background:
 			/* subtle pearly sheen (top-center) */
 			radial-gradient(circle at 50% 0%,
@@ -334,28 +346,56 @@ body.mg-hud-enabled {
 
 				border: 1px solid rgba($mg-blue-1, .25);
 				border-radius: .75rem;
+				/* Removing Background for now until I see if I want it
 				background:
 					radial-gradient(circle at 50% 0%, rgba($mg-blue-1, .16), transparent 55%),
-					rgba($mg-blue-4, .88);
+					rgba($mg-blue-4, .88);*/
 				box-shadow: 0 .75rem 2rem rgba($black, .45);
 				overflow: hidden;
+				position: relative;
+
+				&:after {
+					content: "";
+					position: absolute; 
+					width: 100%;
+					left: 0; 
+					bottom: 0;
+					height: .85rem;
+					pointer-events: none;
+					background: linear-gradient(to bottom, rgba(0,0,0,0) 0%, rgba($mg-blue-4, .8) 100%);
+					backdrop-filter: blur(1px);
+					transition: opacity .5s ease;
+				}
 			}
 
 			&-header {
-				padding: 1rem;
-				border-bottom: 1px solid rgba($mg-blue-1, .2);
+				padding: .5rem 1rem .5rem 3rem;
+				border-bottom: 1px solid rgba($mg-blue-1, .25);
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
 
 				.mg-left-sidebar-kicker {
 					display: block;
+					@include tiller();
+					font-style: italic;
 					font-size: .7rem;
+					font-weight: 700;
 					letter-spacing: .08em;
 					text-transform: uppercase;
-					color: rgba($mg-blue-1, .75);
+					color: $mg-blue-2;
+					filter: drop-shadow(2px 2px 2px $black);
 				}
 
 				h2 {
-					margin: .15rem 0 0;
+					color: $mg-blue-1;
 					font-size: 1.25rem;
+					border: none;
+					@include tiller();
+					font-weight: 700;
+					margin: 0;
+					line-height: 1;
+					filter: drop-shadow(2px 2px 2px $black);
 				}
 			}
 
@@ -363,6 +403,7 @@ body.mg-hud-enabled {
 				height: calc(100% - 4.75rem);
 				padding: 1rem;
 				overflow: auto;
+				height: 100%;
 			}
 
 			&-tabs {
@@ -576,11 +617,652 @@ body.mg-hud-enabled {
 			min-height: 10rem;
 			padding: 1rem;
 			text-align: center;
-			color: rgba($white, .68);
+			color: $mg-blue-1;
+			background: $mg-blue-main;
+			border-radius: .5rem;
+			@include mg-border();
 
 			i {
 				font-size: 1.75rem;
 				color: rgba($mg-blue-1, .7);
+			}
+		}
+
+		&-character-panel {
+			display: flex;
+			flex-direction: column;
+			margin: -1rem;
+			min-height: 100%;
+			padding-bottom: 3rem;
+			/*Removing Background until I know if I want it
+			background:
+				linear-gradient(rgba($mg-blue-4, .18), rgba($mg-blue-4, .86)),
+				url("../assets/images/filigree-character.png");
+			background-size: cover;
+			background-position: center top;*/
+		}
+
+		&-character-identity {
+			display: flex;
+			justify-content: space-between;
+			gap: .75rem;
+			padding: .75rem 1rem;
+			background:
+				/* subtle pearly sheen (top-center) */
+				radial-gradient(circle at 50% 0%,
+				rgba(197, 212, 236, 0.22) 0%,
+				rgba(197, 212, 236, 0.10) 35%,
+				rgba(18, 33, 55, 0.00) 70%
+				),
+				/* texture */
+				url("../assets/images/filigree.jpg");
+
+			background-size: cover, cover;
+			background-blend-mode: soft-light, multiply;
+			background-color: $mg-blue-4;
+
+			h3,
+			p {
+				margin: 0;
+			}
+
+			h3 {
+				@include tiller();
+				font-size: 1.25rem;
+				font-weight: 700;
+				line-height: 1.1;
+				color: $mg-ivory;
+				border: none
+			}
+
+			p,
+			label,
+			span {
+				color: $mg-blue-2;
+			}
+		}
+
+		&-character-crew {
+			text-align: right;
+			min-width: 5.5rem;
+			max-width: 50%;
+
+			label,
+			span {
+				display: block;
+			}
+
+			.guise {
+				@include roboto();
+				font-size: 1rem;
+				font-weight: 700;
+				font-style: italic;
+				color: $mg-blue-1;
+			}
+
+			.crew {
+				@include oswald();
+				font-size: 1rem;
+				font-weight: 400;
+				letter-spacing: -.02em;
+			}
+		}
+
+		&-character-img {
+			display: block;
+			width: 100%;
+			aspect-ratio: 16 / 9;
+			object-fit: cover;
+			border: 0;
+			border-bottom: 2px solid $mg-blue-main-2;
+		}
+
+		&-strain-stack {
+			display: grid;
+			gap: .75rem;
+			padding: 1rem;
+			background: rgba($black, .18);
+		}
+
+		&-strain-row {
+			display: grid;
+			grid-template-columns: 4.75rem minmax(0, 1fr);
+			align-items: center;
+		}
+
+		&-capacity-badge {
+			position: relative;
+			z-index: 2;
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			justify-content: center;
+			min-height: 3.85rem;
+			text-align: center;
+			margin-right: -2rem;
+			pointer-events: none;
+
+			label {
+				@include oswald();
+				margin: 0;
+				font-size: .9rem;
+				font-weight: 700;
+				color: $mg-blue-2;
+				text-transform: uppercase;
+			}
+
+			&:after {
+				content: "\f132";
+				font-family: "Font Awesome 6 Pro";
+				color: $mg-blue-main;
+				font-size: 4rem;
+				font-weight: 700;
+				position: absolute;
+				top: -.2rem;
+				left: calc(50% - 2rem);
+				z-index: -1;
+				-webkit-text-stroke-width: 2px;
+				-webkit-text-stroke-color: $mg-blue-main-2;
+				pointer-events: none;
+			}
+		}
+
+		&-capacity-controls {
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			gap: .15rem;
+			width: 100%;
+
+			button {
+				position: relative;
+				z-index: -1;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				padding: 0.25rem 0.75rem 0.25rem 0.15rem;
+				border-radius: .35rem;
+				background: $mg-blue-4;
+				@include mg-border();
+				justify-content: flex-start;
+				min-height: 1.5rem;
+				margin-right: -.25rem;
+				pointer-events: all;
+
+				&:last-of-type {
+					justify-content: flex-end;
+					padding: 0.25rem 0.15rem 0.25rem 0.75rem;
+					margin-right: 0;
+					margin-left: -.25rem;
+				}
+
+				i {
+					font-size: .7rem;
+					color: $mg-blue-2;
+				}
+
+				&:hover,
+				&:focus {
+					background: $mg-blue-main;
+					border-color: $mg-blue-1;
+
+					i {
+						color: $mg-blue-1;
+					}
+				}
+			}
+
+			.capacity-value {
+				@include oswald();
+				min-width: 1.25rem;
+				text-align: center;
+				font-size: 1rem;
+				font-weight: 700;
+				color: $mg-ivory;
+			}
+		}
+
+		&-icon-track {
+			display: flex;
+			flex-wrap: wrap;
+			align-items: center;
+			justify-content: flex-start;
+			gap: .5rem;
+			width: 100%;
+			padding: .75rem;
+			border-radius: .5rem;
+			background: $mg-blue-4;
+			@include mg-border();
+			box-shadow: 5px 5px 10px rgba($black, .35);
+		}
+
+		&-mortal-track,
+		&-soul-track {
+			margin-left: -1.75rem;
+			margin-top: 0.75rem;
+			width: calc(100% + 1.75rem);
+			justify-content: flex-end;
+		}
+
+		&-dot {
+			width: auto;
+			height: auto;
+			padding: 0;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			background: transparent;
+			border: 0;
+			box-shadow: none;
+			opacity: 1;
+			transition: color .5s ease, transform .5s ease;
+
+			i {
+				color: $mg-blue-main-2;
+				font-size: 1.3rem;
+			}
+
+			&:hover,
+			&:focus {
+				background: transparent;
+				transform: scale(1.18);
+			}
+
+			&.filled {
+				i {
+					color: $mg-blue-2;
+				}
+			}
+		}
+
+		&-accordion {
+			margin: 0;
+			box-shadow: 5px 5px 10px rgba($black, .5);
+		}
+
+		&-accordion-toggle {
+			width: 100%;
+			margin: 0;
+			padding: 1rem;
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			border-radius: 0;
+			color: $mg-blue-1;
+			text-align: left;
+			@include mg-border();
+			@include oswald();
+			font-size: .9rem;
+			font-weight: 700;
+			text-transform: uppercase;
+			position: relative;
+			background:
+				/* subtle pearly sheen (top-center) */
+				radial-gradient(circle at 50% 0%,
+				rgba(197, 212, 236, 0.22) 0%,
+				rgba(197, 212, 236, 0.10) 35%,
+				rgba(18, 33, 55, 0.00) 70%
+				),
+				/* texture */
+				url("../assets/images/filigree.jpg");
+			background-size: cover, cover;
+			background-position: center, 50% 45%;
+			background-blend-mode: soft-light, multiply;
+			background-color: $mg-blue-4;
+			transition:
+				background-color .5s ease,
+				background-position 2.5s cubic-bezier(.2, .8, .2, 1),
+				color .5s ease;
+
+			&::after {
+				content: '';
+				width: 100%;
+				height: 100%;
+				background: linear-gradient(270deg, rgba(18, 33, 55, 0) 0%, rgba($mg-blue-4,100%));
+				position: absolute;
+				left: 0;
+				top: 0;
+				opacity: 0;
+				transition: opacity .5s ease;
+			}
+
+			span {
+				display: flex;
+				align-items: center;
+				gap: .6rem;
+				@include oswald();
+				font-size: 1rem;
+				font-weight: 400;
+				font-style: normal;
+				filter: drop-shadow(2px 2px 2px $black);
+				position: relative;
+				z-index: 2;
+			}
+
+			i {
+				color: $mg-blue-2;
+				font-size: 1.75rem;
+			}
+
+			&:hover,
+			&:focus {
+				background-color: $mg-blue-3;
+				background-position: center, 50% 50%;
+				color: $mg-ivory;
+
+				i {
+					color: $mg-blue-1;
+				}
+
+				&:after {
+					opacity: 1;
+				}
+			}
+		}
+
+		&-accordion-chevron {
+			transition: transform .5s ease, color .5s ease;
+			font-size: 1.15rem !important;
+		}
+
+		&-accordion-body {
+			display: block;
+			overflow: hidden;
+			opacity: 1;
+			transition:
+				max-height .5s ease,
+				opacity .5s ease;
+
+			&[hidden] {
+				display: none;
+			}
+		}
+
+		&-accordion-inner {
+			display: grid;
+			gap: .75rem;
+			margin: 1rem;
+		}
+
+		&-accordion:not(.is-open) &-accordion-body,
+		&-accordion.is-closing &-accordion-body {
+			opacity: 0;
+		}
+
+		&-accordion.is-open .mg-left-accordion-chevron {
+			transform: rotate(180deg);
+		}
+
+		&-resource-stack,
+		&-attribute-stack,
+		&-spark-panel {
+			display: grid;
+			gap: .75rem;
+		}
+
+		&-resource-card,
+		&-attribute-card {
+			@include mg-border();
+			border-radius: .625rem;
+			background: $mg-blue-4;
+			box-shadow: 5px 5px 10px rgba($black, .35);
+			overflow: hidden;
+			display: flex;
+
+			label {
+				color: $mg-blue-1;
+				@include oswald();
+				font-size: 1rem;
+				font-weight: 700;
+				text-transform: uppercase;
+				margin-bottom: 0;
+				display: block;			
+				padding: 1rem;	
+				border-right: 2px solid $mg-blue-main-2;
+				background: $mg-blue-main;
+				height: 100%;
+				font-style: normal;
+				display: flex;	
+				justify-content: center;
+				align-items: center;
+			}
+		}
+
+		&-resource-card {
+			align-items: stretch;
+
+			label {
+				min-width: 4.5rem;
+			}
+
+			.mg-left-icon-track {
+				border: 0;
+				border-radius: 0;
+				box-shadow: none;
+			}
+		}
+
+		&-attribute-actions {
+			display: grid;
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+			gap: .5rem;
+			
+			button {
+				filter: drop-shadow(5px 5px 10px rgba(0,0,0,.35));				
+			}
+		}
+
+		&-temp-bonuses,
+		&-edge-toggle {
+			width: 100%;
+			display: flex;
+			justify-content: center;
+			align-items: center;
+			gap: .5rem;
+			background: $mg-blue-main;
+			@include mg-border();
+			position: relative;
+			overflow: hidden;
+
+			i {
+				color: $mg-blue-2;
+			}
+		}
+
+		&-edge-toggle.is-active {
+			background: $mg-blue-4;
+			border-color: $mg-blue-3;
+
+			&:hover,
+			&:focus {
+				background: $mg-blue-1;
+
+				i {
+					color: $mg-blue-3;
+				}
+			}
+
+			&:after {
+				content: "";
+				position: absolute;
+				pointer-events: none;
+				inset: -40% -20% auto -20%;
+				height: 200%;
+				border-radius: 0 .5rem .5rem 0;
+				overflow: hidden;
+				transform: rotate(var(--mg-gleam-tilt, -12deg)) translateX(-120%);
+				mix-blend-mode: screen;
+				opacity: var(--mg-gleam-opacity, 0.9);
+				z-index: 2;
+				background: linear-gradient(
+					90deg,
+					transparent 0%,
+					rgba($mg-blue-4, 0.0) 30%,
+					rgba($mg-blue-3, 0.35) 45%,
+					rgba($mg-blue-1, 0.90) 50%,
+					rgba($mg-blue-3, 0.35) 55%,
+					rgba($mg-blue-4, 0.0) 70%,
+					transparent 100%
+				);
+				filter: blur(0.6px);
+				animation: mg-gleam var(--mg-gleam-speed, 1.9s) ease-in-out infinite;
+			}
+
+			i {
+				animation: mg-edge-pulse 800ms ease-in-out infinite alternate;
+				color: $mg-blue-1;
+			}
+		}
+
+		&-attribute-roll {
+			width: 100%;
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			justify-content: center;
+			gap: .5rem;
+			margin: 0;
+			padding: .85rem 1rem;
+			border-radius: 0;
+			background: $mg-blue-main;
+			text-align: left;
+			color: $mg-blue-1;
+			text-transform: uppercase;
+			@include oswald();
+			font-size: .85rem;
+			font-weight: 700;
+			line-height: 1;
+			text-transform: uppercase;		
+			font-style: normal;
+			width: 40%;
+			border-right: 2px solid $mg-blue-main-2;
+
+			span {
+				color: $mg-blue-1;
+				filter: drop-shadow(1px 1px 2px #000);
+			}
+
+			strong,
+			em {
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				min-width: 2.15rem;
+				padding: .35rem .5rem;
+				border-radius: .5rem;
+				background: $mg-blue-main-2;
+				font-style: normal;
+				color: $mg-blue-1;
+				width: 100%;
+			}
+
+			.attribute-container{
+				position: relative;
+				height: 100%;
+			}
+
+			em {
+				background: $mg-blue-3;
+				font-size: .75rem;
+				position: absolute;
+				top: -.35rem;
+				right: -.35rem;
+				width: auto;
+				min-width: 1.45rem;
+				padding: .3rem;
+				aspect-ratio: 1 / 1;
+				background: $mg-blue-main;
+				border: 2px solid $mg-blue-3;
+				font-size: .7rem;
+				line-height: 1;
+				box-shadow: 0 4px 12px rgba($black, .28);				
+			}
+
+			&:hover,
+			&:focus {
+				background: $mg-blue-3;
+				color: $mg-ivory;
+
+				span {
+					color: $mg-ivory;
+				}
+			}
+		}
+
+		&-skill-grid {
+			display: grid;
+			grid-template-columns: repeat(3, minmax(0, 1fr));
+			gap: 1rem;
+			padding: 1rem;
+			background: $mg-blue-4;
+			width: 100%;
+		}
+
+		&-skill-roll {
+			position: relative;
+			min-width: 0;
+			margin: 0;
+			padding: 0;
+			display: grid;
+			gap: .5rem;
+			justify-items: center;
+			background: transparent;
+			border: 0;
+			box-shadow: none;
+
+			span {
+				@include roboto();
+				max-width: 100%;
+				font-size: .675rem;
+				font-weight: 700;
+				color: $mg-blue-1;
+				text-transform: none;
+				font-style: normal;
+				filter: drop-shadow(1px 1px 2px #000);
+				line-height: 1;	
+			}
+
+			strong,
+			em {
+				display: flex;
+				justify-content: center;
+				width: 100%;
+				padding: .5rem;
+				border-radius: .5rem;
+				background: $mg-blue-main-2;
+				@include oswald();
+				font-style: normal;
+				color: $mg-blue-1;
+				transition: background .5s ease, color .5s ease;
+
+				&.skill-container{
+					position: relative;
+				}
+			}
+
+			em {
+				position: absolute;
+				top: -.35rem;
+				right: -.35rem;
+				width: auto;
+				min-width: 1.45rem;
+				padding: .3rem;
+				aspect-ratio: 1 / 1;
+				background: $mg-blue-main;
+				border: 2px solid $mg-blue-3;
+				font-size: .7rem;
+				line-height: 1;
+				box-shadow: 0 4px 12px rgba($black, .28);
+			}
+
+			&:hover,
+			&:focus {
+				background: transparent;
+
+				strong {
+					background: $mg-blue-3;
+					color: $mg-ivory;
+				}
 			}
 		}
 	}
@@ -633,7 +1315,7 @@ body.mg-hud-enabled {
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	border-radius: 0 .235rem 0 .5rem;
+	border-radius: 0 .75rem 0 0;
 	border: 2px solid $mg-blue-3;
 	background: $mg-blue-4;
 	color: $mg-blue-1;
@@ -660,13 +1342,46 @@ body.mg-hud-enabled {
 	}
 
 	&.mg-left-sidebar-collapse-toggle {
-		border-radius: .235rem 0 .5rem 0;
+		border-radius: .75rem 0 0 0;
+		min-height: 38px;
+	}
+
+	&.has-chat-notice {
+		border-color: $mg-blue-1;
+		box-shadow: 0 0 .75rem rgba($mg-blue-1, .6);
+
+		&:after {
+			content: "";
+			position: absolute;
+			top: -.35rem;
+			left: -.35rem;
+			width: .8rem;
+			height: .8rem;
+			@include mg-border();
+			border-radius: 999px;
+			background: $mg-blue-1;
+			box-shadow: 0 0 .65rem rgba($mg-ivory, .9);
+			animation: mg-chat-notice-pulse 1.2s ease-in-out infinite;
+		}
+	}
+}
+
+@keyframes mg-chat-notice-pulse {
+	0%,
+	100% {
+		transform: scale(.85);
+		opacity: .72;
+	}
+
+	50% {
+		transform: scale(1.12);
+		opacity: 1;
 	}
 }
 
 .mg-left-sidebar-collapse-toggle {
-	left: .85rem;
-	top: .85rem;
+	left: .95rem;
+	top: 1rem;
 }
 
 .mg-right-sidebar-collapse-toggle {
@@ -675,6 +1390,7 @@ body.mg-hud-enabled {
 }
 
 /* Let the actual sidebars animate */
+.mg-orb-wrap,
 .mg-left-sidebar,
 #ui-right,
 #sidebar,
@@ -689,6 +1405,10 @@ body.mg-left-sidebar-collapsed {
 	.mg-left-sidebar {
 		transform: translateX(calc(-100% - 2rem));
 		pointer-events: none;
+	}
+
+	.mg-orb-wrap {
+		transform: translateX(-26rem);
 	}
 }
 

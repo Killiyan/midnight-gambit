@@ -1,3 +1,5 @@
+import { evaluateRoll } from "./roll-utils.js";
+
 /* Midnight Gambit Custom UI
 ==============================================================================================================================================*/
 
@@ -24,6 +26,47 @@ let mgLeftSidebarCollapsed = false;
 let mgRightSidebarCollapsed = false;
 let mgPlayersOriginalParent = null;
 let mgPlayersOriginalNextSibling = null;
+const mgLeftAccordionState = {};
+
+const MG_ATTRIBUTE_KEYS = ["tenacity", "finesse", "resolve", "guile", "instinct", "presence"];
+const MG_SKILL_BUCKETS = {
+	tenacity: ["brawl", "endure", "athletics"],
+	finesse: ["aim", "stealth", "sleight"],
+	resolve: ["will", "grit", "composure"],
+	guile: ["lore", "investigate", "deceive"],
+	instinct: ["survey", "hunt", "nature"],
+	presence: ["command", "charm", "perform"]
+};
+const MG_SKILL_ATTRIBUTE_MAP = {
+	brawl: "tenacity", endure: "tenacity", athletics: "tenacity",
+	aim: "finesse", stealth: "finesse", sleight: "finesse",
+	will: "resolve", grit: "resolve", composure: "resolve",
+	lore: "guile", investigate: "guile", deceive: "guile",
+	survey: "instinct", hunt: "instinct", nature: "instinct",
+	command: "presence", charm: "presence", perform: "presence",
+	spark: "guile"
+};
+const MG_SKILL_LABELS = {
+	brawl: "Brawl",
+	endure: "Endure",
+	athletics: "Athletics",
+	aim: "Aim",
+	stealth: "Stealth",
+	sleight: "Sleight",
+	will: "Will",
+	grit: "Grit",
+	composure: "Composure",
+	lore: "Lore",
+	investigate: "Investigate",
+	deceive: "Deceive",
+	survey: "Survey",
+	hunt: "Hunt",
+	nature: "Nature",
+	command: "Command",
+	charm: "Charm",
+	perform: "Perform",
+	spark: "Spark"
+};
 
 /* Main Foundry canvas control groups shown in the MG Orb rail.
 ----------------------------------------------------------------------*/  
@@ -246,10 +289,8 @@ root.innerHTML = `
 	<aside class="mg-left-sidebar" data-mg-left-sidebar>
 		<div class="mg-left-sidebar-panel" data-mg-left-sidebar-panel>
 			<header class="mg-left-sidebar-header">
-				<div>
-					<span class="mg-left-sidebar-kicker">Midnight Gambit</span>
-					<h2 data-mg-left-sidebar-title>Character</h2>
-				</div>
+				<span class="mg-left-sidebar-kicker">Midnight Gambit</span>
+				<h2 data-mg-left-sidebar-title>Character</h2>
 			</header>
 
 			<div class="mg-left-sidebar-body" data-mg-left-sidebar-body>
@@ -312,6 +353,7 @@ root.innerHTML = `
 	mgRestoreSidebarCollapseState();
 
 	const savedState = mgLoadUiState();
+	mgRestoreAccordionState(savedState);
 	mgSetLeftSidebarTab(savedState.sidebarTab || "player");
 
 	mgRefreshActiveControl();
@@ -371,6 +413,162 @@ function mgGetAssignedCharacter() {
 	return game.user?.character || null;
 }
 
+function mgEsc(value) {
+	const div = document.createElement("div");
+	div.textContent = String(value ?? "");
+	return div.innerHTML;
+}
+
+function mgSigned(value) {
+	const n = Number(value) || 0;
+	return n >= 0 ? `+${n}` : `${n}`;
+}
+
+function mgClampStatValue(value) {
+	const n = Number(value);
+	if (!Number.isFinite(n)) return 0;
+	return Math.max(-2, Math.min(3, Math.trunc(n)));
+}
+
+function mgCapitalize(value) {
+	const str = String(value ?? "");
+	return str ? str.charAt(0).toUpperCase() + str.slice(1) : "";
+}
+
+function mgAccordionKey(actor, id) {
+	return `${actor?.id ?? "none"}.${id}`;
+}
+
+function mgIsAccordionOpen(actor, id, fallback = true) {
+	const key = mgAccordionKey(actor, id);
+	if (!Object.prototype.hasOwnProperty.call(mgLeftAccordionState, key)) return fallback;
+	return !!mgLeftAccordionState[key];
+}
+
+function mgSetAccordionOpen(actor, id, open) {
+	mgLeftAccordionState[mgAccordionKey(actor, id)] = !!open;
+
+	mgSaveUiState({
+		leftAccordionState: { ...mgLeftAccordionState }
+	});
+}
+
+function mgRenderAccordion(actor, { id, title, icon = "", open = true, body = "" }) {
+	const isOpen = mgIsAccordionOpen(actor, id, open);
+	const iconHtml = icon ? `<i class="${icon}"></i>` : "";
+
+	return `
+		<section class="mg-left-accordion ${isOpen ? "is-open" : ""}" data-mg-accordion="${id}">
+			<button
+				type="button"
+				class="mg-left-accordion-toggle"
+				data-mg-accordion-toggle="${id}"
+				aria-expanded="${isOpen ? "true" : "false"}"
+			>
+				<span>${iconHtml}${mgEsc(title)}</span>
+				<i class="fa-solid fa-chevron-down mg-left-accordion-chevron"></i>
+			</button>
+
+			<div
+				class="mg-left-accordion-body"
+				${isOpen ? "" : "hidden"}
+				style="max-height: ${isOpen ? "none" : "0px"};"
+			>
+				<div class="mg-left-accordion-inner">
+					${body}
+				</div>
+			</div>
+		</section>
+	`;
+}
+
+function mgResolvePrimaryGuise(actor) {
+	const ref = actor?.system?.guiseId || actor?.system?.guise;
+	if (!actor || !ref) return null;
+
+	return actor.items?.get?.(ref) ||
+		actor.items?.find?.(item => item.id === ref || item.uuid === ref || item.name === ref) ||
+		null;
+}
+
+function mgResolveGuiseName(actor) {
+	const primary = mgResolvePrimaryGuise(actor);
+	if (primary) return primary.name;
+
+	if (typeof actor?.system?.guise === "object") return actor.system.guise.name || "No Guise";
+	return actor?.system?.guiseName || actor?.system?.class || "No Guise";
+}
+
+function mgResolveCrewName(actor) {
+	return actor?.system?.crewName || actor?.system?.crew || "No Crew";
+}
+
+function mgRange(start, end) {
+	const max = Math.max(0, Number(end) || 0);
+	const min = Math.max(1, Number(start) || 1);
+	return Array.from({ length: Math.max(0, max - min + 1) }, (_, i) => min + i);
+}
+
+function mgRenderIconTrack({ kind, total, filled, dataAttr = "" }) {
+	const count = Math.max(0, Number(total) || 0);
+	const filledCount = Math.max(0, Number(filled) || 0);
+	const icon = kind === "risk"
+		? "fa-kit fa-risk"
+		: kind === "sto"
+			? "fa-kit fa-sto"
+			: kind === "spark"
+				? "fa-kit fa-spark"
+				: kind === "mortal"
+					? "fa-kit fa-mortal-strain"
+					: "fa-kit fa-soul-strain";
+
+	return `
+		<div class="mg-left-icon-track mg-left-${kind}-track">
+			${mgRange(1, count).map(value => `
+				<button
+					type="button"
+					class="mg-left-dot ${value <= filledCount ? "filled" : ""}"
+					data-value="${value}"
+					${dataAttr}
+					title="${mgEsc(mgCapitalize(kind))} ${value}"
+				>
+					<i class="${icon}"></i>
+				</button>
+			`).join("")}
+		</div>
+	`;
+}
+
+function mgGetActiveAuraPenalty(attrKey) {
+	const empty = { value: 0, label: "", sourceActorId: "", sourceTokenId: "" };
+
+	let activeAuraActorId = "";
+	try {
+		activeAuraActorId = game.settings.get("midnight-gambit", "activeAuraActorId");
+	} catch (_) {
+		return empty;
+	}
+
+	if (!activeAuraActorId) return empty;
+
+	const actor = game.actors.get(activeAuraActorId);
+	if (!actor || actor.type !== "npc" || !actor.system?.aura?.enabled) return empty;
+
+	const npcAttr = Number(
+		actor.system?.attributes?.[attrKey] ??
+		actor.system?.baseAttributes?.[attrKey] ??
+		0
+	) || 0;
+	const label = String(actor.system?.aura?.label || "Oppressive Presence");
+
+	return {
+		value: -npcAttr,
+		label,
+		sourceActorId: actor.id,
+		sourceTokenId: ""
+	};
+}
+
 function mgRenderLeftSidebarTabs() {
 	return MG_LEFT_SIDEBAR_TABS.map(tab => {
 		const actor = tab.id === "player" ? mgGetAssignedCharacter() : null;
@@ -423,6 +621,17 @@ function mgLoadUiState() {
 		console.warn("MG UI | Failed to load saved UI state.", err);
 		return {};
 	}
+}
+
+function mgRestoreAccordionState(state = mgLoadUiState()) {
+	const saved = state.leftAccordionState;
+	if (!saved || typeof saved !== "object" || Array.isArray(saved)) return;
+
+	for (const key of Object.keys(mgLeftAccordionState)) {
+		delete mgLeftAccordionState[key];
+	}
+
+	Object.assign(mgLeftAccordionState, saved);
 }
 
 function mgSaveUiState(patch = {}) {
@@ -928,6 +1137,106 @@ function mgBindLeftSidebar(root) {
 			mgSetLeftSidebarTab(tabId);
 		});
 	});
+
+	mgBindLeftSidebarAccordions(root);
+}
+
+function mgBindLeftSidebarAccordions(root) {
+	const body = root?.querySelector("[data-mg-left-sidebar-body]");
+	if (!body || body.dataset.mgAccordionBound === "true") return;
+
+	body.dataset.mgAccordionBound = "true";
+	body.addEventListener("click", event => {
+		const button = event.target.closest("[data-mg-accordion-toggle]");
+		if (!button || !body.contains(button)) return;
+
+		event.preventDefault();
+		event.stopPropagation();
+
+		mgToggleLeftAccordion(button);
+	});
+}
+
+function mgToggleLeftAccordion(button) {
+	const panel = button.closest("[data-mg-character-sidebar]");
+	const actor = game.actors.get(panel?.dataset?.mgCharacterSidebar);
+	const id = button.dataset.mgAccordionToggle;
+	const accordion = button.closest("[data-mg-accordion]");
+	const body = accordion?.querySelector(".mg-left-accordion-body");
+	if (!accordion || !body || !id) return;
+
+	const nextOpen = !accordion.classList.contains("is-open");
+	button.setAttribute("aria-expanded", String(nextOpen));
+	mgSetAccordionOpen(actor, id, nextOpen);
+
+	if (body._mgAccordionTimer) {
+		clearTimeout(body._mgAccordionTimer);
+		body._mgAccordionTimer = null;
+	}
+
+	if (body._mgAccordionEnd) {
+		body.removeEventListener("transitionend", body._mgAccordionEnd);
+		body._mgAccordionEnd = null;
+	}
+
+	if (nextOpen) {
+		body.hidden = false;
+		accordion.classList.add("is-opening", "is-open");
+		accordion.classList.remove("is-closing");
+		body.style.maxHeight = "0px";
+
+		requestAnimationFrame(() => {
+			body.style.maxHeight = `${body.scrollHeight}px`;
+		});
+
+		const finishOpen = () => {
+			body.style.maxHeight = "none";
+			accordion.classList.remove("is-opening");
+			body._mgAccordionTimer = null;
+			body._mgAccordionEnd = null;
+		};
+
+		body._mgAccordionEnd = event => {
+			if (event.propertyName !== "max-height") return;
+			body.removeEventListener("transitionend", body._mgAccordionEnd);
+			finishOpen();
+		};
+
+		body.addEventListener("transitionend", body._mgAccordionEnd);
+		body._mgAccordionTimer = window.setTimeout(() => {
+			if (body._mgAccordionEnd) body.removeEventListener("transitionend", body._mgAccordionEnd);
+			finishOpen();
+		}, 560);
+
+		return;
+	}
+
+	accordion.classList.add("is-closing");
+	accordion.classList.remove("is-opening", "is-open");
+	body.style.maxHeight = `${body.scrollHeight}px`;
+
+	requestAnimationFrame(() => {
+		body.style.maxHeight = "0px";
+	});
+
+	const finishClose = () => {
+		body.hidden = true;
+		accordion.classList.remove("is-closing");
+		body._mgAccordionTimer = null;
+		body._mgAccordionEnd = null;
+	};
+
+	body._mgAccordionEnd = event => {
+		if (event.propertyName !== "max-height") return;
+		body.removeEventListener("transitionend", body._mgAccordionEnd);
+		finishClose();
+	};
+
+	body.addEventListener("transitionend", body._mgAccordionEnd);
+	body._mgAccordionTimer = window.setTimeout(() => {
+		if (body._mgAccordionEnd) body.removeEventListener("transitionend", body._mgAccordionEnd);
+		finishClose();
+	}, 560);
 }
 
 function mgBindSidebarCollapse(root) {
@@ -992,6 +1301,10 @@ function mgSetSidebarCollapsed(side, collapsed) {
 			button.title = isCollapsed ? "Show right sidebar" : "Hide right sidebar";
 			button.setAttribute("aria-label", button.title);
 			button.setAttribute("aria-expanded", String(!isCollapsed));
+
+			if (!isCollapsed) {
+				button.classList.remove("has-chat-notice");
+			}
 		}
 	}
 
@@ -1078,6 +1391,9 @@ function mgBindLeftSidebarContent(root, tabId) {
 		mgDockFoundryPlayersBox(root);
 	}
 
+	mgBindLeftSidebarAccordions(root);
+	mgBindCharacterSidebarContent(root);
+
 	root.querySelectorAll("[data-mg-open-actor]").forEach(button => {
 		button.addEventListener("click", () => {
 			const actor = game.actors.get(button.dataset.mgOpenActor);
@@ -1149,6 +1465,323 @@ function mgBindLeftSidebarContent(root, tabId) {
 	});
 }
 
+function mgGetCharacterSidebarActor(root) {
+	const panel = root?.querySelector("[data-mg-character-sidebar]");
+	const actorId = panel?.dataset?.mgCharacterSidebar;
+	return actorId ? game.actors.get(actorId) : null;
+}
+
+function mgRefreshLeftSidebarContent() {
+	const root = document.getElementById(MG_UI_ID);
+	const body = root?.querySelector("[data-mg-left-sidebar-body]");
+	if (!root || !body) return;
+
+	body.innerHTML = mgRenderLeftSidebarContent(mgActiveSidebarTab);
+	mgBindLeftSidebarContent(root, mgActiveSidebarTab);
+}
+
+function mgBindCharacterSidebarContent(root) {
+	const actor = mgGetCharacterSidebarActor(root);
+	if (!actor) return;
+
+	root.querySelectorAll("[data-mg-roll-attribute]").forEach(button => {
+		button.addEventListener("click", async event => {
+			event.preventDefault();
+			await mgRollAttribute(actor, button.dataset.mgRollAttribute);
+		});
+
+		button.addEventListener("contextmenu", async event => {
+			event.preventDefault();
+			await mgEditActorStat(actor, "attribute", button.dataset.mgRollAttribute, button);
+		});
+	});
+
+	root.querySelectorAll("[data-mg-roll-skill]").forEach(button => {
+		button.addEventListener("click", async event => {
+			event.preventDefault();
+			await mgRollSkill(actor, button.dataset.mgRollSkill);
+		});
+
+		button.addEventListener("contextmenu", async event => {
+			event.preventDefault();
+			await mgEditActorStat(actor, "skill", button.dataset.mgRollSkill, button);
+		});
+	});
+
+	root.querySelectorAll("[data-mg-resource-dot]").forEach(button => {
+		button.addEventListener("click", async event => {
+			event.preventDefault();
+			await mgHandleResourceDot(actor, button.dataset.mgResourceDot, Number(button.dataset.value));
+		});
+	});
+
+	root.querySelectorAll("[data-mg-strain-dot]").forEach(button => {
+		button.addEventListener("click", async event => {
+			event.preventDefault();
+			await mgHandleStrainDot(actor, button.dataset.mgStrainDot, Number(button.dataset.value));
+		});
+	});
+
+	root.querySelectorAll("[data-mg-cap-tick]").forEach(button => {
+		button.addEventListener("click", async event => {
+			event.preventDefault();
+			await mgHandleCapacityTick(actor, button.dataset.mgCapTick, Number(button.dataset.dir));
+		});
+	});
+
+	root.querySelector("[data-mg-temp-skill-bonuses]")?.addEventListener("click", () => {
+		const sheet = actor.sheet;
+		if (typeof sheet?._mgOpenTempSkillBonusesDialog === "function") {
+			sheet._mgOpenTempSkillBonusesDialog();
+			return;
+		}
+
+		actor.sheet?.render(true, { focus: true });
+	});
+
+	root.querySelector("[data-mg-edge-toggle]")?.addEventListener("click", async event => {
+		event.preventDefault();
+
+		const next = !actor.system?.edgeNext;
+		await actor.update({ "system.edgeNext": next }, { render: false });
+		mgRefreshCharacterEdgeButtons(actor, next);
+	});
+}
+
+function mgRefreshCharacterEdgeButtons(actor, forcedState = null) {
+	if (!actor) return;
+	const active = forcedState ?? !!actor.system?.edgeNext;
+
+	document.querySelectorAll(`[data-mg-edge-toggle="${actor.id}"]`).forEach(button => {
+		button.classList.toggle("is-active", active);
+		button.setAttribute("aria-pressed", String(active));
+	});
+
+	try {
+		const sheetButtons = actor.sheet?.element?.find
+			? actor.sheet.element.find(".mg-edge-toggle")
+			: null;
+
+		sheetButtons?.toggleClass?.("is-active", active);
+	} catch (_) {
+		// Sheet may not be rendered; the actor flag is still the source of truth.
+	}
+}
+
+async function mgRollAttribute(actor, attrKey) {
+	if (!actor || !attrKey) return;
+
+	const baseAttrMod = Number(actor.system?.attributes?.[attrKey] ?? 0);
+	const tempAttrMod = Number(actor.system?.tempAttributeBonuses?.[attrKey] ?? 0);
+	const aura = mgGetActiveAuraPenalty(attrKey);
+	const auraAttrMod = Number(aura.value ?? 0);
+	const finalAttrMod = baseAttrMod + tempAttrMod;
+	const pool = 2 + Math.abs(finalAttrMod);
+	const rollType = finalAttrMod >= 0 ? "kh2" : "kl2";
+	const edge = !!actor.system?.edgeNext;
+
+	await evaluateRoll({
+		formula: `${pool}d6${rollType}`,
+		skillMod: auraAttrMod,
+		modifierParts: [auraAttrMod],
+		modifierBreakdown: auraAttrMod !== 0 ? [{
+			key: "aura",
+			label: aura.label || "Aura Modifier",
+			icon: "fa-eye-evil",
+			value: auraAttrMod
+		}] : [],
+		label: `Attr Roll: ${mgCapitalize(attrKey)}`,
+		actor,
+		edge,
+		auraLabel: aura.label,
+		auraAttrMod,
+		auraSourceActorId: aura.sourceActorId,
+		auraSourceTokenId: aura.sourceTokenId,
+		auraIconClass: "fa-eye-evil"
+	});
+
+	if (edge) {
+		await actor.update({ "system.edgeNext": false }, { render: false });
+		mgRefreshCharacterEdgeButtons(actor, false);
+	}
+}
+
+async function mgRollSkill(actor, skillKey) {
+	if (!actor || !skillKey) return;
+
+	const baseSkillMod = Number(actor.system?.skills?.[skillKey] ?? 0);
+	const tempSkillMod = Number(actor.system?.tempSkillBonuses?.[skillKey] ?? 0);
+	let attrKey = MG_SKILL_ATTRIBUTE_MAP[skillKey] ?? "guile";
+	if (skillKey === "spark") attrKey = actor.system?.sparkAttribute ?? "guile";
+
+	const baseAttrMod = Number(actor.system?.attributes?.[attrKey] ?? 0);
+	const tempAttrMod = Number(actor.system?.tempAttributeBonuses?.[attrKey] ?? 0);
+	const aura = mgGetActiveAuraPenalty(attrKey);
+	const auraAttrMod = Number(aura.value ?? 0);
+	const finalAttrMod = baseAttrMod + tempAttrMod;
+	const finalSkillMod = baseSkillMod + tempSkillMod + auraAttrMod;
+	const pool = 2 + Math.abs(finalAttrMod);
+	const rollType = finalAttrMod >= 0 ? "kh2" : "kl2";
+	const edge = !!actor.system?.edgeNext;
+
+	await evaluateRoll({
+		formula: `${pool}d6${rollType}`,
+		skillMod: finalSkillMod,
+		modifierParts: [baseSkillMod, tempSkillMod, auraAttrMod],
+		modifierBreakdown: [
+			{ key: "skill", label: "Skill Bonus", icon: "fa-user-plus", value: baseSkillMod },
+			{ key: "temp", label: "Temporary Bonus", icon: "fa-handshake-angle", value: tempSkillMod },
+			{ key: "aura", label: aura.label || "Aura Modifier", icon: "fa-eye-evil", value: auraAttrMod }
+		],
+		label: `Skill Roll: ${MG_SKILL_LABELS[skillKey] ?? skillKey}`,
+		actor,
+		edge,
+		auraLabel: aura.label,
+		auraAttrMod,
+		auraSourceActorId: aura.sourceActorId,
+		auraSourceTokenId: aura.sourceTokenId
+	});
+
+	if (edge) {
+		await actor.update({ "system.edgeNext": false }, { render: false });
+		mgRefreshCharacterEdgeButtons(actor, false);
+	}
+}
+
+async function mgEditActorStat(actor, type, key, button) {
+	if (!actor || !key) return;
+
+	const current = mgClampStatValue(button?.dataset?.base ?? (
+		type === "attribute"
+			? actor.system?.baseAttributes?.[key] ?? actor.system?.attributes?.[key]
+			: actor.system?.skills?.[key]
+	));
+	const label = type === "attribute" ? mgCapitalize(key) : (MG_SKILL_LABELS[key] ?? key);
+	const next = await mgOpenStatPicker(`Edit ${label}`, current);
+	if (next === null) return;
+
+	const value = mgClampStatValue(next);
+	const path = type === "attribute" ? `system.baseAttributes.${key}` : `system.skills.${key}`;
+	await actor.update({ [path]: value }, { render: false });
+	mgRefreshLeftSidebarContent();
+}
+
+async function mgOpenStatPicker(title, current) {
+	return new Promise(resolve => {
+		let settled = false;
+		const choices = [-2, -1, 0, 1, 2, 3];
+		const dlg = new Dialog({
+			title,
+			content: `
+				<div class="mg-stat-picker">
+					${choices.map(value => `
+						<button type="button" data-value="${value}" class="${value === current ? "is-selected" : ""}">
+							${mgSigned(value)}
+						</button>
+					`).join("")}
+				</div>
+			`,
+			buttons: {
+				cancel: {
+					label: "Cancel",
+					callback: () => {
+						settled = true;
+						resolve(null);
+					}
+				}
+			},
+			close: () => {
+				if (!settled) resolve(null);
+			},
+			render: html => {
+				html.find("[data-value]").on("click", event => {
+					settled = true;
+					const value = Number(event.currentTarget.dataset.value);
+					dlg.close();
+					resolve(value);
+				});
+			}
+		});
+		dlg.render(true);
+	});
+}
+
+async function mgHandleResourceDot(actor, resource, clicked) {
+	if (!actor || !Number.isFinite(clicked)) return;
+
+	if (resource === "risk") {
+		const total = Number(actor.system?.riskDice ?? 5) || 0;
+		const used = Number(actor.system?.riskUsed ?? 0) || 0;
+		const remaining = total - used;
+		const nextUsed = clicked > remaining ? total - clicked : total - (clicked - 1);
+		await actor.update({ "system.riskUsed": Math.max(0, Math.min(total, nextUsed)) });
+		return;
+	}
+
+	if (resource === "sto") {
+		const current = Number(actor.system?.sto?.value ?? 0) || 0;
+		const next = clicked <= current ? clicked - 1 : clicked;
+		await actor.update({ "system.sto.value": Math.max(0, next) }, { render: false });
+		mgRefreshLeftSidebarContent();
+		return;
+	}
+
+	if (resource === "spark") {
+		const total = Number(actor.system?.sparkSlots ?? 0) || 0;
+		const used = Number(actor.system?.sparkUsed ?? 0) || 0;
+		const remaining = total - used;
+		const nextUsed = clicked > remaining ? total - clicked : total - (clicked - 1);
+		const clamped = Math.max(0, Math.min(total, nextUsed));
+		const spent = clamped > used;
+
+		await actor.update({ "system.sparkUsed": clamped });
+
+		if (spent) {
+			ChatMessage.create({
+				user: game.user.id,
+				speaker: ChatMessage.getSpeaker({ actor }),
+				content: `<div class="chat-move"><h2><i class="fa-kit fa-spark"></i> Spark has been used!</h2></div>`
+			});
+		}
+	}
+}
+
+async function mgHandleStrainDot(actor, type, clicked) {
+	if (!actor || !type || !Number.isFinite(clicked)) return;
+	const current = Number(actor.system?.strain?.[type] ?? 0) || 0;
+	const next = clicked <= current ? clicked - 1 : clicked;
+	await actor.update({ [`system.strain.${type}`]: Math.max(0, Math.min(5, next)) }, { render: false });
+	mgRefreshLeftSidebarContent();
+}
+
+async function mgHandleCapacityTick(actor, type, dir) {
+	if (!actor || !type || !dir) return;
+
+	const capKey = `${type} capacity`;
+	const current = Number(actor.system?.strain?.[capKey] ?? 0) || 0;
+	const track = Number(actor.system?.strain?.[type] ?? 0) || 0;
+	const max = Number(actor.system?.strain?.maxCapacity?.[type] ?? current) || current;
+	const updates = {};
+
+	if (dir < 0) {
+		if (current > 0) {
+			updates[`system.strain.${capKey}`] = Math.max(0, current - 1);
+		} else {
+			updates[`system.strain.${type}`] = Math.min(5, track + 1);
+		}
+	} else if (current >= max) {
+		const temp = Number(actor.system?.strain?.tempBonus?.[type] ?? 0) || 0;
+		updates[`system.strain.tempBonus.${type}`] = temp + 1;
+		updates[`system.strain.maxCapacity.${type}`] = current + 1;
+		updates[`system.strain.${capKey}`] = current + 1;
+	} else {
+		updates[`system.strain.${capKey}`] = Math.min(max, current + 1);
+	}
+
+	await actor.update(updates, { render: false });
+	mgRefreshLeftSidebarContent();
+}
+
 function mgRenderPlayersSidebarContent() {
 	return `
 		<section class="mg-left-section mg-left-players-section">
@@ -1207,37 +1840,228 @@ function mgRefreshDockedPlayersBox() {
 }
 
 function mgRenderPlayerSidebarContent() {
-	const actor =
-		game.user?.character ||
-		game.actors?.find(a => a.type === "character" && a.isOwner);
+	const actor = game.user?.character;
 
 	if (!actor) {
 		return `
-			<div class="mg-left-empty">
+			<div class="mg-left-empty mg-left-character-empty">
 				<i class="fa-solid fa-user"></i>
-				<p>No owned character found.</p>
+				<h2>No character assigned.</h2>
+				<p>Open Player Settings and assign a character to use this sidebar.</p>
 			</div>
 		`;
 	}
 
+	return mgRenderCharacterSidebar(actor);
+}
+
+function mgRenderCharacterSidebar(actor) {
 	const img = actor.img || "icons/svg/mystery-man.svg";
-	const guiseName = actor.system?.guise?.name || actor.system?.guiseName || "Character";
+	const guiseName = mgResolveGuiseName(actor);
+	const crewName = mgResolveCrewName(actor);
+	const strain = actor.system?.strain ?? {};
+	const mortalCap = Number(strain["mortal capacity"] ?? 0) || 0;
+	const soulCap = Number(strain["soul capacity"] ?? 0) || 0;
+	const mortalTrack = Number(strain.mortal ?? 0) || 0;
+	const soulTrack = Number(strain.soul ?? 0) || 0;
+	const riskDice = Number(actor.system?.riskDice ?? 5) || 0;
+	const riskUsed = Number(actor.system?.riskUsed ?? 0) || 0;
+	const riskRemaining = Math.max(0, riskDice - riskUsed);
+	const stoValue = Number(actor.system?.sto?.value ?? 0) || 0;
+	const stoDisplayMax = Math.max(6, stoValue);
+	const sparkSlots = Number(actor.system?.sparkSlots ?? 0) || 0;
+	const sparkUsed = Number(actor.system?.sparkUsed ?? 0) || 0;
+	const sparkRemaining = Math.max(0, sparkSlots - sparkUsed);
+	const hasSpark = sparkSlots > 0 || Number(actor.system?.skills?.spark ?? 0) !== 0;
+
+	const resourcesBody = `
+		<div class="mg-left-resource-stack">
+			<div class="mg-left-resource-card">
+				<label>Risk</label>
+				${mgRenderIconTrack({
+					kind: "risk",
+					total: riskDice,
+					filled: riskRemaining,
+					dataAttr: 'data-mg-resource-dot="risk"'
+				})}
+			</div>
+
+			<div class="mg-left-resource-card">
+				<label>STO</label>
+				${mgRenderIconTrack({
+					kind: "sto",
+					total: stoDisplayMax,
+					filled: stoValue,
+					dataAttr: 'data-mg-resource-dot="sto"'
+				})}
+			</div>
+
+			<div class="mg-left-resource-card">
+				<label>Slots</label>
+				${mgRenderIconTrack({
+					kind: "spark",
+					total: sparkSlots,
+					filled: sparkRemaining,
+					dataAttr: 'data-mg-resource-dot="spark"'
+				})}
+			</div>
+		</div>
+	`;
+
+	const attributesBody = `
+		<div class="mg-left-attribute-actions">
+			<button
+				type="button"
+				class="mg-left-edge-toggle ${actor.system?.edgeNext ? "is-active" : ""}"
+				data-mg-edge-toggle="${actor.id}"
+				aria-pressed="${actor.system?.edgeNext ? "true" : "false"}"
+				title="Edge: your next Skill or Attribute roll is rolled twice"
+			>
+				<i class="fa-solid fa-scythe"></i>
+				Edge
+			</button>		
+
+			<button type="button" class="mg-left-temp-bonuses" data-mg-temp-skill-bonuses>
+				<i class="fa-solid fa-handshake-angle"></i>
+				Temp Bonuses
+			</button>
+		</div>
+
+		<div class="mg-left-attribute-stack">
+			${MG_ATTRIBUTE_KEYS.map(attrKey => {
+				const attrValue = Number(actor.system?.attributes?.[attrKey] ?? 0) || 0;
+				const baseValue = Number(actor.system?.baseAttributes?.[attrKey] ?? attrValue) || 0;
+				const tempValue = Number(actor.system?.tempAttributeBonuses?.[attrKey] ?? 0) || 0;
+
+				return `
+					<div class="mg-left-attribute-card" data-attr="${attrKey}">
+						<button
+							type="button"
+							class="mg-left-attribute-roll"
+							data-mg-roll-attribute="${attrKey}"
+							data-base="${baseValue}"
+							title="Click to roll. Right-click to edit base Attribute."
+						>
+							<span>${mgEsc(mgCapitalize(attrKey))}</span>
+							<strong class="attribute-container">${mgSigned(attrValue)} ${tempValue ? `<em>${mgSigned(tempValue)}</em>` : ""}</strong>
+						</button>
+
+						<div class="mg-left-skill-grid">
+							${(MG_SKILL_BUCKETS[attrKey] ?? []).map(skillKey => {
+								const skillValue = Number(actor.system?.skills?.[skillKey] ?? 0) || 0;
+								const tempSkill = Number(actor.system?.tempSkillBonuses?.[skillKey] ?? 0) || 0;
+
+								return `
+									<button
+										type="button"
+										class="mg-left-skill-roll"
+										data-mg-roll-skill="${skillKey}"
+										data-base="${skillValue}"
+										title="Click to roll. Right-click to edit base Skill."
+									>
+										<span>${mgEsc(MG_SKILL_LABELS[skillKey] ?? skillKey)}</span>
+										<strong class="skill-container">${skillValue}${tempSkill ? `<em>${mgSigned(tempSkill)}</em>` : ""}</strong>
+									</button>
+								`;
+							}).join("")}
+						</div>
+					</div>
+				`;
+			}).join("")}
+		</div>
+	`;
+
+	const sparkBody = `
+		<div class="mg-left-spark-panel">
+			<button
+				type="button"
+				class="mg-left-skill-roll mg-left-spark-skill"
+				data-mg-roll-skill="spark"
+				data-base="${Number(actor.system?.skills?.spark ?? 0) || 0}"
+			>
+				<span>Spark</span>
+				<strong>${Number(actor.system?.skills?.spark ?? 0) || 0}</strong>
+			</button>
+
+			${mgRenderIconTrack({
+				kind: "spark",
+				total: sparkSlots,
+				filled: sparkRemaining,
+				dataAttr: 'data-mg-resource-dot="spark"'
+			})}
+		</div>
+	`;
 
 	return `
-		<section class="mg-left-card mg-left-character-card">
-			<img class="mg-left-card-img" src="${img}" alt="${actor.name}" />
+		<section class="mg-left-character-panel" data-mg-character-sidebar="${actor.id}">
+			<header class="mg-left-character-identity">
+				<div class="mg-left-character-name">
+					<h3>${mgEsc(actor.name)}</h3>
+				</div>
 
-			<div class="mg-left-card-body">
-				<label>Character</label>
-				<h3>${actor.name}</h3>
-				<p>${guiseName}</p>
+				<div class="mg-left-character-crew">
+					<p class="guise">${mgEsc(guiseName)}</p>
+					<p class="crew">${mgEsc(crewName)}</p>
+				</div>
+			</header>
 
-				<button type="button" class="mg-left-action" data-mg-open-actor="${actor.id}">
-					<i class="fa-solid fa-up-right-from-square"></i>
-					Open Sheet
-				</button>
+			<img class="mg-left-character-img" src="${img}" alt="${mgEsc(actor.name)}" />
+
+			<div class="mg-left-strain-stack">
+				${mgRenderStrainRow("mortal", "MC", mortalCap, mortalTrack)}
+				${mgRenderStrainRow("soul", "SC", soulCap, soulTrack)}
 			</div>
+
+			${mgRenderAccordion(actor, {
+				id: "resources",
+				title: "Resources",
+				icon: "fa-kit fa-risk",
+				open: true,
+				body: resourcesBody
+			})}
+
+			${mgRenderAccordion(actor, {
+				id: "attributes",
+				title: "Skills & Attributes",
+				icon: "fa-solid fa-user",
+				open: true,
+				body: attributesBody
+			})}
+
+			${mgRenderAccordion(actor, {
+				id: "spark",
+				title: "Spark",
+				icon: "fa-kit fa-spark",
+				open: hasSpark,
+				body: sparkBody
+			})}
 		</section>
+	`;
+}
+
+function mgRenderStrainRow(type, label, cap, track) {
+	return `
+		<div class="mg-left-strain-row" data-mg-strain-row="${type}">
+			<div class="mg-left-capacity-badge">
+				<label>${label}</label>
+				<div class="mg-left-capacity-controls" data-type="${type}">
+					<button type="button" data-mg-cap-tick="${type}" data-dir="-1" aria-label="Decrease ${label}">
+						<i class="fa-solid fa-minus"></i>
+					</button>
+					<span class="capacity-value" data-type="${type}">${cap}</span>
+					<button type="button" data-mg-cap-tick="${type}" data-dir="1" aria-label="Increase ${label}">
+						<i class="fa-solid fa-plus"></i>
+					</button>
+				</div>
+			</div>
+
+			${mgRenderIconTrack({
+				kind: type,
+				total: 5,
+				filled: track,
+				dataAttr: `data-mg-strain-dot="${type}"`
+			})}
+		</div>
 	`;
 }
 
@@ -1791,6 +2615,12 @@ Hooks.on("renderSceneControls", () => {
 
 Hooks.on("renderPlayers", mgRefreshDockedPlayersBox);
 Hooks.on("renderPlayerList", mgRefreshDockedPlayersBox);
+Hooks.on("updateActor", actor => {
+	if (mgActiveSidebarTab !== "player") return;
+	const sidebarActor = game.user?.character;
+
+	if (actor?.id === sidebarActor?.id) mgRefreshLeftSidebarContent();
+});
 Hooks.on("updateUser", user => {
 	if (user?.id === game.user?.id) mgRefreshLeftSidebarTabs();
 	mgRefreshDockedPlayersBox();
@@ -1798,6 +2628,7 @@ Hooks.on("updateUser", user => {
 
 async function mgRestoreUiState() {
 	const state = mgLoadUiState();
+	mgRestoreAccordionState(state);
 	mgSetLeftSidebarTab(state.sidebarTab || "player");
 	if (!state || (!state.activeControl && !state.orbOpen)) return;
 
