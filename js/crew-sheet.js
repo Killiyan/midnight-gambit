@@ -410,40 +410,184 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 		);
 	}
 
-	async _mgGetCrewDropInfoFromElement(event) {
-		const el = event.target?.closest?.("[data-document-id], [data-entry-id], [data-item-id], .directory-item");
-		if (!el) return { allowed: false };
+	_mgCrewBlockedDropMessage({ documentName, type, tier } = {}) {
+		if (documentName === "Actor") {
+			if (["character", "npc"].includes(type)) return null;
+			return "Only player characters and NPCs can join the Crew.";
+		}
+
+		if (documentName === "Item") {
+			if (type === "asset") return null;
+
+			if (type === "gambit") {
+				return String(tier ?? "").toLowerCase() === "crew"
+					? null
+					: "Only Crew-tier Gambits can be added to the Crew.";
+			}
+
+			return `${type || "That item"} cannot be added to a Crew sheet.`;
+		}
+
+		return "That cannot be added to a Crew sheet.";
+	}
+
+	async _mgGetCrewDropStatus(event) {
+		let data = null;
+
+		try {
+			data = TextEditor.getDragEventData(event);
+		} catch (_err) {
+			return { known: false, allowed: false, message: null };
+		}
+
+		if (!data?.type) {
+			return { known: false, allowed: false, message: null };
+		}
+
+		if (data.type === "Actor") {
+			const actor = data.uuid
+				? await fromUuid(data.uuid).catch(() => null)
+				: game.actors?.get(data.id || data._id || data.data?._id || data.data?.id);
+
+			const type = actor?.type ?? data.data?.type ?? data.type;
+
+			const message = this._mgCrewBlockedDropMessage({
+				documentName: "Actor",
+				type
+			});
+
+			return {
+				known: true,
+				allowed: !message,
+				message,
+				type
+			};
+		}
+
+		if (data.type === "Item") {
+			let itemType = null;
+			let tier = "";
+
+			if (data.uuid) {
+				const doc = await fromUuid(data.uuid).catch(() => null);
+
+				if (doc?.documentName === "Item") {
+					itemType = doc.type;
+					tier = String(doc.system?.tier ?? "").toLowerCase();
+				}
+			}
+
+			if (!itemType) {
+				const raw = data.data || data;
+				itemType = raw?.type ?? raw?.system?.type ?? null;
+				tier = String(raw?.system?.tier ?? raw?.tier ?? "").toLowerCase();
+			}
+
+			const message = this._mgCrewBlockedDropMessage({
+				documentName: "Item",
+				type: itemType,
+				tier
+			});
+
+			return {
+				known: true,
+				allowed: !message,
+				message,
+				type: itemType,
+				tier
+			};
+		}
+
+		return {
+			known: true,
+			allowed: false,
+			message: `${data.type} cannot be added to a Crew sheet.`
+		};
+	}
+
+	async _mgGetCrewDragSourceStatus(event) {
+		const el = event.target?.closest?.(
+			"[data-uuid], [data-document-uuid], [data-document-id], [data-entry-id], [data-item-id], .directory-item"
+		);
+
+		if (!el) {
+			return { known: false, allowed: false, message: null };
+		}
+
+		const uuid =
+			el.dataset.uuid ||
+			el.dataset.documentUuid ||
+			el.dataset.entryUuid ||
+			null;
+
+		let doc = null;
+
+		if (uuid) {
+			doc = await fromUuid(uuid).catch(() => null);
+		}
 
 		const id =
 			el.dataset.documentId ||
 			el.dataset.entryId ||
 			el.dataset.itemId ||
-			el.dataset.id;
+			el.dataset.id ||
+			null;
 
-		if (!id) return { allowed: false };
+		if (!doc && id) {
+			doc = game.actors?.get(id) || game.items?.get(id) || null;
+		}
 
-		const actor = game.actors?.get(id);
-		if (actor) {
+		const pack =
+			el.dataset.pack ||
+			el.closest?.("[data-pack]")?.dataset?.pack ||
+			null;
+
+		if (!doc && pack && id) {
+			doc = await fromUuid(`Compendium.${pack}.${id}`).catch(() => null);
+		}
+
+		if (!doc) {
+			return { known: false, allowed: false, message: null };
+		}
+
+		if (doc.documentName === "Actor") {
+			const message = this._mgCrewBlockedDropMessage({
+				documentName: "Actor",
+				type: doc.type
+			});
+
 			return {
-				allowed: ["character", "npc"].includes(actor.type),
-				label: "Drop Actor Here"
+				known: true,
+				allowed: !message,
+				message,
+				type: doc.type
 			};
 		}
 
-		const item = game.items?.get(id);
-		if (item) {
-			if (item.type === "asset") return { allowed: true, label: "Drop Asset Here" };
+		if (doc.documentName === "Item") {
+			const itemType = doc.type;
+			const tier = String(doc.system?.tier ?? "").toLowerCase();
 
-			if (item.type === "gambit") {
-				const tier = String(item.system?.tier ?? "").toLowerCase();
-				return {
-					allowed: tier === "crew",
-					label: tier === "crew" ? "Drop Crew Gambit Here" : "Only Crew Gambits"
-				};
-			}
+			const message = this._mgCrewBlockedDropMessage({
+				documentName: "Item",
+				type: itemType,
+				tier
+			});
+
+			return {
+				known: true,
+				allowed: !message,
+				message,
+				type: itemType,
+				tier
+			};
 		}
 
-		return { allowed: false };
+		return {
+			known: true,
+			allowed: false,
+			message: `${doc.documentName} cannot be added to a Crew sheet.`
+		};
 	}
 
 	_mgBindCrewWideDrop(html) {
@@ -455,6 +599,7 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 
 		if (this._mgCrewWideDropHandlers) {
 			const h = this._mgCrewWideDropHandlers;
+
 			app.removeEventListener("dragenter", h.dragenter, true);
 			app.removeEventListener("dragover", h.dragover, true);
 			app.removeEventListener("dragleave", h.dragleave, true);
@@ -476,6 +621,7 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 
 		const syncOverlayToSheet = () => {
 			const rect = app.getBoundingClientRect();
+
 			overlay.style.left = `${rect.left}px`;
 			overlay.style.top = `${rect.top}px`;
 			overlay.style.width = `${rect.width}px`;
@@ -483,51 +629,117 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 		};
 
 		let dragDepth = 0;
-		let crewCompatibleDragActive = false;
-		let crewKnownDragChecked = false;
+
+		let crewVisualStatus = {
+			known: false,
+			allowed: false,
+			message: null
+		};
 
 		const clearState = () => {
 			dragDepth = 0;
+
+			crewVisualStatus = {
+				known: false,
+				allowed: false,
+				message: null
+			};
+
 			overlay.classList.remove("is-active", "is-denied");
+
 			const label = overlay.querySelector(".mg-character-drop-label");
 			if (label) label.textContent = "Drop Here";
 		};
 
-		const setOverlay = (labelText = "Drop Here") => {
+		const showOverlay = (labelText = "Drop Here") => {
 			syncOverlayToSheet();
+
 			const label = overlay.querySelector(".mg-character-drop-label");
 			if (label) label.textContent = labelText;
+
 			overlay.classList.add("is-active");
 			overlay.classList.remove("is-denied");
 		};
 
-		const dragenter = (event) => {
+		const hideOverlay = () => {
+			overlay.classList.remove("is-active", "is-denied");
+
+			const label = overlay.querySelector(".mg-character-drop-label");
+			if (label) label.textContent = "Drop Here";
+		};
+
+		const labelForStatus = (status) => {
+			if (status.type === "asset") return "Drop Asset Here";
+			if (status.type === "gambit") return "Drop Crew Gambit Here";
+			if (["character", "npc"].includes(status.type)) return "Drop Actor Here";
+			return "Drop Here";
+		};
+
+		const refreshVisualStatusFromSource = async (event) => {
+			if (this._mgIsCrewInternalDrag(event)) return;
+
+			const status = await this._mgGetCrewDragSourceStatus(event);
+			crewVisualStatus = status;
+
+			if (status.allowed) {
+				showOverlay(labelForStatus(status));
+				return;
+			}
+
+			hideOverlay();
+		};
+
+		const documentDragStart = (event) => {
+			if (this._mgIsCrewInternalDrag(event)) return;
+
+			refreshVisualStatusFromSource(event).catch(err => {
+				console.warn("MG | Could not inspect Crew drag source:", err);
+				clearState();
+			});
+		};
+
+		const dragenter = async (event) => {
 			if (this._mgIsCrewInternalDrag(event)) return;
 
 			dragDepth += 1;
 
-			if (crewKnownDragChecked && !crewCompatibleDragActive) {
-				clearState();
-				return;
+			const status = await this._mgGetCrewDropStatus(event);
+
+			if (status.known) {
+				crewVisualStatus = status;
 			}
 
-			if (crewCompatibleDragActive) setOverlay("Drop Here");
+			if (crewVisualStatus.allowed) {
+				showOverlay(labelForStatus(crewVisualStatus));
+			} else {
+				hideOverlay();
+			}
 		};
 
-		const dragover = (event) => {
+		const dragover = async (event) => {
 			if (this._mgIsCrewInternalDrag(event)) return;
 
+			// Critical:
+			// Always unblock browser drop. Final validation happens on drop.
 			event.preventDefault();
-			event.stopPropagation();
 
-			if (crewKnownDragChecked && !crewCompatibleDragActive) {
-				if (event.dataTransfer) event.dataTransfer.dropEffect = "none";
-				clearState();
-				return;
+			const status = await this._mgGetCrewDropStatus(event);
+
+			if (status.known) {
+				crewVisualStatus = status;
 			}
 
-			if (event.dataTransfer) event.dataTransfer.dropEffect = "copy";
-			if (crewCompatibleDragActive) setOverlay("Drop Here");
+			if (event.dataTransfer) {
+				event.dataTransfer.dropEffect = crewVisualStatus.known && !crewVisualStatus.allowed
+					? "none"
+					: "copy";
+			}
+
+			if (crewVisualStatus.allowed) {
+				showOverlay(labelForStatus(crewVisualStatus));
+			} else {
+				hideOverlay();
+			}
 		};
 
 		const dragleave = (event) => {
@@ -535,61 +747,45 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 
 			dragDepth = Math.max(0, dragDepth - 1);
 
-			if (crewCompatibleDragActive) {
-				setOverlay("Drop Here");
-				return;
+			if (dragDepth === 0 && !crewVisualStatus.allowed) {
+				hideOverlay();
 			}
-
-			if (dragDepth === 0) clearState();
 		};
 
 		const drop = async (event) => {
-		if (this._mgIsCrewInternalDrag(event)) return;
-
-		event.preventDefault();
-		event.stopPropagation();
-		event.stopImmediatePropagation();
-
-		try {
-			// Do NOT trust only the dragstart pre-check.
-			// Actor drops can arrive in different shapes, so let _onDrop inspect the real payload.
-			const handled = await this._onDrop(event);
-
-			if (!handled && crewCompatibleDragActive) {
-			ui.notifications?.warn("That drop could not be handled by the Crew sheet.");
-			}
-
-			return handled;
-		} catch (err) {
-			console.error("MG | Crew sheet-wide drop failed:", err);
-			ui.notifications?.error("Drop failed. See console.");
-			return false;
-		} finally {
-			crewCompatibleDragActive = false;
-			crewKnownDragChecked = false;
-			clearState();
-		}
-		};
-
-		const documentDragStart = async (event) => {
 			if (this._mgIsCrewInternalDrag(event)) return;
 
-			const info = await this._mgGetCrewDropInfoFromElement(event);
+			event.preventDefault();
+			event.stopPropagation();
+			event.stopImmediatePropagation();
 
-			crewKnownDragChecked = true;
-			crewCompatibleDragActive = !!info.allowed;
+			try {
+				const status = await this._mgGetCrewDropStatus(event);
 
-			if (!crewCompatibleDragActive) {
+				if (status.known && !status.allowed) {
+					hideOverlay();
+
+					if (status.message) {
+						ui.notifications?.warn(status.message);
+					}
+
+					clearState();
+					return false;
+				}
+
+				// If unknown, still pass to _onDrop so Foundry/compendium oddities
+				// do not get strangled at the visual gate.
+				return await this._onDrop(event);
+			} catch (err) {
+				console.error("MG | Crew sheet-wide drop failed:", err);
+				ui.notifications?.error("Drop failed. See console.");
+				return false;
+			} finally {
 				clearState();
-				return;
 			}
-
-			setOverlay(info.label || "Drop Here");
 		};
 
 		const documentDragEnd = () => {
-			crewCompatibleDragActive = false;
-			crewKnownDragChecked = false;
 			clearState();
 		};
 
@@ -610,7 +806,7 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 		document.addEventListener("dragstart", documentDragStart, true);
 		document.addEventListener("dragend", documentDragEnd, true);
 		document.addEventListener("drop", documentDragEnd, true);
-	}  
+	}
 
 	/** Top-level drop handler:
 	 *  - Accept Actor documents of type "character" onto the Party tab (your custom logic)
@@ -621,107 +817,126 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 	async _onDrop(event) {
 		if (!this.isEditable) return false;
 
-		const data = TextEditor.getDragEventData(event);
+		let data = null;
 
-		// === Handle Item drops here so we can force a re-render ===
-		if (data?.type === "Item") {
-			try {
-			const src = await fromUuid(data.uuid);
-			if (!src || src.documentName !== "Item") return false;
-
-			// Clone to a plain object and strip _id so it gets a fresh one
-			const obj = (src instanceof Item) ? src.toObject() : src;
-			delete obj._id;
-
-			const type = (obj.type || src.type);
-			const isAsset  = type === "asset";
-			const isGambit = type === "gambit";
-
-			// Allow Assets; Gate Gambits
-			if (!isAsset && !isGambit) return false;
-
-			if (isGambit) {
-				// Tier gate: Crew sheet only accepts Crew-tier Gambits
-				const tier = (obj.system?.tier ?? src.system?.tier ?? "rookie").toLowerCase();
-				if (tier !== "crew") {
-				ui.notifications?.warn("Only Crew-tier Gambits can be added to the Crew.");
-				return false;
-				}
-
-				// Hand-size cap with confirm override
-				const g = this.actor.system?.gambits ?? {};
-				const handSize  = Number(g.handSize ?? 3) || 3;
-				const currentCt = Array.isArray(g.deck) ? g.deck.length : 0;
-
-				if (currentCt >= handSize) {
-				const ok = await Dialog.confirm({
-					title: "Over Hand Limit?",
-					content: `
-					<p>You're going over your max available Crew Gambits for this level
-					(<strong>${currentCt}/${handSize}</strong>).</p>
-					<p><em>Only add this if your Director approves!</em></p>
-					`,
-					defaultYes: false,
-					yes: () => true, no: () => false
-				});
-				if (!ok) return false;
-				}
-			}
-
-			// Create the embedded item on the Crew
-			const [created] = await this.actor.createEmbeddedDocuments("Item", [obj]);
-
-			// If it's a Gambit, drop it into the Crew's hand immediately
-			if (isGambit && created?.id) {
-				const g2 = foundry.utils.deepClone(this.actor.system.gambits ?? {});
-				g2.deck = Array.isArray(g2.deck) ? g2.deck.slice() : [];
-				g2.deck.push(created.id);
-				await this.actor.update({ "system.gambits.deck": g2.deck }, { render: false });
-			}
-
-			this.render(false);
-			return true;
-			} catch (err) {
-			console.warn("MG | _onDrop Item failed:", err);
+		try {
+			data = TextEditor.getDragEventData(event);
+		} catch (err) {
+			console.warn("MG | Crew could not read drop data:", err);
 			return false;
-			}
-
 		}
 
-		// === Party member (Actor) drop logic ===
+		// ------------------------------------------------------------
+		// Crew Item drops:
+		// - asset
+		// - gambit with system.tier === "crew"
+		// ------------------------------------------------------------
+		if (data?.type === "Item") {
+			try {
+				const src = data.uuid ? await fromUuid(data.uuid).catch(() => null) : null;
+
+				if (!src || src.documentName !== "Item") {
+					ui.notifications?.warn("Could not resolve the dropped item.");
+					return false;
+				}
+
+				const type = src.type;
+				const tier = String(src.system?.tier ?? "").toLowerCase();
+
+				const blockedMessage = this._mgCrewBlockedDropMessage({
+					documentName: "Item",
+					type,
+					tier
+				});
+
+				if (blockedMessage) {
+					ui.notifications?.warn(blockedMessage);
+					return false;
+				}
+
+				const obj = src.toObject ? src.toObject() : foundry.utils.deepClone(src);
+				delete obj._id;
+
+				const isGambit = type === "gambit";
+
+				if (isGambit) {
+					const g = this.actor.system?.gambits ?? {};
+					const handSize = Number(g.handSize ?? 3) || 3;
+					const currentCt = Array.isArray(g.deck) ? g.deck.length : 0;
+
+					if (currentCt >= handSize) {
+						const ok = await Dialog.confirm({
+							title: "Over Hand Limit?",
+							content: `
+								<p>You're going over your max available Crew Gambits for this level
+								(<strong>${currentCt}/${handSize}</strong>).</p>
+								<p><em>Only add this if your Director approves!</em></p>
+							`,
+							defaultYes: false,
+							yes: () => true,
+							no: () => false
+						});
+
+						if (!ok) return false;
+					}
+				}
+
+				const [created] = await this.actor.createEmbeddedDocuments("Item", [obj]);
+
+				if (isGambit && created?.id) {
+					const g2 = foundry.utils.deepClone(this.actor.system.gambits ?? {});
+					g2.deck = Array.isArray(g2.deck) ? g2.deck.slice() : [];
+					g2.deck.push(created.id);
+
+					await this.actor.update({
+						"system.gambits.deck": g2.deck
+					}, { render: false });
+				}
+
+				this.render(false);
+				return true;
+			} catch (err) {
+				console.warn("MG | Crew _onDrop Item failed:", err);
+				ui.notifications?.error("Crew item drop failed. See console.");
+				return false;
+			}
+		}
+
+		// ------------------------------------------------------------
+		// Crew Actor drops:
+		// - character
+		// - npc
+		// ------------------------------------------------------------
 		if (data?.type === "Actor") {
 			event.preventDefault();
 			event.stopPropagation();
 
 			const resolveDroppedActor = async (dropData) => {
-				// Best case: Foundry gives us a UUID.
 				if (dropData?.uuid) {
-				const doc = await fromUuid(dropData.uuid).catch(() => null);
+					const doc = await fromUuid(dropData.uuid).catch(() => null);
 
-				if (doc?.documentName === "Actor") return doc;
-				if (doc?.actor?.documentName === "Actor") return doc.actor;
-				if (doc?.parent?.documentName === "Actor") return doc.parent;
+					if (doc?.documentName === "Actor") return doc;
+					if (doc?.actor?.documentName === "Actor") return doc.actor;
+					if (doc?.parent?.documentName === "Actor") return doc.parent;
 				}
 
-				// Some drags provide an actor id instead.
 				const id =
-				dropData?.id ||
-				dropData?._id ||
-				dropData?.data?._id ||
-				dropData?.data?.id;
+					dropData?.id ||
+					dropData?._id ||
+					dropData?.data?._id ||
+					dropData?.data?.id;
 
 				if (id) {
-				const actor = game.actors?.get(id);
-				if (actor?.documentName === "Actor") return actor;
+					const actor = game.actors?.get(id);
+					if (actor?.documentName === "Actor") return actor;
 				}
 
-				// Some payloads tuck the UUID deeper.
 				if (dropData?.data?.uuid) {
-				const doc = await fromUuid(dropData.data.uuid).catch(() => null);
+					const doc = await fromUuid(dropData.data.uuid).catch(() => null);
 
-				if (doc?.documentName === "Actor") return doc;
-				if (doc?.actor?.documentName === "Actor") return doc.actor;
-				if (doc?.parent?.documentName === "Actor") return doc.parent;
+					if (doc?.documentName === "Actor") return doc;
+					if (doc?.actor?.documentName === "Actor") return doc.actor;
+					if (doc?.parent?.documentName === "Actor") return doc.parent;
 				}
 
 				return null;
@@ -735,8 +950,13 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 				return false;
 			}
 
-			if (!["character", "npc"].includes(actor.type)) {
-				ui.notifications?.warn("Only player characters and NPCs can join the Crew.");
+			const blockedMessage = this._mgCrewBlockedDropMessage({
+				documentName: "Actor",
+				type: actor.type
+			});
+
+			if (blockedMessage) {
+				ui.notifications?.warn(blockedMessage);
 				return false;
 			}
 
@@ -745,23 +965,21 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 			const members = Array.isArray(party.members) ? party.members.slice() : [];
 
 			if (members.includes(actor.uuid)) {
-			ui.notifications?.info(`${actor.name} is already in the party.`);
-			return false;
+				ui.notifications?.info(`${actor.name} is already in the party.`);
+				return false;
 			}
 
 			members.push(actor.uuid);
 
-			// Build/merge a small cache snapshot
 			const cache = foundry.utils.duplicate(party.cache ?? {});
 			cache[actor.uuid] = {
-			name: actor.name,
-			img: actor.img,
-			type: actor.type,
-			className: await this._peekClassName(actor),
-			level: await this._peekLevel(actor)
+				name: actor.name,
+				img: actor.img,
+				type: actor.type,
+				className: await this._peekClassName(actor),
+				level: await this._peekLevel(actor)
 			};
 
-			// Also append to initiative if not present
 			const initiative = sys.initiative ?? {};
 			const order = Array.isArray(initiative.order) ? initiative.order.slice() : [];
 			if (!order.includes(actor.uuid)) order.push(actor.uuid);
@@ -772,26 +990,23 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 				"system.initiative.order": order
 			});
 
-			// Also set a back-reference on the dropped character (no re-render)
 			try {
-			await actor.update({
-				"system.crewId": this.actor.id,
-				"system.crewName": this.actor.name
-			}, { render: false });
+				await actor.update({
+					"system.crewId": this.actor.id,
+					"system.crewName": this.actor.name
+				}, { render: false });
 
-			// Optional: toast for feedback
-			ui.notifications?.info(`${actor.name} assigned to Crew: ${this.actor.name}`);
+				ui.notifications?.info(`${actor.name} assigned to Crew: ${this.actor.name}`);
 			} catch (err) {
 				console.warn("MG | Could not set crew fields on member actor:", err);
 			}
-
 
 			this.render(false);
 			return true;
 		}
 
-		// Fallback: let the base class handle anything else
-		return super._onDrop?.(event);
+		ui.notifications?.warn("That cannot be added to a Crew sheet.");
+		return false;
 	}
 
 	async _peekClassName(actor) {

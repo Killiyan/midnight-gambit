@@ -384,7 +384,7 @@ body.mg-hud-enabled {
 					letter-spacing: .08em;
 					text-transform: uppercase;
 					color: $mg-blue-2;
-					filter: drop-shadow(2px 2px 2px $black);
+					@include mg-shadow();
 				}
 
 				h2 {
@@ -395,7 +395,7 @@ body.mg-hud-enabled {
 					font-weight: 700;
 					margin: 0;
 					line-height: 1;
-					filter: drop-shadow(2px 2px 2px $black);
+					@include mg-shadow();
 				}
 			}
 
@@ -461,11 +461,20 @@ body.mg-hud-enabled {
 					border: 1px solid rgba($mg-blue-1, .25);
 					border-radius: 0 .5rem .5rem 0;
 					background:
-						linear-gradient(90deg, rgba($mg-blue-4, .95), rgba($mg-blue-main, .82)),
+						/* subtle pearly sheen (top-center) */
+						radial-gradient(circle at 50% 0%,
+						rgba(197, 212, 236, 0.22) 0%,
+						rgba(197, 212, 236, 0.10) 35%,
+						rgba(18, 33, 55, 0.00) 70%
+						),
+						/* texture */
 						url("../assets/images/filigree.jpg");
-					background-size: cover;
-					background-position: center;
+					background-size: cover, cover;
+					background-position: center, 50% 45%;
+					background-blend-mode: soft-light, multiply;
+					background-color: $mg-blue-4;
 					box-shadow: 5px 5px 8px rgba($black, .45);
+					text-shadow: 2px 2px 2px $black;
 
 					@include tiller();
 					color: $mg-ivory;
@@ -708,13 +717,59 @@ body.mg-hud-enabled {
 			}
 		}
 
-		&-character-img {
-			display: block;
+		&-character-crop {
+			position: relative;
 			width: 100%;
+			display: block;
 			aspect-ratio: 16 / 9;
-			object-fit: cover;
-			border: 0;
+			overflow: hidden;
 			border-bottom: 2px solid $mg-blue-main-2;
+			background: $mg-blue-4;
+		}
+
+		&-character-img,
+		&-character-crop > &-character-img {
+			position: absolute;
+			left: 50%;
+			top: 50%;
+			display: block;
+			width: var(--mg-crop-w, auto);
+			height: var(--mg-crop-h, auto);
+			max-width: none;
+			max-height: none;
+			border: 0;
+			object-fit: unset;
+			transform:
+				translate(
+					calc(-1% * var(--mg-crop-x, 50)),
+					calc(-1% * var(--mg-crop-y, 50))
+				)
+				scale(var(--mg-crop-scale, 1));
+			transform-origin: center center;
+			will-change: transform;
+			transition: transform 180ms ease;
+		}
+
+		&-character-open-sheet {
+			border-radius: 0;
+			background: $mg-blue-main;
+			border: 2px solid $mg-blue-main-2;
+			border-left: 0;
+			border-right: 0;
+
+			i {
+				color: $mg-blue-3;
+			}
+
+			&:hover,
+			&:focus {
+				background: $mg-blue-3;
+				color: $mg-blue-4;
+
+				i {
+					color: $mg-blue-4;
+				}
+			}
 		}
 
 		&-strain-stack {
@@ -934,7 +989,7 @@ body.mg-hud-enabled {
 				font-size: 1rem;
 				font-weight: 400;
 				font-style: normal;
-				filter: drop-shadow(2px 2px 2px $black);
+				@include mg-shadow();
 				position: relative;
 				z-index: 2;
 			}
@@ -1001,7 +1056,8 @@ body.mg-hud-enabled {
 		}
 
 		&-resource-card,
-		&-attribute-card {
+		&-attribute-card,
+		&-spark-panel {
 			@include mg-border();
 			border-radius: .625rem;
 			background: $mg-blue-4;
@@ -1114,7 +1170,8 @@ body.mg-hud-enabled {
 			}
 		}
 
-		&-attribute-roll {
+		&-attribute-roll,
+		&-spark-skill {
 			width: 100%;
 			display: flex;
 			flex-direction: column;
@@ -1143,6 +1200,7 @@ body.mg-hud-enabled {
 			}
 
 			strong,
+			.mg-left-roll-value,
 			em {
 				display: flex;
 				align-items: center;
@@ -1156,9 +1214,32 @@ body.mg-hud-enabled {
 				width: 100%;
 			}
 
+			.mg-left-roll-value {
+				border: 0;
+				margin: 0;
+				@include oswald();
+				font-style: normal;
+				font-size: .85rem;
+				font-weight: 700;
+				line-height: 1;
+				text-transform: none;
+				transition: background .25s ease, color .25s ease;
+
+				&:hover,
+				&:focus {
+					background: $mg-blue-3;
+					color: $mg-ivory;
+				}
+			}
+
+			strong {
+				min-height: 2.75rem;
+			}
+
 			.attribute-container{
 				position: relative;
 				height: 100%;
+				min-height: 2.375rem;
 			}
 
 			em {
@@ -1186,6 +1267,24 @@ body.mg-hud-enabled {
 				span {
 					color: $mg-ivory;
 				}
+			}
+
+			&:not(.mg-left-spark-skill):hover,
+			&:not(.mg-left-spark-skill):focus {
+				background: $mg-blue-main;
+				color: $mg-blue-1;
+
+				span {
+					color: $mg-blue-1;
+				}
+			}
+		}
+
+		&-spark-panel {
+			.mg-left-icon-track {
+				border: 0;
+				border-radius: 0;
+				box-shadow: none;
 			}
 		}
 
@@ -1478,21 +1577,27 @@ body:not(.mg-hud-enabled) #mg-ui-root {
 			),
 			/* texture */
 			url("../assets/images/filigree.jpg");
-
-		background-size: cover, cover;
-		background-position: center, center;
+		background-size: 350%;
+		background-position: center, 50% 45%;
 		background-blend-mode: soft-light, multiply;
+		background-color: $mg-blue-4;
+		transition:
+			background-color .5s ease,
+			background-position 2.5s cubic-bezier(.2, .8, .2, 1),
+			color .5s ease;
 		background-color: $mg-blue-4;
 		box-shadow:
 			0 0 0 1px rgba(2, 10, 24, 0.9),
 			0 12px 32px rgba(0, 0, 0, 0.45),
 			inset 0 0 18px rgba(60, 132, 220, 0.16);
 		cursor: pointer;
-		transition: background .5s ease;
 
-		&:hover {
-			background: $mg-blue-3;
-		}
+		&:hover,
+		&:focus {
+			background-color: $mg-blue-3;
+			background-position: center, 50% 50%;
+			color: $mg-ivory;
+		}		
 
 		.mg-orb-img {
 			width: 80%;
@@ -1501,7 +1606,7 @@ body:not(.mg-hud-enabled) #mg-ui-root {
 			display: block;
 			border: none;
 			margin: 0 auto;
-			filter: drop-shadow(2px 2px 2px $black);
+			@include mg-shadow();
 		}
 
 		.mg-orb-selected-stack {

@@ -3344,6 +3344,18 @@ h1,h2,h3,h4 {
     }
   }
 
+  &.sidebar-crop {
+    .mg-crop-panel {
+      aspect-ratio: auto;
+    }
+
+    .mg-crop-stage {
+      width: 31.25rem;
+      height: 17.578125rem;
+      aspect-ratio: 16 / 9;
+    }
+  }
+
   .mg-crop-stage { 
     position: relative;
     overflow: hidden; 

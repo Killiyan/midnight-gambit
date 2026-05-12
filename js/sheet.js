@@ -689,6 +689,108 @@ _mgOpenChatCropper() {
   document.body.appendChild($ui[0]);
 }
 
+_mgOpenSidebarCropper() {
+  const src = this.actor?.img;
+  if (!src) return;
+
+  const saved = this.actor.getFlag("midnight-gambit", "crops")?.sidebar?.css
+    || this.actor.getFlag("midnight-gambit", "crops")?.profile?.css
+    || {};
+  let x = Number.isFinite(saved.x) ? saved.x : 50;
+  let y = Number.isFinite(saved.y) ? saved.y : 50;
+  let s = Number.isFinite(saved.scale) ? saved.scale : 1;
+  const widthStyle = Number.isFinite(saved.width) ? `width:${saved.width}%;` : "";
+  const heightStyle = Number.isFinite(saved.height) ? `height:${saved.height}%;` : "";
+
+  const $ui = $(`
+    <div class="mg-crop-editor sidebar-crop" role="dialog" aria-modal="true">
+      <div class="mg-crop-panel">
+        <div class="mg-row">
+          <div><strong>Frame Sidebar Portrait</strong></div>
+          <div class="hint">Drag to pan - Mouse wheel to zoom - Esc to cancel</div>
+        </div>
+
+        <div class="mg-crop-stage">
+          <img src="${src}" alt="preview" style="--x:${x}; --y:${y}; --s:${s}; ${widthStyle}${heightStyle}">
+        </div>
+
+        <div class="mg-actions">
+          <button type="button" class="ghost mg-cancel">Cancel</button>
+          <button type="button" class="primary mg-save">Save</button>
+        </div>
+      </div>
+    </div>
+  `);
+
+  const stage = $ui.find(".mg-crop-stage")[0];
+  const imgEl = $ui.find(".mg-crop-stage img")[0];
+  let dragging = false;
+  let last = { cx: 0, cy: 0 };
+
+  const apply = () => {
+    imgEl.style.setProperty("--x", String(x));
+    imgEl.style.setProperty("--y", String(y));
+    imgEl.style.setProperty("--s", String(s));
+  };
+
+  stage.addEventListener("pointerdown", (ev) => {
+    dragging = true;
+    last = { cx: ev.clientX, cy: ev.clientY };
+    stage.setPointerCapture?.(ev.pointerId);
+  });
+
+  stage.addEventListener("pointermove", (ev) => {
+    if (!dragging) return;
+
+    const dx = ev.clientX - last.cx;
+    const dy = ev.clientY - last.cy;
+    last = { cx: ev.clientX, cy: ev.clientY };
+
+    x -= (dx / Math.max(stage.clientWidth, 1)) * 100;
+    y -= (dy / Math.max(stage.clientHeight, 1)) * 100;
+    apply();
+  });
+
+  stage.addEventListener("pointerup", () => { dragging = false; });
+  stage.addEventListener("pointercancel", () => { dragging = false; });
+
+  stage.addEventListener("wheel", (ev) => {
+    ev.preventDefault();
+    const step = ev.shiftKey ? 0.15 : 0.05;
+    const delta = Math.sign(ev.deltaY) * step;
+    s = Math.max(0.05, s - delta);
+    apply();
+  }, { passive: false });
+
+  $ui.on("click", ".mg-cancel", () => $ui.remove());
+
+  $ui.on("click", ".mg-save", async () => {
+    try {
+      const ns = "midnight-gambit";
+      const crops = (await this.actor.getFlag(ns, "crops")) || {};
+      const width = (imgEl.offsetWidth / Math.max(stage.clientWidth, 1)) * 100;
+      const height = (imgEl.offsetHeight / Math.max(stage.clientHeight, 1)) * 100;
+      crops.sidebar = crops.sidebar || {};
+      crops.sidebar.css = { x, y, scale: s, width, height };
+      await this.actor.setFlag(ns, "crops", crops);
+      $ui.remove();
+    } catch (err) {
+      console.error("MG | Save sidebar crop failed:", err);
+      ui.notifications?.error("Failed to save sidebar framing. See console.");
+    }
+  });
+
+  const onKey = (ev) => {
+    if (ev.key === "Escape") {
+      $ui.remove();
+      window.removeEventListener("keydown", onKey);
+    }
+  };
+  window.addEventListener("keydown", onKey);
+
+  document.body.appendChild($ui[0]);
+}
+
 
     /** Binds event listeners after rendering. This is the Event listener for most the system*/
     async activateListeners(html) {
@@ -703,6 +805,11 @@ _mgOpenChatCropper() {
       html.find(".mg-crop-chat").off("click.mgCropChat").on("click.mgCropChat", (ev) => {
         ev.preventDefault();
         this._mgOpenChatCropper(html);
+      });
+
+      html.find(".mg-crop-sidebar").off("click.mgCropSidebar").on("click.mgCropSidebar", (ev) => {
+        ev.preventDefault();
+        this._mgOpenSidebarCropper();
       });
 
       // Owner / GM? Full interactivity. Otherwise: view-only and bail out.
@@ -5537,6 +5644,218 @@ async _mgOpenStatPicker({ title, current }) {
     return new Set(["weapon", "armor", "misc", "gambit", "guise", "move"]);
   }
 
+  _mgCharacterBlockedDropMessage({ documentName, type, tier } = {}) {
+    if (documentName === "Actor") return "Characters can only be dropped onto Crew sheets.";
+
+    if (type === "asset") return "Assets can only be added to Crew sheets.";
+
+    if (type === "gambit" && String(tier ?? "").toLowerCase() === "crew") {
+      return "Crew Gambits can only be added to Crew sheets.";
+    }
+
+    return null;
+  }
+
+  async _mgGetCharacterDropStatus(event) {
+    let data = null;
+
+    try {
+      data = TextEditor.getDragEventData(event);
+    } catch (_err) {
+      return {
+        known: false,
+        allowed: false,
+        message: null
+      };
+    }
+
+    if (!data?.type) {
+      return {
+        known: false,
+        allowed: false,
+        message: null
+      };
+    }
+
+    if (data.type === "Actor") {
+      return {
+        known: true,
+        allowed: false,
+        message: this._mgCharacterBlockedDropMessage({ documentName: "Actor" })
+      };
+    }
+
+    if (data.type !== "Item") {
+      return {
+        known: true,
+        allowed: false,
+        message: `${data.type} cannot be added to a Character sheet.`
+      };
+    }
+
+    let itemType = null;
+    let tier = "";
+
+    if (data.uuid) {
+      const doc = await fromUuid(data.uuid).catch(() => null);
+
+      if (doc?.documentName === "Item") {
+        itemType = doc.type;
+        tier = String(doc.system?.tier ?? "").toLowerCase();
+      }
+    }
+
+    if (!itemType) {
+      const raw = data.data || data;
+      itemType = raw?.type ?? raw?.system?.type ?? null;
+      tier = String(raw?.system?.tier ?? raw?.tier ?? "").toLowerCase();
+    }
+
+    const blockedMessage = this._mgCharacterBlockedDropMessage({
+      documentName: "Item",
+      type: itemType,
+      tier
+    });
+
+    if (blockedMessage) {
+      return {
+        known: true,
+        allowed: false,
+        message: blockedMessage,
+        type: itemType,
+        tier
+      };
+    }
+
+    if (!this._mgCharacterAllowedDropTypes().has(itemType)) {
+      return {
+        known: true,
+        allowed: false,
+        message: `${itemType || "That item"} cannot be added to a Character sheet.`,
+        type: itemType,
+        tier
+      };
+    }
+
+    return {
+      known: true,
+      allowed: true,
+      message: null,
+      type: itemType,
+      tier
+    };
+  }
+
+  async _mgGetCharacterDragSourceStatus(event) {
+    const el = event.target?.closest?.(
+      "[data-uuid], [data-document-uuid], [data-document-id], [data-entry-id], [data-item-id], .directory-item"
+    );
+
+    if (!el) {
+      return {
+        known: false,
+        allowed: false,
+        message: null
+      };
+    }
+
+    const uuid =
+      el.dataset.uuid ||
+      el.dataset.documentUuid ||
+      el.dataset.entryUuid ||
+      null;
+
+    let doc = null;
+
+    if (uuid) {
+      doc = await fromUuid(uuid).catch(() => null);
+    }
+
+    const id =
+      el.dataset.documentId ||
+      el.dataset.entryId ||
+      el.dataset.itemId ||
+      el.dataset.id ||
+      null;
+
+    // World sidebar fallback.
+    if (!doc && id) {
+      doc = game.items?.get(id) || game.actors?.get(id) || null;
+    }
+
+    // Compendium fallback.
+    // Some Foundry compendium rows expose data-pack + data-document-id.
+    const pack =
+      el.dataset.pack ||
+      el.closest?.("[data-pack]")?.dataset?.pack ||
+      null;
+
+    if (!doc && pack && id) {
+      doc = await fromUuid(`Compendium.${pack}.${id}`).catch(() => null);
+    }
+
+    if (!doc) {
+      return {
+        known: false,
+        allowed: false,
+        message: null
+      };
+    }
+
+    if (doc.documentName === "Actor") {
+      return {
+        known: true,
+        allowed: false,
+        message: this._mgCharacterBlockedDropMessage({ documentName: "Actor" })
+      };
+    }
+
+    if (doc.documentName !== "Item") {
+      return {
+        known: true,
+        allowed: false,
+        message: `${doc.documentName} cannot be added to a Character sheet.`
+      };
+    }
+
+    const itemType = doc.type;
+    const tier = String(doc.system?.tier ?? "").toLowerCase();
+
+    const blockedMessage = this._mgCharacterBlockedDropMessage({
+      documentName: "Item",
+      type: itemType,
+      tier
+    });
+
+    if (blockedMessage) {
+      return {
+        known: true,
+        allowed: false,
+        message: blockedMessage,
+        type: itemType,
+        tier
+      };
+    }
+
+    if (!this._mgCharacterAllowedDropTypes().has(itemType)) {
+      return {
+        known: true,
+        allowed: false,
+        message: `${itemType || "That item"} cannot be added to a Character sheet.`,
+        type: itemType,
+        tier
+      };
+    }
+
+    return {
+      known: true,
+      allowed: true,
+      message: null,
+      type: itemType,
+      tier
+    };
+  } 
+
   _mgIsInternalSheetDrag(event) {
     const types = Array.from(event?.dataTransfer?.types ?? []);
 
@@ -5552,49 +5871,6 @@ async _mgOpenStatPicker({ title, current }) {
     );
   }
 
-  _mgGetDropLabelForType(type) {
-    if (this._mgCharacterAllowedDropTypes().has(type)) return "Drop Here";
-    if (type === "asset") return "Assets go on Crew sheets";
-    return "Cannot drop this here";
-  }
-
-  async _mgResolveDropItemData(event) {
-    let data = null;
-
-    try {
-      data = TextEditor.getDragEventData(event);
-    } catch (_err) {
-      return null;
-    }
-
-    if (data?.type !== "Item") return null;
-
-    // Prefer UUID resolution because sidebar / compendium drags are cleaner this way.
-    if (data.uuid) {
-      const doc = await fromUuid(data.uuid).catch(() => null);
-      if (doc?.documentName === "Item") return doc.toObject();
-    }
-
-    // Fallback for raw item payloads.
-    return data.data || data;
-  }
-
-  _mgGetDraggedItemTypeFromElement(event) {
-    const el = event.target?.closest?.("[data-document-id], [data-entry-id], [data-item-id], .directory-item");
-    if (!el) return null;
-
-    const id =
-      el.dataset.documentId ||
-      el.dataset.entryId ||
-      el.dataset.itemId ||
-      el.dataset.id;
-
-    if (!id) return null;
-
-    const item = game.items?.get(id);
-    return item?.type ?? null;
-  }  
-
   _mgBindSheetWideDrop(html) {
     this._mgEnsureSheetDropCSS();
 
@@ -5602,9 +5878,9 @@ async _mgOpenStatPicker({ title, current }) {
     const app = root?.closest?.(".window-app");
     if (!app) return;
 
-    // Remove old listeners if this sheet re-rendered.
     if (this._mgSheetWideDropHandlers) {
       const h = this._mgSheetWideDropHandlers;
+
       app.removeEventListener("dragenter", h.dragenter, true);
       app.removeEventListener("dragover", h.dragover, true);
       app.removeEventListener("dragleave", h.dragleave, true);
@@ -5612,7 +5888,7 @@ async _mgOpenStatPicker({ title, current }) {
 
       document.removeEventListener("dragstart", h.documentDragStart, true);
       document.removeEventListener("dragend", h.documentDragEnd, true);
-      document.removeEventListener("drop", h.documentDragEnd, true);      
+      document.removeEventListener("drop", h.documentDragEnd, true);
     }
 
     let overlay = document.querySelector(`#mg-character-drop-overlay-${this.actor.id}`);
@@ -5634,59 +5910,113 @@ async _mgOpenStatPicker({ title, current }) {
     };
 
     let dragDepth = 0;
-    let mgCompatibleDragActive = false;
-    let mgKnownDragChecked = false;
+
+    let mgVisualStatus = {
+      known: false,
+      allowed: false,
+      message: null
+    };
 
     const clearState = () => {
       dragDepth = 0;
+
+      mgVisualStatus = {
+        known: false,
+        allowed: false,
+        message: null
+      };
+
       overlay.classList.remove("is-active", "is-denied");
+
       const label = overlay.querySelector(".mg-character-drop-label");
       if (label) label.textContent = "Drop Here";
     };
 
-    const setOverlay = (allowed, labelText = "Drop Here") => {
+    const showOverlay = (labelText = "Drop Here") => {
       syncOverlayToSheet();
 
       const label = overlay.querySelector(".mg-character-drop-label");
       if (label) label.textContent = labelText;
 
       overlay.classList.add("is-active");
-      overlay.classList.toggle("is-denied", !allowed);
+      overlay.classList.remove("is-denied");
     };
 
-    const dragenter = (event) => {
+    const hideOverlay = () => {
+      overlay.classList.remove("is-active", "is-denied");
+
+      const label = overlay.querySelector(".mg-character-drop-label");
+      if (label) label.textContent = "Drop Here";
+    };
+
+    const refreshVisualStatusFromSource = async (event) => {
+      if (this._mgIsInternalSheetDrag(event)) return;
+
+      const status = await this._mgGetCharacterDragSourceStatus(event);
+      mgVisualStatus = status;
+
+      if (status.allowed) {
+        showOverlay("Drop Here");
+        return;
+      }
+
+      hideOverlay();
+    };
+
+    const documentDragStart = (event) => {
+      if (this._mgIsInternalSheetDrag(event)) return;
+
+      refreshVisualStatusFromSource(event).catch(err => {
+        console.warn("MG | Could not inspect drag source:", err);
+        clearState();
+      });
+    };
+
+    const dragenter = async (event) => {
       if (this._mgIsInternalSheetDrag(event)) return;
 
       dragDepth += 1;
 
-      // If we already know this drag is not compatible, never show the overlay.
-      if (mgKnownDragChecked && !mgCompatibleDragActive) {
-        clearState();
-        return;
+      // Try real Foundry payload once we are over the sheet.
+      // If this says blocked, hide the overlay.
+      // If it says unknown, do NOT block anything.
+      const status = await this._mgGetCharacterDropStatus(event);
+
+      if (status.known) {
+        mgVisualStatus = status;
       }
 
-      if (mgCompatibleDragActive) {
-        setOverlay(true, "Drop Here");
+      if (mgVisualStatus.allowed) {
+        showOverlay("Drop Here");
+      } else {
+        hideOverlay();
       }
     };
 
-    const dragover = (event) => {
+    const dragover = async (event) => {
       if (this._mgIsInternalSheetDrag(event)) return;
 
+      // Critical:
+      // Always unblock the browser for external drops.
+      // Validation happens on drop, not here.
       event.preventDefault();
-      event.stopPropagation();
 
-      // If this drag is not a valid Character drop, keep the overlay hidden.
-      if (mgKnownDragChecked && !mgCompatibleDragActive) {
-        if (event.dataTransfer) event.dataTransfer.dropEffect = "none";
-        clearState();
-        return;
+      const status = await this._mgGetCharacterDropStatus(event);
+
+      if (status.known) {
+        mgVisualStatus = status;
       }
 
-      if (event.dataTransfer) event.dataTransfer.dropEffect = "copy";
+      if (event.dataTransfer) {
+        event.dataTransfer.dropEffect = mgVisualStatus.known && !mgVisualStatus.allowed
+          ? "none"
+          : "copy";
+      }
 
-      if (mgCompatibleDragActive) {
-        setOverlay(true, "Drop Here");
+      if (mgVisualStatus.allowed) {
+        showOverlay("Drop Here");
+      } else {
+        hideOverlay();
       }
     };
 
@@ -5695,14 +6025,12 @@ async _mgOpenStatPicker({ title, current }) {
 
       dragDepth = Math.max(0, dragDepth - 1);
 
-      // If this drag began as a valid Character item, keep the landing pad visible
-      // until the item is dropped or the drag ends.
-      if (mgCompatibleDragActive) {
-        setOverlay(true, "Drop Here");
-        return;
+      // If the dragged source is valid, keep the sheet lit even when the cursor
+      // briefly leaves the app. That satisfies the "picked up something valid"
+      // behavior without using dragover as a fragile gate.
+      if (dragDepth === 0 && !mgVisualStatus.allowed) {
+        hideOverlay();
       }
-
-      if (dragDepth === 0) clearState();
     };
 
     const drop = async (event) => {
@@ -5713,23 +6041,22 @@ async _mgOpenStatPicker({ title, current }) {
       event.stopImmediatePropagation();
 
       try {
-        const itemData = await this._mgResolveDropItemData(event);
-        if (!itemData) {
+        const status = await this._mgGetCharacterDropStatus(event);
+
+        if (status.known && !status.allowed) {
+          hideOverlay();
+
+          if (status.message) {
+            ui.notifications?.warn(status.message);
+          }
+
           clearState();
-          return;
+          return false;
         }
 
-        const type = itemData.type;
-        const allowed = this._mgCharacterAllowedDropTypes().has(type);
-
-        if (!allowed) {
-          setOverlay(false, this._mgGetDropLabelForType(type));
-          ui.notifications?.warn(`${type || "That item"} cannot be dropped on a Character sheet.`);
-          setTimeout(clearState, 450);
-          return;
-        }
-
-        await this._onDropItemCreate(itemData);
+        // If drop data is weird/unknown, still hand it to your existing _onDrop.
+        // This preserves the compendium fix instead of strangling it at the gate.
+        await this._onDrop(event);
       } catch (err) {
         console.error("MG | Character sheet-wide drop failed:", err);
         ui.notifications?.error("Drop failed. See console.");
@@ -5738,25 +6065,7 @@ async _mgOpenStatPicker({ title, current }) {
       }
     };
 
-    const documentDragStart = (event) => {
-      if (this._mgIsInternalSheetDrag(event)) return;
-
-      const itemType = this._mgGetDraggedItemTypeFromElement(event);
-
-      mgKnownDragChecked = true;
-      mgCompatibleDragActive = !!itemType && this._mgCharacterAllowedDropTypes().has(itemType);
-
-      if (!mgCompatibleDragActive) {
-        clearState();
-        return;
-      }
-
-      setOverlay(true, "Drop Here");
-    };
-
     const documentDragEnd = () => {
-      mgCompatibleDragActive = false;
-      mgKnownDragChecked = false;
       clearState();
     };
 
@@ -5777,8 +6086,7 @@ async _mgOpenStatPicker({ title, current }) {
     document.addEventListener("dragstart", documentDragStart, true);
     document.addEventListener("dragend", documentDragEnd, true);
     document.addEventListener("drop", documentDragEnd, true);
-  }  
-
+  }
   /* Drag and Drop onto Character Sheet
   ==============================================================================*/
   async _onDropItemCreate(itemData) {
@@ -6393,126 +6701,83 @@ async _mgOpenStatPicker({ title, current }) {
   } 
 
   async _onDrop(event) {
-    const dropzone =
-      event?.target?.closest?.("[data-dropzone]")?.dataset?.dropzone ?? null;
+    let data = null;
 
     try {
-      const data = TextEditor.getDragEventData(event);
-
-      if (data?.type === "Item" && data?.uuid) {
-        const src = await fromUuid(data.uuid).catch(() => null);
-
-        // ----------------------------
-        // MOVES / SIGNATURE PERKS
-        // ----------------------------
-        if (src?.documentName === "Item" && src.type === "move") {
-          let moveDoc = src.toObject();
-          moveDoc.system = moveDoc.system || {};
-
-          const existing = this.actor.items.find(i =>
-            i.type === "move" && (
-              (i.flags?.core?.sourceId && i.flags.core.sourceId === moveDoc.flags?.core?.sourceId) ||
-              (i.name?.toLowerCase?.() === moveDoc.name?.toLowerCase?.())
-            )
-          );
-
-          if (existing) {
-            ui.notifications?.warn(`${moveDoc.name} is already on ${this.actor.name}.`);
-            return false;
-          }
-
-          // === NPC routing ===
-          if (this.actor.type === "npc") {
-            if (dropzone === "signature") {
-              moveDoc.system.npcSignature = true;
-              moveDoc.system.npcMove = false;
-              moveDoc.system.isSignature = true;
-              moveDoc.system.learned = false;
-
-              const [embedded] = await this.actor.createEmbeddedDocuments("Item", [moveDoc]);
-              ui.notifications?.info(`NPC Signature Perk added: ${embedded.name}`);
-              this.render(false);
-              return false;
-            }
-
-            if (dropzone === "moves") {
-              moveDoc.system.npcMove = true;
-              moveDoc.system.npcSignature = false;
-              moveDoc.system.isSignature = false;
-              moveDoc.system.learned = false;
-
-              const [embedded] = await this.actor.createEmbeddedDocuments("Item", [moveDoc]);
-              ui.notifications?.info(`NPC Move added: ${embedded.name}`);
-              this.render(false);
-              return false;
-            }
-
-            return super._onDrop?.(event) ?? false;
-          }
-
-          // === Character routing ===
-          if (this.actor.type === "character") {
-            if (dropzone === "signature") {
-              moveDoc.system.isSignature = true;
-              moveDoc.system.learned = false;
-              moveDoc.system.npcMove = false;
-              moveDoc.system.npcSignature = false;
-
-              const [embedded] = await this.actor.createEmbeddedDocuments("Item", [moveDoc]);
-              ui.notifications?.info(`Signature Perk added: ${embedded.name}`);
-              this.render(false);
-              return false;
-            }
-
-            // Default PC move drop = learned move
-            moveDoc.system.isSignature = false;
-            moveDoc.system.learned = true;
-            moveDoc.system.npcMove = false;
-            moveDoc.system.npcSignature = false;
-
-            const [embedded] = await this.actor.createEmbeddedDocuments("Item", [moveDoc]);
-            ui.notifications?.info(`Learned Move added: ${embedded.name}`);
-            this.render(false);
-            return false;
-          }
-        }
-
-        // ----------------------------
-        // GAMBITS
-        // ----------------------------
-        if (src?.documentName === "Item" && src.type === "gambit") {
-          const tier = String(src.system?.tier ?? "").toLowerCase();
-
-          if (tier === "crew") {
-            ui.notifications?.warn("Crew-tier Gambits can only be added to the Crew.");
-            return false;
-          }
-
-          const g = this.actor.system?.gambits ?? {};
-          const deck = Array.isArray(g.deck) ? g.deck : [];
-          const deckMax = this._mgGetPlayerGambitMax?.() ?? 0;
-
-          if (deckMax && deck.length >= deckMax) {
-            const ok = await Dialog.confirm({
-              title: "Over Deck Limit?",
-              content: `
-                <p>You're going over your max available Player Gambits for this level
-                (<strong>${deck.length}/${deckMax}</strong>).</p>
-                <p><em>Only add this if your Director approves!</em></p>
-              `,
-              defaultYes: false,
-              yes: () => true,
-              no: () => false
-            });
-
-            if (!ok) return false;
-          }
-
-          return super._onDrop?.(event) ?? false;
-        }
-      }
+      data = TextEditor.getDragEventData(event);
     } catch (err) {
-      console.warn("MG | _onDrop intercept failed (non-fatal):", err);
+      console.warn("MG | Could not read drop data:", err);
+      return false;
+    }
+
+    // ------------------------------------------------------------
+    // Character sheets never accept Actor drops.
+    // Crew sheets use Actor drops for party members.
+    // ------------------------------------------------------------
+    if (data?.type === "Actor") {
+      const actor = data.uuid ? await fromUuid(data.uuid).catch(() => null) : null;
+
+      const message = this._mgCharacterBlockedDropMessage({
+        documentName: "Actor",
+        type: actor?.type
+      });
+
+      ui.notifications?.warn(message);
+      return false;
+    }
+
+    // ------------------------------------------------------------
+    // Character sheet Item gate.
+    // Resolve UUID first. Only fall back to raw payload if UUID fails.
+    // ------------------------------------------------------------
+    if (data?.type === "Item") {
+      const src = data.uuid ? await fromUuid(data.uuid).catch(() => null) : null;
+
+      if (src?.documentName === "Item") {
+        const type = src.type;
+        const tier = String(src.system?.tier ?? "").toLowerCase();
+
+        const blockedMessage = this._mgCharacterBlockedDropMessage({
+          documentName: "Item",
+          type,
+          tier
+        });
+
+        if (blockedMessage) {
+          ui.notifications?.warn(blockedMessage);
+          return false;
+        }
+
+        if (!this._mgCharacterAllowedDropTypes().has(type)) {
+          ui.notifications?.warn(`${type || "That item"} cannot be added to a Character sheet.`);
+          return false;
+        }
+
+        // Important:
+        // Source resolved and passed. Do NOT run the raw fallback after this.
+        return super._onDrop?.(event) ?? false;
+      }
+
+      // Raw fallback only when UUID resolution did not give us an Item.
+      const raw = data.data || data;
+      const rawType = raw?.type ?? raw?.system?.type;
+      const rawTier = String(raw?.system?.tier ?? raw?.tier ?? "").toLowerCase();
+
+      const blockedMessage = this._mgCharacterBlockedDropMessage({
+        documentName: "Item",
+        type: rawType,
+        tier: rawTier
+      });
+
+      if (blockedMessage) {
+        ui.notifications?.warn(blockedMessage);
+        return false;
+      }
+
+      if (rawType && !this._mgCharacterAllowedDropTypes().has(rawType)) {
+        ui.notifications?.warn(`${rawType} cannot be added to a Character sheet.`);
+        return false;
+      }
     }
 
     return super._onDrop?.(event) ?? false;

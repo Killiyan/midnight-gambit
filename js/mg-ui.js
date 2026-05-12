@@ -482,6 +482,8 @@ function mgRenderAccordion(actor, { id, title, icon = "", open = true, body = ""
 	`;
 }
 
+/* Checking Primary Guise of actor and filling in related sourced
+----------------------------------------------------------------------*/
 function mgResolvePrimaryGuise(actor) {
 	const ref = actor?.system?.guiseId || actor?.system?.guise;
 	if (!actor || !ref) return null;
@@ -491,6 +493,53 @@ function mgResolvePrimaryGuise(actor) {
 		null;
 }
 
+/* Checking Secondary guise and updating sidebar/Spark if needed
+----------------------------------------------------------------------*/
+function mgResolveSidebarGuises(actor) {
+	if (!actor) return [];
+
+	const resolve = ref => {
+		if (!ref) return null;
+		return actor.items?.get?.(ref) ||
+			actor.items?.find?.(item => item.id === ref || item.uuid === ref || item.name === ref) ||
+			null;
+	};
+
+	const guises = [];
+	const primary = mgResolvePrimaryGuise(actor);
+	if (primary?.type === "guise") guises.push(primary);
+
+	const secondaryRefs = Array.isArray(actor.system?.secondaryGuises)
+		? actor.system.secondaryGuises
+		: [];
+
+	secondaryRefs.forEach(ref => {
+		const guise = resolve(ref);
+		if (guise?.type === "guise" && !guises.some(existing => existing.id === guise.id)) {
+			guises.push(guise);
+		}
+	});
+
+	return guises;
+}
+
+function mgActorHasSpark(actor) {
+	const casterRank = type => (["full", "half", "caster"].includes(type ?? "none") ? 1 : 0);
+	const guises = mgResolveSidebarGuises(actor);
+
+	if (guises.some(guise =>
+		casterRank(guise.system?.casterType) > 0 ||
+		(Number(guise.system?.sparkSlots ?? 0) || 0) > 0
+	)) {
+		return true;
+	}
+
+	return casterRank(actor?.system?.casterType) > 0 ||
+		(Number(actor?.system?.derivedSparkSlots ?? 0) || 0) > 0;
+}
+
+/* Grabbing Guise Name
+----------------------------------------------------------------------*/
 function mgResolveGuiseName(actor) {
 	const primary = mgResolvePrimaryGuise(actor);
 	if (primary) return primary.name;
@@ -499,6 +548,27 @@ function mgResolveGuiseName(actor) {
 	return actor?.system?.guiseName || actor?.system?.class || "No Guise";
 }
 
+function mgGetSidebarCropStyle(actor) {
+	const variables = mgGetSidebarCropVariables(actor);
+	return `style="${variables}"`;
+}
+
+function mgGetSidebarCropVariables(actor) {
+	const crops = actor?.getFlag?.("midnight-gambit", "crops") || {};
+	const sidebarCrop = crops.sidebar?.css || {};
+	const useSidebarCrop = Object.keys(sidebarCrop).length;
+	const crop = useSidebarCrop ? sidebarCrop : crops.profile?.css || {};
+	const x = Number.isFinite(crop.x) ? crop.x : 50;
+	const y = Number.isFinite(crop.y) ? crop.y : 50;
+	const scale = Number.isFinite(crop.scale) ? crop.scale : 1;
+	const width = Number.isFinite(crop.width) && crop.width > 0 ? ` --mg-crop-w: ${crop.width}%;` : "";
+	const height = Number.isFinite(crop.height) && crop.height > 0 ? ` --mg-crop-h: ${crop.height}%;` : "";
+
+	return `--mg-crop-x: ${x}; --mg-crop-y: ${y}; --mg-crop-scale: ${scale};${width}${height}`;
+}
+
+/* Grabbing Crew Name
+----------------------------------------------------------------------*/
 function mgResolveCrewName(actor) {
 	return actor?.system?.crewName || actor?.system?.crew || "No Crew";
 }
@@ -509,6 +579,8 @@ function mgRange(start, end) {
 	return Array.from({ length: Math.max(0, max - min + 1) }, (_, i) => min + i);
 }
 
+/* Getting Icons from FA Kit for each resource
+----------------------------------------------------------------------*/
 function mgRenderIconTrack({ kind, total, filled, dataAttr = "" }) {
 	const count = Math.max(0, Number(total) || 0);
 	const filledCount = Math.max(0, Number(filled) || 0);
@@ -539,6 +611,8 @@ function mgRenderIconTrack({ kind, total, filled, dataAttr = "" }) {
 	`;
 }
 
+/* Adjusting the Attribute/Skill Rolls by Aura
+----------------------------------------------------------------------*/
 function mgGetActiveAuraPenalty(attrKey) {
 	const empty = { value: 0, label: "", sourceActorId: "", sourceTokenId: "" };
 
@@ -569,6 +643,8 @@ function mgGetActiveAuraPenalty(attrKey) {
 	};
 }
 
+/* Adding different tabs for each sidebar section
+----------------------------------------------------------------------*/
 function mgRenderLeftSidebarTabs() {
 	return MG_LEFT_SIDEBAR_TABS.map(tab => {
 		const actor = tab.id === "player" ? mgGetAssignedCharacter() : null;
@@ -701,6 +777,8 @@ function mgGetCustomToolsForMenu(menuName) {
 		}));
 }
 
+/* Setting the ORB menu, and registering the selected tools
+----------------------------------------------------------------------*/
 function mgSetOrbBadge(controlName = mgActiveControl, toolName = mgActiveTool) {
 	const root = document.getElementById(MG_UI_ID);
 	const stack = root?.querySelector("[data-mg-orb-selected-stack]");
@@ -744,9 +822,8 @@ function mgSetOrbBadge(controlName = mgActiveControl, toolName = mgActiveTool) {
 	stack.hidden = false;
 }
 
-/**
- * Binds the Orb toggle and rail button actions.
- */
+/* Binds the Orb toggle and rail button actions
+----------------------------------------------------------------------*/
 function mgBindUiRoot(root) {
 	const wrap = root.querySelector("[data-mg-orb-wrap]");
 	const toggle = root.querySelector("[data-mg-orb-toggle]");
@@ -832,10 +909,10 @@ function mgBindUiRoot(root) {
 	});
 }
 
-/**
- * Opens the subtool rail for a specific main control.
- * If another submenu is already open, close it first, then open the new one.
- */
+/* Opens the subtool rail for a specific main control.
+   If another submenu is already open, close it first, then open the new one.
+----------------------------------------------------------------------*/
+
 function mgOpenSubbar(controlName, sourceButton) {
 	const root = document.getElementById(MG_UI_ID);
 	if (!root) return;
@@ -954,9 +1031,8 @@ function mgOpenCustomSubbar(menuName, sourceButton) {
 	openFresh();
 }
 
-/**
- * Renders the subtool buttons for the active control.
- */
+/* Renders the subtool buttons for the active control.
+----------------------------------------------------------------------*/
 function mgRenderSubbarTools(controlName, toolsWrap) {
 	const tools = mgGetToolsForControl(controlName);
 
@@ -1480,6 +1556,27 @@ function mgRefreshLeftSidebarContent() {
 	mgBindLeftSidebarContent(root, mgActiveSidebarTab);
 }
 
+globalThis.mgRefreshLeftSidebarContent = mgRefreshLeftSidebarContent;
+
+function mgRefreshCharacterSidebarActor(actorId) {
+	const root = document.getElementById(MG_UI_ID);
+	const panel = root?.querySelector(`[data-mg-character-sidebar="${mgCssEscape(actorId ?? "")}"]`);
+	const actor = actorId ? game.actors.get(actorId) : null;
+	if (!root || !panel || !actor) return false;
+
+	const wrapper = document.createElement("div");
+	wrapper.innerHTML = mgRenderCharacterSidebar(actor);
+	const nextPanel = wrapper.firstElementChild;
+	if (!nextPanel) return false;
+
+	panel.replaceWith(nextPanel);
+	mgBindCharacterSidebarContent(root);
+	mgBindLeftSidebarAccordions(root);
+	return true;
+}
+
+globalThis.mgRefreshCharacterSidebarActor = mgRefreshCharacterSidebarActor;
+
 function mgBindCharacterSidebarContent(root) {
 	const actor = mgGetCharacterSidebarActor(root);
 	if (!actor) return;
@@ -1526,6 +1623,14 @@ function mgBindCharacterSidebarContent(root) {
 		button.addEventListener("click", async event => {
 			event.preventDefault();
 			await mgHandleCapacityTick(actor, button.dataset.mgCapTick, Number(button.dataset.dir));
+		});
+	});
+
+	root.querySelectorAll("[data-mg-capacity-set]").forEach(element => {
+		element.addEventListener("contextmenu", async event => {
+			event.preventDefault();
+			event.stopPropagation();
+			await mgSetExactCapacity(actor, element.dataset.mgCapacitySet);
 		});
 	});
 
@@ -1608,6 +1713,10 @@ async function mgRollAttribute(actor, attrKey) {
 
 async function mgRollSkill(actor, skillKey) {
 	if (!actor || !skillKey) return;
+	if (skillKey === "spark" && !mgActorHasSpark(actor)) {
+		ui.notifications?.warn("This character does not have access to Spark.");
+		return;
+	}
 
 	const baseSkillMod = Number(actor.system?.skills?.[skillKey] ?? 0);
 	const tempSkillMod = Number(actor.system?.tempSkillBonuses?.[skillKey] ?? 0);
@@ -1782,6 +1891,71 @@ async function mgHandleCapacityTick(actor, type, dir) {
 	mgRefreshLeftSidebarContent();
 }
 
+async function mgSetExactCapacity(actor, type) {
+	if (!actor || !["mortal", "soul"].includes(type)) return;
+
+	const capKey = `${type} capacity`;
+	const currentCap = Number(actor.system?.strain?.[capKey] ?? 0);
+	const currentMax = Number(actor.system?.strain?.maxCapacity?.[type] ?? currentCap);
+	const label = type === "mortal" ? "Mortal Capacity" : "Soul Capacity";
+	const sheet = actor.sheet;
+
+	const bodyHtml = `
+		<div class="form-group">
+			<label>${label}</label>
+			<input type="number" name="value" value="${currentCap}" min="0" step="1" />
+		</div>
+		<p class="notes">
+			Current max: <strong>${currentMax}</strong>. Entering a higher number will add temporary capacity.
+		</p>
+	`;
+
+	const val = typeof sheet?._mgPrompt === "function"
+		? await sheet._mgPrompt({
+			title: `Set ${label}`,
+			bodyHtml,
+			okText: "Save",
+			okIcon: "fa-floppy-disk",
+			cancelText: "Cancel",
+			cancelIcon: "fa-circle-xmark",
+			getValue: html => html.find('input[name="value"]').val()
+		})
+		: await Dialog.wait({
+			title: `Set ${label}`,
+			content: `<h2 class="modal-headline">Set ${label}</h2>${bodyHtml}`,
+			buttons: {
+				ok: { label: "Save", callback: html => $(html).find('input[name="value"]').val() },
+				cancel: { label: "Cancel", callback: () => null }
+			},
+			default: "ok"
+		});
+
+	if (val === null) return;
+
+	const nextCap = Math.max(0, Math.floor(Number(val)));
+	if (!Number.isFinite(nextCap)) {
+		ui.notifications?.warn("Please enter a valid capacity number.");
+		return;
+	}
+
+	const updates = {
+		[`system.strain.${capKey}`]: nextCap,
+		[`system.strain.manualOverride.${capKey}`]: true
+	};
+
+	if (nextCap > currentMax) {
+		const currentTemp = Number(actor.system?.strain?.tempBonus?.[type] ?? 0);
+		const extraNeeded = nextCap - currentMax;
+
+		updates[`system.strain.tempBonus.${type}`] = currentTemp + extraNeeded;
+		updates[`system.strain.maxCapacity.${type}`] = nextCap;
+	}
+
+	await actor.update(updates, { render: false });
+	mgRefreshLeftSidebarContent();
+	actor.sheet?.render?.(false);
+}
+
 function mgRenderPlayersSidebarContent() {
 	return `
 		<section class="mg-left-section mg-left-players-section">
@@ -1857,6 +2031,8 @@ function mgRenderPlayerSidebarContent() {
 
 function mgRenderCharacterSidebar(actor) {
 	const img = actor.img || "icons/svg/mystery-man.svg";
+	const cropStyle = mgGetSidebarCropStyle(actor);
+	const cropVariables = mgGetSidebarCropVariables(actor);
 	const guiseName = mgResolveGuiseName(actor);
 	const crewName = mgResolveCrewName(actor);
 	const strain = actor.system?.strain ?? {};
@@ -1872,7 +2048,7 @@ function mgRenderCharacterSidebar(actor) {
 	const sparkSlots = Number(actor.system?.sparkSlots ?? 0) || 0;
 	const sparkUsed = Number(actor.system?.sparkUsed ?? 0) || 0;
 	const sparkRemaining = Math.max(0, sparkSlots - sparkUsed);
-	const hasSpark = sparkSlots > 0 || Number(actor.system?.skills?.spark ?? 0) !== 0;
+	const hasSpark = mgActorHasSpark(actor);
 
 	const resourcesBody = `
 		<div class="mg-left-resource-stack">
@@ -1896,7 +2072,7 @@ function mgRenderCharacterSidebar(actor) {
 				})}
 			</div>
 
-			<div class="mg-left-resource-card">
+			${hasSpark ? `<div class="mg-left-resource-card">
 				<label>Slots</label>
 				${mgRenderIconTrack({
 					kind: "spark",
@@ -1904,7 +2080,7 @@ function mgRenderCharacterSidebar(actor) {
 					filled: sparkRemaining,
 					dataAttr: 'data-mg-resource-dot="spark"'
 				})}
-			</div>
+			</div>` : ""}
 		</div>
 	`;
 
@@ -1935,16 +2111,18 @@ function mgRenderCharacterSidebar(actor) {
 
 				return `
 					<div class="mg-left-attribute-card" data-attr="${attrKey}">
-						<button
-							type="button"
+						<div
 							class="mg-left-attribute-roll"
-							data-mg-roll-attribute="${attrKey}"
-							data-base="${baseValue}"
-							title="Click to roll. Right-click to edit base Attribute."
 						>
 							<span>${mgEsc(mgCapitalize(attrKey))}</span>
-							<strong class="attribute-container">${mgSigned(attrValue)} ${tempValue ? `<em>${mgSigned(tempValue)}</em>` : ""}</strong>
-						</button>
+							<button
+								type="button"
+								class="mg-left-roll-value attribute-container"
+								data-mg-roll-attribute="${attrKey}"
+								data-base="${baseValue}"
+								title="Click to roll. Right-click to edit base Attribute."
+							>${mgSigned(attrValue)} ${tempValue ? `<em>${mgSigned(tempValue)}</em>` : ""}</button>
+						</div>
 
 						<div class="mg-left-skill-grid">
 							${(MG_SKILL_BUCKETS[attrKey] ?? []).map(skillKey => {
@@ -1975,7 +2153,7 @@ function mgRenderCharacterSidebar(actor) {
 		<div class="mg-left-spark-panel">
 			<button
 				type="button"
-				class="mg-left-skill-roll mg-left-spark-skill"
+				class="mg-left-attribute-roll mg-left-spark-skill"
 				data-mg-roll-skill="spark"
 				data-base="${Number(actor.system?.skills?.spark ?? 0) || 0}"
 			>
@@ -2005,7 +2183,19 @@ function mgRenderCharacterSidebar(actor) {
 				</div>
 			</header>
 
-			<img class="mg-left-character-img" src="${img}" alt="${mgEsc(actor.name)}" />
+			<button
+				type="button"
+				class="mg-left-character-open-sheet"
+				data-mg-open-actor="${actor.id}"
+				title="Open ${mgEsc(actor.name)} sheet"
+			>
+				<i class="fa-solid fa-up-right-from-square"></i>
+				Open Sheet
+			</button>			
+
+			<div class="mg-left-character-crop mg-cropbox" ${cropStyle}>
+				<img class="mg-left-character-img" src="${mgEsc(img)}" alt="${mgEsc(actor.name)}" style="${cropVariables}" />
+			</div>
 
 			<div class="mg-left-strain-stack">
 				${mgRenderStrainRow("mortal", "MC", mortalCap, mortalTrack)}
@@ -2028,13 +2218,13 @@ function mgRenderCharacterSidebar(actor) {
 				body: attributesBody
 			})}
 
-			${mgRenderAccordion(actor, {
+			${hasSpark ? mgRenderAccordion(actor, {
 				id: "spark",
 				title: "Spark",
 				icon: "fa-kit fa-spark",
 				open: hasSpark,
 				body: sparkBody
-			})}
+			}) : ""}
 		</section>
 	`;
 }
@@ -2043,12 +2233,12 @@ function mgRenderStrainRow(type, label, cap, track) {
 	return `
 		<div class="mg-left-strain-row" data-mg-strain-row="${type}">
 			<div class="mg-left-capacity-badge">
-				<label>${label}</label>
+				<label data-mg-capacity-set="${type}" title="Right-click to set exact ${label}">${label}</label>
 				<div class="mg-left-capacity-controls" data-type="${type}">
 					<button type="button" data-mg-cap-tick="${type}" data-dir="-1" aria-label="Decrease ${label}">
 						<i class="fa-solid fa-minus"></i>
 					</button>
-					<span class="capacity-value" data-type="${type}">${cap}</span>
+					<span class="capacity-value" data-type="${type}" data-mg-capacity-set="${type}" title="Right-click to set exact ${label}">${cap}</span>
 					<button type="button" data-mg-cap-tick="${type}" data-dir="1" aria-label="Increase ${label}">
 						<i class="fa-solid fa-plus"></i>
 					</button>

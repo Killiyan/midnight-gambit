@@ -38,3 +38,9 @@
 @mixin mg-border() {
 	border: 2px solid $mg-blue-main-2;
 }
+
+/*MG Border styling
+---------------------*/
+@mixin mg-shadow() {
+	filter: drop-shadow(2px 2px 2px $black);
+}
