@@ -69,7 +69,7 @@ const MG_SKILL_LABELS = {
 };
 
 /* Main Foundry canvas control groups shown in the MG Orb rail.
-----------------------------------------------------------------------*/  
+----------------------------------------------------------------------*/
 const MG_CANVAS_CONTROLS = [
 	{
 		id: "token",
@@ -131,7 +131,7 @@ const MG_CANVAS_CONTROLS = [
 
 /*	Fallback subtools in case Foundry's ui.controls data is incomplete.
 	These names should match common Foundry v11 tool names.
-----------------------------------------------------------------------*/  
+----------------------------------------------------------------------*/
 
 const MG_FALLBACK_TOOLS = {
   token: [
@@ -183,7 +183,7 @@ const MG_FALLBACK_TOOLS = {
 };
 
 /* Clock Subtools
-----------------------------------------------------------------------*/  
+----------------------------------------------------------------------*/
 const MG_CUSTOM_TOOL_MENUS = {
 	clocks: {
 		label: "Clocks",
@@ -211,7 +211,7 @@ const MG_CUSTOM_TOOL_MENUS = {
 };
 
 /* Left MG Sidebar States/Constants
-----------------------------------------------------------------------*/  
+----------------------------------------------------------------------*/
 const MG_LEFT_SIDEBAR_TABS = [
 	{
 		id: "player",
@@ -257,7 +257,7 @@ const MG_LEFT_SIDEBAR_TABS = [
 		id: "players",
 		label: "Players",
 		icon: "fa-solid fa-user-group"
-	},	
+	},
 	{
 		id: "settings",
 		label: "Settings",
@@ -278,7 +278,7 @@ function mgCreateUiRoot() {
 root.innerHTML = `
 	<button
 		type="button"
-		class="mg-sidebar-collapse-toggle mg-left-sidebar-collapse-toggle"
+		class="mg-sidebar-collapse-toggle left-sidebar-toggle"
 		data-mg-collapse-sidebar="left"
 		title="Toggle left sidebar"
 		aria-label="Toggle left sidebar"
@@ -287,18 +287,18 @@ root.innerHTML = `
 	</button>
 
 	<aside class="mg-left-sidebar" data-mg-left-sidebar>
-		<div class="mg-left-sidebar-panel" data-mg-left-sidebar-panel>
-			<header class="mg-left-sidebar-header">
-				<span class="mg-left-sidebar-kicker">Midnight Gambit</span>
-				<h2 data-mg-left-sidebar-title>Character</h2>
+		<div class="panel" data-sidebar-panel>
+			<header class="sidebar-header">
+				<span class="kicker">Midnight Gambit</span>
+				<h2 data-sidebar-title>Character</h2>
 			</header>
 
-			<div class="mg-left-sidebar-body" data-mg-left-sidebar-body>
+			<div class="sidebar-body" data-sidebar-body>
 				<!-- Sidebar content renders here -->
 			</div>
 		</div>
 
-		<nav class="mg-left-sidebar-tabs" data-mg-left-sidebar-tabs aria-label="Midnight Gambit Sidebar">
+		<nav class="sidebar-tabs" data-sidebar-tabs aria-label="Midnight Gambit Sidebar">
 			${mgRenderLeftSidebarTabs()}
 		</nav>
 	</aside>
@@ -598,11 +598,11 @@ function mgRenderIconTrack({ kind, total, filled, dataAttr = "" }) {
 					: "fa-kit fa-soul-strain";
 
 	return `
-		<div class="mg-left-icon-track mg-left-${kind}-track">
+		<div class="icon-track ${kind}-track">
 			${mgRange(1, count).map(value => `
 				<button
 					type="button"
-					class="mg-left-dot ${value <= filledCount ? "filled" : ""}"
+					class="dot ${value <= filledCount ? "filled" : ""}"
 					data-value="${value}"
 					${dataAttr}
 					title="${mgEsc(mgCapitalize(kind))} ${value}"
@@ -652,9 +652,9 @@ function mgRenderLeftSidebarTabs() {
 	return MG_LEFT_SIDEBAR_TABS.map(tab => {
 		const actor = tab.id === "player" ? mgGetAssignedCharacter() : null;
 		const portrait = actor?.img || "";
-		const tabClass = `mg-left-sidebar-tab${portrait ? " has-portrait" : ""}`;
+		const tabClass = `sidebar-tab${portrait ? " has-portrait" : ""}`;
 		const iconHtml = portrait
-			? `<img class="mg-left-sidebar-tab-portrait" src="${portrait}" alt="" />`
+			? `<img class="tab-portrait" src="${portrait}" alt="" />`
 			: `<i class="${tab.icon}"></i>`;
 
 		return `
@@ -665,7 +665,7 @@ function mgRenderLeftSidebarTabs() {
 			aria-label="${tab.label}"
 		>
 			${iconHtml}
-			<span class="mg-left-sidebar-tab-label">${tab.label}</span>
+			<span class="tab-label">${tab.label}</span>
 		</button>
 	`;
 	}).join("");
@@ -673,7 +673,7 @@ function mgRenderLeftSidebarTabs() {
 
 function mgRefreshLeftSidebarTabs() {
 	const root = document.getElementById(MG_UI_ID);
-	const tabs = root?.querySelector("[data-mg-left-sidebar-tabs]");
+	const tabs = root?.querySelector("[data-sidebar-tabs]");
 	if (!root || !tabs) return;
 
 	tabs.innerHTML = mgRenderLeftSidebarTabs();
@@ -814,7 +814,7 @@ function mgSetOrbBadge(controlName = mgActiveControl, toolName = mgActiveTool) {
 		childWrap.hidden = false;
 		divider.hidden = false;
 
-		stack.title = `${controlMeta.label || "Category"} → ${toolMeta.label || "Tool"}`;
+		stack.title = `${controlMeta.label || "Category"} ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ ${toolMeta.label || "Tool"}`;
 	} else {
 		childWrap.hidden = true;
 		divider.hidden = true;
@@ -898,7 +898,7 @@ function mgBindUiRoot(root) {
 				mgOpenCustomSubbar(menuName, button);
 			}
 		});
-	});	
+	});
 
 	root.querySelectorAll("[data-mg-action]").forEach(button => {
 		button.addEventListener("click", event => {
@@ -957,7 +957,7 @@ function mgOpenSubbar(controlName, sourceButton) {
 			activeControl: controlName
 		});
 
-		mgSetOrbBadge(controlName, mgActiveTool);		
+		mgSetOrbBadge(controlName, mgActiveTool);
 	};
 
 	// If already open, close the old submenu first, then open the new one.
@@ -1124,7 +1124,7 @@ function mgCloseSubbar() {
 
 	mgSubbarOpen = false;
 	mgSaveUiState({ subbarOpen: false });
-	mgSetOrbBadge();	
+	mgSetOrbBadge();
 
 	mgSubbarCloseTimer = window.setTimeout(() => {
 		subrail.classList.remove("is-closing");
@@ -1221,7 +1221,7 @@ function mgBindLeftSidebar(root) {
 }
 
 function mgBindLeftSidebarAccordions(root) {
-	const body = root?.querySelector("[data-mg-left-sidebar-body]");
+	const body = root?.querySelector("[data-sidebar-body]");
 	if (!body || body.dataset.mgAccordionBound === "true") return;
 
 	body.dataset.mgAccordionBound = "true";
@@ -1266,7 +1266,7 @@ function mgToggleLeftAccordion(button) {
 		body.style.maxHeight = "0px";
 
 		requestAnimationFrame(() => {
-			body.style.maxHeight = `${body.scrollHeight}px`;
+			body.style.maxHeight = `${mgGetLeftAccordionAnimationHeight(body)}px`;
 		});
 
 		const finishOpen = () => {
@@ -1293,7 +1293,7 @@ function mgToggleLeftAccordion(button) {
 
 	accordion.classList.add("is-closing");
 	accordion.classList.remove("is-opening", "is-open");
-	body.style.maxHeight = `${body.scrollHeight}px`;
+	body.style.maxHeight = `${mgGetLeftAccordionAnimationHeight(body)}px`;
 
 	requestAnimationFrame(() => {
 		body.style.maxHeight = "0px";
@@ -1317,6 +1317,15 @@ function mgToggleLeftAccordion(button) {
 		if (body._mgAccordionEnd) body.removeEventListener("transitionend", body._mgAccordionEnd);
 		finishClose();
 	}, 560);
+}
+
+function mgGetLeftAccordionAnimationHeight(body) {
+	const fullHeight = body?.scrollHeight ?? 0;
+	const sidebarBody = body?.closest("[data-sidebar-body]");
+	const visibleHeight = sidebarBody?.clientHeight ?? fullHeight;
+	const targetHeight = Math.min(fullHeight, visibleHeight);
+
+	return Math.max(0, Math.ceil(targetHeight));
 }
 
 function mgBindSidebarCollapse(root) {
@@ -1346,7 +1355,7 @@ function mgSetSidebarCollapsed(side, collapsed) {
 
 	if (side === "left") {
 		mgLeftSidebarCollapsed = isCollapsed;
-		body.classList.toggle("mg-left-sidebar-collapsed", isCollapsed);
+		body.classList.toggle("left-sidebar-collapsed", isCollapsed);
 
 		const button = root.querySelector('[data-mg-collapse-sidebar="left"]');
 		const icon = button?.querySelector("i");
@@ -1416,10 +1425,10 @@ function mgSetLeftSidebarTab(tabId) {
 		button.classList.toggle("is-active", button.dataset.mgLeftTab === tab.id);
 	});
 
-	const title = root.querySelector("[data-mg-left-sidebar-title]");
+	const title = root.querySelector("[data-sidebar-title]");
 	if (title) title.textContent = tab.label;
 
-	const body = root.querySelector("[data-mg-left-sidebar-body]");
+	const body = root.querySelector("[data-sidebar-body]");
 	if (body) body.innerHTML = mgRenderLeftSidebarContent(tab.id);
 
 	mgBindLeftSidebarContent(root, tab.id);
@@ -1456,7 +1465,7 @@ function mgRenderLeftSidebarContent(tabId) {
 			return mgRenderCompendiumSidebarContent();
 
 		case "players":
-			return mgRenderPlayersSidebarContent();			
+			return mgRenderPlayersSidebarContent();
 
 		case "settings":
 			return mgRenderSettingsSidebarContent();
@@ -1554,7 +1563,7 @@ function mgGetCharacterSidebarActor(root) {
 
 function mgRefreshLeftSidebarContent() {
 	const root = document.getElementById(MG_UI_ID);
-	const body = root?.querySelector("[data-mg-left-sidebar-body]");
+	const body = root?.querySelector("[data-sidebar-body]");
 	if (!root || !body) return;
 
 	body.innerHTML = mgRenderLeftSidebarContent(mgActiveSidebarTab);
@@ -2023,7 +2032,7 @@ function mgRenderPlayerSidebarContent() {
 
 	if (!actor) {
 		return `
-			<div class="mg-left-empty mg-left-character-empty">
+			<div class="mg-left-empty character-empty">
 				<i class="fa-solid fa-user"></i>
 				<h2>No character assigned.</h2>
 				<p>Open Player Settings and assign a character to use this sidebar.</p>
@@ -2056,8 +2065,8 @@ function mgRenderCharacterSidebar(actor) {
 	const hasSpark = mgActorHasSpark(actor);
 
 	const resourcesBody = `
-		<div class="mg-left-resource-stack">
-			<div class="mg-left-resource-card">
+		<div class="resource-stack">
+			<div class="resource-card">
 				<label>Risk</label>
 				${mgRenderIconTrack({
 					kind: "risk",
@@ -2067,7 +2076,7 @@ function mgRenderCharacterSidebar(actor) {
 				})}
 			</div>
 
-			<div class="mg-left-resource-card">
+			<div class="resource-card">
 				<label>STO</label>
 				${mgRenderIconTrack({
 					kind: "sto",
@@ -2077,7 +2086,7 @@ function mgRenderCharacterSidebar(actor) {
 				})}
 			</div>
 
-			${hasSpark ? `<div class="mg-left-resource-card">
+			${hasSpark ? `<div class="resource-card">
 				<label>Slots</label>
 				${mgRenderIconTrack({
 					kind: "spark",
@@ -2090,46 +2099,46 @@ function mgRenderCharacterSidebar(actor) {
 	`;
 
 	const attributesBody = `
-		<div class="mg-left-attribute-actions">
+		<div class="attribute-actions">
 			<button
 				type="button"
-				class="mg-left-edge-toggle ${actor.system?.edgeNext ? "is-active" : ""}"
+				class="edge-toggle ${actor.system?.edgeNext ? "is-active" : ""}"
 				data-mg-edge-toggle="${actor.id}"
 				aria-pressed="${actor.system?.edgeNext ? "true" : "false"}"
 				title="Edge: your next Skill or Attribute roll is rolled twice"
 			>
 				<i class="fa-solid fa-scythe"></i>
 				Edge
-			</button>		
+			</button>
 
-			<button type="button" class="mg-left-temp-bonuses" data-mg-temp-skill-bonuses>
+			<button type="button" class="temp-bonuses" data-mg-temp-skill-bonuses>
 				<i class="fa-solid fa-handshake-angle"></i>
 				Temp Bonuses
 			</button>
 		</div>
 
-		<div class="mg-left-attribute-stack">
+		<div class="attribute-stack">
 			${MG_ATTRIBUTE_KEYS.map(attrKey => {
 				const attrValue = Number(actor.system?.attributes?.[attrKey] ?? 0) || 0;
 				const baseValue = Number(actor.system?.baseAttributes?.[attrKey] ?? attrValue) || 0;
 				const tempValue = Number(actor.system?.tempAttributeBonuses?.[attrKey] ?? 0) || 0;
 
 				return `
-					<div class="mg-left-attribute-card" data-attr="${attrKey}">
+					<div class="attribute-card" data-attr="${attrKey}">
 						<div
-							class="mg-left-attribute-roll"
+							class="attribute-roll"
 						>
 							<span>${mgEsc(mgCapitalize(attrKey))}</span>
 							<button
 								type="button"
-								class="mg-left-roll-value attribute-container"
+								class="roll-value attribute-container"
 								data-mg-roll-attribute="${attrKey}"
 								data-base="${baseValue}"
 								title="Click to roll. Right-click to edit base Attribute."
 							>${mgSigned(attrValue)} ${tempValue ? `<em>${mgSigned(tempValue)}</em>` : ""}</button>
 						</div>
 
-						<div class="mg-left-skill-grid">
+						<div class="skill-grid">
 							${(MG_SKILL_BUCKETS[attrKey] ?? []).map(skillKey => {
 								const skillValue = Number(actor.system?.skills?.[skillKey] ?? 0) || 0;
 								const tempSkill = Number(actor.system?.tempSkillBonuses?.[skillKey] ?? 0) || 0;
@@ -2137,7 +2146,7 @@ function mgRenderCharacterSidebar(actor) {
 								return `
 									<button
 										type="button"
-										class="mg-left-skill-roll"
+										class="skill-roll"
 										data-mg-roll-skill="${skillKey}"
 										data-base="${skillValue}"
 										title="Click to roll. Right-click to edit base Skill."
@@ -2155,10 +2164,10 @@ function mgRenderCharacterSidebar(actor) {
 	`;
 
 	const sparkBody = `
-		<div class="mg-left-spark-panel">
+		<div class="spark-panel">
 			<button
 				type="button"
-				class="mg-left-attribute-roll mg-left-spark-skill"
+				class="attribute-roll spark-skill"
 				data-mg-roll-skill="spark"
 				data-base="${Number(actor.system?.skills?.spark ?? 0) || 0}"
 			>
@@ -2176,13 +2185,13 @@ function mgRenderCharacterSidebar(actor) {
 	`;
 
 	return `
-		<section class="mg-left-character-panel" data-mg-character-sidebar="${actor.id}">
-			<header class="mg-left-character-identity">
-				<div class="mg-left-character-name">
+		<section class="character-tab" data-mg-character-sidebar="${actor.id}">
+			<header class="identity">
+				<div class="character-name">
 					<h3>${mgEsc(actor.name)}</h3>
 				</div>
 
-				<div class="mg-left-character-crew">
+				<div class="character-crew">
 					<p class="guise">${mgEsc(guiseName)}</p>
 					<p class="crew">${mgEsc(crewName)}</p>
 				</div>
@@ -2190,19 +2199,19 @@ function mgRenderCharacterSidebar(actor) {
 
 			<button
 				type="button"
-				class="mg-left-character-open-sheet"
+				class="open-sheet"
 				data-mg-open-actor="${actor.id}"
 				title="Open ${mgEsc(actor.name)} sheet"
 			>
 				<i class="fa-solid fa-up-right-from-square"></i>
 				Open Sheet
-			</button>			
+			</button>
 
-			<div class="mg-left-character-crop mg-cropbox" ${cropStyle}>
-				<img class="mg-left-character-img" src="${mgEsc(img)}" alt="${mgEsc(actor.name)}" style="${cropVariables}" />
+			<div class="portrait-crop mg-cropbox" ${cropStyle}>
+				<img class="portrait-img" src="${mgEsc(img)}" alt="${mgEsc(actor.name)}" style="${cropVariables}" />
 			</div>
 
-			<div class="mg-left-strain-stack">
+			<div class="strain-stack">
 				${mgRenderStrainRow("mortal", "MC", mortalCap, mortalTrack)}
 				${mgRenderStrainRow("soul", "SC", soulCap, soulTrack)}
 			</div>
@@ -2236,10 +2245,10 @@ function mgRenderCharacterSidebar(actor) {
 
 function mgRenderStrainRow(type, label, cap, track) {
 	return `
-		<div class="mg-left-strain-row" data-mg-strain-row="${type}">
-			<div class="mg-left-capacity-badge">
+		<div class="strain-row" data-mg-strain-row="${type}">
+			<div class="capacity-badge">
 				<label data-mg-capacity-set="${type}" title="Right-click to set exact ${label}">${label}</label>
-				<div class="mg-left-capacity-controls" data-type="${type}">
+				<div class="capacity-controls" data-type="${type}">
 					<button type="button" data-mg-cap-tick="${type}" data-dir="-1" aria-label="Decrease ${label}">
 						<i class="fa-solid fa-minus"></i>
 					</button>
@@ -2372,12 +2381,12 @@ function mgRenderCrewStrainSummary(member, type, label, cap, track) {
 	const icon = type === "mortal" ? "fa-kit fa-mortal-strain" : "fa-kit fa-soul-strain";
 
 	return `
-		<div class="mg-left-crew-strain" data-type="${type}">
-			<div class="mg-left-crew-strain-cap">
+		<div class="strain" data-type="${type}">
+			<div class="strain-cap">
 				<span>${mgEsc(label)}</span>
 				<strong>${Number(cap) || 0}</strong>
 			</div>
-			<div class="mg-left-crew-strain-track">
+			<div class="strain-track">
 				<i class="${icon}"></i>
 				<span>x${Number(track) || 0}</span>
 			</div>
@@ -2393,7 +2402,7 @@ function mgRenderCrewResourceSummary(kind, value) {
 			: "fa-kit fa-spark";
 
 	return `
-		<div class="mg-left-crew-resource" data-type="${kind}">
+		<div class="resource" data-type="${kind}">
 			<i class="${icon}"></i>
 			<span>x${Number(value) || 0}</span>
 		</div>
@@ -2402,22 +2411,22 @@ function mgRenderCrewResourceSummary(kind, value) {
 
 function mgRenderCrewPartyMember(member) {
 	return `
-		<article class="mg-left-crew-member ${member.missing ? "is-missing" : ""}" data-uuid="${mgEsc(member.uuid)}">
-			<header class="mg-left-crew-member-head">
+		<article class="crew-card ${member.missing ? "is-missing" : ""}" data-uuid="${mgEsc(member.uuid)}">
+			<header class="card-head">
 					<h4>${mgEsc(member.name)}</h4>
 					<p>${mgEsc(member.guiseText)} <span>Lv ${mgEsc(member.levelText)}</span></p>
 			</header>
 
-			<div class="mg-left-crew-member-main">
+			<div class="card-main">
 				<img src="${mgEsc(member.img)}" alt="${mgEsc(member.name)}" />
 
-				<div class="inner-wrapper">
-					<div class="mg-left-crew-strains">
+				<div class="card-body">
+					<div class="strains">
 						${mgRenderCrewStrainSummary(member, "mortal", "MC", member.mcCap, member.mcTrk)}
 						${mgRenderCrewStrainSummary(member, "soul", "SC", member.scCap, member.scTrk)}
 					</div>
 
-					<div class="mg-left-crew-resources">
+					<div class="resources">
 						${mgRenderCrewResourceSummary("risk", member.riskRemaining)}
 						${mgRenderCrewResourceSummary("sto", member.stoValue)}
 						${member.hasSpark ? mgRenderCrewResourceSummary("spark", member.sparkRemaining) : ""}
@@ -2426,7 +2435,7 @@ function mgRenderCrewPartyMember(member) {
 			</div>
 
 			${member.actorId ? `
-				<button type="button" class="mg-left-action mg-left-crew-sheet-action" data-mg-open-actor="${member.actorId}">
+				<button type="button" class="mg-left-action sheet-action" data-mg-open-actor="${member.actorId}">
 					<i class="fa-solid fa-up-right-from-square"></i>
 					Sheet
 				</button>
@@ -2438,22 +2447,22 @@ function mgRenderCrewPartyMember(member) {
 function mgRenderCrewInitiativeMember(member, canEdit) {
 	return `
 		<article
-			class="mg-left-crew-init-card mg-init-card ${member.hidden ? "is-muted is-hidden" : ""}"
+			class="initiative-card mg-init-card ${member.hidden ? "is-muted is-hidden" : ""}"
 			data-uuid="${mgEsc(member.uuid)}"
 			data-hidden="${member.hidden ? "true" : "false"}"
 			${canEdit ? 'draggable="true"' : ""}
 		>
 			<img src="${mgEsc(member.img)}" alt="${mgEsc(member.name)}" />
 
-			<div class="mg-left-crew-init-main">
+			<div class="initiative-main">
 				<h4>${mgEsc(member.name)}</h4>
 				<p>${mgEsc(member.guiseText)} Lv ${mgEsc(member.levelText)}</p>
 			</div>
 
-			<div class="mg-left-crew-init-actions">
+			<div class="initiative-actions">
 				<button
 					type="button"
-					class="mg-left-crew-init-eye mg-init-eye"
+					class="initiative-eye mg-init-eye"
 					data-mg-crew-init-eye
 					title="${member.hidden ? "Include in Initiative" : "Hide from Initiative"}"
 					${canEdit ? "" : "disabled"}
@@ -2463,7 +2472,7 @@ function mgRenderCrewInitiativeMember(member, canEdit) {
 
 				<button
 					type="button"
-					class="mg-left-crew-init-grip"
+					class="initiative-grip"
 					data-mg-crew-init-grip
 					title="Drag to reorder"
 					${canEdit ? "" : "disabled"}
@@ -2495,15 +2504,15 @@ function mgRenderCrewSidebarContent() {
 		? members.map(mgRenderCrewPartyMember).join("")
 		: `<div class="mg-left-empty"><p>No party members found.</p></div>`;
 	const initiativeBody = `
-		<div class="mg-left-crew-initiative" data-mg-crew-initiative="${crew.id}">
+		<div class="initiative" data-mg-crew-initiative="${crew.id}">
 			${canEdit ? `
-				<button type="button" class="mg-left-action mg-left-crew-apply-initiative" data-mg-crew-apply-initiative="${crew.id}">
+				<button type="button" class="mg-left-action apply-initiative" data-mg-crew-apply-initiative="${crew.id}">
 					<i class="fa-solid fa-link"></i>
 					Apply Initiative
 				</button>
 			` : `<p class="mg-left-muted">View-only initiative. Crew owners can reorder.</p>`}
 
-			<div class="mg-initiative-list mg-left-crew-init-list" data-mg-crew-init-list>
+			<div class="initiative-list" data-mg-crew-init-list>
 				${initiativeMembers.length
 					? initiativeMembers.map(member => mgRenderCrewInitiativeMember(member, canEdit)).join("")
 					: `<div class="mg-left-empty"><p>No initiative members found.</p></div>`}
@@ -2512,15 +2521,15 @@ function mgRenderCrewSidebarContent() {
 	`;
 
 	return `
-		<section class="mg-left-crew-panel" data-mg-crew-sidebar="${crew.id}">
-			<header class="mg-left-crew-identity">
+		<section class="crew-tab" data-mg-crew-sidebar="${crew.id}">
+			<header class="identity">
 				<h3>${mgEsc(crew.name)}</h3>
 				<span>Tier ${tier}</span>
 			</header>
 
-			<img class="mg-left-card-img mg-left-crew-img" src="${mgEsc(img)}" alt="${mgEsc(crew.name)}" />
+			<img class="crew-img" src="${mgEsc(img)}" alt="${mgEsc(crew.name)}" />
 
-			<button type="button" class="mg-left-action mg-left-crew-open-sheet" data-mg-open-actor="${crew.id}">
+			<button type="button" class="mg-left-action open-sheet" data-mg-open-actor="${crew.id}">
 				<i class="fa-solid fa-up-right-from-square"></i>
 				Open Crew Sheet
 			</button>
@@ -3074,7 +3083,7 @@ async function mgActivateFoundryControl(controlName) {
 		activeTool: mgActiveTool
 	});
 
-	mgSetOrbBadge(controlName, mgActiveTool);  
+	mgSetOrbBadge(controlName, mgActiveTool);
 }
 
 /**
