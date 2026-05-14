@@ -399,12 +399,19 @@ body.mg-hud-enabled {
 				}
 			}
 
-			&-body {
-				height: calc(100% - 4.75rem);
-				padding: 1rem;
-				overflow: auto;
-				height: 100%;
-			}
+				&-body {
+					height: calc(100% - 4.75rem);
+					padding: 1rem;
+					overflow-x: hidden;
+					overflow-y: auto;
+					scrollbar-width: none;
+					height: 100%;
+
+					&::-webkit-scrollbar {
+						width: 0;
+						height: 0;
+					}
+				}
 
 			&-tabs {
 				display: flex;
@@ -637,21 +644,17 @@ body.mg-hud-enabled {
 			}
 		}
 
-		&-character-panel {
+		&-character-panel,
+		&-crew-panel {
 			display: flex;
 			flex-direction: column;
 			margin: -1rem;
 			min-height: 100%;
 			padding-bottom: 3rem;
-			/*Removing Background until I know if I want it
-			background:
-				linear-gradient(rgba($mg-blue-4, .18), rgba($mg-blue-4, .86)),
-				url("../assets/images/filigree-character.png");
-			background-size: cover;
-			background-position: center top;*/
 		}
 
-		&-character-identity {
+		&-character-identity,
+		&-crew-identity {
 			display: flex;
 			justify-content: space-between;
 			gap: .75rem;
@@ -669,6 +672,22 @@ body.mg-hud-enabled {
 			background-size: cover, cover;
 			background-blend-mode: soft-light, multiply;
 			background-color: $mg-blue-4;
+
+			.guise {
+				@include roboto();
+				font-size: 1rem;
+				font-weight: 700;
+				font-style: italic;
+				color: $mg-blue-1;
+			}
+
+			.crew,
+			span {
+				@include oswald();
+				font-size: 1rem;
+				font-weight: 400;
+				letter-spacing: -.02em;
+			}
 
 			h3,
 			p {
@@ -700,26 +719,18 @@ body.mg-hud-enabled {
 			span {
 				display: block;
 			}
-
-			.guise {
-				@include roboto();
-				font-size: 1rem;
-				font-weight: 700;
-				font-style: italic;
-				color: $mg-blue-1;
-			}
-
-			.crew {
-				@include oswald();
-				font-size: 1rem;
-				font-weight: 400;
-				letter-spacing: -.02em;
-			}
 		}
 
-		&-character-crop {
+		&-crew-img {
+			border-radius: 0;
+			border: none;
+		}
+
+		&-character-crop,
+		&-crew-img {
 			position: relative;
 			width: 100%;
+			height: auto;
 			display: block;
 			aspect-ratio: 16 / 9;
 			overflow: hidden;
@@ -750,7 +761,8 @@ body.mg-hud-enabled {
 			transition: transform 180ms ease;
 		}
 
-		&-character-open-sheet {
+		&-character-open-sheet,
+		&-crew-open-sheet {
 			border-radius: 0;
 			background: $mg-blue-main;
 			border: 2px solid $mg-blue-main-2;
@@ -772,7 +784,210 @@ body.mg-hud-enabled {
 			}
 		}
 
-		&-strain-stack {
+			&-crew-panel {
+				.mg-left-accordion-inner {
+					.mg-left-crew-member {
+						background: $mg-blue-4;
+						overflow: hidden;
+						border-radius: .5rem;
+						border: 1px solid rgba($mg-blue-1, .25);
+						@include mg-shadow();
+
+						.mg-left-crew-member-head {
+							background:
+								/* subtle pearly sheen (top-center) */
+								radial-gradient(circle at 50% 0%,
+								rgba(197, 212, 236, 0.22) 0%,
+								rgba(197, 212, 236, 0.10) 35%,
+								rgba(18, 33, 55, 0.00) 70%
+								),
+								/* texture */
+								url("../assets/images/filigree-vert.jpg");
+
+							background-size: cover;
+							background-blend-mode: soft-light, multiply;
+							background-color: $mg-blue-4;
+							background-position: center;
+							display: flex;
+							align-items: center;
+							justify-content: space-between;
+							padding: .5rem;
+
+							h4 {
+								@include tiller();
+								font-size: 1rem;
+								font-weight: 700;
+								line-height: 1;
+								color: $mg-ivory;
+								border: none;
+								text-transform: uppercase;
+								width: 50%;
+								text-overflow: ellipsis;
+								overflow: hidden;
+								white-space: nowrap;											
+							}
+
+							p {
+								@include roboto();
+								font-size: .75rem;
+								font-weight: 700;
+								letter-spacing: -.02em;
+								font-style: italic;
+								color: $mg-blue-1;
+								text-align: right;
+								line-height: 1;
+
+								span {
+									color: $mg-blue-2;
+									margin-top: .25rem;
+									display: block;
+								}
+							}
+
+							h4,
+							p {
+								margin: 0;
+							}
+						}
+
+						.mg-left-crew-member-main {
+							display: flex;
+
+							img {
+								max-width: 3.375rem;
+								object-fit: cover;
+								border: none;
+							}
+
+							.inner-wrapper {
+								padding: 1.5rem;
+								width: 100%;
+								display: flex;
+
+								.mg-left-crew-strains {
+									display: flex;
+
+									.mg-left-crew-strain {
+										display: flex;
+										justify-content: center;
+										flex-direction: column;
+										@include mg-shadow();
+
+										.mg-left-crew-strain-cap {
+											position: relative;
+											padding: 0 1rem;
+											width: 4rem;
+											height: 4rem;
+											display: flex;
+											flex-direction: column;
+											align-items: center;
+											aspect-ratio: 1/1;
+											z-index: 3;
+
+											span {
+												@include oswald();
+												font-size: 1rem;
+												font-weight: 700;
+												text-transform: uppercase;
+												color: $mg-blue-2;
+												@include mg-shadow();
+											}
+
+											strong {
+												font-size: 1rem;
+												@include oswald();
+												color: $mg-ivory;
+												@include mg-shadow();
+											}
+
+											&:after {
+												content: "\f132";
+												font-family: "Font Awesome 6 Pro";
+												color: $mg-blue-main;
+												font-size: 3.5rem;
+												font-weight: 700;
+												position: absolute;
+												top: -.2rem;
+												left: calc(50% - 1.75rem);
+												z-index: -1;
+												-webkit-text-stroke-width: 2px;
+												-webkit-text-stroke-color: $mg-blue-main-2;
+												pointer-events: none;
+											}										
+										}
+
+										.mg-left-crew-strain-track {
+											display: flex;
+											flex-direction: column;
+											justify-content: center;
+											align-items: center;
+											align-self: center;
+											gap: .75rem;
+											background: $mg-blue-4;
+											@include mg-border();
+											width: 2.25rem;
+											padding: 2rem .5rem .5rem .5rem;
+											margin-top: -2rem;
+											color: $mg-blue-2;
+											@include roboto();
+											font-size: 1rem;
+											font-weight: 700;
+											font-style: italic;
+											letter-spacing: -.02em;
+											line-height: 1;
+											border-radius: 0 0 .5rem .5rem;
+
+											i {
+												color: $mg-blue-1;
+												font-size: 1.35rem;
+											}
+										}
+									}
+								}
+
+								.mg-left-crew {
+
+									&-resources {
+										display: flex;
+										flex-direction: column;
+										gap: .25rem;
+									}
+									
+								}
+							}
+						}
+
+						.mg-left-crew-sheet-action {
+							background: $mg-blue-main;
+							border-top: 2px solid $mg-blue-main-2;
+								border-left: none;
+								border-right: none;
+								border-bottom: none;
+							border-radius: 0;
+							padding: .5rem 1rem;
+							justify-content: center;
+							align-items: center;
+							transition: background .5s ease, color .5s ease;
+							line-height: 1;
+
+							i {
+								transition: color .5s ease;
+							}
+
+							&:hover {
+								background: $mg-blue-3;
+								color: $mg-blue-4;
+
+								i {
+									color: $mg-blue-4;
+								}
+							}
+						}
+					}
+				}
+			}
+
+			&-strain-stack {
 			display: grid;
 			gap: .75rem;
 			padding: 1rem;

@@ -458,7 +458,10 @@ function mgRenderAccordion(actor, { id, title, icon = "", open = true, body = ""
 	const iconHtml = icon ? `<i class="${icon}"></i>` : "";
 
 	return `
-		<section class="mg-left-accordion ${isOpen ? "is-open" : ""}" data-mg-accordion="${id}">
+		<section
+			class="mg-left-accordion ${isOpen ? "is-open" : ""}"
+			data-mg-accordion="${id}"
+		>
 			<button
 				type="button"
 				class="mg-left-accordion-toggle"
@@ -1234,8 +1237,9 @@ function mgBindLeftSidebarAccordions(root) {
 }
 
 function mgToggleLeftAccordion(button) {
-	const panel = button.closest("[data-mg-character-sidebar]");
-	const actor = game.actors.get(panel?.dataset?.mgCharacterSidebar);
+	const panel = button.closest("[data-mg-character-sidebar], [data-mg-crew-sidebar]");
+	const actorId = panel?.dataset?.mgCharacterSidebar || panel?.dataset?.mgCrewSidebar;
+	const actor = game.actors.get(actorId);
 	const id = button.dataset.mgAccordionToggle;
 	const accordion = button.closest("[data-mg-accordion]");
 	const body = accordion?.querySelector(".mg-left-accordion-body");
@@ -1469,6 +1473,7 @@ function mgBindLeftSidebarContent(root, tabId) {
 
 	mgBindLeftSidebarAccordions(root);
 	mgBindCharacterSidebarContent(root);
+	mgBindCrewSidebarContent(root);
 
 	root.querySelectorAll("[data-mg-open-actor]").forEach(button => {
 		button.addEventListener("click", () => {
@@ -2272,6 +2277,204 @@ function mgResolveCrewForSidebar() {
 	return game.actors?.find(a => a.type === "crew") ?? null;
 }
 
+function mgResolveCrewTier(crew) {
+	const flagVal = Number(crew?.getFlag?.("midnight-gambit", "crewTier"));
+	if (Number.isFinite(flagVal) && flagVal >= 1) return Math.min(5, flagVal);
+
+	const sysVal = Number(crew?.system?.tier);
+	if (Number.isFinite(sysVal) && sysVal >= 1) return Math.min(5, sysVal);
+
+	return 1;
+}
+
+function mgActorFromUuidSync(uuid) {
+	if (!uuid) return null;
+
+	if (typeof fromUuidSync === "function") {
+		try {
+			const doc = fromUuidSync(uuid);
+			if (doc?.documentName === "Actor") return doc;
+			if (doc?.actor?.documentName === "Actor") return doc.actor;
+		} catch (_) {}
+	}
+
+	const match = String(uuid).match(/^Actor\.([^.]+)$/);
+	return match ? game.actors?.get(match[1]) ?? null : null;
+}
+
+function mgResolveCrewMemberModels(crew) {
+	const party = crew?.system?.party ?? {};
+	const cache = party.cache ?? {};
+	const memberUuids = Array.isArray(party.members) ? party.members : [];
+
+	const members = memberUuids.map(uuid => {
+		const actor = mgActorFromUuidSync(uuid);
+		const cached = cache?.[uuid] ?? {};
+		const strain = actor?.system?.strain ?? {};
+		const riskDice = Number(actor?.system?.riskDice ?? 5) || 0;
+		const riskUsed = Number(actor?.system?.riskUsed ?? 0) || 0;
+		const stoValue = Number(actor?.system?.sto?.value ?? 0) || 0;
+		const sparkSlots = Number(actor?.system?.sparkSlots ?? 0) || 0;
+		const sparkUsed = Number(actor?.system?.sparkUsed ?? 0) || 0;
+		const guiseNames = actor
+			? mgResolveSidebarGuises(actor).map(guise => guise.name).filter(Boolean)
+			: [];
+
+		if (!guiseNames.length) {
+			const fallbackGuise = actor ? mgResolveGuiseName(actor) : cached.className;
+			if (fallbackGuise) guiseNames.push(fallbackGuise);
+		}
+
+		return {
+			uuid,
+			actor,
+			actorId: actor?.id ?? null,
+			name: actor?.name ?? cached.name ?? "Unknown",
+			img: actor?.img ?? cached.img ?? "icons/svg/mystery-man.svg",
+			guiseText: guiseNames.length ? guiseNames.join(" / ") : "No Guise",
+			levelText: Number.isFinite(Number(actor?.system?.level))
+				? String(Number(actor.system.level))
+				: (cached.level != null ? String(cached.level) : "-"),
+			missing: !actor,
+			mcCap: Number(strain["mortal capacity"] ?? 0) || 0,
+			scCap: Number(strain["soul capacity"] ?? 0) || 0,
+			mcTrk: Number(strain.mortal ?? 0) || 0,
+			scTrk: Number(strain.soul ?? 0) || 0,
+			riskRemaining: Math.max(0, riskDice - riskUsed),
+			stoValue,
+			sparkRemaining: Math.max(0, sparkSlots - sparkUsed),
+			hasSpark: actor ? mgActorHasSpark(actor) : sparkSlots > 0
+		};
+	});
+
+	const initiative = crew?.system?.initiative ?? {};
+	const order = Array.isArray(initiative.order) ? initiative.order : [];
+	const hidden = Array.isArray(initiative.hidden) ? initiative.hidden : [];
+	const byUuid = new Map(members.map(member => [member.uuid, member]));
+	const ordered = [];
+	const seen = new Set();
+
+	order.forEach(uuid => {
+		const member = byUuid.get(uuid);
+		if (!member) return;
+		ordered.push({ ...member, hidden: hidden.includes(uuid) });
+		seen.add(uuid);
+	});
+
+	members.forEach(member => {
+		if (!seen.has(member.uuid)) ordered.push({ ...member, hidden: hidden.includes(member.uuid) });
+	});
+
+	return { members, initiativeMembers: ordered };
+}
+
+function mgRenderCrewStrainSummary(member, type, label, cap, track) {
+	const icon = type === "mortal" ? "fa-kit fa-mortal-strain" : "fa-kit fa-soul-strain";
+
+	return `
+		<div class="mg-left-crew-strain" data-type="${type}">
+			<div class="mg-left-crew-strain-cap">
+				<span>${mgEsc(label)}</span>
+				<strong>${Number(cap) || 0}</strong>
+			</div>
+			<div class="mg-left-crew-strain-track">
+				<i class="${icon}"></i>
+				<span>x${Number(track) || 0}</span>
+			</div>
+		</div>
+	`;
+}
+
+function mgRenderCrewResourceSummary(kind, value) {
+	const icon = kind === "risk"
+		? "fa-kit fa-risk"
+		: kind === "sto"
+			? "fa-kit fa-sto"
+			: "fa-kit fa-spark";
+
+	return `
+		<div class="mg-left-crew-resource" data-type="${kind}">
+			<i class="${icon}"></i>
+			<span>x${Number(value) || 0}</span>
+		</div>
+		`;
+}
+
+function mgRenderCrewPartyMember(member) {
+	return `
+		<article class="mg-left-crew-member ${member.missing ? "is-missing" : ""}" data-uuid="${mgEsc(member.uuid)}">
+			<header class="mg-left-crew-member-head">
+					<h4>${mgEsc(member.name)}</h4>
+					<p>${mgEsc(member.guiseText)} <span>Lv ${mgEsc(member.levelText)}</span></p>
+			</header>
+
+			<div class="mg-left-crew-member-main">
+				<img src="${mgEsc(member.img)}" alt="${mgEsc(member.name)}" />
+
+				<div class="inner-wrapper">
+					<div class="mg-left-crew-strains">
+						${mgRenderCrewStrainSummary(member, "mortal", "MC", member.mcCap, member.mcTrk)}
+						${mgRenderCrewStrainSummary(member, "soul", "SC", member.scCap, member.scTrk)}
+					</div>
+
+					<div class="mg-left-crew-resources">
+						${mgRenderCrewResourceSummary("risk", member.riskRemaining)}
+						${mgRenderCrewResourceSummary("sto", member.stoValue)}
+						${member.hasSpark ? mgRenderCrewResourceSummary("spark", member.sparkRemaining) : ""}
+					</div>
+				</div>
+			</div>
+
+			${member.actorId ? `
+				<button type="button" class="mg-left-action mg-left-crew-sheet-action" data-mg-open-actor="${member.actorId}">
+					<i class="fa-solid fa-up-right-from-square"></i>
+					Sheet
+				</button>
+			` : ""}
+		</article>
+	`;
+}
+
+function mgRenderCrewInitiativeMember(member, canEdit) {
+	return `
+		<article
+			class="mg-left-crew-init-card mg-init-card ${member.hidden ? "is-muted is-hidden" : ""}"
+			data-uuid="${mgEsc(member.uuid)}"
+			data-hidden="${member.hidden ? "true" : "false"}"
+			${canEdit ? 'draggable="true"' : ""}
+		>
+			<img src="${mgEsc(member.img)}" alt="${mgEsc(member.name)}" />
+
+			<div class="mg-left-crew-init-main">
+				<h4>${mgEsc(member.name)}</h4>
+				<p>${mgEsc(member.guiseText)} Lv ${mgEsc(member.levelText)}</p>
+			</div>
+
+			<div class="mg-left-crew-init-actions">
+				<button
+					type="button"
+					class="mg-left-crew-init-eye mg-init-eye"
+					data-mg-crew-init-eye
+					title="${member.hidden ? "Include in Initiative" : "Hide from Initiative"}"
+					${canEdit ? "" : "disabled"}
+				>
+					<i class="fa-regular ${member.hidden ? "fa-eye-slash" : "fa-eye"}"></i>
+				</button>
+
+				<button
+					type="button"
+					class="mg-left-crew-init-grip"
+					data-mg-crew-init-grip
+					title="Drag to reorder"
+					${canEdit ? "" : "disabled"}
+				>
+					<i class="fa-solid fa-grip-lines"></i>
+				</button>
+			</div>
+		</article>
+	`;
+}
+
 function mgRenderCrewSidebarContent() {
 	const crew = mgResolveCrewForSidebar();
 
@@ -2285,23 +2488,252 @@ function mgRenderCrewSidebarContent() {
 	}
 
 	const img = crew.img || "systems/midnight-gambit/assets/images/mg-queen.png";
+	const tier = mgResolveCrewTier(crew);
+	const canEdit = !!crew.isOwner;
+	const { members, initiativeMembers } = mgResolveCrewMemberModels(crew);
+	const partyBody = members.length
+		? members.map(mgRenderCrewPartyMember).join("")
+		: `<div class="mg-left-empty"><p>No party members found.</p></div>`;
+	const initiativeBody = `
+		<div class="mg-left-crew-initiative" data-mg-crew-initiative="${crew.id}">
+			${canEdit ? `
+				<button type="button" class="mg-left-action mg-left-crew-apply-initiative" data-mg-crew-apply-initiative="${crew.id}">
+					<i class="fa-solid fa-link"></i>
+					Apply Initiative
+				</button>
+			` : `<p class="mg-left-muted">View-only initiative. Crew owners can reorder.</p>`}
+
+			<div class="mg-initiative-list mg-left-crew-init-list" data-mg-crew-init-list>
+				${initiativeMembers.length
+					? initiativeMembers.map(member => mgRenderCrewInitiativeMember(member, canEdit)).join("")
+					: `<div class="mg-left-empty"><p>No initiative members found.</p></div>`}
+			</div>
+		</div>
+	`;
 
 	return `
-		<section class="mg-left-card mg-left-crew-card">
-			<img class="mg-left-card-img" src="${img}" alt="${crew.name}" />
+		<section class="mg-left-crew-panel" data-mg-crew-sidebar="${crew.id}">
+			<header class="mg-left-crew-identity">
+				<h3>${mgEsc(crew.name)}</h3>
+				<span>Tier ${tier}</span>
+			</header>
 
-			<div class="mg-left-card-body">
-				<label>Crew / Party</label>
-				<h3>${crew.name}</h3>
-				<p>Shared party resources and crew sheet.</p>
+			<img class="mg-left-card-img mg-left-crew-img" src="${mgEsc(img)}" alt="${mgEsc(crew.name)}" />
 
-				<button type="button" class="mg-left-action" data-mg-open-actor="${crew.id}">
-					<i class="fa-solid fa-up-right-from-square"></i>
-					Open Crew
-				</button>
-			</div>
+			<button type="button" class="mg-left-action mg-left-crew-open-sheet" data-mg-open-actor="${crew.id}">
+				<i class="fa-solid fa-up-right-from-square"></i>
+				Open Crew Sheet
+			</button>
+
+			${mgRenderAccordion(crew, {
+				id: "crew-party",
+				title: "Party",
+				icon: "fa-solid fa-users",
+				open: true,
+				body: partyBody
+			})}
+
+			${mgRenderAccordion(crew, {
+				id: "crew-initiative",
+				title: "Initiative",
+				icon: "fa-solid fa-list-ol",
+				open: false,
+				body: initiativeBody
+			})}
 		</section>
 	`;
+}
+
+async function mgApplyCrewSidebarInitiative(crew, root) {
+	if (!crew?.isOwner) {
+		ui.notifications?.warn("You need owner permission to change initiative order.");
+		return;
+	}
+
+	const list = root?.querySelector("[data-mg-crew-init-list]");
+	const cards = Array.from(list?.querySelectorAll(".mg-init-card") ?? [])
+		.filter(card => card.dataset.hidden !== "true");
+
+	if (!cards.length) {
+		ui.notifications?.warn("No visible members found in the Initiative list.");
+		return;
+	}
+
+	const uuids = cards.map(card => card.dataset.uuid).filter(Boolean);
+	const actorIds = uuids
+		.map(uuid => mgActorFromUuidSync(uuid)?.id)
+		.filter(Boolean);
+
+	if (!actorIds.length) {
+		ui.notifications?.error("Could not resolve actor IDs from the Initiative list.");
+		return;
+	}
+
+	await crew.update({ "system.initiative.order": uuids });
+	await crew.setFlag("midnight-gambit", "initiativeOrder", actorIds);
+	await crew.setFlag("midnight-gambit", "initiativeReset", {
+		ids: actorIds,
+		syncId: `sidebar-${crew.id}-${Date.now()}`
+	});
+	await game.settings.set("midnight-gambit", "activeCrewUuid", crew.uuid);
+	await game.settings.set("midnight-gambit", "crewActorId", crew.id);
+
+	ui.notifications?.info("Initiative order applied.");
+}
+
+async function mgToggleCrewSidebarInitiativeMember(crew, card) {
+	if (!crew?.isOwner) {
+		ui.notifications?.warn("You need owner permission to change initiative visibility.");
+		return;
+	}
+
+	const uuid = card?.dataset?.uuid;
+	if (!uuid) return;
+
+	const wasHidden = card.dataset.hidden === "true";
+	const nowHidden = !wasHidden;
+	card.dataset.hidden = String(nowHidden);
+	card.classList.toggle("is-hidden", nowHidden);
+	card.classList.toggle("is-muted", nowHidden);
+
+	const icon = card.querySelector("[data-mg-crew-init-eye] i");
+	if (icon) icon.className = `fa-regular ${nowHidden ? "fa-eye-slash" : "fa-eye"}`;
+
+	try {
+		const prev = Array.isArray(crew.system?.initiative?.hidden)
+			? crew.system.initiative.hidden.slice()
+			: [];
+		const set = new Set(prev);
+		if (nowHidden) set.add(uuid);
+		else set.delete(uuid);
+
+		await crew.update({ "system.initiative.hidden": Array.from(set) }, { render: false });
+	} catch (err) {
+		card.dataset.hidden = String(wasHidden);
+		card.classList.toggle("is-hidden", wasHidden);
+		card.classList.toggle("is-muted", wasHidden);
+		if (icon) icon.className = `fa-regular ${wasHidden ? "fa-eye-slash" : "fa-eye"}`;
+		ui.notifications?.warn("You need owner permission to change initiative visibility.");
+		console.warn("MG UI | Crew sidebar initiative visibility failed.", err);
+	}
+}
+
+function mgBindCrewSidebarContent(root) {
+	const panel = root?.querySelector("[data-mg-crew-sidebar]");
+	const crew = panel?.dataset?.mgCrewSidebar ? game.actors.get(panel.dataset.mgCrewSidebar) : null;
+	if (!panel || !crew) return;
+
+	if (panel.dataset.mgCrewSidebarBound !== "true") {
+		panel.dataset.mgCrewSidebarBound = "true";
+
+		panel.addEventListener("click", async event => {
+			const actorButton = event.target.closest("[data-mg-open-actor]");
+			if (actorButton && panel.contains(actorButton)) {
+				event.preventDefault();
+				const actor = game.actors.get(actorButton.dataset.mgOpenActor);
+				actor?.sheet?.render(true, { focus: true });
+				return;
+			}
+
+			const applyButton = event.target.closest("[data-mg-crew-apply-initiative]");
+			if (applyButton && panel.contains(applyButton)) {
+				event.preventDefault();
+				await mgApplyCrewSidebarInitiative(crew, panel);
+				return;
+			}
+
+			const eyeButton = event.target.closest("[data-mg-crew-init-eye]");
+			if (!eyeButton || !panel.contains(eyeButton)) return;
+			event.preventDefault();
+			event.stopPropagation();
+			await mgToggleCrewSidebarInitiativeMember(crew, eyeButton.closest(".mg-init-card"));
+		});
+	}
+
+	mgBindCrewSidebarInitiativeDrag(panel, crew);
+}
+
+function mgBindCrewSidebarInitiativeDrag(panel, crew) {
+	if (!crew?.isOwner) return;
+
+	const list = panel?.querySelector("[data-mg-crew-init-list]");
+	if (!list) return;
+	if (list.dataset.mgCrewDragBound === "true") return;
+	list.dataset.mgCrewDragBound = "true";
+
+	let dragEl = null;
+	const placeholder = document.createElement("div");
+	placeholder.className = "mg-init-placeholder";
+
+	list.querySelectorAll(".mg-init-card").forEach(card => {
+		card.setAttribute("draggable", "true");
+	});
+
+	list.addEventListener("dragstart", event => {
+		const card = event.target?.closest?.(".mg-init-card");
+		if (!card || !list.contains(card)) return;
+		dragEl = card;
+		card.classList.add("mg-dragging");
+		event.dataTransfer?.setData("text/plain", card.dataset.uuid ?? "");
+		event.dataTransfer?.setDragImage?.(card, 16, 16);
+		card.after(placeholder);
+	});
+
+	list.addEventListener("dragover", event => {
+		const target = event.target?.closest?.(".mg-init-card, .mg-init-placeholder");
+		if (!target || !list.contains(target)) return;
+		event.preventDefault();
+
+		const refEl = target.classList.contains("mg-init-placeholder") ? placeholder : target;
+		const bounds = refEl.getBoundingClientRect();
+		const midY = bounds.top + bounds.height / 2;
+		if (event.clientY < midY) list.insertBefore(placeholder, refEl);
+		else list.insertBefore(placeholder, refEl.nextSibling);
+	});
+
+	const finalize = async () => {
+		if (!dragEl) return;
+		if (placeholder.parentElement) placeholder.parentElement.insertBefore(dragEl, placeholder);
+		placeholder.remove();
+		dragEl.classList.remove("mg-dragging");
+		dragEl = null;
+
+		const newOrder = Array.from(list.querySelectorAll(".mg-init-card"))
+			.map(card => card.dataset.uuid)
+			.filter(Boolean);
+
+		try {
+			await crew.update({ "system.initiative.order": newOrder }, { render: false });
+		} catch (err) {
+			ui.notifications?.warn("You need owner permission to change initiative order.");
+			console.warn("MG UI | Crew sidebar initiative reorder failed.", err);
+			mgRefreshLeftSidebarContent();
+		}
+	};
+
+	list.addEventListener("drop", async event => {
+		event.preventDefault();
+		await finalize();
+	});
+
+	list.addEventListener("dragend", async event => {
+		event.preventDefault();
+		await finalize();
+	});
+}
+
+function mgCrewSidebarContainsActor(crew, actor) {
+	if (!crew || !actor) return false;
+	if (crew.id === actor.id) return true;
+
+	const members = Array.isArray(crew.system?.party?.members) ? crew.system.party.members : [];
+	return members.includes(actor.uuid) || members.includes(`Actor.${actor.id}`);
+}
+
+function mgRefreshCrewSidebarForActor(actor) {
+	if (mgActiveSidebarTab !== "crew") return;
+	const crew = mgResolveCrewForSidebar();
+	if (mgCrewSidebarContainsActor(crew, actor)) mgRefreshLeftSidebarContent();
 }
 
 function mgRenderInitiativeSidebarContent() {
@@ -2810,6 +3242,13 @@ Hooks.on("updateActor", actor => {
 	const sidebarActor = game.user?.character;
 
 	if (actor?.id === sidebarActor?.id) mgRefreshLeftSidebarContent();
+});
+Hooks.on("updateActor", actor => {
+	mgRefreshCrewSidebarForActor(actor);
+});
+Hooks.on("updateSetting", setting => {
+	if (mgActiveSidebarTab !== "crew") return;
+	if (setting?.key === "midnight-gambit.crewActorId") mgRefreshLeftSidebarContent();
 });
 Hooks.on("updateUser", user => {
 	if (user?.id === game.user?.id) mgRefreshLeftSidebarTabs();

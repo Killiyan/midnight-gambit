@@ -1486,7 +1486,7 @@ h1,h2,h3,h4 {
     .status-buttons {
       display: flex;
       gap: 1rem;
-      padding: 0 1rem 1rem 1rem;
+      //padding: 0 1rem 1rem 1rem;
     }
 
     .signature-perk,
@@ -2435,10 +2435,6 @@ h1,h2,h3,h4 {
 
           label {
             margin-top: .5rem;
-
-            &:first-of-type {
-              margin: 0;
-            }
           }
 
           .wrapper {
