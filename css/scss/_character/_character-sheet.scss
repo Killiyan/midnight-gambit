@@ -169,6 +169,7 @@ h1,h2,h3,h4 {
         background: $mg-blue-main-2;
         border-color: $mg-blue-1;
         color: $mg-blue-1;
+        box-shadow: none;
       }      
     }
 
@@ -198,6 +199,7 @@ h1,h2,h3,h4 {
         background: $mg-blue-main-2;
         border-color: $mg-blue-1;
         color: $mg-blue-1;
+        box-shadow: none;
       }    
     }
 
@@ -856,8 +858,9 @@ h1,h2,h3,h4 {
                     align-items: center;
                     background: $mg-blue-4;
                     @include mg-border();
-                    bottom: 1rem;
+                    bottom: .35rem;
                     z-index: -1;
+                    border-radius: .35rem;
 
                     &:hover {
                       background: $mg-blue-main;
@@ -869,20 +872,20 @@ h1,h2,h3,h4 {
                     }
                     
                     i {
-                      font-size: .75rem;
+                      font-size: .7rem;
                       color: $mg-blue-2;
                       line-height: 1;
                     }
 
                     &:first-of-type {
                       left: -2.25rem;
-                      padding: .25rem 2rem .25rem .25rem;
+                      padding: .25rem 3rem .25rem .25rem;
                       justify-content: flex-start;
                     }
 
                     &:last-of-type {
                       right: -2.325rem;
-                      padding: .25rem .25rem .25rem 2rem;
+                      padding: .25rem .25rem .25rem 3rem;
                       justify-content: flex-end;
                     }
                   }
@@ -1276,6 +1279,9 @@ h1,h2,h3,h4 {
         padding: 1rem;
         border-right: 2px solid $mg-blue-main-2;
         aspect-ratio: 1.5 / 1;
+        display: flex;
+        justify-content: center;
+        align-items: center;
 
         .skill-value {
           display: flex;

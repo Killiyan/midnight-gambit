@@ -2203,8 +2203,8 @@ function mgRenderCharacterSidebar(actor) {
 				data-mg-open-actor="${actor.id}"
 				title="Open ${mgEsc(actor.name)} sheet"
 			>
-				<i class="fa-solid fa-up-right-from-square"></i>
 				Open Sheet
+				<i class="fa-solid fa-up-right-from-square"></i>
 			</button>
 
 			<div class="portrait-crop mg-cropbox" ${cropStyle}>
@@ -2435,9 +2435,9 @@ function mgRenderCrewPartyMember(member) {
 			</div>
 
 			${member.actorId ? `
-				<button type="button" class="mg-left-action sheet-action" data-mg-open-actor="${member.actorId}">
-					<i class="fa-solid fa-up-right-from-square"></i>
+				<button type="button" class="sheet-action" data-mg-open-actor="${member.actorId}">
 					Sheet
+					<i class="fa-solid fa-up-right-from-square"></i>
 				</button>
 			` : ""}
 		</article>
@@ -2447,7 +2447,7 @@ function mgRenderCrewPartyMember(member) {
 function mgRenderCrewInitiativeMember(member, canEdit) {
 	return `
 		<article
-			class="initiative-card mg-init-card ${member.hidden ? "is-muted is-hidden" : ""}"
+			class="initiative-card mg-init-card ${member.hidden ? "is-muted" : ""}"
 			data-uuid="${mgEsc(member.uuid)}"
 			data-hidden="${member.hidden ? "true" : "false"}"
 			${canEdit ? 'draggable="true"' : ""}
@@ -2456,7 +2456,7 @@ function mgRenderCrewInitiativeMember(member, canEdit) {
 
 			<div class="initiative-main">
 				<h4>${mgEsc(member.name)}</h4>
-				<p>${mgEsc(member.guiseText)} Lv ${mgEsc(member.levelText)}</p>
+				<p>${mgEsc(member.guiseText)} <span>Lv ${mgEsc(member.levelText)}</span></p>
 			</div>
 
 			<div class="initiative-actions">
@@ -2507,10 +2507,10 @@ function mgRenderCrewSidebarContent() {
 		<div class="initiative" data-mg-crew-initiative="${crew.id}">
 			${canEdit ? `
 				<button type="button" class="mg-left-action apply-initiative" data-mg-crew-apply-initiative="${crew.id}">
-					<i class="fa-solid fa-link"></i>
 					Apply Initiative
+					<i class="fa-solid fa-link"></i>
 				</button>
-			` : `<p class="mg-left-muted">View-only initiative. Crew owners can reorder.</p>`}
+			` : `<p class="mg-left-empty">View-only initiative. Crew owners can reorder.</p>`}
 
 			<div class="initiative-list" data-mg-crew-init-list>
 				${initiativeMembers.length
@@ -2527,12 +2527,12 @@ function mgRenderCrewSidebarContent() {
 				<span>Tier ${tier}</span>
 			</header>
 
-			<img class="crew-img" src="${mgEsc(img)}" alt="${mgEsc(crew.name)}" />
-
-			<button type="button" class="mg-left-action open-sheet" data-mg-open-actor="${crew.id}">
+			<button type="button" class="open-sheet" data-mg-open-actor="${crew.id}">
+				Open Sheet
 				<i class="fa-solid fa-up-right-from-square"></i>
-				Open Crew Sheet
-			</button>
+			</button>			
+
+			<img class="crew-img" src="${mgEsc(img)}" alt="${mgEsc(crew.name)}" />
 
 			${mgRenderAccordion(crew, {
 				id: "crew-party",
@@ -2602,7 +2602,6 @@ async function mgToggleCrewSidebarInitiativeMember(crew, card) {
 	const wasHidden = card.dataset.hidden === "true";
 	const nowHidden = !wasHidden;
 	card.dataset.hidden = String(nowHidden);
-	card.classList.toggle("is-hidden", nowHidden);
 	card.classList.toggle("is-muted", nowHidden);
 
 	const icon = card.querySelector("[data-mg-crew-init-eye] i");
@@ -2616,10 +2615,10 @@ async function mgToggleCrewSidebarInitiativeMember(crew, card) {
 		if (nowHidden) set.add(uuid);
 		else set.delete(uuid);
 
+		await new Promise(resolve => window.setTimeout(resolve, 500));
 		await crew.update({ "system.initiative.hidden": Array.from(set) }, { render: false });
 	} catch (err) {
 		card.dataset.hidden = String(wasHidden);
-		card.classList.toggle("is-hidden", wasHidden);
 		card.classList.toggle("is-muted", wasHidden);
 		if (icon) icon.className = `fa-regular ${wasHidden ? "fa-eye-slash" : "fa-eye"}`;
 		ui.notifications?.warn("You need owner permission to change initiative visibility.");

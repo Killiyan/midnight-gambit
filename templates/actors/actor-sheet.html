@@ -250,15 +250,14 @@
           </div>
 
           <div class="sto-container">
-            <label data-tooltip="Stacking the Odds (STO). Auto +1 on Fail/Complication (max 6).&#10;Left-click: set/toggle. Shift-click: spend that amount. Right-click: clear to 0.">
+            <label data-tooltip="Stacking the Odds (STO). Gained on any failures.&#10;Left-click to set STO amount manually.">
               STO
             </label>
 
             <div class="sto-track" data-track="sto">
               {{#range 1 stoDisplayMax}}
                 <span class="sto-dot {{#if (lte this ../actor.system.sto.value)}}filled{{/if}}"
-                      data-value="{{this}}"
-                      data-tooltip="Left-click sets/toggles. Shift-click spends. Right-click clears.">
+                      data-value="{{this}}">
                   <i class="fa-kit fa-sto"></i>
                 </span>
               {{/range}}
@@ -292,7 +291,7 @@
                   <option value="warding" {{#if (eq system.sparkSchool1 "warding")}}selected{{/if}}>Warding</option>
                   <option value="shaping" {{#if (eq system.sparkSchool1 "shaping")}}selected{{/if}}>Shaping</option>
                   <option value="gloom" {{#if (eq system.sparkSchool1 "gloom")}}selected{{/if}}>Gloom</option>
-                  <option value="ember" {{#if (eq system.sparkSchool1 "ember")}}selected{{/if}}>Ember</option>
+                  <option value="life" {{#if (eq system.sparkSchool1 "life")}}selected{{/if}}>Life</option>
                 </select>
 
                 <select id="spark-school-2" class="spark-select" name="system.sparkSchool2">
@@ -305,7 +304,7 @@
                   <option value="warding" {{#if (eq system.sparkSchool2 "warding")}}selected{{/if}}>Warding</option>
                   <option value="shaping" {{#if (eq system.sparkSchool2 "shaping")}}selected{{/if}}>Shaping</option>
                   <option value="gloom" {{#if (eq system.sparkSchool2 "gloom")}}selected{{/if}}>Gloom</option>
-                  <option value="ember" {{#if (eq system.sparkSchool2 "ember")}}selected{{/if}}>Ember</option>
+                  <option value="life" {{#if (eq system.sparkSchool2 "life")}}selected{{/if}}>Life</option>
                 </select>
 
               </div>

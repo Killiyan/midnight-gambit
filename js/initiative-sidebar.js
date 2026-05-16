@@ -895,8 +895,17 @@ export class MGInitiativeSidebar {
     // reset local state immediately
     this._activeIndex = 0;
     this._ids = this._getFullTrackIds();
-    this._paintSlots();
-    await new Promise(r => requestAnimationFrame(r));
+
+    const resetWindow = this._windowIds();
+    const topId = resetWindow[0];
+    const topActor = topId && topId !== END_ID ? game.actors.get(topId) : null;
+    const resetName = topActor?.name ?? (topId === END_ID ? "End of Round" : "â€”");
+
+    this._paintSlots(resetWindow);
+    await Promise.all([
+      this._animateNextNameChange(resetName).catch(() => {}),
+      new Promise(r => requestAnimationFrame(r))
+    ]);
     this._syncFoilToTopSlot({ reset: true, fade: true });
 
     this._animating = false;

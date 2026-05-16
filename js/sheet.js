@@ -6247,7 +6247,7 @@ async _mgOpenStatPicker({ title, current }) {
           { value: "warding", label: "Warding" },
           { value: "shaping", label: "Shaping" },
           { value: "gloom", label: "Gloom" },
-          { value: "ember", label: "Ember" }
+          { value: "life", label: "Life" }
         ];
 
         const form = document.createElement("form");
