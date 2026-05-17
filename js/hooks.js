@@ -297,6 +297,24 @@ Hooks.once("init", () => {
       }
     });
   }
+
+  if (!reg.has("midnight-gambit.globalClocks")) {
+    game.settings.register("midnight-gambit", "globalClocks", {
+      name: "Global Clocks",
+      scope: "world",
+      config: false,
+      type: Object,
+      default: {},
+      onChange: () => {
+        try {
+          mgRenderAllClocks();
+          globalThis.mgRefreshClocksSidebarContent?.();
+        } catch (err) {
+          console.warn("MG | Global clock refresh failed.", err);
+        }
+      }
+    });
+  }
 });
 
 Hooks.on("renderChatMessage", (message, html) => {
@@ -423,63 +441,188 @@ const MG_HANDLE_SIZE = 50;   // px (unscaled)
 /* Multi-clock scene + per-user UI flags
 ----------------------------------------------------------------------*/
 const FLAG_CLOCKS = "clocks";
+const SETTING_GLOBAL_CLOCKS = "globalClocks";
 const UFLAG_UI    = "clockUi";
 const UFLAG_CLOCKS_HIDDEN = "clockUiHidden";
+const CLOCK_SCOPE_SCENE = "scene";
+const CLOCK_SCOPE_GLOBAL = "global";
+const CLOCK_DOCK_UI_ID = "__clockDock";
 
 // Small id helper
 function mgNewId() {
   return (foundry?.utils?.randomID?.(8)) ?? Math.random().toString(36).slice(2, 10);
 }
 
+function mgNormalizeClockScope(scope) {
+  return scope === CLOCK_SCOPE_GLOBAL ? CLOCK_SCOPE_GLOBAL : CLOCK_SCOPE_SCENE;
+}
+
+function mgClockDomId(scope, id, mode = "canvas") {
+  const prefix = mode === "sidebar" ? "mg-sidebar-clock" : "mg-clock";
+  return `${prefix}-${mgNormalizeClockScope(scope)}-${id}`;
+}
+
+function mgClockSelector(scope, id) {
+  return `#${mgClockDomId(scope, id, "canvas")}`;
+}
+
+function mgClockScopeFromWrap($wrap) {
+  return mgNormalizeClockScope($wrap?.data?.("clockScope") ?? $wrap?.[0]?.dataset?.clockScope);
+}
+
+function mgEnsureClockDockDOM() {
+  let dock = document.getElementById("mg-clock-dock");
+  if (dock) {
+    mgApplyDockCollapsed(dock);
+    return dock;
+  }
+
+  dock = document.createElement("div");
+  dock.id = "mg-clock-dock";
+  dock.className = "mg-clock-dock";
+  dock.innerHTML = `
+    <div class="mg-clock-dock-grip" title="Drag clocks" data-mg-clock-dock-grip>
+      <i class="fa-solid fa-grip-lines"></i>
+    </div>
+    <div class="mg-clock-dock-list" data-mg-clock-dock-list></div>
+  `;
+  document.body.appendChild(dock);
+  mgApplyDockPos();
+  mgApplyDockCollapsed(dock);
+  mgBindClockDock(dock);
+  return dock;
+}
+
+function mgGetClockDockList() {
+  const dock = mgEnsureClockDockDOM();
+  return dock.querySelector("[data-mg-clock-dock-list]") ?? dock;
+}
+
 // Get the full clocks map
-function mgClocksGetAll() {
+function mgClocksGetAll(scope = CLOCK_SCOPE_SCENE) {
+  scope = mgNormalizeClockScope(scope);
+  if (scope === CLOCK_SCOPE_GLOBAL) {
+    try {
+      return game.settings?.get?.(MG_NS, SETTING_GLOBAL_CLOCKS) ?? {};
+    } catch (_) {
+      return {};
+    }
+  }
   return canvas.scene?.getFlag(MG_NS, FLAG_CLOCKS) ?? {};
 }
 
+function mgClocksGetVisibleRefs() {
+  const refs = [];
+  for (const [scope, clocks] of [
+    [CLOCK_SCOPE_GLOBAL, mgClocksGetAll(CLOCK_SCOPE_GLOBAL)],
+    [CLOCK_SCOPE_SCENE, mgClocksGetAll(CLOCK_SCOPE_SCENE)]
+  ]) {
+    for (const id of Object.keys(clocks ?? {})) {
+      if (!game.user.isGM && clocks[id]?.gmOnly) continue;
+      refs.push({ id, scope });
+    }
+  }
+  return refs.sort((a, b) => {
+    const ac = mgClockGetById(a.id, a.scope);
+    const bc = mgClockGetById(b.id, b.scope);
+    return (Number(bc.createdAt) || 0) - (Number(ac.createdAt) || 0);
+  });
+}
+
 // Get ONE clock (safe defaults)
-function mgClockGetById(id) {
-  const c = (mgClocksGetAll())[id] ?? {};
+function mgClockGetById(id, scope = CLOCK_SCOPE_SCENE) {
+  scope = mgNormalizeClockScope(scope);
+  const c = (mgClocksGetAll(scope))[id] ?? {};
   const total  = Number.isFinite(+c.total)  ? Math.max(1, Math.min(200, +c.total)) : 8;
   const filled = Number.isFinite(+c.filled) ? Math.max(0, Math.min(total, +c.filled)) : 0;
   const name   = (c.name ?? "").toString();
   const gmOnly = !!c.gmOnly; // NEW
-  return { id, name, total, filled, gmOnly };
+  const createdAt = Number(c.createdAt) || 0;
+  return { id, scope, name, total, filled, gmOnly, createdAt };
 }
 
 // Scene flag updaters
-async function mgClockSetById(id, patch) {
-  if (!game.user.isGM || !canvas.scene) return;
-  const key = `${FLAG_CLOCKS}.${id}`;
-  const curr = mgClockGetById(id);
-  await canvas.scene.setFlag(MG_NS, key, { ...curr, ...patch });
+async function mgClockSetById(id, patch, scope = CLOCK_SCOPE_SCENE) {
+  if (!game.user.isGM) return;
+  scope = mgNormalizeClockScope(scope);
+  const curr = mgClockGetById(id, scope);
+  const next = { ...curr, ...patch, id, scope };
+  delete next.scope;
+  if (scope === CLOCK_SCOPE_GLOBAL) {
+    const all = { ...mgClocksGetAll(CLOCK_SCOPE_GLOBAL), [id]: next };
+    await game.settings.set(MG_NS, SETTING_GLOBAL_CLOCKS, all);
+  } else {
+    if (!canvas.scene) return;
+    await canvas.scene.setFlag(MG_NS, `${FLAG_CLOCKS}.${id}`, next);
+  }
+  globalThis.mgRefreshClocksSidebarContent?.();
 }
 
-async function mgClockResetToById(id, n) {
-  if (!game.user.isGM || !canvas.scene) return;
+async function mgClockResetToById(id, n, scope = CLOCK_SCOPE_SCENE) {
+  if (!game.user.isGM) return;
   n = Math.max(1, Math.min(200, Number(n) || 1));
-  const key = `${FLAG_CLOCKS}.${id}`;
-  const curr = mgClockGetById(id);
-  await canvas.scene.setFlag(MG_NS, key, { ...curr, total: n, filled: 0 });
+  const curr = mgClockGetById(id, scope);
+  await mgClockSetById(id, { ...curr, total: n, filled: 0 }, scope);
 }
 
-async function mgClockDeleteById(id) {
-  if (!game.user.isGM || !canvas.scene) return;
-  await canvas.scene.unsetFlag(MG_NS, `${FLAG_CLOCKS}.${id}`);
+async function mgClockDeleteById(id, scope = CLOCK_SCOPE_SCENE) {
+  if (!game.user.isGM) return;
+  scope = mgNormalizeClockScope(scope);
+  if (scope === CLOCK_SCOPE_GLOBAL) {
+    const all = { ...mgClocksGetAll(CLOCK_SCOPE_GLOBAL) };
+    delete all[id];
+    await game.settings.set(MG_NS, SETTING_GLOBAL_CLOCKS, all);
+  } else {
+    if (!canvas.scene) return;
+    await canvas.scene.unsetFlag(MG_NS, `${FLAG_CLOCKS}.${id}`);
+  }
+  $(mgClockSelector(scope, id)).remove();
+  document.querySelector(`[data-mg-sidebar-clock="${scope}:${id}"]`)?.remove();
+  globalThis.mgRefreshClocksSidebarContent?.();
 }
 
 // Create a new clock (returns id)
 async function mgClockCreate(initial = {}) {
-  if (!game.user.isGM || !canvas.scene) return null;
+  if (!game.user.isGM) return null;
+  const scope = mgNormalizeClockScope(initial.scope);
+  if (scope === CLOCK_SCOPE_SCENE && !canvas.scene) return null;
   const id = mgNewId();
-  const def = { name: "Clock", total: 8, filled: 0, gmOnly: false, ...initial };
-  await canvas.scene.setFlag(MG_NS, `${FLAG_CLOCKS}.${id}`, def);
+  const def = { name: "Clock", total: 8, filled: 0, gmOnly: false, createdAt: Date.now(), ...initial };
+  delete def.scope;
+  if (scope === CLOCK_SCOPE_GLOBAL) {
+    const all = { ...mgClocksGetAll(CLOCK_SCOPE_GLOBAL), [id]: def };
+    await game.settings.set(MG_NS, SETTING_GLOBAL_CLOCKS, all);
+  } else {
+    await canvas.scene.setFlag(MG_NS, `${FLAG_CLOCKS}.${id}`, def);
+  }
+  globalThis.mgRefreshClocksSidebarContent?.();
   return id;
+}
+
+async function mgClockMoveScope(id, fromScope, toScope) {
+  if (!game.user.isGM) return;
+  fromScope = mgNormalizeClockScope(fromScope);
+  toScope = mgNormalizeClockScope(toScope);
+  if (fromScope === toScope) return;
+  const clock = mgClockGetById(id, fromScope);
+  await mgClockDeleteById(id, fromScope);
+  const data = { ...clock, createdAt: Date.now() };
+  delete data.scope;
+  if (toScope === CLOCK_SCOPE_GLOBAL) {
+    const all = { ...mgClocksGetAll(CLOCK_SCOPE_GLOBAL), [id]: data };
+    await game.settings.set(MG_NS, SETTING_GLOBAL_CLOCKS, all);
+  } else if (canvas.scene) {
+    await canvas.scene.setFlag(MG_NS, `${FLAG_CLOCKS}.${id}`, data);
+  }
+  await mgRenderAllClocks();
+  globalThis.mgRefreshClocksSidebarContent?.();
 }
 
 /* Local updater to support Scrub
 ----------------------------------------------------------------------*/
 function mgLocalSetFilled($wrap, id, n /* filled */) {
-  const { total } = mgClockGetById(id);
+  const scope = mgClockScopeFromWrap($wrap);
+  const { total } = mgClockGetById(id, scope);
 
   // clamp filled and compute remaining
   const filled = Math.max(0, Math.min(total, n));
@@ -715,7 +858,8 @@ async function mgAnnounceClockTickDown(name, remaining, total, gmOnly) {
 /* Single glow underlay for partial or full
 ----------------------------------------------------------------------*/
 function mgUpdateGlowArc($wrap, id) {
-  const { total, filled } = mgClockGetById(id);
+  const scope = mgClockScopeFromWrap($wrap);
+  const { total, filled } = mgClockGetById(id, scope);
   const remaining = Math.max(0, total - filled);
 
   const svg = $wrap.find(".mg-clock-svg")[0];
@@ -813,7 +957,8 @@ function mgUpdateGlowArc($wrap, id) {
 }
 
 function mgApplySegColors($wrap, id) {
-  const { total, filled } = mgClockGetById(id);
+  const scope = mgClockScopeFromWrap($wrap);
+  const { total, filled } = mgClockGetById(id, scope);
   const { stroke } = mgColorStage(total, filled);
 
   // Remaining = ON (colored)
@@ -907,7 +1052,7 @@ function mgMaybePlayRedSfx($wrap, id, total, filled) {
   // Fire only on the transition into red
   if (!wasRed && isRedNow) {
     if (game.user.isGM) {
-      const c = mgClockGetById(id) || {};
+      const c = mgClockGetById(id, mgClockScopeFromWrap($wrap)) || {};
       const broadcast = !c.gmOnly; // Public → everyone hears; GM-only → just GM
       AudioHelper.play(
         { src: MG_CLOCK_SFX, volume: 0.8, autoplay: true, loop: false },
@@ -920,7 +1065,8 @@ function mgMaybePlayRedSfx($wrap, id, total, filled) {
 /* Segment Smoother
 ----------------------------------------------------------------------*/
 function mgUpdateRings($wrap, id) {
-  const { total, filled } = mgClockGetById(id);
+  const scope = mgClockScopeFromWrap($wrap);
+  const { total, filled } = mgClockGetById(id, scope);
   const remaining = Math.max(0, total - filled);
 
   const svg = $wrap.find(".mg-clock-svg")[0];
@@ -1002,10 +1148,10 @@ function mgClocksAreHiddenForUser() {
 
 function mgApplyUserClockVisibility() {
   const hidden = mgClocksAreHiddenForUser();
-  document.querySelectorAll(".mg-clock").forEach(el => {
-    el.hidden = hidden;
-    el.setAttribute("aria-hidden", hidden ? "true" : "false");
-  });
+  const dock = document.getElementById("mg-clock-dock");
+  if (!dock) return;
+  dock.classList.toggle("is-hidden", hidden);
+  dock.setAttribute("aria-hidden", hidden ? "true" : "false");
 }
 
 async function mgSetUserClocksHidden(hidden) {
@@ -1018,10 +1164,114 @@ async function mgToggleUserClocksHidden() {
   await mgSetUserClocksHidden(!mgClocksAreHiddenForUser());
 }
 
+function mgApplyDockPos() {
+  const dock = document.getElementById("mg-clock-dock");
+  if (!dock) return;
+
+  const ui = mgUiLoad(CLOCK_DOCK_UI_ID) ?? {};
+  const rect = dock.getBoundingClientRect?.() ?? { width: 0, height: 0 };
+  const w = rect.width || dock.offsetWidth || 200;
+  const h = rect.height || dock.offsetHeight || 70;
+  const pad = 16;
+
+  let left;
+  let top;
+
+  if (typeof ui.x === "number" && typeof ui.y === "number") {
+    left = ui.x;
+    top = ui.y;
+  } else {
+    const sidebar = document.getElementById("sidebar") || document.querySelector("#sidebar, .sidebar, #ui-right");
+    const sideRect = sidebar?.getBoundingClientRect?.();
+    left = sideRect ? Math.max(pad, sideRect.left - w - 12) : Math.max(pad, window.innerWidth - w - 360);
+    top = pad;
+  }
+
+  left = Math.max(0, Math.min(window.innerWidth - w, left));
+  top = Math.max(0, Math.min(window.innerHeight - h, top));
+
+  dock.style.position = "fixed";
+  dock.style.left = `${left}px`;
+  dock.style.top = `${top}px`;
+  dock.style.right = "";
+}
+
+function mgApplyDockCollapsed(dock = document.getElementById("mg-clock-dock")) {
+  if (!dock) return;
+
+  const ui = mgUiLoad(CLOCK_DOCK_UI_ID) ?? {};
+  const collapsed = !!ui.collapsed;
+  dock.classList.toggle("mg-collapsed", collapsed);
+
+  const grip = dock.querySelector("[data-mg-clock-dock-grip]");
+  if (grip) {
+    grip.title = collapsed ? "Double click to show clocks" : "Drag clocks, double click to collapse";
+  }
+}
+
+function mgBindClockDock(dock) {
+  if (!dock || dock.dataset.mgClockDockBound === "1") return;
+  dock.dataset.mgClockDockBound = "1";
+
+  let moving = false;
+  let off = { dx: 0, dy: 0 };
+
+  dock.addEventListener("pointerdown", event => {
+    const grip = event.target?.closest?.("[data-mg-clock-dock-grip]");
+    if (!grip) return;
+    event.preventDefault();
+    const r = dock.getBoundingClientRect();
+    moving = true;
+    off = { dx: event.clientX - r.left, dy: event.clientY - r.top };
+    dock.classList.add("mg-dragging");
+    try { grip.setPointerCapture?.(event.pointerId); } catch (_) {}
+  });
+
+  dock.addEventListener("pointermove", event => {
+    if (!moving) return;
+    const w = dock.offsetWidth;
+    const h = dock.offsetHeight;
+    let nx = event.clientX - off.dx;
+    let ny = event.clientY - off.dy;
+    nx = Math.max(0, Math.min(window.innerWidth - w, nx));
+    ny = Math.max(0, Math.min(window.innerHeight - h, ny));
+    dock.style.left = `${nx}px`;
+    dock.style.top = `${ny}px`;
+    dock.style.right = "";
+  });
+
+  dock.addEventListener("pointerup", async event => {
+    if (!moving) return;
+    moving = false;
+    dock.classList.remove("mg-dragging");
+    try { event.target?.releasePointerCapture?.(event.pointerId); } catch (_) {}
+    const r = dock.getBoundingClientRect();
+    await mgUiSave(CLOCK_DOCK_UI_ID, { x: Math.round(r.left), y: Math.round(r.top) });
+  });
+
+  dock.addEventListener("dblclick", async event => {
+    const grip = event.target?.closest?.("[data-mg-clock-dock-grip]");
+    if (!grip) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    const ui = mgUiLoad(CLOCK_DOCK_UI_ID) ?? {};
+    await mgUiSave(CLOCK_DOCK_UI_ID, { collapsed: !ui.collapsed });
+    mgApplyDockCollapsed(dock);
+  });
+
+  dock.addEventListener("pointercancel", () => {
+    moving = false;
+    dock.classList.remove("mg-dragging");
+  });
+}
+
 // Apply saved/default position to a clock wrapper
 function mgApplyPos($wrap) {
   const id = $wrap.data("clockId");
-  const ui = mgUiLoad(id) ?? {};
+  const scope = mgClockScopeFromWrap($wrap);
+  const ui = mgUiLoad(`${scope}:${id}`) ?? {};
   const el = $wrap[0];
 
   // Measure (fallback if not yet laid out)
@@ -1038,14 +1288,16 @@ function mgApplyPos($wrap) {
   } else {
     // First time for this user → CENTER on screen (both axes), with a small stagger
     const pad = 16;
-    const cx  = Math.max(pad, (window.innerWidth  - w) / 2);
-    const cy  = Math.max(pad, (window.innerHeight - h) / 2);
+    const sidebar = document.getElementById("sidebar") || document.querySelector("#sidebar, .sidebar, #ui-right");
+    const sideRect = sidebar?.getBoundingClientRect?.();
+    const cx  = sideRect ? Math.max(pad, sideRect.left - w - 12) : Math.max(pad, window.innerWidth - w - 360);
+    const cy  = pad;
 
-    const others = Array.from(document.querySelectorAll(".mg-clock")).filter(e => e !== el);
+    const others = Array.from(document.querySelectorAll(".mg-clock-canvas")).filter(e => e !== el);
     const n = others.length;                 // how many already present in DOM
-    const offset = Math.min(n * 24, 96);     // stagger 24px per clock
+    const offset = Math.min(n * 44, Math.max(0, window.innerHeight - h - pad));
 
-    left = Math.min(window.innerWidth  - w - pad, cx + offset);
+    left = Math.min(window.innerWidth  - w - pad, cx);
     top  = Math.min(window.innerHeight - h - pad, cy + offset);
   }
 
@@ -1064,11 +1316,12 @@ function mgApplyPos($wrap) {
 ----------------------------------------------------------------------*/
 function mgApplyCollapsed($wrap) {
   const id = $wrap.data("clockId");
-  const ui = mgUiLoad(id) ?? {};
+  const scope = mgClockScopeFromWrap($wrap);
+  const ui = mgUiLoad(`${scope}:${id}`) ?? {};
   const collapsed = !!ui.collapsed;
   $wrap.toggleClass("mg-collapsed", collapsed);
 
-  const { total, filled } = mgClockGetById(id);
+  const { total, filled } = mgClockGetById(id, scope);
   $wrap.attr("title", collapsed ? `${filled}/${total} — double-click to restore` : "");
 }
 
@@ -1105,20 +1358,20 @@ async function mgMigrateSingleClockToList() {
 /* Setting the Clock Dom
 ----------------------------------------------------------------------*/
 // Ensure DOM for ONE clock instance
-function mgEnsureClockDOM(id) {
-  let $wrap = $(`#mg-clock-${id}`);
+function mgEnsureClockDOM(id, scope = CLOCK_SCOPE_SCENE, mode = "canvas") {
+  scope = mgNormalizeClockScope(scope);
+  const domId = mgClockDomId(scope, id, mode);
+  let $wrap = $(`#${domId}`);
   if ($wrap.length) return $wrap;
 
+  const modeClass = mode === "sidebar" ? "mg-clock-sidebar-card" : "mg-clock-canvas";
+
   $wrap = $(`
-    <div id="mg-clock-${id}" class="mg-clock" data-clock-id="${id}">
+    <div id="${domId}" class="mg-clock ${modeClass}" data-clock-id="${id}" data-clock-scope="${scope}">
       <div class="mg-clock-inner">
         <div class="mg-clock-grip" title="Drag to move, Double click to collapse/expand"></div>
 
-        <input type="text" class="mg-clock-name" maxlength="60"
-               placeholder="Clock" title="Clock name (GM only)" />
-
-        <span class="mg-clock-badge"></span>
-
+        <div class="mg-clock-face">
         <div class="mg-clock-visual">
           <svg class="mg-clock-svg" viewBox="0 0 120 120" width="120" height="120" aria-hidden="true" style="width:120px;height:120px;">
             <g class="segs"></g>
@@ -1127,33 +1380,42 @@ function mgEnsureClockDOM(id) {
             <span class="mg-clock-count"></span>
           </div>
         </div>
+        </div>
+        <div class="mg-clock-content">
+        <input type="text" class="mg-clock-name" maxlength="60"
+               placeholder="Clock" title="Clock name (GM only)" />
+
+        <span class="mg-clock-badge"></span>
 
         <div class="mg-clock-controls">
           <div class="main-controls">
-            <button type="button" class="mg-clock-dec"  title="Decrease (Shift: -2)">−</button>
+            <button type="button" class="mg-clock-dec"  title="Decrease (Shift: -2)"><i class="fa-solid fa-minus"></i></button>
             <input  type="number" class="mg-clock-total" min="1" max="200" step="1" title="Segments" inputmode="numeric" />
-            <button type="button" class="mg-clock-inc"  title="Increase (Shift: +2)">+</button>
+            <button type="button" class="mg-clock-inc"  title="Increase (Shift: +2)"><i class="fa-solid fa-plus"></i></button>
           </div>
           <div class="add-remove">
             <button type="button" class="mg-clock-vis" title="Public — click to hide from Players" data-tooltip="Toggle Visibility">
               <i class="fa-solid fa-eye"></i>
             </button>
+            <button type="button" class="mg-clock-scope" title="Move Clock" data-tooltip="Move Clock"><i class="fa-solid fa-globe"></i></button>
             <button type="button" class="mg-clock-close" title="Remove Clock" data-tooltip="Remove Clock"><i class="fa-solid fa-trash"></i></button>
           </div>
 
+        </div>
         </div>
       </div>
     </div>
   `);
 
-  document.body.appendChild($wrap[0]);
-  mgApplyPos($wrap);
-  mgApplyCollapsed($wrap);
+  if (mode === "canvas") mgGetClockDockList().appendChild($wrap[0]);
+  else document.body.appendChild($wrap[0]);
+  if (mode === "canvas") {
+    mgApplyDockPos();
+  }
 
   // keep in-bounds on resize
   window.addEventListener("resize", () => {
-    const w = $(`#mg-clock-${id}`);
-    if (w.length) mgApplyPos(w);
+    if (mode === "canvas") mgApplyDockPos();
   }, { passive: true });
 
   const center = $wrap.find(".mg-clock-center")[0];
@@ -1256,7 +1518,8 @@ function mgPlaceHandle($wrap, id, angleDeg) {
 
 
 function mgUpdateHandleToFilled($wrap, id) {
-  const { total, filled } = mgClockGetById(id);
+  const scope = mgClockScopeFromWrap($wrap);
+  const { total, filled } = mgClockGetById(id, scope);
   const remaining = mgRemaining(total, filled);
   const idx = Math.max(0, Math.min(total - 1, remaining - 1));
   const angle = (remaining > 0) ? mgEndAngleForIndex(idx, total) : -90;
@@ -1269,12 +1532,13 @@ function mgIdxFromEvent($wrap, ev, id) {
   const x = ev.clientX - (rect.left + rect.width  / 2);
   const y = ev.clientY - (rect.top  + rect.height / 2);
   let deg = (Math.atan2(y, x) * 180 / Math.PI + 450) % 360; // 0 at top, CW
-  const { total } = mgClockGetById(id);
+  const { total } = mgClockGetById(id, mgClockScopeFromWrap($wrap));
   return Math.max(0, Math.min(total - 1, Math.floor(deg / (360 / total))));
 }
 
 function mgDrawClock($wrap, id) {
-  const { total, filled } = mgClockGetById(id);
+  const scope = mgClockScopeFromWrap($wrap);
+  const { total, filled } = mgClockGetById(id, scope);
   const svg = $wrap.find(".mg-clock-svg")[0];
   const segsG = $wrap.find(".segs")[0];
 
@@ -1347,6 +1611,9 @@ function mgUpdateHandleScale($wrap, id) {
 ----------------------------------------------------------------------*/
 function mgBindClock($wrap, id) {
   $wrap.off(".mgclock");
+  const scope = mgClockScopeFromWrap($wrap);
+  const isSidebarClock = $wrap.hasClass("mg-clock-sidebar-card");
+  const isCanvasClock = $wrap.hasClass("mg-clock-canvas");
 
   // Name (GM only)
   $wrap.on("keydown.mgclock", ".mg-clock-name", (ev) => {
@@ -1356,17 +1623,17 @@ function mgBindClock($wrap, id) {
   $wrap.on("change.mgclock blur.mgclock", ".mg-clock-name", async (ev) => {
     if (!game.user.isGM) return;
     const name = String(ev.currentTarget.value ?? "").trim().slice(0, 60);
-    await mgClockSetById(id, { name });
+    await mgClockSetById(id, { name }, scope);
   });
 
   // Visibility toggle (GM only)
   $wrap.on("click.mgclock", ".mg-clock-vis", async () => {
     if (!game.user.isGM) return;
 
-    const { gmOnly } = mgClockGetById(id);
+    const { gmOnly } = mgClockGetById(id, scope);
     const becomingPublic = gmOnly === true;
 
-    await mgClockSetById(id, { gmOnly: !gmOnly });
+    await mgClockSetById(id, { gmOnly: !gmOnly }, scope);
 
     // If we just flipped from Hidden → Public, play the sting for everyone
     if (becomingPublic) {
@@ -1381,16 +1648,16 @@ function mgBindClock($wrap, id) {
   $wrap.on("click.mgclock", ".mg-clock-inc", async (ev) => {
     if (!game.user.isGM) return;
     const step = ev.shiftKey ? 2 : 1;
-    const { filled } = mgClockGetById(id);
-    await mgClockSetById(id, { filled: Math.max(0, filled - step) });
+    const { filled } = mgClockGetById(id, scope);
+    await mgClockSetById(id, { filled: Math.max(0, filled - step) }, scope);
   });
   $wrap.on("click.mgclock", ".mg-clock-dec", async (ev) => {
     if (!game.user.isGM) return;
     const step = ev.shiftKey ? 2 : 1;
-    const { filled, total, name, gmOnly } = mgClockGetById(id);
+    const { filled, total, name, gmOnly } = mgClockGetById(id, scope);
     const nf = Math.min(total, filled + step);   // spending = increase 'filled'
     if (nf === filled) return;
-    await mgClockSetById(id, { filled: nf });
+    await mgClockSetById(id, { filled: nf }, scope);
     const remaining = Math.max(0, total - nf);
     mgAnnounceClockTickDown(name, remaining, total, gmOnly);
   });
@@ -1400,9 +1667,9 @@ function mgBindClock($wrap, id) {
     if (!game.user.isGM) return;
     const raw = Number(input.value);
     if (!Number.isFinite(raw)) return;
-    await mgClockResetToById(id, raw);
-    const { total } = mgClockGetById(id);
-    input.value = ""; input.setAttribute("placeholder", String(total));
+    await mgClockResetToById(id, raw, scope);
+    const { total } = mgClockGetById(id, scope);
+    input.value = String(total);
   }
   $wrap.on("change.mgclock",  ".mg-clock-total", (ev) => applyFromInput(ev.currentTarget));
   $wrap.on("keydown.mgclock", ".mg-clock-total", (ev) => {
@@ -1417,7 +1684,7 @@ function mgBindClock($wrap, id) {
     if (!game.user.isGM) return;
     ev.preventDefault();
     scrubbing = true; lastIdx = null;
-    startFilled = mgClockGetById(id).filled;  // remember where we started
+    startFilled = mgClockGetById(id, scope).filled;  // remember where we started
 
     // scale knob a bit
     mgHandleScaleMap[id] = 1.18; mgUpdateHandleToFilled($wrap, id);
@@ -1428,7 +1695,7 @@ function mgBindClock($wrap, id) {
 
     const idx = mgIdxFromEvent($wrap, ev, id);
     lastIdx = idx;
-    const { total } = mgClockGetById(id);
+    const { total } = mgClockGetById(id, scope);
     lastFilled = Math.max(0, total - (idx + 1));
     mgLocalSetFilled($wrap, id, lastFilled); // instant local feedback
   });
@@ -1438,7 +1705,7 @@ function mgBindClock($wrap, id) {
     const idx = mgIdxFromEvent($wrap, ev, id);
     if (idx !== lastIdx) {
       lastIdx = idx;
-      const { total } = mgClockGetById(id);
+      const { total } = mgClockGetById(id, scope);
       lastFilled = Math.max(0, total - (idx + 1));
       mgLocalSetFilled($wrap, id, lastFilled); // keep it buttery
     }
@@ -1454,10 +1721,10 @@ function mgBindClock($wrap, id) {
     mgUpdateHandleScale($wrap, id);
 
     // One network write at the end → everyone else updates
-    await mgClockSetById(id, { filled: lastFilled });
+    await mgClockSetById(id, { filled: lastFilled }, scope);
     try {
       if (lastFilled > startFilled) {
-        const { total, name, gmOnly } = mgClockGetById(id); // total/name/vis are stable
+        const { total, name, gmOnly } = mgClockGetById(id, scope); // total/name/vis are stable
         const remaining = Math.max(0, total - lastFilled);
         mgAnnounceClockTickDown(name, remaining, total, gmOnly);
       }
@@ -1482,6 +1749,7 @@ function mgBindClock($wrap, id) {
   let moving = false, off = {dx:0, dy:0};
 
 $wrap.on("pointerdown.mgclock", ".mg-clock-grip", (ev) => {
+  if (isSidebarClock || isCanvasClock) return;
   ev.preventDefault();
   const r = $wrap[0].getBoundingClientRect();
   moving = true;
@@ -1515,7 +1783,7 @@ $wrap.on("pointerup.mgclock pointercancel.mgclock", ".mg-clock-grip", async (ev)
 
   // Persist position for this user
   const r = $wrap[0].getBoundingClientRect();
-  await mgUiSave(id, { x: Math.round(r.left), y: Math.round(r.top) });
+  await mgUiSave(`${scope}:${id}`, { x: Math.round(r.left), y: Math.round(r.top) });
 });
 
   // Double-click collapse/expand (per-user)
@@ -1526,41 +1794,50 @@ $wrap.on("pointerup.mgclock pointercancel.mgclock", ".mg-clock-grip", async (ev)
   });
 
   // Collapse/expand ONLY via the grip (per-user)
-  $wrap.on("dblclick.mgclock", ".mg-clock-grip", async (ev) => {
+$wrap.on("dblclick.mgclock", ".mg-clock-grip", async (ev) => {
+    if (isSidebarClock || isCanvasClock) return;
     ev.preventDefault();
     ev.stopPropagation();
 
-    const ui   = mgUiLoad(id) ?? {};
+    const ui   = mgUiLoad(`${scope}:${id}`) ?? {};
     const next = !ui.collapsed;
 
     $wrap.toggleClass("mg-collapsed", next);
-    await mgUiSave(id, { collapsed: next });
+    await mgUiSave(`${scope}:${id}`, { collapsed: next });
     mgApplyCollapsed($wrap);
   });
 
   $wrap.on("click.mgclock", ".mg-clock-close", async () => {
     if (!game.user.isGM) return;
-    const ok = await Dialog.confirm({ title: "Remove Clock?", content: "<p>This will remove this clock from the scene.</p>" });
+    const ok = await Dialog.confirm({ title: "Remove Clock?", content: "<p>This will remove this clock.</p>" });
     if (!ok) return;
-    await mgClockDeleteById(id);
+    await mgClockDeleteById(id, scope);
     $wrap.remove();
+  });
+
+  $wrap.on("click.mgclock", ".mg-clock-scope", async () => {
+    if (!game.user.isGM) return;
+    const nextScope = scope === CLOCK_SCOPE_GLOBAL ? CLOCK_SCOPE_SCENE : CLOCK_SCOPE_GLOBAL;
+    await mgClockMoveScope(id, scope, nextScope);
   });
 }
 
 /* Force players to render newly made clock
 ----------------------------------------------------------------------*/
-function mgRenderOneClock(id) {
+function mgRenderOneClock(id, scope = CLOCK_SCOPE_SCENE) {
+  scope = mgNormalizeClockScope(scope);
   // Respect visibility for players
-  const c = mgClockGetById(id);
+  const c = mgClockGetById(id, scope);
   if (!c) return;
 
   if (!game.user.isGM && c.gmOnly) {
-    $(`#mg-clock-${id}`).remove();
+    $(mgClockSelector(scope, id)).remove();
     return;
   }
 
-  const $wrap = mgEnsureClockDOM(id);
-  mgApplyPos($wrap);
+  const $wrap = mgEnsureClockDOM(id, scope, "canvas");
+  mgGetClockDockList().appendChild($wrap[0]);
+  mgApplyDockPos();
   mgApplyUserClockVisibility();
 
   // Set name + control perms like in mgRenderAllClocks
@@ -1571,6 +1848,9 @@ function mgRenderOneClock(id) {
     if (game.user.isGM) { nameInput.readOnly = false; nameInput.classList.remove("readonly"); }
     else { nameInput.readOnly = true; nameInput.classList.add("readonly"); }
   }
+
+  const totalInput = $wrap.find(".mg-clock-total")[0];
+  if (totalInput) totalInput.value = String(c.total);
 
   const $controls = $wrap.find(".mg-clock-controls");
   if (game.user.isGM) {
@@ -1590,6 +1870,15 @@ function mgRenderOneClock(id) {
     visBtn.setAttribute("aria-pressed", c.gmOnly ? "true" : "false");
   }
 
+  const scopeBtn = $wrap.find(".mg-clock-scope")[0];
+  if (scopeBtn) {
+    const toScene = scope === CLOCK_SCOPE_GLOBAL;
+    scopeBtn.title = toScene ? "Tie to Scene" : "Make Global";
+    scopeBtn.setAttribute("data-tooltip", toScene ? "Tie to Scene" : "Make Global");
+    const i = scopeBtn.querySelector("i");
+    if (i) i.className = toScene ? "fa-solid fa-link" : "fa-solid fa-globe";
+  }
+
   mgDrawClock($wrap, id);
   mgBindClock($wrap, id);
 }
@@ -1597,14 +1886,14 @@ function mgRenderOneClock(id) {
 /* Force Foundry to remove a clock from players UI if DM deletes
 ----------------------------------------------------------------------*/
 function mgPruneClockDOM() {
-  const all = mgClocksGetAll();
-  const allowed = new Set(
-    Object.keys(all).filter(id => game.user.isGM || !all[id]?.gmOnly)
-  );
-  document.querySelectorAll(".mg-clock").forEach(el => {
+  const allowed = new Set(mgClocksGetVisibleRefs().map(ref => `${ref.scope}:${ref.id}`));
+  document.querySelectorAll(".mg-clock-canvas").forEach(el => {
     const cid = el.getAttribute("data-clock-id");
-    if (cid && !allowed.has(cid)) el.remove();
+    const scope = mgNormalizeClockScope(el.getAttribute("data-clock-scope"));
+    if (cid && !allowed.has(`${scope}:${cid}`)) el.remove();
   });
+  const dock = document.getElementById("mg-clock-dock");
+  if (dock && !dock.querySelector(".mg-clock-canvas")) dock.remove();
 }
 
 // Only GMs may create NPC actors.
@@ -1644,23 +1933,24 @@ Hooks.on("renderDialog", (_dialog, html) => {
 /* Attaching clock to the scene and saving position
 ----------------------------------------------------------------------*/
 async function mgRenderAllClocks() {
-  const all = mgClocksGetAll();
-  const ids = Object.keys(all).filter(id => game.user.isGM || !all[id]?.gmOnly);
+  const refs = mgClocksGetVisibleRefs();
 
   // Remove any clocks this user shouldn’t see
-  const allowed = new Set(ids);
-  document.querySelectorAll(".mg-clock").forEach(el => {
+  const allowed = new Set(refs.map(ref => `${ref.scope}:${ref.id}`));
+  document.querySelectorAll(".mg-clock-canvas").forEach(el => {
     const cid = el.getAttribute("data-clock-id");
-    if (cid && !allowed.has(cid)) el.remove();
+    const scope = mgNormalizeClockScope(el.getAttribute("data-clock-scope"));
+    if (cid && !allowed.has(`${scope}:${cid}`)) el.remove();
   });
 
-  for (const id of ids) mgRenderOneClock(id);
+  for (const { id, scope } of refs) mgRenderOneClock(id, scope);
 
-  for (const id of ids) {
-    const $wrap = mgEnsureClockDOM(id);
-    mgApplyPos($wrap);
+  for (const { id, scope } of refs) {
+    const $wrap = mgEnsureClockDOM(id, scope, "canvas");
+    mgGetClockDockList().appendChild($wrap[0]);
+    mgApplyDockPos();
 
-    const { name, gmOnly } = mgClockGetById(id);
+    const { name, gmOnly } = mgClockGetById(id, scope);
 
     // Name field perms
     const nameInput = $wrap.find(".mg-clock-name")[0];
@@ -1670,6 +1960,9 @@ async function mgRenderAllClocks() {
       if (game.user.isGM) { nameInput.readOnly = false; nameInput.classList.remove("readonly"); }
       else { nameInput.readOnly = true; nameInput.classList.add("readonly"); }
     }
+
+    const totalInput = $wrap.find(".mg-clock-total")[0];
+    if (totalInput) totalInput.value = String(mgClockGetById(id, scope).total);
 
     // Controls perms
     const $controls = $wrap.find(".mg-clock-controls");
@@ -1690,18 +1983,32 @@ async function mgRenderAllClocks() {
       btn.setAttribute("aria-pressed", gmOnly ? "true" : "false");
     }
 
+    const scopeBtn = $wrap.find(".mg-clock-scope")[0];
+    if (scopeBtn) {
+      const toScene = scope === CLOCK_SCOPE_GLOBAL;
+      scopeBtn.title = toScene ? "Tie to Scene" : "Make Global";
+      scopeBtn.setAttribute("data-tooltip", toScene ? "Tie to Scene" : "Make Global");
+      const i = scopeBtn.querySelector("i");
+      if (i) i.className = toScene ? "fa-solid fa-link" : "fa-solid fa-globe";
+    }
+
     mgDrawClock($wrap, id);
     mgBindClock($wrap, id);
   }
 
   mgApplyUserClockVisibility();
+  const dock = document.getElementById("mg-clock-dock");
+  if (dock) dock.classList.toggle("is-empty", !refs.length);
+  if (!refs.length) dock?.remove();
 }
 
 /* Hooking clocks into scene
 ----------------------------------------------------------------------*/
 // Hooks: mount & live updates
 function mgClearAllClockDOM() {
-  document.querySelectorAll(".mg-clock").forEach(el => el.remove());
+  document.querySelectorAll(".mg-clock-canvas").forEach(el => el.remove());
+  const dock = document.getElementById("mg-clock-dock");
+  if (dock) dock.remove();
 }
 
 Hooks.on("canvasReady", async () => {
@@ -1725,18 +2032,18 @@ Hooks.on("updateScene", (scene, data) => {
       // a) Nested deletion: flags.<ns>.clocks["-=" + id] = null
       if (k.startsWith("-=")) {
         const id = k.slice(2);   // strip "-="
-        $(`#mg-clock-${id}`).remove();
+        $(mgClockSelector(CLOCK_SCOPE_SCENE, id)).remove();
         continue;
       }
 
       // b) Explicit null inside map: flags.<ns>.clocks[id] = null
       if (patch === null || patch === undefined) {
-        $(`#mg-clock-${k}`).remove();
+        $(mgClockSelector(CLOCK_SCOPE_SCENE, k)).remove();
         continue;
       }
 
       // c) New or updated → render/bind for THIS user
-      mgRenderOneClock(k);
+      mgRenderOneClock(k, CLOCK_SCOPE_SCENE);
     }
   }
 
@@ -1744,12 +2051,13 @@ Hooks.on("updateScene", (scene, data) => {
   for (const k of Object.keys(flagsNS)) {
     if (k.startsWith(`-=${FLAG_CLOCKS}.`)) {
       const id = k.slice((`-=${FLAG_CLOCKS}.`).length);
-      $(`#mg-clock-${id}`).remove();
+      $(mgClockSelector(CLOCK_SCOPE_SCENE, id)).remove();
     }
   }
 
   // === 3) Final safety sweep: remove anything this user shouldn't see
   mgPruneClockDOM();
+  globalThis.mgRefreshClocksSidebarContent?.();
 });
 
 /* On Clock creation, adding an option for Hidden/Public
@@ -1843,7 +2151,114 @@ async function mgClearAllClocksFromUi() {
 		await mgClockDeleteById(id);
 	}
 
-	mgClearAllClockDOM();
+	await mgRenderAllClocks();
+}
+
+async function mgClearClocksByScope(scope = CLOCK_SCOPE_SCENE) {
+	if (!game.user.isGM) {
+		ui.notifications?.warn("Only the GM can clear clocks.");
+		return;
+	}
+
+	scope = mgNormalizeClockScope(scope);
+	const label = scope === CLOCK_SCOPE_GLOBAL ? "global" : "scene";
+	const all = mgClocksGetAll(scope);
+	const ids = Object.keys(all);
+	if (!ids.length) return;
+
+	const ok = await Dialog.confirm({
+		title: "Clear Clocks?",
+		content: `<p>This will remove all ${label} clocks.</p>`
+	});
+
+	if (!ok) return;
+
+	for (const id of ids) {
+		await mgClockDeleteById(id, scope);
+	}
+
+	await mgRenderAllClocks();
+	globalThis.mgRefreshClocksSidebarContent?.();
+}
+
+function mgGetClockListForSidebar(scope = CLOCK_SCOPE_SCENE) {
+  scope = mgNormalizeClockScope(scope);
+  const all = mgClocksGetAll(scope);
+  const orderFlags = game.user?.getFlag?.(MG_NS, "clockOrder") ?? {};
+  const uiOrder = Array.isArray(orderFlags?.[scope]) ? orderFlags[scope] : [];
+  const ids = Object.keys(all).filter(id => game.user.isGM || !all[id]?.gmOnly);
+  const ordered = [
+    ...uiOrder.filter(id => ids.includes(id)),
+    ...ids.filter(id => !uiOrder.includes(id)).sort((a, b) => {
+      const ac = mgClockGetById(a, scope);
+      const bc = mgClockGetById(b, scope);
+      return (Number(bc.createdAt) || 0) - (Number(ac.createdAt) || 0);
+    })
+  ];
+  return ordered.map(id => mgClockGetById(id, scope));
+}
+
+async function mgSaveClockOrderForUser(scope, ids) {
+  scope = mgNormalizeClockScope(scope);
+  const orderFlags = game.user?.getFlag?.(MG_NS, "clockOrder") ?? {};
+  await game.user?.setFlag?.(MG_NS, "clockOrder", { ...orderFlags, [scope]: ids });
+}
+
+function mgRenderSidebarClockInto(host, id, scope = CLOCK_SCOPE_SCENE) {
+  if (!host) return;
+  scope = mgNormalizeClockScope(scope);
+  const c = mgClockGetById(id, scope);
+  if (!game.user.isGM && c.gmOnly) return;
+
+  const $wrap = mgEnsureClockDOM(id, scope, "sidebar");
+  $wrap.attr("data-mg-sidebar-clock", `${scope}:${id}`);
+  $wrap.removeClass("mg-clock-canvas").addClass("mg-clock-sidebar-card");
+  $wrap[0].style.position = "";
+  $wrap[0].style.left = "";
+  $wrap[0].style.top = "";
+  $wrap[0].style.right = "";
+  $wrap[0].hidden = false;
+  host.appendChild($wrap[0]);
+
+  const nameInput = $wrap.find(".mg-clock-name")[0];
+  if (nameInput) {
+    nameInput.value = c.name || "";
+    nameInput.placeholder = c.name || "Clock";
+    nameInput.readOnly = !game.user.isGM;
+    nameInput.classList.toggle("readonly", !game.user.isGM);
+  }
+
+  const totalInput = $wrap.find(".mg-clock-total")[0];
+  if (totalInput) totalInput.value = String(c.total);
+
+  const $controls = $wrap.find(".mg-clock-controls");
+  if (game.user.isGM) {
+    $wrap.removeClass("readonly");
+    $controls.toggle(true).attr("aria-hidden","false");
+  } else {
+    $wrap.addClass("readonly");
+    $controls.toggle(false).attr("aria-hidden","true");
+  }
+
+  const visBtn = $wrap.find(".mg-clock-vis")[0];
+  if (visBtn) {
+    const i = visBtn.querySelector("i");
+    visBtn.title = c.gmOnly ? "Hidden (GM Only) — click to make Public" : "Public — click to hide from Players";
+    if (i) i.className = c.gmOnly ? "fa-solid fa-eye-slash" : "fa-solid fa-eye";
+    visBtn.setAttribute("aria-pressed", c.gmOnly ? "true" : "false");
+  }
+
+  const scopeBtn = $wrap.find(".mg-clock-scope")[0];
+  if (scopeBtn) {
+    const toScene = scope === CLOCK_SCOPE_GLOBAL;
+    scopeBtn.title = toScene ? "Tie to Scene" : "Make Global";
+    scopeBtn.setAttribute("data-tooltip", toScene ? "Tie to Scene" : "Make Global");
+    const i = scopeBtn.querySelector("i");
+    if (i) i.className = toScene ? "fa-solid fa-link" : "fa-solid fa-globe";
+  }
+
+  mgDrawClock($wrap, id);
+  mgBindClock($wrap, id);
 }
 
 /* Midnight Gambit palette (queen icon): Initiative + Clocks + Crew
@@ -1922,7 +2337,7 @@ Hooks.on("getSceneControlButtons", (controls) => {
 
           const all = mgClocksGetAll();
           for (const id of Object.keys(all)) await mgClockDeleteById(id);
-          mgClearAllClockDOM();
+          await mgRenderAllClocks();
         }
       },
 
@@ -1951,12 +2366,28 @@ Hooks.on("getSceneControlButtons", (controls) => {
 Hooks.once("ready", () => {
 	game.mgClocks = {
 		create: mgCreateClockFromUi,
+		createScoped: async scope => {
+			const opts = await mgOpenCreateClockDialog();
+			if (!opts) return null;
+			const id = await mgClockCreate({ ...opts, scope });
+			if (id && !opts.gmOnly) {
+				AudioHelper.play({ src: MG_CLOCK_SFX, volume: 0.8, autoplay: true, loop: false }, true);
+			}
+			await mgRenderAllClocks();
+			return id;
+		},
 		clearAll: mgClearAllClocksFromUi,
+		clearScope: mgClearClocksByScope,
 		renderAll: mgRenderAllClocks,
 		clearDom: mgClearAllClockDOM,
 		areHidden: mgClocksAreHiddenForUser,
 		setHidden: mgSetUserClocksHidden,
-		toggleHidden: mgToggleUserClocksHidden
+		toggleHidden: mgToggleUserClocksHidden,
+		getList: mgGetClockListForSidebar,
+		renderSidebarClockInto: mgRenderSidebarClockInto,
+		saveOrder: mgSaveClockOrderForUser,
+		moveScope: mgClockMoveScope,
+		delete: mgClockDeleteById
 	};
 });
 

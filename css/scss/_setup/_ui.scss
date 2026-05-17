@@ -618,9 +618,25 @@ body.mg-hud-enabled {
 			}
 		}
 
+		.mg-left-action {
+			background: $mg-blue-main;
+			border: 1px solid $mg-blue-main-2;
+			color: $mg-ivory;
+			transition: color .5s ease, border .5s ease;
+			border-radius: .75rem;
+			display: flex;
+			justify-content: center;
+			align-items: center;
+			@include mg-shadow();
+			
+			i {
+				color: $mg-blue-2;
+			}
+		}
+
 		.mg-left-list {
 			display: grid;
-			gap: .4rem;
+			gap: .5rem;
 		}
 
 		.mg-left-empty {
@@ -639,6 +655,62 @@ body.mg-hud-enabled {
 			i {
 				font-size: 1.75rem;
 				color: rgba($mg-blue-1, .7);
+			}
+		}
+
+		.mg-clock-sidebar {
+			gap: 0;
+			margin: -1rem;
+
+			.mg-clock-sidebar-actions {
+				display: grid;
+				grid-template-columns: repeat(auto-fit, minmax(6rem, 1fr));
+				gap: .5rem;
+				padding: 1rem;
+
+				.mg-left-action {
+					justify-content: center;
+					font-size: .75rem;
+					padding: .55rem .45rem;
+					background: $mg-blue-main;
+					border: 1px solid $mg-blue-main-2;
+					color: $mg-ivory;
+					line-height: 1.1;
+					transition: color .5s ease, background .5s ease, border .5s ease;
+
+					i {
+						color: $mg-blue-2;
+						transition: inherit;
+					}
+
+					&:hover {
+						color: $mg-green;
+						background: $mg-blue-4;
+						border-color: $mg-green;
+
+						i {
+							color: $mg-green;
+						}
+					}
+				}
+			}
+
+			.mg-clock-sidebar-list {
+				display: grid;
+				gap: 1rem;
+			}
+
+			.mg-clock-sidebar-slot {
+				min-height: 6rem;
+				cursor: grab;
+
+				&.mg-dragging {
+					opacity: .55;
+				}
+			}
+
+			.mg-clock-empty {
+				min-height: 5rem;
 			}
 		}
 
@@ -1269,7 +1341,7 @@ body.mg-hud-enabled {
 
 				h3 {
 					@include tiller();
-					font-size: 1.25rem;
+					font-size: 20.5px;
 					font-weight: 700;
 					line-height: 1.1;
 					color: $mg-ivory;
@@ -1329,7 +1401,7 @@ body.mg-hud-enabled {
 
 						h4 {
 							@include tiller();
-							font-size: 1rem;
+							font-size: 18.5px;
 							font-weight: 700;
 							line-height: 1;
 							color: $mg-ivory;
@@ -1343,7 +1415,7 @@ body.mg-hud-enabled {
 
 						p {
 							@include roboto();
-							font-size: .75rem;
+							font-size: .875rem;
 							font-weight: 700;
 							letter-spacing: -.02em;
 							font-style: italic;
@@ -1677,7 +1749,6 @@ body.mg-hud-enabled {
 
 		.mg-left-accordion {
 			margin: 0;
-			box-shadow: 5px 5px 10px rgba($black, .5);
 			
 			&:last-of-type .mg-left-accordion-toggle {
 				border-bottom: 2px solid $mg-blue-main-2;
@@ -2362,11 +2433,341 @@ body:not(.mg-hud-enabled) #mg-ui-root {
 ==============================================================================================================================================*/
 /* Force the clock to be visible and sized
 ----------------------------------------------------------------------*/
+.mg-clock-dock {
+	pointer-events: auto;
+	z-index: 53;
+	display: flex;
+	flex-direction: column;
+	gap: 0;
+	min-width: 10.5rem;
+	background: transparent;
+	padding: .5rem;
+	@include mg-shadow();
+	transition: opacity .5s ease;
+
+	&.is-hidden {
+		opacity: 0;
+		pointer-events: none;
+	}
+
+	&.is-empty {
+		display: none;
+	}
+
+	&.mg-dragging {
+		filter: drop-shadow(0 .25rem 1rem rgba($black, .35));
+	}
+
+	&.mg-collapsed {
+		.mg-clock-dock-list {
+			max-height: 0;
+			margin-top: 0;
+			opacity: 0;
+		}
+	}
+
+	.mg-clock-dock-grip {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 100%;
+		padding: .5rem;
+		border-radius: .35rem;
+		background: $mg-blue-main;
+		border: 1px solid $mg-blue-main-2;
+		cursor: grab;
+		transition: color .5s ease, border .5s ease;
+
+		&:hover {
+			border-color: $mg-green;
+
+			i {
+				color: $mg-green;
+			}
+		}
+
+		&:active {
+			cursor: grabbing;
+		}
+
+		i {
+			color: $mg-blue-1;
+			font-size: .75rem;
+			margin: 0;
+			transition: inherit;
+		}
+	}
+
+	.mg-clock-dock-list {
+		display: flex;
+		flex-direction: column;
+		gap: .35rem;
+		margin-top: 1rem;
+		max-height: 80vh;
+		overflow: hidden;
+		opacity: 1;
+		transition: max-height .5s ease, margin-top .5s ease, opacity .5s ease;
+	}
+}
+
 .mg-clock { /* position now set inline; keep other styles */
 	pointer-events: auto;
 	font-size: 13px;
 	color: $white;
 	z-index: 53;
+
+	.mg-clock-name {
+		background: transparent;
+		padding: 0;
+		border: 1px solid transparent;
+		@include tiller();
+		font-size: 16.5px;
+		font-weight: 700;
+		letter-spacing: .02em;
+		text-transform: uppercase;
+		padding: .5rem;
+		border-radius: .5rem;
+
+		&:hover,
+		&:focus {
+			background: $mg-blue-4;
+			border-color: $mg-blue-main-2;
+			color: $mg-blue-2;
+		}
+	}
+
+	&.mg-clock-canvas {
+		position: relative;
+
+		.mg-clock-inner {
+			width: 10.5rem;
+			display: flex;
+			background:
+				radial-gradient(circle at 50% 0%,
+				rgba(197, 212, 236, 0.22) 0%,
+				rgba(197, 212, 236, 0.10) 35%,
+				rgba(18, 33, 55, 0.00) 70%
+				),
+				url("../assets/images/filigree.jpg");
+			background-size: cover, cover;
+			background-blend-mode: soft-light, multiply;
+			background-color: $mg-blue-4;	
+			border-radius: .75rem;
+			border: 1px solid rgba($mg-blue-1, .25);		
+			overflow: hidden;
+		}
+
+
+		.mg-clock-content {
+			display: flex;
+			align-items: center;
+		}
+
+		.mg-clock-grip {
+			position: absolute;
+			inset: 0;
+			width: 100%;
+			height: 100%;
+			margin: 0;
+			opacity: 0;
+			border-radius: .5rem;
+			display: none;
+		}
+
+		.mg-clock-name {
+			align-self: center;
+			min-width: 0;
+			font-size: .8rem;
+			text-align: left;
+			white-space: nowrap;
+			overflow: hidden;
+			text-overflow: ellipsis;
+			pointer-events: none;
+		}
+
+		.mg-clock-face {
+			background: $mg-blue-main;
+
+			.mg-clock-visual {
+				width: 3.5rem;
+				height: 3.5rem;
+				position: relative;
+
+				.mg-clock-svg {
+					width: 3.5rem !important;
+					height: 3.5rem !important;
+				}
+
+				.mg-clock-center {
+					inset: 32% 31%;
+					position: absolute;
+
+					.mg-clock-count {
+
+						.clock-major {
+							font-size: 1.25rem;
+							line-height: 1;
+						}
+
+						.clock-small {
+							display: none;
+						}
+					}
+				}
+			}
+		}
+
+		.mg-clock-controls,
+		.mg-clock-badge {
+			display: none !important;
+		}
+	}
+
+	&.mg-clock-sidebar-card {
+		position: relative;
+		width: 100%;
+		z-index: 1;
+		overflow: hidden;
+		border: 1px solid rgba($mg-blue-1, .25);
+		border-radius: 1rem;
+		background:
+		/* subtle pearly sheen (top-center) */
+		radial-gradient(circle at 50% 0%,
+		rgba(197, 212, 236, 0.22) 0%,
+		rgba(197, 212, 236, 0.10) 35%,
+		rgba(18, 33, 55, 0.00) 70%
+		),
+		/* texture */
+		url("../assets/images/filigree.jpg");
+
+		background-size: cover, cover;
+		background-position: center, center;
+		background-blend-mode: soft-light, multiply;
+		background-color: $mg-blue-4;
+		box-shadow:
+		0 0 0 1px rgba($black, .65),
+		0 .5rem 1rem rgba($black, .45);		
+
+		&:hover {
+			cursor: grab;
+
+			.mg-clock-grip {
+				background: $mg-blue-3;
+				height: .65rem;
+			}
+		}
+
+		.mg-clock-inner {
+			width: 100%;
+			display: flex;
+			gap: .65rem;
+			border-radius: .5rem;
+		}
+
+		.mg-clock-grip {
+			position: absolute;
+			left: 0;
+			top: 0;
+			width: 100%;
+			height: .45rem;
+			border-radius: .5rem .5rem 0 0;
+			background: $mg-blue-main-2;
+			transition: background .5s ease, height .5s ease;
+		}
+
+		.mg-clock-face {
+			min-width: 6.25rem;
+			min-height: 10rem;
+			display: flex;
+			justify-content: center;
+			align-items: center;
+			background: $mg-blue-4;
+			border-right: 2px solid $mg-blue-main-2;
+		}
+
+		.mg-clock-content {
+			display: flex;
+			flex-direction: column;
+			gap: .5rem;
+			width: 100%;
+			padding: 1rem;
+			justify-content: center;
+
+			.mg-clock-controls {
+				width: 100%;
+				margin: 0;
+				display: flex;
+				flex-direction: column;
+				gap: .5rem;
+
+				.main-controls {
+
+					.mg-clock-total {
+						background: rgba($mg-blue-4, .8);
+						border-radius: .75rem;
+						height: 2.25rem;
+						padding: .25rem;
+						text-align: center;
+						display: flex;
+						justify-content: center;
+						align-items: center;	
+						color: $mg-blue-2;
+						font-weight: 700;					
+					}
+				}
+
+				.main-controls,
+				.add-remove {
+					display: grid;
+					grid-template-columns: 1fr 1fr 1fr;
+					gap: .5rem;
+
+					button {
+						background: $mg-blue-main;
+						border: 1px solid $mg-blue-main-2;
+						color: $mg-blue-2;
+						transition: color .5s ease, border .5s ease;
+						border-radius: .75rem;
+						height: 2.25rem;
+						display: flex;
+						justify-content: center;
+						align-items: center;
+
+						i {
+							color: $mg-blue-2;
+							transition: inherit;
+							margin: 0;
+						}
+
+						&:hover {
+							border: 1px solid $mg-green;
+							color: $mg-green;
+
+							i {
+								color: $mg-green;
+							}
+						}
+					}
+				}
+			}	
+		}
+
+		.mg-clock-visual {
+			width: 6rem;
+			height: 6rem;
+			position: relative;
+
+			.mg-clock-svg {
+				width: 6rem !important;
+				height: 6rem !important;
+			}
+
+			.mg-clock-center {
+				inset: 28% 30%;
+				position: absolute;
+			}
+		}
+	}
 
 	&.readonly {
 
@@ -2405,6 +2806,8 @@ body:not(.mg-hud-enabled) #mg-ui-root {
 			font-size: .75rem;
 			color: $mg-blue-2;
 			letter-spacing: .25em;
+			opacity: 1;
+			font-weight: 700;
 		}
 	}
 
@@ -2448,7 +2851,7 @@ body:not(.mg-hud-enabled) #mg-ui-root {
 		box-shadow: 0 4px 16px rgba(0,0,0,0.35);
 	}
 
-	.mg-clock-inner {
+	/*.mg-clock-inner {
 		display: flex;
 		align-items: center;
 		flex-direction: column;
@@ -2566,7 +2969,7 @@ body:not(.mg-hud-enabled) #mg-ui-root {
 				gap: .625rem;
 
 				button {
-					width: 50%;
+					flex: 1 1 0;
 					padding: .25rem;
 					border-radius: .625rem;
 					display: flex;
@@ -2574,7 +2977,7 @@ body:not(.mg-hud-enabled) #mg-ui-root {
 				}
 			}
 		}
-	}
+	}*/
 }
 
 /* Base System Changes

@@ -229,6 +229,11 @@ const MG_LEFT_SIDEBAR_TABS = [
 		icon: "fa-solid fa-swords"
 	},
 	{
+		id: "clocks",
+		label: "Clocks",
+		icon: "fa-solid fa-clock"
+	},
+	{
 		id: "scenes",
 		label: "Scenes",
 		icon: "fa-solid fa-map"
@@ -1449,6 +1454,9 @@ function mgRenderLeftSidebarContent(tabId) {
 		case "initiative":
 			return mgRenderInitiativeSidebarContent();
 
+		case "clocks":
+			return mgRenderClocksSidebarContent();
+
 		case "scenes":
 			return mgRenderSceneSidebarContent();
 
@@ -1483,6 +1491,9 @@ function mgBindLeftSidebarContent(root, tabId) {
 	mgBindLeftSidebarAccordions(root);
 	mgBindCharacterSidebarContent(root);
 	mgBindCrewSidebarContent(root);
+	if (tabId === "clocks") {
+		mgBindClocksSidebarContent(root);
+	}
 
 	root.querySelectorAll("[data-mg-open-actor]").forEach(button => {
 		button.addEventListener("click", () => {
@@ -1571,6 +1582,12 @@ function mgRefreshLeftSidebarContent() {
 }
 
 globalThis.mgRefreshLeftSidebarContent = mgRefreshLeftSidebarContent;
+
+function mgRefreshClocksSidebarContent() {
+	if (mgActiveSidebarTab === "clocks") mgRefreshLeftSidebarContent();
+}
+
+globalThis.mgRefreshClocksSidebarContent = mgRefreshClocksSidebarContent;
 
 function mgRefreshCharacterSidebarActor(actorId) {
 	const root = document.getElementById(MG_UI_ID);
@@ -2763,6 +2780,137 @@ function mgRenderInitiativeSidebarContent() {
 			</button>
 		</section>
 	`;
+}
+
+function mgRenderClockSidebarList(scope) {
+	const clocks = game.mgClocks?.getList?.(scope) ?? [];
+	const empty = scope === "global" ? "No global clocks." : "No scene clocks.";
+	const clearButton = game.user.isGM && clocks.length ? `
+		<button type="button" class="mg-left-action mg-clock-clear-section" data-mg-clock-clear="${scope}">
+			<i class="fa-solid fa-clock-rotate-left"></i>
+			Clear Clocks
+		</button>
+	` : "";
+
+	return `
+		<div class="mg-clock-sidebar-list" data-mg-clock-sidebar-list="${scope}">
+			${clearButton}
+			${clocks.length ? clocks.map(clock => `
+				<div
+					class="mg-clock-sidebar-slot"
+					data-mg-clock-slot="${clock.id}"
+					draggable="true"
+				></div>
+			`).join("") : `<div class="mg-left-empty mg-clock-empty">${empty}</div>`}
+		</div>
+	`;
+}
+
+function mgRenderClocksSidebarContent() {
+	const controls = game.user.isGM ? `
+		<section class="mg-clock-sidebar-actions">
+			<button type="button" class="mg-left-action" data-mg-clock-add="global">
+				<i class="fa-solid fa-globe"></i>
+				Add Global
+			</button>
+			<button type="button" class="mg-left-action" data-mg-clock-add="scene">
+				<i class="fa-solid fa-map"></i>
+				Add Scene
+			</button>
+			<button type="button" class="mg-left-action" data-mg-clock-toggle-hidden>
+				<i class="${game.mgClocks?.areHidden?.() ? "fa-solid fa-eye" : "fa-solid fa-eye-slash"}"></i>
+				${game.mgClocks?.areHidden?.() ? "Show Overlay" : "Hide Overlay"}
+			</button>
+		</section>
+	` : `
+		<section class="mg-clock-sidebar-actions">
+			<button type="button" class="mg-left-action" data-mg-clock-toggle-hidden>
+				<i class="${game.mgClocks?.areHidden?.() ? "fa-solid fa-eye" : "fa-solid fa-eye-slash"}"></i>
+				${game.mgClocks?.areHidden?.() ? "Show Overlay" : "Hide Overlay"}
+			</button>
+		</section>
+	`;
+
+	return `
+		<section class="mg-left-section mg-clock-sidebar">
+			${controls}
+			${mgRenderAccordion(null, {
+				id: "clocks-global",
+				title: "Global Clocks",
+				icon: "fa-solid fa-globe",
+				open: true,
+				body: mgRenderClockSidebarList("global")
+			})}
+			${mgRenderAccordion(null, {
+				id: "clocks-scene",
+				title: "Scene Clocks",
+				icon: "fa-solid fa-map",
+				open: true,
+				body: mgRenderClockSidebarList("scene")
+			})}
+		</section>
+	`;
+}
+
+function mgBindClocksSidebarContent(root) {
+	root.querySelectorAll("[data-mg-clock-add]").forEach(button => {
+		button.addEventListener("click", async () => {
+			await game.mgClocks?.createScoped?.(button.dataset.mgClockAdd);
+			mgRefreshLeftSidebarContent();
+		});
+	});
+
+	root.querySelector("[data-mg-clock-toggle-hidden]")?.addEventListener("click", async () => {
+		await game.mgClocks?.toggleHidden?.();
+		mgRefreshLeftSidebarContent();
+	});
+
+	root.querySelectorAll("[data-mg-clock-clear]").forEach(button => {
+		button.addEventListener("click", async () => {
+			await game.mgClocks?.clearScope?.(button.dataset.mgClockClear);
+			mgRefreshLeftSidebarContent();
+		});
+	});
+
+	root.querySelectorAll("[data-mg-clock-sidebar-list]").forEach(list => {
+		const scope = list.dataset.mgClockSidebarList;
+		list.querySelectorAll("[data-mg-clock-slot]").forEach(slot => {
+			game.mgClocks?.renderSidebarClockInto?.(slot, slot.dataset.mgClockSlot, scope);
+		});
+		mgBindClockSidebarReorder(list, scope);
+	});
+}
+
+function mgBindClockSidebarReorder(list, scope) {
+	let dragging = null;
+
+	list.querySelectorAll("[data-mg-clock-slot]").forEach(slot => {
+		slot.addEventListener("dragstart", event => {
+			dragging = slot;
+			slot.classList.add("mg-dragging");
+			event.dataTransfer?.setData("text/plain", slot.dataset.mgClockSlot || "");
+			event.dataTransfer.effectAllowed = "move";
+		});
+
+		slot.addEventListener("dragend", async () => {
+			if (dragging) dragging.classList.remove("mg-dragging");
+			dragging = null;
+			const ids = Array.from(list.querySelectorAll("[data-mg-clock-slot]"))
+				.map(el => el.dataset.mgClockSlot)
+				.filter(Boolean);
+			await game.mgClocks?.saveOrder?.(scope, ids);
+		});
+	});
+
+	list.addEventListener("dragover", event => {
+		if (!dragging) return;
+		event.preventDefault();
+		const target = event.target.closest("[data-mg-clock-slot]");
+		if (!target || target === dragging || target.parentElement !== list) return;
+		const rect = target.getBoundingClientRect();
+		const after = event.clientY > rect.top + rect.height / 2;
+		list.insertBefore(dragging, after ? target.nextSibling : target);
+	});
 }
 
 function mgRenderSceneSidebarContent() {
