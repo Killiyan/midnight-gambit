@@ -363,6 +363,7 @@ root.innerHTML = `
 	mgBindUiRoot(root);
 	mgBindLeftSidebar(root);
 	mgBindSidebarCollapse(root);
+	mgEnsureRightSidebarHeader();
 	mgRestoreSidebarCollapseState();
 
 	const savedState = mgLoadUiState();
@@ -370,6 +371,17 @@ root.innerHTML = `
 	mgSetLeftSidebarTab(savedState.sidebarTab || "player");
 
 	mgRefreshActiveControl();
+}
+
+function mgEnsureRightSidebarHeader() {
+	const sidebar = document.getElementById("sidebar");
+	if (!sidebar) return;
+	if (sidebar.querySelector(":scope > .mg-right-sidebar-header")) return;
+
+	const header = document.createElement("header");
+	header.className = "mg-right-sidebar-header";
+	header.innerHTML = `<h2>Chat</h2>`;
+	sidebar.insertBefore(header, sidebar.firstElementChild);
 }
 
 /**
@@ -3393,6 +3405,8 @@ Hooks.on("renderSceneControls", () => {
   mgRefreshActiveTool();
 });
 
+Hooks.on("renderSidebar", () => mgEnsureRightSidebarHeader());
+Hooks.on("renderSidebarTab", () => mgEnsureRightSidebarHeader());
 Hooks.on("renderPlayers", mgRefreshDockedPlayersBox);
 Hooks.on("renderPlayerList", mgRefreshDockedPlayersBox);
 Hooks.on("updateActor", actor => {
