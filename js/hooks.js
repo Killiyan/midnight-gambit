@@ -2067,27 +2067,21 @@ async function mgOpenCreateClockDialog() {
 
   const content = `
   <form class="mg-create-clock">
-    <div class="form-group">
-      <label>Name</label>
-      <input type="text" name="name" placeholder="Clock" />
-    </div>
+    <label>Name</label>
+    <input type="text" name="name" placeholder="Clock" />
 
-    <div class="form-group">
-      <label>Segments</label>
-      <input type="number" name="total" min="1" max="200" step="1" value="8"/>
-    </div>
+    <label>Segments</label>
+    <input type="number" name="total" min="1" max="200" step="1" value="8"/>
 
-    <fieldset class="form-group">
-      <legend>Visibility</legend>
-      <label style="display:flex;gap:.5rem;align-items:center;">
-        <input type="radio" name="vis" value="public" checked />
-        <i class="fa-solid fa-eye"></i> Public
-      </label>
-      <label style="display:flex;gap:.5rem;align-items:center;">
-        <input type="radio" name="vis" value="hidden" />
-        <i class="fa-solid fa-eye-slash"></i> GM Only
-      </label>
-    </fieldset>
+    <label>Visibility</label>
+    <label>
+      <input type="radio" name="vis" value="public" checked />
+      <i class="fa-solid fa-eye"></i> Public
+    </label>
+    <label>
+      <input type="radio" name="vis" value="hidden" />
+      <i class="fa-solid fa-eye-slash"></i> GM Only
+    </label>
   </form>`;
 
   // Returns the object we build in callback, or null if canceled

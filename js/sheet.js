@@ -80,9 +80,9 @@ export class MidnightGambitActorSheet extends ActorSheet {
 
       // Skill buckets for the new under-attribute layout
       context.skillBuckets = {
-        tenacity: ["brawl", "endure", "athletics"],
+        tenacity: ["brawl", "athletics", "endure"],
         finesse:  ["aim", "stealth", "sleight"],
-        resolve:  ["will", "grit", "composure"],
+        resolve:  ["will", "composure", "grit"],
         guile:    ["lore", "investigate", "deceive"],
         instinct: ["survey", "hunt", "nature"],
         presence: ["command", "charm", "perform"]
@@ -1464,6 +1464,7 @@ _mgOpenSidebarCropper() {
           "system.strain.tempBonus.soul": 0,
 
           "system.riskUsed": 0,
+          "system.sto.value": 0,
           "system.flashbackUsed": false
         };
 
@@ -4730,9 +4731,9 @@ _mgOpenSidebarCropper() {
     ];
 
     const skillBuckets = {
-      tenacity: ["brawl", "endure", "athletics"],
+      tenacity: ["brawl", "athletics", "endure"],
       finesse: ["aim", "stealth", "sleight"],
-      resolve: ["will", "grit", "composure"],
+      resolve: ["will", "composure", "grit"],
       guile: ["lore", "investigate", "deceive"],
       instinct: ["survey", "hunt", "nature"],
       presence: ["command", "charm", "perform"]

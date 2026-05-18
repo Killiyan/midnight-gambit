@@ -30,9 +30,9 @@ const mgLeftAccordionState = {};
 
 const MG_ATTRIBUTE_KEYS = ["tenacity", "finesse", "resolve", "guile", "instinct", "presence"];
 const MG_SKILL_BUCKETS = {
-	tenacity: ["brawl", "endure", "athletics"],
+	tenacity: ["brawl", "athletics", "endure"],
 	finesse: ["aim", "stealth", "sleight"],
-	resolve: ["will", "grit", "composure"],
+	resolve: ["will", "composure", "grit"],
 	guile: ["lore", "investigate", "deceive"],
 	instinct: ["survey", "hunt", "nature"],
 	presence: ["command", "charm", "perform"]
@@ -66,6 +66,19 @@ const MG_SKILL_LABELS = {
 	charm: "Charm",
 	perform: "Perform",
 	spark: "Spark"
+};
+
+const MG_SPARK_SCHOOL_LABELS = {
+	veiling: "Veiling",
+	sundering: "Sundering",
+	binding: "Binding",
+	drift: "Drift",
+	threading: "Threading",
+	warding: "Warding",
+	shaping: "Shaping",
+	gloom: "Gloom",
+	life: "Life",
+	ember: "Ember"
 };
 
 /* Main Foundry canvas control groups shown in the MG Orb rail.
@@ -224,11 +237,6 @@ const MG_LEFT_SIDEBAR_TABS = [
 		icon: "fa-solid fa-users"
 	},
 	{
-		id: "initiative",
-		label: "Initiative",
-		icon: "fa-solid fa-swords"
-	},
-	{
 		id: "clocks",
 		label: "Clocks",
 		icon: "fa-solid fa-clock"
@@ -256,7 +264,7 @@ const MG_LEFT_SIDEBAR_TABS = [
 	{
 		id: "compendiums",
 		label: "Compendiums",
-		icon: "fa-solid fa-table-cells-large"
+		icon: "fa-solid fa-book"
 	},
 	{
 		id: "players",
@@ -438,6 +446,21 @@ function mgClampStatValue(value) {
 function mgCapitalize(value) {
 	const str = String(value ?? "");
 	return str ? str.charAt(0).toUpperCase() + str.slice(1) : "";
+}
+
+function mgGetSparkSchools(actor) {
+	const rawCasterType = actor?.system?.casterType ?? null;
+	const casterType = rawCasterType === "caster" ? "full" : rawCasterType;
+	const schoolKeys = casterType === "full"
+		? [actor?.system?.sparkSchool1, actor?.system?.sparkSchool2]
+		: casterType === "half"
+			? [actor?.system?.sparkSchool1]
+			: [];
+
+	return schoolKeys
+		.map(key => String(key ?? "").trim())
+		.filter(Boolean)
+		.map(key => MG_SPARK_SCHOOL_LABELS[key] ?? mgCapitalize(key));
 }
 
 function mgAccordionKey(actor, id) {
@@ -1451,9 +1474,6 @@ function mgRenderLeftSidebarContent(tabId) {
 		case "crew":
 			return mgRenderCrewSidebarContent();
 
-		case "initiative":
-			return mgRenderInitiativeSidebarContent();
-
 		case "clocks":
 			return mgRenderClocksSidebarContent();
 
@@ -1529,18 +1549,6 @@ function mgBindLeftSidebarContent(root, tabId) {
 			const pack = game.packs.get(button.dataset.mgOpenPack);
 			pack?.render?.(true);
 		});
-	});
-
-	root.querySelector("[data-mg-show-initiative]")?.addEventListener("click", () => {
-		game.mgInitiative?.showBar?.();
-	});
-
-	root.querySelector("[data-mg-hide-initiative]")?.addEventListener("click", () => {
-		game.mgInitiative?.hideBar?.();
-	});
-
-	root.querySelector("[data-mg-mount-initiative-sidebar]")?.addEventListener("click", async () => {
-		await game.mgInitiativeSidebar?.mount?.();
 	});
 
 	root.querySelector("[data-mg-settings-config]")?.addEventListener("click", () => {
@@ -2080,6 +2088,16 @@ function mgRenderCharacterSidebar(actor) {
 	const sparkUsed = Number(actor.system?.sparkUsed ?? 0) || 0;
 	const sparkRemaining = Math.max(0, sparkSlots - sparkUsed);
 	const hasSpark = mgActorHasSpark(actor);
+	const sparkSchools = mgGetSparkSchools(actor);
+	const sparkSchoolBlocks = sparkSchools.length
+		? `
+			<div class="spark-school-reminders" aria-label="Spark Schools">
+				<div class="spark-school-list">
+					${sparkSchools.map(school => `<span class="spark-school-block">${mgEsc(school)}</span>`).join("")}
+				</div>
+			</div>
+		`
+		: "";
 
 	const resourcesBody = `
 		<div class="resource-stack">
@@ -2161,16 +2179,16 @@ function mgRenderCharacterSidebar(actor) {
 								const tempSkill = Number(actor.system?.tempSkillBonuses?.[skillKey] ?? 0) || 0;
 
 								return `
-									<button
-										type="button"
-										class="skill-roll"
-										data-mg-roll-skill="${skillKey}"
-										data-base="${skillValue}"
-										title="Click to roll. Right-click to edit base Skill."
-									>
+									<div class="skill-roll">
 										<span>${mgEsc(MG_SKILL_LABELS[skillKey] ?? skillKey)}</span>
-										<strong class="skill-container">${skillValue}${tempSkill ? `<em>${mgSigned(tempSkill)}</em>` : ""}</strong>
-									</button>
+										<button
+											type="button"
+											class="skill-container"
+											data-mg-roll-skill="${skillKey}"
+											data-base="${skillValue}"
+											title="Click to roll. Right-click to edit base Skill."
+										>${skillValue}${tempSkill ? `<em>${mgSigned(tempSkill)}</em>` : ""}</button>
+									</div>
 								`;
 							}).join("")}
 						</div>
@@ -2181,23 +2199,28 @@ function mgRenderCharacterSidebar(actor) {
 	`;
 
 	const sparkBody = `
-		<div class="spark-panel">
-			<button
-				type="button"
-				class="attribute-roll spark-skill"
-				data-mg-roll-skill="spark"
-				data-base="${Number(actor.system?.skills?.spark ?? 0) || 0}"
-			>
-				<span>Spark</span>
-				<strong>${Number(actor.system?.skills?.spark ?? 0) || 0}</strong>
-			</button>
+		<div class="spark-stack">
+			${sparkSchoolBlocks}
 
-			${mgRenderIconTrack({
-				kind: "spark",
-				total: sparkSlots,
-				filled: sparkRemaining,
-				dataAttr: 'data-mg-resource-dot="spark"'
-			})}
+			<div class="spark-panel">
+				<div class="attribute-roll spark-skill">
+					<span>Spark</span>
+					<button
+						type="button"
+						class="roll-value skill-container"
+						data-mg-roll-skill="spark"
+						data-base="${Number(actor.system?.skills?.spark ?? 0) || 0}"
+						title="Click to roll. Right-click to edit base Skill."
+					>${Number(actor.system?.skills?.spark ?? 0) || 0}</button>
+				</div>
+
+				${mgRenderIconTrack({
+					kind: "spark",
+					total: sparkSlots,
+					filled: sparkRemaining,
+					dataAttr: 'data-mg-resource-dot="spark"'
+				})}
+			</div>
 		</div>
 	`;
 
@@ -2759,27 +2782,6 @@ function mgRefreshCrewSidebarForActor(actor) {
 	if (mgActiveSidebarTab !== "crew") return;
 	const crew = mgResolveCrewForSidebar();
 	if (mgCrewSidebarContainsActor(crew, actor)) mgRefreshLeftSidebarContent();
-}
-
-function mgRenderInitiativeSidebarContent() {
-	return `
-		<section class="mg-left-section">
-			<button type="button" class="mg-left-action" data-mg-show-initiative>
-				<i class="fa-solid fa-swords"></i>
-				Show Initiative
-			</button>
-
-			<button type="button" class="mg-left-action" data-mg-hide-initiative>
-				<i class="fa-solid fa-eye-slash"></i>
-				Hide Initiative
-			</button>
-
-			<button type="button" class="mg-left-action" data-mg-mount-initiative-sidebar>
-				<i class="fa-solid fa-sidebar"></i>
-				Mount Sidebar Initiative
-			</button>
-		</section>
-	`;
 }
 
 function mgRenderClockSidebarList(scope) {

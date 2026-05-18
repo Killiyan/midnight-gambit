@@ -1128,6 +1128,24 @@ h3 {
   }
 }
 
+.dialog-content {
+
+  .mg-create-clock {
+    border: none;
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      border: none;
+
+      &:last-of-type {
+        @include mg-border();
+      }      
+    }
+  }
+}
+
 /* Sidebar Popout Styling
 ==============================================================================================================================================*/
 

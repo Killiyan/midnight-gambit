@@ -1176,7 +1176,7 @@ body.mg-hud-enabled {
 					font-weight: 700;
 					line-height: 1;
 					text-transform: none;
-					transition: background .25s ease, color .25s ease;
+					transition: background .5s ease, color .5s ease;
 
 					&:hover,
 					&:focus {
@@ -1229,6 +1229,16 @@ body.mg-hud-enabled {
 						color: $mg-blue-1;
 					}
 				}
+
+				&.spark-skill:hover,
+				&.spark-skill:focus-within {
+					background: $mg-blue-main;
+					color: $mg-blue-1;
+
+					span {
+						color: $mg-blue-1;
+					}
+				}
 			}
 
 			.spark-panel {
@@ -1236,6 +1246,54 @@ body.mg-hud-enabled {
 					border: 0;
 					border-radius: 0;
 					box-shadow: none;
+				}
+
+				.skill-container {
+					min-height: 2.5rem;
+					display: flex;
+					justify-content: center;
+					align-items: center;
+				}
+			}
+
+			.spark-stack {
+				display: grid;
+				gap: .75rem;
+			}
+
+			.spark-school-reminders {
+				@include mg-border();
+				display: flex;
+				padding: .75rem;
+				border-radius: .625rem;
+				background: $mg-blue-4;
+				box-shadow: 5px 5px 10px rgba($black, .35);
+
+				.spark-school-list {
+					display: flex;
+					flex-wrap: wrap;
+					gap: .5rem;
+					width: 100%;
+				}
+
+				.spark-school-block {
+					@include oswald();
+					display: inline-flex;
+					align-items: center;
+					justify-content: center;
+					flex: 1 1 calc(50% - .5rem);
+					min-width: 0;
+					min-height: 2.25rem;
+					padding: .45rem .65rem;
+					border: 2px solid $mg-blue-main-2;
+					border-radius: .5rem;
+					background: rgba($mg-blue-main, .7);
+					color: $mg-blue-1;
+					font-size: .85rem;
+					font-weight: 700;
+					line-height: 1;
+					text-align: center;
+					text-transform: uppercase;
 				}
 			}
 
@@ -1271,7 +1329,7 @@ body.mg-hud-enabled {
 					line-height: 1;
 				}
 
-				strong,
+				.skill-container,
 				em {
 					display: flex;
 					justify-content: center;
@@ -1279,13 +1337,23 @@ body.mg-hud-enabled {
 					padding: .5rem;
 					border-radius: .5rem;
 					background: $mg-blue-main-2;
+					border: 0;
+					margin: 0;
 					@include oswald();
+					font-size: .85rem;
+					font-weight: 700;
 					font-style: normal;
 					color: $mg-blue-1;
+					line-height: 1;
+					text-transform: none;
 					transition: background .5s ease, color .5s ease;
 
 					&.skill-container {
 						position: relative;
+						min-height: 2.5rem;
+						display: flex;
+						justify-content: center;
+						align-items: center;
 					}
 				}
 
@@ -1304,14 +1372,10 @@ body.mg-hud-enabled {
 					box-shadow: 0 4px 12px rgba($black, .28);
 				}
 
-				&:hover,
-				&:focus {
-					background: transparent;
-
-					strong {
-						background: $mg-blue-3;
-						color: $mg-ivory;
-					}
+				.skill-container:hover,
+				.skill-container:focus {
+					background: $mg-blue-3;
+					color: $mg-ivory;
 				}
 			}
 		}
@@ -2009,7 +2073,7 @@ body.mg-hud-enabled {
 .mg-ini-side {
 	transition:
 	transform .35s cubic-bezier(.2, .8, .2, 1),
-	opacity .25s ease;
+	opacity .5s ease;
 }
 
 /* Left sidebar collapsed */
@@ -2448,6 +2512,14 @@ body:not(.mg-hud-enabled) #mg-ui-root {
 	&.is-hidden {
 		opacity: 0;
 		pointer-events: none;
+
+		.mg-clock-dock-list,
+		.mg-clock-inner,
+		.mg-clock-face,
+		.mg-clock-content,
+		.mg-clock {
+			pointer-events: none;
+		}
 	}
 
 	&.is-empty {
