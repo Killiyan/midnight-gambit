@@ -26,6 +26,8 @@ let mgLeftSidebarCollapsed = false;
 let mgRightSidebarCollapsed = false;
 let mgPlayersOriginalParent = null;
 let mgPlayersOriginalNextSibling = null;
+let mgSceneViewerRefreshTimer = null;
+let mgSceneViewerSignature = "";
 const mgLeftAccordionState = {};
 
 const MG_ATTRIBUTE_KEYS = ["tenacity", "finesse", "resolve", "guile", "instinct", "presence"];
@@ -279,6 +281,8 @@ const MG_LEFT_SIDEBAR_TABS = [
 ];
 
 const MG_SCENE_FAVORITE_FLAG = "favoriteScene";
+const MG_SCENE_FOLDER_PLAYER_VISIBLE_FLAG = "playersCanSeeFolder";
+const MG_SCENE_USER_ORDER_FLAG = "sceneSidebarOrder";
 
 /**
  * Creates the entire MG UI root once.
@@ -503,13 +507,16 @@ function mgSetAccordionOpen(actor, id, open) {
 	});
 }
 
-function mgRenderAccordion(actor, { id, title, icon = "", open = true, body = "", attrs = "", toggleAttrs = "" }) {
+function mgRenderAccordion(actor, { id, title, icon = "", open = true, body = "", attrs = "", toggleAttrs = "", className = "" }) {
 	const isOpen = mgIsAccordionOpen(actor, id, open);
 	const iconHtml = icon ? `<i class="${icon}"></i>` : "";
+	const classes = ["mg-left-accordion", className, isOpen ? "is-open" : ""]
+		.filter(Boolean)
+		.join(" ");
 
 	return `
 		<section
-			class="mg-left-accordion ${isOpen ? "is-open" : ""}"
+			class="${classes}"
 			data-mg-accordion="${id}"
 			${attrs}
 		>
@@ -1473,6 +1480,7 @@ function mgSetLeftSidebarTab(tabId) {
 
 	mgActiveSidebarTab = tab.id;
 	mgSetLeftSidebarTabClass(root, tab.id);
+	mgSetSceneViewerRefreshActive(tab.id === "scenes");
 
 	root.querySelectorAll("[data-mg-left-tab]").forEach(button => {
 		button.classList.toggle("is-active", button.dataset.mgLeftTab === tab.id);
@@ -1708,12 +1716,16 @@ function mgFilterSceneSidebar(panel, value) {
 }
 
 function mgBindSceneSidebarDrag(panel) {
-	if (!game.user?.isGM) return;
-
 	let dragging = null;
 
 	const getDragSceneId = event =>
-		event.dataTransfer?.getData("text/plain") || dragging?.dataset?.mgSceneId || "";
+		event.dataTransfer?.getData("application/x-mg-scene-id") || event.dataTransfer?.getData("text/plain") || dragging?.dataset?.mgSceneId || "";
+
+	const getDragToken = () => {
+		if (dragging?.dataset?.mgSceneId) return mgSceneOrderToken("scene", dragging.dataset.mgSceneId);
+		if (dragging?.dataset?.mgSceneFolderId) return mgSceneOrderToken("folder", dragging.dataset.mgSceneFolderId);
+		return "";
+	};
 
 	const clearDropState = () => {
 		panel.querySelectorAll(".mg-scene-drop-target, .mg-scene-drop-folder").forEach(el => {
@@ -1723,47 +1735,30 @@ function mgBindSceneSidebarDrag(panel) {
 
 	const finalizeContainerOrder = async container => {
 		const sceneId = dragging?.dataset?.mgSceneId;
-		if (!sceneId || !container) return;
+		const dragToken = getDragToken();
+		if (!dragToken || !container) return;
 
 		const folderId = container.dataset.mgSceneContainer || null;
+		const originalFolderId = dragging.dataset.mgSceneFolder || null;
+		const originalDisplayContainer = dragging.dataset.mgSceneDisplayContainer || "";
 		const entries = Array.from(container.children)
 			.filter(el => el.matches?.(".mg-scene-row[data-mg-scene-id], [data-mg-scene-folder-id]"));
 
-		if (!entries.some(entry => entry.dataset.mgSceneId === sceneId)) {
+		if (!entries.some(entry => mgSceneOrderElementToken(entry) === dragToken)) {
 			container.appendChild(dragging);
 			entries.push(dragging);
 		}
 
-		const sceneUpdates = entries
-			.filter(entry => entry.matches?.(".mg-scene-row[data-mg-scene-id]"))
-			.map(entry => ({
-				_id: entry.dataset.mgSceneId,
-				folder: folderId || null,
-				sort: (entries.indexOf(entry) + 1) * 100000
-			}));
-		const folderUpdates = entries
-			.filter(entry => entry.matches?.("[data-mg-scene-folder-id]"))
-			.map(entry => ({
-				_id: entry.dataset.mgSceneFolderId,
-				sort: (entries.indexOf(entry) + 1) * 100000
-			}));
-
-		if (folderUpdates.length && typeof Folder.updateDocuments === "function") {
-			await Folder.updateDocuments(folderUpdates);
-		} else {
-			await Promise.all(folderUpdates.map(update => {
-				const folder = game.folders?.get(update._id);
-				return folder?.update({ sort: update.sort });
-			}));
+		if (!game.user?.isGM && mgNormalizeSceneContainerId(folderId) !== mgNormalizeSceneContainerId(originalDisplayContainer)) {
+			container.querySelector(`[data-mg-scene-id="${mgCssEscape(sceneId)}"]`)?.remove();
+			return;
 		}
 
-		if (typeof Scene.updateDocuments === "function") {
-			await Scene.updateDocuments(sceneUpdates);
-		} else {
-			await Promise.all(sceneUpdates.map(update => {
-				const scene = game.scenes?.get(update._id);
-				return scene?.update({ folder: update.folder, sort: update.sort });
-			}));
+		await mgSaveSceneUserOrderFromContainer(container);
+
+		if (sceneId && game.user?.isGM && folderId !== originalFolderId) {
+			const scene = game.scenes?.get(sceneId);
+			await scene?.update({ folder: folderId || null });
 		}
 	};
 
@@ -1789,14 +1784,17 @@ function mgBindSceneSidebarDrag(panel) {
 		row.setAttribute("draggable", "true");
 
 		row.addEventListener("dragstart", event => {
+			event.stopPropagation();
 			const sceneId = row.dataset.mgSceneId || "";
 			const canonicalRow = row.closest(".mg-scene-tree")
 				? row
 				: panel.querySelector(`.mg-scene-tree .mg-scene-row[data-mg-scene-id="${mgCssEscape(sceneId)}"]`);
 
 			dragging = canonicalRow || row;
+			dragging.dataset.mgSceneDisplayContainer = dragging.parentElement?.dataset?.mgSceneContainer || "";
 			row.classList.add("mg-dragging");
 			if (dragging !== row) dragging.classList.add("mg-dragging");
+			event.dataTransfer?.setData("application/x-mg-scene-id", sceneId);
 			event.dataTransfer?.setData("text/plain", sceneId);
 			event.dataTransfer.effectAllowed = "move";
 		});
@@ -1809,10 +1807,34 @@ function mgBindSceneSidebarDrag(panel) {
 		});
 	});
 
+	panel.querySelectorAll("[data-mg-scene-folder-id]").forEach(folder => {
+		folder.setAttribute("draggable", "true");
+
+		folder.addEventListener("dragstart", event => {
+			if (event.target.closest(".mg-scene-row[data-mg-scene-id]") || event.target.closest("[data-mg-scene-folder-id]") !== folder) return;
+			event.stopPropagation();
+			dragging = folder;
+			dragging.dataset.mgSceneDisplayContainer = dragging.parentElement?.dataset?.mgSceneContainer || "";
+			folder.classList.add("mg-dragging");
+			event.dataTransfer?.setData("application/x-mg-scene-folder-id", folder.dataset.mgSceneFolderId || "");
+			event.dataTransfer?.setData("text/plain", folder.dataset.mgSceneFolderId || "");
+			event.dataTransfer.effectAllowed = "move";
+		});
+
+		folder.addEventListener("dragend", () => {
+			if (dragging !== folder) return;
+			folder.classList.remove("mg-dragging");
+			dragging = null;
+			clearDropState();
+		});
+	});
+
 	panel.querySelectorAll("[data-mg-scene-container]").forEach(container => {
 		container.addEventListener("dragover", event => {
 			if (!dragging) return;
 			const isRootContainer = container.dataset.mgSceneContainer === "";
+			const isDraggingFolder = !!dragging.dataset.mgSceneFolderId;
+			if ((isDraggingFolder || !game.user?.isGM) && mgNormalizeSceneContainerId(container.dataset.mgSceneContainer) !== mgNormalizeSceneContainerId(dragging.dataset.mgSceneDisplayContainer)) return;
 			const nearestContainer = event.target.closest("[data-mg-scene-container]");
 			if (!isRootContainer && nearestContainer !== container) return;
 			event.preventDefault();
@@ -1828,6 +1850,8 @@ function mgBindSceneSidebarDrag(panel) {
 		container.addEventListener("drop", async event => {
 			if (!dragging) return;
 			const isRootContainer = container.dataset.mgSceneContainer === "";
+			const isDraggingFolder = !!dragging.dataset.mgSceneFolderId;
+			if ((isDraggingFolder || !game.user?.isGM) && mgNormalizeSceneContainerId(container.dataset.mgSceneContainer) !== mgNormalizeSceneContainerId(dragging.dataset.mgSceneDisplayContainer)) return;
 			const nearestContainer = event.target.closest("[data-mg-scene-container]");
 			if (!isRootContainer && nearestContainer !== container) return;
 			event.preventDefault();
@@ -1840,6 +1864,8 @@ function mgBindSceneSidebarDrag(panel) {
 	panel.querySelectorAll("[data-mg-scene-folder-drop]").forEach(folderDrop => {
 		folderDrop.addEventListener("dragover", event => {
 			if (!dragging) return;
+			if (!dragging.dataset.mgSceneId) return;
+			if (!game.user?.isGM) return;
 			if (!isFolderNestZone(event, folderDrop)) return;
 			event.preventDefault();
 			event.stopPropagation();
@@ -1849,10 +1875,12 @@ function mgBindSceneSidebarDrag(panel) {
 		});
 
 		folderDrop.addEventListener("drop", async event => {
+			if (!dragging?.dataset?.mgSceneId) return;
 			const sceneId = getDragSceneId(event);
 			const folderId = folderDrop.dataset.mgSceneFolderDrop || null;
 			const scene = sceneId ? game.scenes?.get(sceneId) : null;
 			if (!scene) return;
+			if (!game.user?.isGM) return;
 			if (!isFolderNestZone(event, folderDrop)) return;
 
 			event.preventDefault();
@@ -1860,20 +1888,69 @@ function mgBindSceneSidebarDrag(panel) {
 			clearDropState();
 
 			const folder = game.folders?.get(folderId);
-			const siblings = Array.from(game.scenes ?? [])
-				.filter(sibling => (sibling.folder?.id ?? sibling.folder ?? null) === folderId);
-			const maxSort = siblings.reduce((max, sibling) => Math.max(max, Number(sibling.sort) || 0), 0);
-
-			await scene.update({
-				folder: folderId || null,
-				sort: maxSort + 100000
-			});
+			await scene.update({ folder: folderId || null });
+			await mgAppendSceneToUserOrder(folderId, scene.id);
 
 			if (folder) {
 				mgSetAccordionOpen(null, `scene-folder-${folder.id}`, true);
 			}
 		});
 	});
+}
+
+function mgNormalizeSceneContainerId(folderId) {
+	return folderId || "";
+}
+
+function mgGetSceneUserOrder() {
+	const order = game.user?.getFlag?.(MG_UI_NS, MG_SCENE_USER_ORDER_FLAG);
+	return order && typeof order === "object" && !Array.isArray(order) ? { ...order } : {};
+}
+
+function mgGetSceneUserOrderKey(folderId) {
+	return mgNormalizeSceneContainerId(folderId) || "root";
+}
+
+function mgSceneOrderToken(type, id) {
+	return `${type}:${id}`;
+}
+
+function mgSceneOrderEntryToken(entry) {
+	if (entry.type === "folder") return mgSceneOrderToken("folder", entry.id);
+	return mgSceneOrderToken("scene", entry.id);
+}
+
+function mgSceneOrderElementToken(element) {
+	if (element?.dataset?.mgSceneFolderId) return mgSceneOrderToken("folder", element.dataset.mgSceneFolderId);
+	if (element?.dataset?.mgSceneId) return mgSceneOrderToken("scene", element.dataset.mgSceneId);
+	return "";
+}
+
+async function mgSetSceneUserOrderForContainer(folderId, tokens) {
+	const order = mgGetSceneUserOrder();
+	order[mgGetSceneUserOrderKey(folderId)] = Array.from(new Set(tokens.filter(Boolean)));
+	await game.user?.setFlag?.(MG_UI_NS, MG_SCENE_USER_ORDER_FLAG, order);
+}
+
+async function mgSaveSceneUserOrderFromContainer(container) {
+	const folderId = container?.dataset?.mgSceneContainer || "";
+	const tokens = Array.from(container?.children ?? [])
+		.map(el => {
+			if (el.matches?.(".mg-scene-row[data-mg-scene-id]")) return mgSceneOrderToken("scene", el.dataset.mgSceneId);
+			if (el.matches?.("[data-mg-scene-folder-id]")) return mgSceneOrderToken("folder", el.dataset.mgSceneFolderId);
+			return null;
+		})
+		.filter(Boolean);
+
+	await mgSetSceneUserOrderForContainer(folderId, tokens);
+}
+
+async function mgAppendSceneToUserOrder(folderId, sceneId) {
+	const key = mgGetSceneUserOrderKey(folderId);
+	const order = mgGetSceneUserOrder();
+	const token = mgSceneOrderToken("scene", sceneId);
+	order[key] = [...(order[key] ?? []).filter(existing => existing !== token), token];
+	await game.user?.setFlag?.(MG_UI_NS, MG_SCENE_USER_ORDER_FLAG, order);
 }
 
 async function mgCreateScene(folderId = null) {
@@ -2236,7 +2313,9 @@ function mgRefreshClocksSidebarContent() {
 globalThis.mgRefreshClocksSidebarContent = mgRefreshClocksSidebarContent;
 
 function mgRefreshScenesSidebarContent() {
-	if (mgActiveSidebarTab === "scenes") mgRefreshLeftSidebarContent();
+	if (mgActiveSidebarTab !== "scenes") return;
+	mgSceneViewerSignature = mgGetSceneViewerSignature();
+	mgRefreshLeftSidebarContent();
 }
 
 globalThis.mgRefreshScenesSidebarContent = mgRefreshScenesSidebarContent;
@@ -3561,11 +3640,12 @@ function mgBindClockSidebarReorder(list, scope) {
 
 function mgRenderSceneSidebarContent() {
 	const canManage = game.user?.isGM;
-	const scenes = Array.from(game.scenes ?? [])
-		.filter(scene => canManage || scene.visible !== false);
-	const folderTree = mgBuildSceneFolderTree(scenes);
+	const allScenes = Array.from(game.scenes ?? []);
+	const scenes = allScenes
+		.filter(scene => canManage || (scene.visible !== false && scene.navigation));
+	const folderTree = mgBuildSceneFolderTree(scenes, { showAllFolders: canManage });
 	const favoriteScenes = scenes.filter(scene => scene.getFlag?.(MG_UI_NS, MG_SCENE_FAVORITE_FLAG));
-	const activeScene = scenes.find(scene => scene.active) ?? null;
+	const activeScene = allScenes.find(scene => scene.active) ?? null;
 
 	const controls = canManage ? `
 		<section class="mg-scene-directory-actions">
@@ -3591,6 +3671,7 @@ function mgRenderSceneSidebarContent() {
 		title: "Favorite Scenes",
 		icon: "fa-solid fa-star",
 		open: true,
+		className: "mg-scene-favorites",
 		attrs: "data-mg-scene-search-section data-mg-scene-favorites",
 		body: `
 			<div class="mg-scene-list">
@@ -3606,9 +3687,8 @@ function mgRenderSceneSidebarContent() {
 					${controls}
 					${activeScene ? mgRenderActiveSceneBanner(activeScene) : ""}
 					${favorites}
-					${search}
 				</div>
-				<div class="mg-left-empty">No scenes found.</div>
+				<div class="mg-left-empty">${canManage ? "No scenes found." : "No navigation scenes available."}</div>
 			</section>
 		`;
 	}
@@ -3652,9 +3732,10 @@ function mgRenderActiveSceneBanner(scene) {
 	`;
 }
 
-function mgBuildSceneFolderTree(scenes) {
+function mgBuildSceneFolderTree(scenes, { showAllFolders = true } = {}) {
 	const sceneFolders = Array.from(game.folders ?? [])
-		.filter(folder => folder.type === "Scene");
+		.filter(folder => folder.type === "Scene")
+		.filter(folder => showAllFolders || mgCanPlayerSeeSceneFolder(folder));
 	const folderNodes = new Map(sceneFolders.map(folder => [
 		folder.id,
 		{ folder, folders: [], scenes: [] }
@@ -3674,6 +3755,10 @@ function mgBuildSceneFolderTree(scenes) {
 	}
 
 	return root;
+}
+
+function mgCanPlayerSeeSceneFolder(folder) {
+	return !!folder?.getFlag?.(MG_UI_NS, MG_SCENE_FOLDER_PLAYER_VISIBLE_FLAG);
 }
 
 function mgGetSceneFolderParentId(folder) {
@@ -3710,21 +3795,31 @@ function mgGetSceneFolderTreeParentId(folder) {
 }
 
 function mgRenderSceneBranch(node, depth = 0) {
-	return [
+	const entries = [
 		...node.folders.map(folderNode => ({
 			type: "folder",
+			id: folderNode.folder.id,
 			name: folderNode.folder.name,
-			sort: Number(folderNode.folder.sort) || 0,
 			html: mgRenderSceneFolder(folderNode, depth)
 		})),
 		...node.scenes.map(scene => ({
 			type: "scene",
+			id: scene.id,
 			name: scene.name,
-			sort: Number(scene.sort) || 0,
 			html: mgRenderSceneRow(scene)
 		}))
-	]
-		.sort((a, b) => a.sort - b.sort || a.name.localeCompare(b.name) || a.type.localeCompare(b.type))
+	];
+
+	const order = mgGetSceneUserOrder()[mgGetSceneUserOrderKey(node.folder?.id ?? null)] ?? [];
+	const orderMap = new Map(order.map((token, index) => [token, index]));
+
+	return entries
+		.sort((a, b) => {
+			const aOrder = orderMap.get(mgSceneOrderEntryToken(a));
+			const bOrder = orderMap.get(mgSceneOrderEntryToken(b));
+			if (aOrder !== undefined || bOrder !== undefined) return (aOrder ?? Number.MAX_SAFE_INTEGER) - (bOrder ?? Number.MAX_SAFE_INTEGER);
+			return a.name.localeCompare(b.name) || a.type.localeCompare(b.type);
+		})
 		.map(entry => entry.html)
 		.join("");
 }
@@ -3786,6 +3881,7 @@ function mgRenderSceneRow(scene, { favoriteList = false } = {}) {
 	const isCurrent = canvas?.scene?.id === scene.id;
 	const isNavigation = !!scene.navigation;
 	const isFavorite = !!scene.getFlag?.(MG_UI_NS, MG_SCENE_FAVORITE_FLAG);
+	const viewingUsers = mgGetUsersViewingScene(scene);
 	const thumb = scene.thumb || scene.img || "";
 	const style = thumb ? ` style="background-image: url('${mgAttr(mgCssUrl(thumb))}');"` : "";
 
@@ -3800,6 +3896,7 @@ function mgRenderSceneRow(scene, { favoriteList = false } = {}) {
 			<button type="button" class="mg-scene-row-main" data-mg-open-scene="${scene.id}"${style}>
 				<span class="mg-scene-row-scrim"></span>
 				<span class="mg-scene-row-title">${mgEsc(scene.name)}</span>
+				${viewingUsers.length ? mgRenderSceneViewerDots(viewingUsers) : ""}
 				<span class="mg-scene-row-badges">
 					${isActive ? `<i class="fa-solid fa-tower-broadcast" title="Active scene"></i>` : ""}
 					${isCurrent ? `<i class="fa-solid fa-location-dot" title="Current scene"></i>` : ""}
@@ -3811,6 +3908,70 @@ function mgRenderSceneRow(scene, { favoriteList = false } = {}) {
 				<i class="fa-solid fa-ellipsis-vertical"></i>
 			</button>
 		</article>
+	`;
+}
+
+function mgGetUsersViewingScene(scene) {
+	const sceneId = scene?.id;
+	if (!sceneId) return [];
+
+	return mgGetSceneViewerUsers()
+		.filter(user => mgGetUserViewedSceneId(user) === sceneId);
+}
+
+function mgGetSceneViewerUsers() {
+	return Array.from(game.users ?? [])
+		.filter(user => user.active)
+		.filter(user => game.user?.isGM || !user.isGM);
+}
+
+function mgGetUserViewedSceneId(user) {
+	const viewed = user?.viewedScene;
+	return viewed?.id ?? viewed ?? user?.scene?.id ?? user?.scene ?? user?.getFlag?.("core", "viewedScene") ?? null;
+}
+
+function mgGetSceneViewerSignature() {
+	return mgGetSceneViewerUsers()
+		.map(user => `${user.id}:${mgGetUserViewedSceneId(user) ?? ""}`)
+		.sort()
+		.join("|");
+}
+
+function mgSetSceneViewerRefreshActive(active) {
+	if (!active) {
+		if (mgSceneViewerRefreshTimer) window.clearInterval(mgSceneViewerRefreshTimer);
+		mgSceneViewerRefreshTimer = null;
+		mgSceneViewerSignature = "";
+		return;
+	}
+
+	mgSceneViewerSignature = mgGetSceneViewerSignature();
+	if (mgSceneViewerRefreshTimer) return;
+
+	mgSceneViewerRefreshTimer = window.setInterval(() => {
+		if (mgActiveSidebarTab !== "scenes") {
+			mgSetSceneViewerRefreshActive(false);
+			return;
+		}
+
+		const next = mgGetSceneViewerSignature();
+		if (next === mgSceneViewerSignature) return;
+		mgSceneViewerSignature = next;
+		mgRefreshScenesSidebarContent();
+	}, 1000);
+}
+
+function mgRenderSceneViewerDots(users) {
+	return `
+		<span class="mg-scene-viewers" aria-label="Players viewing this scene">
+			${users.map(user => `
+				<span
+					class="mg-scene-viewer-dot"
+					title="${mgAttr(user.name)}"
+					style="--mg-scene-viewer-color: ${mgAttr(user.color || "#c5d4ec")};"
+				></span>
+			`).join("")}
+		</span>
 	`;
 }
 
@@ -4293,11 +4454,12 @@ Hooks.on("updateSetting", setting => {
 Hooks.on("updateUser", user => {
 	if (user?.id === game.user?.id) mgRefreshLeftSidebarTabs();
 	mgRefreshDockedPlayersBox();
+	mgRefreshScenesSidebarContent();
 });
 Hooks.on("renderFolderConfig", (app, html) => {
 	const folder = app?.object ?? app?.folder;
 	if (folder?.type !== "Scene") return;
-	mgTidySceneFolderConfig(html);
+	mgTidySceneFolderConfig(html, folder);
 });
 Hooks.on("canvasReady", () => mgRefreshScenesSidebarContent());
 ["createScene", "updateScene", "deleteScene", "createFolder", "updateFolder", "deleteFolder"].forEach(hookName => {
@@ -4308,7 +4470,7 @@ Hooks.on("canvasReady", () => mgRefreshScenesSidebarContent());
 	});
 });
 
-function mgTidySceneFolderConfig(html) {
+function mgTidySceneFolderConfig(html, folder) {
 	const root = html?.jquery ? html[0] : html?.[0] ?? html;
 	if (!root?.querySelectorAll) return;
 
@@ -4316,6 +4478,24 @@ function mgTidySceneFolderConfig(html) {
 		const group = input.closest(".form-group, .form-fields, .form-field, label") ?? input;
 		group.hidden = true;
 	});
+
+	const fieldName = `flags.${MG_UI_NS}.${MG_SCENE_FOLDER_PLAYER_VISIBLE_FLAG}`;
+	if (root.querySelector(`[name="${fieldName}"]`)) return;
+
+	const field = document.createElement("div");
+	field.className = "form-group mg-scene-folder-player-visible";
+	field.innerHTML = `
+		<label>Players Can See Folder</label>
+		<div class="form-fields">
+			<input type="checkbox" name="${fieldName}" data-dtype="Boolean" ${folder?.getFlag?.(MG_UI_NS, MG_SCENE_FOLDER_PLAYER_VISIBLE_FLAG) ? "checked" : ""} />
+		</div>
+		<p class="hint">When unchecked, players still see navigation scenes inside this folder as loose scene cards.</p>
+	`;
+
+	const colorInput = root.querySelector('[name="color"]');
+	const colorGroup = colorInput?.closest?.(".form-group, .form-fields, .form-field, label");
+	if (colorGroup?.parentElement) colorGroup.after(field);
+	else root.querySelector("form")?.prepend(field);
 }
 
 async function mgRestoreUiState() {

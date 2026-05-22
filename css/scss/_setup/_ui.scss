@@ -729,15 +729,17 @@ body.mg-hud-enabled {
 				background-color: rgba($black, .7);
 			}
 
+			.mg-left-empty {
+				margin: 0 1rem;
+			}
+
 			.mg-scene-directory {
 				display: grid;
-				gap: .75rem;
 				margin: -1rem;
 				padding-bottom: 1rem;
 
 				.mg-scene-directory-header {
 					display: grid;
-					gap: .75rem;
 				}
 
 				.mg-scene-directory-actions {
@@ -796,7 +798,7 @@ body.mg-hud-enabled {
 					}
 
 					.mg-scene-directory-rule {
-						background: $mg-blue-3;
+						border-color: $mg-blue-main-2;
 						margin: 1rem 0;
 						@include mg-shadow();
 					}
@@ -814,18 +816,11 @@ body.mg-hud-enabled {
 				}
 
 				.mg-scene-favorites {
-					display: grid;
-					gap: .5rem;
-					padding: 0 1rem;
+					margin-bottom: 1rem;
 
-					h3 {
-						display: flex;
-						align-items: center;
-						gap: .4rem;
-						margin: 0;
-						color: $mg-blue-1;
-						font-size: .8rem;
-						text-transform: uppercase;
+					.mg-left-accordion-inner {
+						border-bottom: 2px solid $mg-blue-main-2;
+						background: $mg-blue-4;
 					}
 				}
 
@@ -861,6 +856,13 @@ body.mg-hud-enabled {
 								transition: color .5s ease;
 							}
 						}
+
+						.mg-active-scene-title {
+							text-transform: none;
+							font-style: normal;
+							letter-spacing: .01em;
+							font-size: 1rem;
+						}
 						
 						&:hover,
 						&:focus {
@@ -885,7 +887,7 @@ body.mg-hud-enabled {
 					position: relative;
 					width: 100%;
 					min-height: 5.5rem;
-					margin: 0;
+					margin: 1rem 0;
 					padding: 1rem;
 					border: 2px solid $mg-blue-main-2;
 					border-radius: .5rem;
@@ -893,7 +895,7 @@ body.mg-hud-enabled {
 					flex-direction: column;
 					align-items: center;
 					justify-content: center;
-					gap: .25rem;
+					gap: .75rem;
 					background-color: $mg-blue-4;
 					background-size: cover;
 					background-position: center;
@@ -1112,6 +1114,25 @@ body.mg-hud-enabled {
 					}
 				}
 
+				.mg-scene-viewers {
+					position: absolute;
+					z-index: 2;
+					left: .25rem;
+					top: .25rem;
+					display: flex;
+					gap: .25rem;
+					@include mg-shadow();
+				}
+
+				.mg-scene-viewer-dot {
+					width: .45rem;
+					height: .45rem;
+					border-radius: 50%;
+					background: var(--mg-scene-viewer-color, #{$mg-blue-1});
+					border: 1px solid rgba($black, .45);
+					box-shadow: 0 0 4px rgba($black, .8);
+				}
+
 				.mg-scene-context-button {
 					width: 2rem;
 					height: 100%;
@@ -1171,6 +1192,7 @@ body.mg-hud-enabled {
 			background: $mg-blue-main;
 			border-radius: .5rem;
 			@include mg-border();
+			@include mg-shadow();
 
 			i {
 				font-size: 1.75rem;
