@@ -65,7 +65,7 @@
 
             <button type="button" data-tooltip="Recover" class="long-rest-button">
               <i class="fas fa-bed"></i>
-              Rest
+              Recover
             </button>
           </div>
 
@@ -348,9 +348,9 @@
 
       <!--This is our Moves tab. It shows Signature Perk, and moves on the character sheet-->
       <div class="tab tab-moves" data-tab="moves">
-        <div class="mg-content">
+        <div>
           {{#if guise}}
-            <h2>Signature Perk</h2>
+            <h2 class="mg-content"><i class="fa-solid fa-diamond"></i> Signature Perk</h2>
             <div class="signature-wrapper">
 
               <div class="signature-perk" data-dropzone="signature">
@@ -438,7 +438,7 @@
             </div>     
 
             <div class="basic-moves">
-              <h3>Basic Moves</h3>
+              <h3 class="mg-content"><i class="fa-solid fa-hand-fist"></i> Basic Moves</h3>
               <div class="move-container">
                 {{#each enrichedMoves}}
                   <div class="move-block" data-move-index="{{@index}}">
@@ -522,8 +522,8 @@
           {{/if}}
         </div>
 
-        <div class="moves-section mg-content">
-          <h3>Learned Moves</h3>
+        <div class="moves-section">
+          <h3 class="mg-content"><i class="fa-solid fa-book"></i> Learned Moves</h3>
           <div class="moves-grid" data-move-list>
             {{#each actor.items as |item|}}
               {{#if (and (eq item.type "move") item.system.learned (not item.system.isSignature))}}

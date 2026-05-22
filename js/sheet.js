@@ -1172,9 +1172,12 @@ _mgOpenSidebarCropper() {
       });
 
       //Doing the same chat posting for Signature Perks
-      html.find(".post-signature").on("click", async (event) => {
-        const name = event.currentTarget.dataset.perkName;
-        const description = event.currentTarget.dataset.perkDescription;
+      html.find(".signature-perk h3").off("click.mgPostSignature").on("click.mgPostSignature", async (event) => {
+        const source = event.currentTarget.querySelector(".post-signature");
+        if (!source) return;
+
+        const name = source.dataset.perkName;
+        const description = source.dataset.perkDescription;
 
         const chatContent = `
           <div class="chat-move">

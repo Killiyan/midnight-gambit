@@ -54,11 +54,11 @@ input[type="text"], input[type="number"], input[type="password"], input[type="da
     &:hover,
     &:focus {
       background: $mg-blue-main-2;
-      border-color: $mg-blue-1;
-      color: $mg-blue-1;
+      border-color: $mg-green;
+      color: $mg-green;
 
       &::placeholder {
-        color: $mg-blue-1;
+        color: $mg-green;
       }
     }     
   }
@@ -1038,7 +1038,7 @@ h3 {
   @include roboto();
 }
 
-.message-metadata .message-delete {
+#sidebar .message-metadata .message-delete {
   position: absolute;
   right: 0;
   top: 0;
@@ -1057,11 +1057,11 @@ h3 {
 
   &:hover,
   &:focus {
-    background: $mg-blue-3;
-    color: $mg-blue-4;
+    background: $mg-blue-main;
+    color: $mg-green;
 
     i {
-      color: $mg-blue-4;
+      color: $mg-green;
     }
   }
 }

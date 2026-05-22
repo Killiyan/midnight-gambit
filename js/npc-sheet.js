@@ -148,15 +148,18 @@ export class MidnightGambitNpcSheet extends ActorSheet {
       });
     });
 
-    html.find(".post-signature").off("click.mgNpcPostSignature").on("click.mgNpcPostSignature", async (event) => {
+    html.find(".signature-perk h3").off("click.mgNpcPostSignature").on("click.mgNpcPostSignature", async (event) => {
       event.preventDefault();
       event.stopPropagation();
+
+      const source = event.currentTarget.querySelector(".post-signature");
+      if (!source) return;
 
       const li = event.currentTarget.closest("[data-item-id]");
       const item = this.actor.items.get(li?.dataset?.itemId);
 
-      const name = item?.name || event.currentTarget.dataset.perkName || "Signature";
-      const description = item?.system?.description ?? event.currentTarget.dataset.perkDescription ?? "";
+      const name = item?.name || source.dataset.perkName || "Signature";
+      const description = item?.system?.description ?? source.dataset.perkDescription ?? "";
 
       const descHtml = await enrichForChat(description);
 

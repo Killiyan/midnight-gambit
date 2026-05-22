@@ -5,6 +5,11 @@ h1,h2,h3,h4 {
 	font-size: 1rem;
 }
 
+ul li,
+ol li {
+  line-height: 1.5;
+}
+
 .sheet {
   min-width: 25rem;
 
@@ -24,8 +29,7 @@ h1,h2,h3,h4 {
     margin-bottom: 1rem;
     border-bottom: 2px solid $mg-blue-main-2;
     @include oswald();
-    font-size: 1.25rem;
-    font-style: italic;
+    font-size: 1.35rem;
     font-weight: 700;
     text-transform: uppercase;
   }
@@ -37,8 +41,7 @@ h1,h2,h3,h4 {
     @include oswald();
     color: $mg-ivory;
     font-weight: 700;
-    font-style: italic;
-    font-size: .85rem;
+    font-size: 1rem;
     line-height: 1.3;
     display: flex;
     align-items: center;
@@ -1481,6 +1484,19 @@ h1,h2,h3,h4 {
       margin: 1.25rem;
       padding: 0;
     }
+
+    .mg-content {
+      background-color: rgba($mg-blue-4, .7);
+      display: flex;
+      gap: 1rem;
+      align-items: center;
+
+      i {
+        color: $mg-blue-2;
+        line-height: 1;
+        font-size: 1rem;
+      }
+    }
   }
 
   .tab-moves,
@@ -1507,7 +1523,7 @@ h1,h2,h3,h4 {
       border-radius: .5rem;
       @include mg-border();
       padding: 1.25rem;
-      background: $mg-blue-main;
+      background: $mg-blue-4;
       box-shadow: 5px 5px 10px rgba(0,0,0,0.5);
 
       h3 {
@@ -1524,25 +1540,70 @@ h1,h2,h3,h4 {
       display: flex;
       flex-direction: column;
       gap: 2.125rem;
+      margin-top: 2.125rem;
 
       .signature-perk {
-        background: $mg-blue-main-2;
         padding: 0;
 
         h3 {
-          @include oswald();
-          text-transform: uppercase;
+          @include tiller();
+          text-transform: none;
           font-weight: 700;
-          font-style: italic;
+          font-style: normal;
           font-size: 1.25rem;
           line-height: 1.1;
           padding:  1.25rem;
-          display: block;
-          background: $mg-blue-3;
-          color: $mg-ivory;
+          display: flex;
+          align-items: center;
+          width: 100%;
+          box-sizing: border-box;
+          margin: 0;
+          --mg-accordion-toggle-image: url("../assets/images/accordion-toggle.jpg");
+          background:
+            /* subtle pearly sheen (top-center) */
+            radial-gradient(circle at 50% 0%,
+            rgba(197, 212, 236, 0.22) 0%,
+            rgba(197, 212, 236, 0.10) 35%,
+            rgba(18, 33, 55, 0.00) 70%
+            ),
+            /* texture */
+            var(--mg-accordion-toggle-image);
+          background-repeat: no-repeat;
+          background-size: cover, 100% auto;
+          background-position: center, 50% 34%;
+          background-blend-mode: soft-light, multiply;
+          background-color: $mg-blue-4;
+          transition:
+          background-color .5s ease,
+          background-position 2.5s cubic-bezier(.2, .8, .2, 1),
+          background-size 2.5s cubic-bezier(.2, .8, .2, 1),
+          color .5s ease;
+          color: $mg-blue-1;
           border-radius: .5rem .5rem 0 0;
-          transition: color .5s ease, background .5s ease;
           border: none;
+          position: relative;
+          overflow: hidden;
+          border-bottom: 2px solid $mg-blue-main-2;
+          cursor: pointer;
+
+          span {
+            position: relative;
+            z-index: 2;
+          }
+          
+          &::after {
+            content: '';
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(270deg, rgba(18, 33, 55, 0) 0%, rgba($mg-blue-4,100%));
+            position: absolute;
+            left: 0;
+            top: 0;
+            opacity: 0;
+            transition: opacity .5s ease;
+            z-index: 1;
+            pointer-events: none;
+          }          
 
           .post-signature {
             display: flex;
@@ -1550,19 +1611,26 @@ h1,h2,h3,h4 {
             align-items: center;
           }
 
-          &:hover {
-            background: $mg-blue-1;
-            color: $mg-blue-main-2;
+          &:hover,
+          &:focus {
+            background-color: $mg-blue-3;
+            background-size: cover, 112% auto;
+            background-position: center, 50% 66%;
+            color: $mg-ivory;
 
             i {
-              color: $mg-blue-3;
+              color: $mg-blue-1;
+            }
+
+            &:after {
+              opacity: 1;
             }
           }
 
           i {
             display: block;
             font-size: 1.25rem;
-            color: $mg-blue-4;
+            color: $mg-blue-3;
             transition: color .5s ease;
           }
         }
@@ -1573,6 +1641,7 @@ h1,h2,h3,h4 {
           @include roboto();
           font-size: 1rem;
           line-height: 1.5;
+          color: $mg-blue-2;
 
           p {
             padding: 0;
@@ -1609,9 +1678,7 @@ h1,h2,h3,h4 {
       h3 {
         border-bottom: 2px solid $mg-blue-main-2;
         margin: 2.125rem 0;
-        padding-bottom: .75rem;
         @include oswald();
-        font-size: 1.25rem;
       }
 
       .npc-hint {
@@ -1632,25 +1699,27 @@ h1,h2,h3,h4 {
         padding: 0;
 
         .post-move {
-          @include oswald();
-          text-transform: uppercase;
+          @include tiller();
+          text-transform: none;
           font-weight: 700;
-          font-style: italic;
+          font-style: normal;
           font-size: 1.25rem;
           line-height: 1.1;
           padding:  1.25rem;
           display: block;
-          background: $mg-blue-3;
-          color: $mg-ivory;
+          background: $mg-blue-main;
+          border-bottom: 2px solid $mg-blue-main-2;
+          color: $mg-blue-1;
           border-radius: .5rem .5rem 0 0;
           display: flex;
           align-items: center;
           gap: .625rem;
           transition: color .5s ease, background .5s ease;
+          cursor: pointer;
 
           &:hover {
             background: $mg-blue-1;
-            color: $mg-blue-main-2;
+            color: $mg-blue-4;
 
             i {
               color: $mg-blue-3;
@@ -1660,7 +1729,7 @@ h1,h2,h3,h4 {
           i {
             display: block;
             font-size: 1.25rem;
-            color: $mg-blue-4;
+            color: $mg-blue-3;
             transition: color .5s ease;
           }
         }
@@ -1669,8 +1738,9 @@ h1,h2,h3,h4 {
           padding: 0 1.25rem;
           margin: 1.25rem 0;
           @include roboto();
-          font-size: 1rem;
+          font-size: .9rem;
           line-height: 1.5;
+          color: $mg-blue-2;
 
           p {
             margin: 0;
@@ -1683,8 +1753,9 @@ h1,h2,h3,h4 {
         grid-template-columns: 1fr 1fr 1fr;
 
         .post-move {
-          background: $mg-blue-main-2;
-          color: $mg-blue-2;
+          background: $mg-blue-main;
+          border-bottom: 2px solid $mg-blue-main-2;
+          color: $mg-blue-1;
           border-radius: 0;
         }
 
@@ -1709,11 +1780,11 @@ h1,h2,h3,h4 {
 
           button {
             position: absolute;
+            border-radius: 0;
             bottom: 0;
             left: 0;
             margin: 0;
-            border-radius: 0 0 .5rem .5rem;
-            background: $mg-blue-main-2;
+            background: $mg-blue-4;
 
             i {
               color: $mg-blue-2;
