@@ -86,6 +86,10 @@ ol li {
     height: 100%;
     width: 100%;
 
+    .configure-sheet {
+      display: none !important;
+    }    
+
     .window-title {
       align-self: center;
     }
@@ -432,7 +436,8 @@ ol li {
     background: $mg-blue-main;
     @include mg-border();
 
-    &::-webkit-scrollbar-thumb {
+    &::-webkit-scrollbar-thumb,
+    *::-webkit-scrollbar-thumb {
       background: $mg-blue-1;
       border-color: $mg-blue-2;
     }
@@ -3436,9 +3441,142 @@ ol li {
     }
   }
 
-  .mg-crop-stage { 
+  &.crew-sidebar-crop {
+    .mg-crop-panel {
+      aspect-ratio: auto;
+    }
+
+    .mg-crop-stage {
+      width: 13.5rem;
+      height: 37rem;
+      aspect-ratio: 54 / 148;
+    }
+  }
+
+  &.crew-initiative-crop {
+    .mg-crop-panel {
+      aspect-ratio: auto;
+    }
+
+    .mg-crop-stage {
+      width: 31.25rem;
+      height: 31.25rem;
+      aspect-ratio: 1 / 1;
+    }
+  }
+
+  &.crew-sheet-crop {
+    .mg-crop-panel {
+      aspect-ratio: auto;
+    }
+
+    .mg-crop-stage {
+      width: 10rem;
+      height: min(35.9375rem, calc(100vh - 16rem));
+      aspect-ratio: 64 / 230;
+    }
+  }
+
+  &.sidebar-initiative-crop {
+    .mg-crop-panel {
+      aspect-ratio: auto;
+    }
+
+    .mg-crop-stage {
+      width: 17rem;
+      height: 5.625rem;
+      aspect-ratio: auto;
+      border-radius: 0;
+      overflow: hidden;
+      transform: skewY(-20deg);
+      transform-origin: left center;
+      margin-top: 8rem;
+    }
+
+    .mg-crop-img-plane {
+      position: absolute;
+      width: 100%;
+      height: 12rem;
+      top: -6rem;
+      left: 0;
+      transform: skewY(20deg);
+      transform-origin: top;
+    }
+
+    .mg-crop-stage img {
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      max-width: none;
+      max-height: none;
+      object-fit: cover;
+      transform: translate(calc((50 - var(--x, 50)) * 1%), calc((50 - var(--y, 50)) * 1%)) scale(var(--s, 1));
+      transform-origin: center center;
+    }
+  }
+
+  &.crew-sidebar-crop,
+  &.crew-initiative-crop,
+  &.crew-sheet-crop {
+    .mg-crop-stage img {
+      width: auto;
+      height: 100%;
+      max-width: none;
+      max-height: none;
+      object-fit: unset;
+    }
+  }
+
+  &.mg-image-options {
+    .mg-crop-panel {
+      aspect-ratio: auto;
+      width: min(42rem, calc(100vw - 2rem));
+      min-height: 52rem;
+      position: relative;
+    }
+
+    .mg-row {
+      align-items: flex-start;
+
+      .mg-cancel {
+        display: inline-grid;
+        place-items: center;
+        width: 2rem;
+        height: 2rem;
+        padding: 0;
+        flex: 0 0 auto;
+      }
+    }
+
+    .mg-crop-tabs {
+      display: flex;
+      gap: 0.35rem;
+      margin: 0.85rem 0 0.75rem;
+      border-bottom: 1px solid rgba($mg-blue-1, 0.24);
+
+      button {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        padding: 0.45rem 0.65rem;
+        border: 0;
+        border-bottom: 2px solid transparent;
+        border-radius: 0.35rem 0.35rem 0 0;
+        background: transparent;
+        color: rgba($mg-blue-1, 0.74);
+
+        &.is-active {
+          border-bottom-color: $mg-blue-1;
+          background: rgba($mg-blue-1, 0.1);
+          color: $mg-blue-1;
+        }
+      }
+    }
+  }
+
+  .mg-crop-stage {
     position: relative;
-    overflow: hidden; 
+    overflow: hidden;
     width: 31.25rem;
     height: 35.9375rem; 
     aspect-ratio: 1/1;
@@ -3464,6 +3602,13 @@ ol li {
     gap:1rem;
     justify-content:flex-end; 
     padding-top: 1rem;
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    background: $mg-blue-main;
+    border-top: 2px solid $mg-blue-main-2;
+    padding: 1.125rem 2.125rem;
+    width: 100%;
 
     .mg-cancel { 
       background:$mg-blue-main-2;

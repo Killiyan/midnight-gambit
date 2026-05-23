@@ -1,5 +1,6 @@
 import "./hooks.js";
 import "./mg-ui.js";
+import "./sidebar-actor.js";
 import { MidnightGambitActor } from "./actor.js";
 import { MidnightGambitItem } from "./item.js";
 import { GuiseSheet } from "./guise-sheet.js";

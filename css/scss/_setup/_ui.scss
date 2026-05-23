@@ -248,6 +248,29 @@ body.mg-hud-enabled {
 		margin: 0;
 		border-radius: .75rem;
 
+		select option {
+			background: $mg-blue-4;
+			color: $mg-blue-2;
+		}
+
+		select option:checked {
+			background: $mg-blue-3;
+			color: $mg-ivory;
+		}
+
+		select option:hover,
+		select option:focus {
+			background: $mg-blue-main;
+			color: $mg-ivory;
+		}
+
+		select optgroup {
+			background: $mg-blue-4;
+			color: $mg-blue-1;
+			@include roboto();
+			font-weight: 400;
+		}
+
 		.mg-right-sidebar-header {
 			display: block;
 			flex: 0 0 auto;
@@ -367,6 +390,8 @@ body.mg-hud-enabled {
 		}
 	}
 
+	/* Start left sidebar
+	==============================================================================================================================================*/
 	.mg-left-sidebar {
 		position: fixed;
 		left: 0;
@@ -382,7 +407,7 @@ body.mg-hud-enabled {
 		pointer-events: auto;
 
 		//Overriding Button stylings to make them less obnoxious on sidebar
-		button:not(.mg-left-accordion-toggle):not(.sidebar-tab):not(.dot):not(.mg-scene-row):not(.mg-scene-context-button):not(.mg-scene-row-main):not(.mg-active-scene-card) {
+		button:not(.mg-left-accordion-toggle):not(.sidebar-tab):not(.dot):not(.mg-scene-row):not(.mg-scene-context-button):not(.mg-scene-row-main):not(.mg-active-scene-card):not(.attribute-container):not(.skill-container) {
 			background: $mg-blue-main;
 			border: 1px solid $mg-blue-main-2;
 
@@ -415,13 +440,21 @@ body.mg-hud-enabled {
 			width: 24rem;
 			max-width: 24rem;
 			height: 100%;
-
 			border: 1px solid rgba($mg-blue-1, .25);
-			border-radius: .75rem;
-			/* Removing Background for now until I see if I want it
+			border-radius: 1rem;
 			background:
-			radial-gradient(circle at 50% 0%, rgba($mg-blue-1, .16), transparent 55%),
-			rgba($mg-blue-4, .88);*/
+				/* subtle pearly sheen (top-center) */
+				radial-gradient(circle at 50% 0%,
+				rgba(197, 212, 236, 0.22) 0%,
+				rgba(197, 212, 236, 0.10) 35%,
+				rgba(18, 33, 55, 0.00) 70%
+				),
+				/* texture */
+				url("../assets/images/filigree.jpg");
+			background-size: cover, cover;
+			background-position: center, center;
+			background-blend-mode: soft-light, multiply;
+			background-color: $mg-blue-4;
 			box-shadow: 0 .75rem 2rem rgba($black, .45);
 			overflow: hidden;
 			position: relative;
@@ -724,10 +757,8 @@ body.mg-hud-enabled {
 
 /* Scene Sidebar Start
 ==============================================================================================================================================*/
-		&.is-scenes-tab {
-			.panel {
-				background-color: rgba($black, .7);
-			}
+		&.is-scenes-tab,
+		&.is-actors-tab {
 
 			.mg-left-empty {
 				margin: 0 1rem;
@@ -803,6 +834,10 @@ body.mg-hud-enabled {
 						@include mg-shadow();
 					}
 
+					.mg-scene-collapse-folders {
+						margin-bottom: 1rem;
+					}
+
 					.mg-left-accordion {
 						@include mg-border();
 						overflow: hidden;
@@ -819,7 +854,7 @@ body.mg-hud-enabled {
 					margin-bottom: 1rem;
 
 					.mg-left-accordion-inner {
-						border-bottom: 2px solid $mg-blue-main-2;
+						border-bottom: 2px solid $mg-blue-main-2 !important;
 						background: $mg-blue-4;
 					}
 				}
@@ -940,7 +975,8 @@ body.mg-hud-enabled {
 					display: grid;
 					gap: .5rem;
 
-					&.mg-scene-drop-target {
+					&.mg-scene-drop-target,
+					&.mg-actor-drop-target {
 						outline: 1px dashed rgba($mg-green, .8);
 						outline-offset: .25rem;
 					}
@@ -977,11 +1013,26 @@ body.mg-hud-enabled {
 					.mg-left-accordion-inner {
 						margin: 0;
 						padding: 1rem;
+						border: none;
 					}
 
 					&.is-sub {
 						border-radius: .5rem;
 						@include mg-shadow();
+						color: $mg-blue-1;
+
+						i {
+							color: $mg-blue-2;
+						}
+
+						&.is-open {
+							color: $mg-ivory;
+
+							.fa-folder,
+							.fa-chevron-down {
+								color: $mg-green;
+							}
+						}
 					}
 				}
 
@@ -1166,7 +1217,8 @@ body.mg-hud-enabled {
 					min-height: 4rem;
 				}
 
-				.mg-left-accordion-toggle.mg-scene-drop-folder {
+				.mg-left-accordion-toggle.mg-scene-drop-folder,
+				.mg-left-accordion-toggle.mg-actor-drop-folder {
 					border-color: $mg-green;
 					color: $mg-green;
 				}
@@ -1174,7 +1226,8 @@ body.mg-hud-enabled {
 				.mg-scene-row[hidden],
 				.mg-left-accordion[hidden],
 				.mg-scene-favorites[hidden],
-				.mg-scene-empty-search[hidden] {
+				.mg-scene-empty-search[hidden],
+				.mg-actor-empty-search[hidden] {
 					display: none !important;
 				}
 			}
@@ -2011,10 +2064,41 @@ body.mg-hud-enabled {
 					.card-main {
 						display: flex;
 
-						img {
-							max-width: 3.375rem;
+						.crew-member-crop {
+							position: relative;
+							flex: 0 0 3.375rem;
+							width: 3.375rem;
+							height: 9.25rem;
+							aspect-ratio: 54 / 148;
+							overflow: hidden;
+							background: $mg-blue-main;
+							border: none;
+						}
+
+						.crew-member-crop img {
+							display: block;
+							width: 100%;
+							height: 100%;
 							object-fit: cover;
 							border: none;
+						}
+
+						.crew-member-crop.is-cropped img {
+							position: absolute;
+							left: 50%;
+							top: 50%;
+							width: var(--mg-crop-w, auto);
+							height: var(--mg-crop-h, 100%);
+							max-width: none;
+							max-height: none;
+							object-fit: unset;
+							transform:
+								translate(
+								calc(-1% * var(--mg-crop-x, 50)),
+								calc(-1% * var(--mg-crop-y, 50))
+								)
+								scale(var(--mg-crop-scale, 1));
+							transform-origin: center center;
 						}
 
 						.card-body {
@@ -2207,6 +2291,7 @@ body.mg-hud-enabled {
 							border: 1px solid rgba($mg-blue-1, .25);
 							overflow: hidden;		
 							align-items: stretch;
+							aspect-ratio: 1/1;
 							@include mg-shadow();
 							transition: backround-color .5s ease, border .5s ease, opacity .5s ease;
 
@@ -2215,13 +2300,40 @@ body.mg-hud-enabled {
 								opacity: .6;
 							}
 
-							img {
+							.crew-initiative-crop {
+								position: relative;
+								width: 4.875rem;
+								height: 4.875rem;
+								aspect-ratio: 1 / 1;
+								overflow: hidden;
+								background: $mg-blue-main;
+								border-right: 2px solid $mg-blue-main-2;
+							}
+
+							.crew-initiative-crop img {
+								display: block;
 								width: 100%;
 								height: 100%;
-								display: block;
-								border: 0;
 								object-fit: cover;
-								border-right: 2px solid $mg-blue-main-2;
+								border: 0;
+							}
+
+							.crew-initiative-crop.is-cropped img {
+								position: absolute;
+								left: 50%;
+								top: 50%;
+								width: var(--mg-crop-w, auto);
+								height: var(--mg-crop-h, 100%);
+								max-width: none;
+								max-height: none;
+								object-fit: unset;
+								transform:
+									translate(
+									calc(-1% * var(--mg-crop-x, 50)),
+									calc(-1% * var(--mg-crop-y, 50))
+									)
+									scale(var(--mg-crop-scale, 1));
+								transform-origin: center center;
 							}
 
 							.initiative-main {
@@ -2313,6 +2425,21 @@ body.mg-hud-enabled {
 			&:nth-of-type(even) .mg-left-accordion-toggle {
 				--mg-accordion-toggle-image: url("../assets/images/accordion-toggle-alt.jpg");
 			}
+
+			&.is-open {
+
+				.mg-left-accordion-toggle {
+					background-color: $mg-blue-main-2;
+					border-color: $mg-blue-3;
+					background-size: cover, auto 125%;
+					background-position: center, 50% 66%;
+					color: $mg-ivory;
+
+					i {
+						color: $mg-green;
+					}
+				}
+			}
 		}
 
 		.mg-left-accordion-toggle {
@@ -2326,7 +2453,9 @@ body.mg-hud-enabled {
 			border-radius: 0;
 			color: $mg-blue-1;
 			text-align: left;
-			border-top: 2px solid $mg-blue-main-2;
+			border: 2px solid $mg-blue-main-2;
+			border-left: 0;
+			border-right: 0;
 			@include oswald();
 			font-size: .9rem;
 			font-weight: 700;
@@ -2345,23 +2474,30 @@ body.mg-hud-enabled {
 			background-size: cover, auto 115%;
 			background-position: center, 50% 34%;
 			background-blend-mode: soft-light, multiply;
-			background-color: $mg-blue-4;
+			background-color: $mg-blue-3;
 			transition:
-			background-color .5s ease,
-			background-position 2.5s cubic-bezier(.2, .8, .2, 1),
-			background-size 2.5s cubic-bezier(.2, .8, .2, 1),
-			color .5s ease;
+				background-color .5s ease,
+				background-position 2.5s cubic-bezier(.2, .8, .2, 1),
+				background-size 2.5s cubic-bezier(.2, .8, .2, 1),
+				color .5s ease,
+				border .5s ease;
 
 			&::after {
 				content: '';
 				width: 100%;
 				height: 100%;
-				background: linear-gradient(270deg, rgba(18, 33, 55, 0) 0%, rgba($mg-blue-4,100%));
+				background: linear-gradient(
+					270deg,
+					rgba($mg-blue-main, 1) 0%,
+					rgba($mg-blue-main, 0) 25%,
+					rgba($mg-blue-main, 0) 35%,
+					rgba($mg-blue-main, 1) 100%
+				);
 				position: absolute;
 				left: 0;
 				top: 0;
-				opacity: 0;
-				transition: opacity .5s ease;
+				opacity: 1;
+				transition: opacity .5s ease, background .5s ease;
 			}
 
 			span {
@@ -2380,22 +2516,20 @@ body.mg-hud-enabled {
 			i {
 				color: $mg-blue-2;
 				font-size: 1.5rem;
+				@include mg-shadow();
+				position: relative;
+				z-index: 3;
 				transition: color .5s ease, transform .5s ease;
 			}
 
-			&:hover,
-			&:focus {
-				background-color: $mg-blue-3;
+			&:hover {
+				background-color: $mg-blue-main-2;
 				background-size: cover, auto 125%;
 				background-position: center, 50% 66%;
 				color: $mg-ivory;
 
 				i {
 					color: $mg-green;
-				}
-
-				&:after {
-					opacity: 1;
 				}
 			}
 		}
@@ -2421,7 +2555,9 @@ body.mg-hud-enabled {
 		.mg-left-accordion-inner {
 			display: grid;
 			gap: .75rem;
-			margin: 1rem;
+			padding: 1rem;
+			border-bottom: 2px solid $mg-blue-main-2;
+			background: rgba($mg-blue-4, .6);
 		}
 
 		.mg-left-accordion.is-open > .mg-left-accordion-toggle > .mg-left-accordion-chevron {

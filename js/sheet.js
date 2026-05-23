@@ -476,7 +476,311 @@ export class MidnightGambitActorSheet extends ActorSheet {
       $wrap[0].style.setProperty("--mg-crop-scale", String(s));
     }
 
-    /** Modal cropper: drag to pan, wheel to zoom; saves to flags on Save. */
+    _mgGetImageCropPlacements(html) {
+      const $root = html instanceof jQuery ? html : $(html);
+      const sheetSrc = $root.find("img.mg-profile-img").first().attr("src") || this.actor?.img;
+      const actorSrc = this.actor?.img || sheetSrc;
+
+      return [
+        {
+          key: "profile",
+          label: "Sheet",
+          icon: "fa-solid fa-user",
+          title: "Frame Character Sheet",
+          hint: "Drag to pan - Mouse wheel to zoom - Esc to cancel",
+          src: sheetSrc,
+          className: "",
+          defaultsFrom: []
+        },
+        {
+          key: "chat",
+          label: "Chat",
+          icon: "fa-solid fa-comment",
+          title: "Frame Chat Avatar",
+          hint: "Drag to pan - Mouse wheel to zoom - Esc to cancel",
+          src: actorSrc,
+          className: "chat-crop",
+          defaultsFrom: []
+        },
+        {
+          key: "sidebar",
+          label: "Sidebar",
+          icon: "fa-solid fa-crop-simple",
+          title: "Frame Sidebar Portrait",
+          hint: "Drag to pan - Mouse wheel to zoom - Esc to cancel",
+          src: actorSrc,
+          className: "sidebar-crop",
+          defaultsFrom: ["profile"],
+          saveSize: true
+        },
+        {
+          key: "crewSidebar",
+          label: "Crew Tab",
+          icon: "fa-solid fa-users",
+          title: "Frame Crew Tab Portrait",
+          hint: "Drag to pan - Mouse wheel to zoom - Esc to cancel",
+          src: actorSrc,
+          className: "crew-sidebar-crop",
+          defaultsFrom: ["profile"],
+          saveSize: true,
+          fitAxis: "height"
+        },
+        {
+          key: "crewInitiative",
+          label: "Crew Init",
+          icon: "fa-solid fa-list-ol",
+          title: "Frame Crew Initiative Portrait",
+          hint: "Drag to pan - Mouse wheel to zoom - Esc to cancel",
+          src: actorSrc,
+          className: "crew-initiative-crop",
+          defaultsFrom: ["crewSidebar", "profile"],
+          saveSize: true,
+          fitAxis: "height"
+        },
+        {
+          key: "crewSheet",
+          label: "Crew Sheet",
+          icon: "fa-solid fa-people-group",
+          title: "Frame Crew Sheet Portrait",
+          hint: "Drag to pan - Mouse wheel to zoom - Esc to cancel",
+          src: actorSrc,
+          className: "crew-sheet-crop",
+          saveSize: true,
+          fitAxis: "height"
+        },
+        {
+          key: "sidebarInitiative",
+          label: "Side Init",
+          icon: "fa-solid fa-bolt",
+          title: "Frame Sidebar Initiative",
+          hint: "Drag to pan - Mouse wheel to zoom - Esc to cancel",
+          src: actorSrc,
+          className: "sidebar-initiative-crop",
+          defaultsFrom: [],
+          saveSize: false,
+          fitAxis: "width",
+          cropModel: "skewSlicePan"
+        }
+      ];
+    }
+
+    _mgOpenImageOptions(html, startKey = "profile") {
+      const placements = this._mgGetImageCropPlacements(html).filter(p => p.src);
+      if (!placements.length) return;
+
+      const byKey = Object.fromEntries(placements.map(p => [p.key, p]));
+      let active = byKey[startKey] ? startKey : placements[0].key;
+      let dragging = false;
+      let last = { cx: 0, cy: 0 };
+      let values = {};
+
+      const getInitialValues = placement => {
+        const crops = this.actor.getFlag("midnight-gambit", "crops") || {};
+        let saved = crops[placement.key]?.css;
+        for (const fallback of placement.defaultsFrom || []) {
+          if (saved) break;
+          saved = crops[fallback]?.css;
+        }
+        saved ||= {};
+        if (placement.cropModel && saved.model !== placement.cropModel) saved = {};
+        const hasStaleFitWidth = placement.fitAxis === "height" && Number.isFinite(saved.width);
+        const hasStaleFitHeight = placement.fitAxis === "width" && Number.isFinite(saved.height);
+        if (hasStaleFitWidth || hasStaleFitHeight) saved = {};
+
+        return {
+          x: Number.isFinite(saved.x) ? saved.x : 50,
+          y: Number.isFinite(saved.y) ? saved.y : 50,
+          scale: Number.isFinite(saved.scale) ? saved.scale : 1,
+          width: Number.isFinite(saved.width) ? saved.width : null,
+          height: Number.isFinite(saved.height) ? saved.height : null
+        };
+      };
+
+      const $ui = $(`
+        <div class="mg-crop-editor mg-image-options" role="dialog" aria-modal="true">
+          <div class="mg-crop-panel">
+            <div class="mg-row">
+              <div>
+                <strong class="mg-crop-title"></strong>
+                <div class="hint mg-crop-hint"></div>
+              </div>
+              <button type="button" class="ghost mg-cancel" aria-label="Close image options">
+                <i class="fa-solid fa-xmark"></i>
+              </button>
+            </div>
+            <nav class="mg-crop-tabs" aria-label="Image placement options">
+              ${placements.map(p => `
+                <button type="button" data-mg-crop-tab="${p.key}">
+                  <i class="${p.icon}"></i>
+                  <span>${p.label}</span>
+                </button>
+              `).join("")}
+            </nav>
+            <div class="mg-crop-stage">
+              <div class="mg-crop-img-plane">
+                <img alt="preview">
+              </div>
+            </div>
+            <div class="mg-actions">
+              <button type="button" class="ghost mg-reset">Reset</button>
+              <button type="button" class="primary mg-save">Save</button>
+            </div>
+          </div>
+        </div>
+      `);
+
+      const stage = $ui.find(".mg-crop-stage")[0];
+      const imgEl = $ui.find(".mg-crop-stage img")[0];
+
+      const apply = () => {
+        const current = values[active];
+        imgEl.style.setProperty("--x", String(current.x));
+        imgEl.style.setProperty("--y", String(current.y));
+        imgEl.style.setProperty("--s", String(current.scale));
+      };
+
+      const renderPlacement = key => {
+        const placement = byKey[key];
+        if (!placement) return;
+        active = key;
+        values[active] ||= getInitialValues(placement);
+
+        $ui.removeClass(placements.map(p => p.className).filter(Boolean).join(" "));
+        if (placement.className) $ui.addClass(placement.className);
+        $ui.find(".mg-crop-title").text(placement.title);
+        $ui.find(".mg-crop-hint").text(placement.hint);
+        $ui.find("[data-mg-crop-tab]").toggleClass("is-active", false).attr("aria-selected", "false");
+        $ui.find(`[data-mg-crop-tab="${key}"]`).toggleClass("is-active", true).attr("aria-selected", "true");
+
+        imgEl.src = placement.src;
+        const current = values[active];
+        if (placement.fitAxis === "height") {
+          imgEl.style.width = "auto";
+          imgEl.style.height = `${Number.isFinite(current.height) ? current.height : 100}%`;
+        } else if (placement.fitAxis === "width") {
+          imgEl.style.width = `${Number.isFinite(current.width) ? current.width : 100}%`;
+          imgEl.style.height = "auto";
+        } else {
+          imgEl.style.width = Number.isFinite(current.width) ? `${current.width}%` : "";
+          imgEl.style.height = Number.isFinite(current.height) ? `${current.height}%` : "";
+        }
+        apply();
+      };
+
+      stage.addEventListener("pointerdown", ev => {
+        dragging = true;
+        last = { cx: ev.clientX, cy: ev.clientY };
+        stage.setPointerCapture?.(ev.pointerId);
+      });
+
+      stage.addEventListener("pointermove", ev => {
+        if (!dragging) return;
+        const current = values[active];
+        const dx = ev.clientX - last.cx;
+        const dy = ev.clientY - last.cy;
+        const pan = active === "chat" || active === "crewSidebar" || active === "sidebarInitiative" ? 0.45 : 1;
+        last = { cx: ev.clientX, cy: ev.clientY };
+        current.x -= ((dx / Math.max(stage.clientWidth, 1)) * 100) * pan;
+        current.y -= ((dy / Math.max(stage.clientHeight, 1)) * 100) * pan;
+        apply();
+      });
+
+      stage.addEventListener("pointerup", () => { dragging = false; });
+      stage.addEventListener("pointercancel", () => { dragging = false; });
+      stage.addEventListener("wheel", ev => {
+        ev.preventDefault();
+        const current = values[active];
+        const step = ev.shiftKey ? 0.15 : 0.05;
+        current.scale = Math.max(0.05, current.scale - (Math.sign(ev.deltaY) * step));
+        apply();
+      }, { passive: false });
+
+      $ui.on("click", "[data-mg-crop-tab]", ev => {
+        ev.preventDefault();
+        renderPlacement(ev.currentTarget.dataset.mgCropTab);
+      });
+
+      $ui.on("click", ".mg-reset", ev => {
+        ev.preventDefault();
+        const placement = byKey[active];
+        values[active] = {
+          x: 50,
+          y: 50,
+          scale: 1,
+          width: placement?.fitAxis === "width" ? 100 : null,
+          height: placement?.fitAxis === "height" ? 100 : null
+        };
+        imgEl.style.width = placement?.fitAxis === "height" ? "auto" : (placement?.fitAxis === "width" ? "100%" : "");
+        imgEl.style.height = placement?.fitAxis === "height" ? "100%" : (placement?.fitAxis === "width" ? "auto" : "");
+        apply();
+      });
+
+      $ui.on("click", ".mg-cancel", () => $ui.remove());
+      $ui.on("click", ".mg-save", async () => {
+        try {
+          const placement = byKey[active];
+          const current = values[active];
+          const ns = "midnight-gambit";
+          const crops = (await this.actor.getFlag(ns, "crops")) || {};
+          crops[active] = crops[active] || {};
+          const css = { x: current.x, y: current.y, scale: current.scale };
+          if (placement.cropModel) css.model = placement.cropModel;
+          if (placement.saveSize) {
+            if (placement.fitAxis === "height") {
+              css.height = (imgEl.offsetHeight / Math.max(stage.clientHeight, 1)) * 100;
+            } else if (placement.fitAxis === "width") {
+              css.width = (imgEl.offsetWidth / Math.max(stage.clientWidth, 1)) * 100;
+            } else {
+              css.width = (imgEl.offsetWidth / Math.max(stage.clientWidth, 1)) * 100;
+              css.height = (imgEl.offsetHeight / Math.max(stage.clientHeight, 1)) * 100;
+            }
+          }
+          crops[active].css = css;
+          await this.actor.setFlag(ns, "crops", crops);
+
+	          if (active === "profile") this._mgInitProfileCrop(html);
+	          if (active === "chat") ui.chat?.render?.(true);
+          if (["crewSidebar", "crewInitiative", "crewSheet"].includes(active)) {
+            this._mgRefreshCrewSheetsForImageCrop();
+            globalThis.MGRefreshLeftSidebarContent?.();
+          }
+          if (active === "sidebarInitiative") game.mgInitiativeSidebar?.refreshActorImages?.(this.actor.id);
+	          ui.notifications?.info(`${placement.title} saved.`);
+        } catch (err) {
+          console.error("MG | Save image crop failed:", err);
+          ui.notifications?.error("Failed to save image framing. See console.");
+        }
+      });
+
+      const onKey = ev => {
+        if (ev.key === "Escape") {
+          $ui.remove();
+          window.removeEventListener("keydown", onKey);
+        }
+      };
+      window.addEventListener("keydown", onKey);
+      $ui.on("remove", () => window.removeEventListener("keydown", onKey));
+
+	      document.body.appendChild($ui[0]);
+	      renderPlacement(active);
+	    }
+
+    _mgRefreshCrewSheetsForImageCrop() {
+      const actorUuid = this.actor?.uuid;
+      if (!actorUuid) return;
+
+      for (const app of Object.values(ui.windows ?? {})) {
+        const crew = app?.actor;
+        if (crew?.type !== "crew") continue;
+
+        const members = Array.isArray(crew.system?.party?.members) ? crew.system.party.members : [];
+        if (!members.includes(actorUuid)) continue;
+
+        app.render?.(false);
+      }
+    }
+
+	    /** Modal cropper: drag to pan, wheel to zoom; saves to flags on Save. */
     _mgOpenProfileCropper(html) {
       const $root = html instanceof jQuery ? html : $(html);
       const $img = $root.find("img.mg-profile-img").first();
@@ -797,19 +1101,24 @@ _mgOpenSidebarCropper() {
       super.activateListeners(html);
 
       this._mgInitProfileCrop(html);
+      html.find(".mg-open-image-options").off("click.mgImageOptions").on("click.mgImageOptions", (ev) => {
+        ev.preventDefault();
+        this._mgOpenImageOptions(html);
+      });
+
       html.find(".mg-crop-profile").off("click.mgCrop").on("click.mgCrop", (ev) => {
         ev.preventDefault();
-        this._mgOpenProfileCropper(html);
+        this._mgOpenImageOptions(html, "profile");
       });
 
       html.find(".mg-crop-chat").off("click.mgCropChat").on("click.mgCropChat", (ev) => {
         ev.preventDefault();
-        this._mgOpenChatCropper(html);
+        this._mgOpenImageOptions(html, "chat");
       });
 
       html.find(".mg-crop-sidebar").off("click.mgCropSidebar").on("click.mgCropSidebar", (ev) => {
         ev.preventDefault();
-        this._mgOpenSidebarCropper();
+        this._mgOpenImageOptions(html, "sidebar");
       });
 
       // Owner / GM? Full interactivity. Otherwise: view-only and bail out.

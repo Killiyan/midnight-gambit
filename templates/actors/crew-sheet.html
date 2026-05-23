@@ -55,8 +55,8 @@
 				<div class="mg-party-grid">
 					{{#each partyMembers as |m|}}
 					<article class="mg-member-card" data-uuid="{{m.uuid}}" data-actor-id="{{m.actorId}}">
-						<div class="mg-member-portrait">
-							<img src="{{m.img}}" alt="{{m.name}}" />
+						<div class="mg-member-portrait {{#if m.hasCrewSheetCrop}}is-cropped{{/if}}">
+							<img src="{{m.img}}" alt="{{m.name}}" style="{{m.crewSheetCropStyle}}" />
 						</div>
 						<div class="mg-member-info">
 							<div class="mg-member-name">{{m.name}}</div>

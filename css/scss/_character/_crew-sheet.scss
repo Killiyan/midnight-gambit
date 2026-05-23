@@ -308,6 +308,7 @@
 					left: 0;
 					width: 25%;
 					height: 100%;
+					overflow: hidden;
 
 					&:before {
 						position: absolute;
@@ -339,6 +340,25 @@
 						object-fit: cover;
 						object-position: top;
 						border: none;
+					}
+
+					&.is-cropped img {
+						position: absolute;
+						left: 50%;
+						top: 50%;
+						width: var(--mg-crop-w, auto);
+						height: var(--mg-crop-h, 100%);
+						max-width: none;
+						max-height: none;
+						object-fit: unset;
+						object-position: unset;
+						transform:
+							translate(
+							calc(-1% * var(--mg-crop-x, 50)),
+							calc(-1% * var(--mg-crop-y, 50))
+							)
+							scale(var(--mg-crop-scale, 1));
+						transform-origin: center center;
 					}
 				}
 				

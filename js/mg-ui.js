@@ -616,10 +616,19 @@ function mgGetSidebarCropStyle(actor) {
 }
 
 function mgGetSidebarCropVariables(actor) {
+	return mgGetActorCropVariables(actor, "sidebar", ["profile"]);
+}
+
+function mgGetActorCropVariables(actor, key, fallbacks = []) {
 	const crops = actor?.getFlag?.("midnight-gambit", "crops") || {};
-	const sidebarCrop = crops.sidebar?.css || {};
-	const useSidebarCrop = Object.keys(sidebarCrop).length;
-	const crop = useSidebarCrop ? sidebarCrop : crops.profile?.css || {};
+	let crop = crops[key]?.css;
+
+	for (const fallback of fallbacks) {
+		if (crop && Object.keys(crop).length) break;
+		crop = crops[fallback]?.css;
+	}
+
+	crop ||= {};
 	const x = Number.isFinite(crop.x) ? crop.x : 50;
 	const y = Number.isFinite(crop.y) ? crop.y : 50;
 	const scale = Number.isFinite(crop.scale) ? crop.scale : 1;
@@ -627,6 +636,11 @@ function mgGetSidebarCropVariables(actor) {
 	const height = Number.isFinite(crop.height) && crop.height > 0 ? ` --mg-crop-h: ${crop.height}%;` : "";
 
 	return `--mg-crop-x: ${x}; --mg-crop-y: ${y}; --mg-crop-scale: ${scale};${width}${height}`;
+}
+
+function mgHasActorCrop(actor, key) {
+	const crop = actor?.getFlag?.("midnight-gambit", "crops")?.[key]?.css;
+	return !!(crop && Object.keys(crop).length);
 }
 
 /* Grabbing Crew Name
@@ -1499,6 +1513,8 @@ function mgSetLeftSidebarTab(tabId) {
 	});
 }
 
+/* Left sidebar tab state classes
+----------------------------------------------------------------------*/
 function mgSetLeftSidebarTabClass(root, tabId) {
 	const sidebar = root?.querySelector("[data-mg-left-sidebar]");
 	if (!sidebar) return;
@@ -1562,6 +1578,10 @@ function mgBindLeftSidebarContent(root, tabId) {
 		mgBindSceneSidebarContent(root);
 	}
 
+	if (tabId === "actors") {
+		mgBindActorSidebarContent(root);
+	}
+
 	root.querySelectorAll("[data-mg-open-actor]").forEach(button => {
 		button.addEventListener("click", () => {
 			const actor = game.actors.get(button.dataset.mgOpenActor);
@@ -1622,12 +1642,21 @@ function mgBindLeftSidebarContent(root, tabId) {
 	});
 }
 
+/* Scene sidebar interactions
+----------------------------------------------------------------------*/
 function mgBindSceneSidebarContent(root) {
 	const panel = root?.querySelector(".mg-scene-directory");
 	if (!panel) return;
 
-	panel.querySelector("[data-mg-scene-search]")?.addEventListener("input", event => {
+	panel.querySelector("[data-mg-scene-search]")?.addEventListener("keydown", event => {
+		if (event.key !== "Enter") return;
+		event.preventDefault();
 		mgFilterSceneSidebar(panel, event.currentTarget.value);
+	});
+
+	panel.querySelector("[data-mg-scene-collapse-folders]")?.addEventListener("click", event => {
+		event.preventDefault();
+		mgCollapseSceneFolders(panel);
 	});
 
 	panel.querySelectorAll("[data-mg-scene-create]").forEach(button => {
@@ -1682,6 +1711,8 @@ function mgBindSceneSidebarContent(root) {
 	mgBindSceneSidebarDrag(panel);
 }
 
+/* Scene sidebar search filtering
+----------------------------------------------------------------------*/
 function mgFilterSceneSidebar(panel, value) {
 	const query = String(value ?? "").trim().toLowerCase();
 	const rows = Array.from(panel.querySelectorAll("[data-mg-scene-id]"));
@@ -1715,6 +1746,23 @@ function mgFilterSceneSidebar(panel, value) {
 	if (empty) empty.hidden = !query || anyVisible;
 }
 
+function mgCollapseSceneFolders(panel) {
+	panel.querySelectorAll(".mg-scene-folder-accordion[data-mg-accordion]").forEach(accordion => {
+		const id = accordion.dataset.mgAccordion;
+		const button = accordion.querySelector("[data-mg-accordion-toggle]");
+		const body = accordion.querySelector(".mg-left-accordion-body");
+		if (!id || !button || !body) return;
+
+		mgSetAccordionOpen(null, id, false);
+		button.setAttribute("aria-expanded", "false");
+		accordion.classList.remove("is-open", "is-opening", "is-closing");
+		body.hidden = true;
+		body.style.maxHeight = "0px";
+	});
+}
+
+/* Scene sidebar drag and drop
+----------------------------------------------------------------------*/
 function mgBindSceneSidebarDrag(panel) {
 	let dragging = null;
 
@@ -1780,6 +1828,7 @@ function mgBindSceneSidebarDrag(panel) {
 		return y > rect.height * 0.25 && y < rect.height * 0.75;
 	};
 
+	// Scene rows are draggable everywhere they appear, including favorites.
 	panel.querySelectorAll(".mg-scene-row[data-mg-scene-id]").forEach(row => {
 		row.setAttribute("draggable", "true");
 
@@ -1807,6 +1856,7 @@ function mgBindSceneSidebarDrag(panel) {
 		});
 	});
 
+	// Folder accordions can be reordered, but their nesting is still controlled by folder creation.
 	panel.querySelectorAll("[data-mg-scene-folder-id]").forEach(folder => {
 		folder.setAttribute("draggable", "true");
 
@@ -1829,6 +1879,7 @@ function mgBindSceneSidebarDrag(panel) {
 		});
 	});
 
+	// Containers save a user-local order without touching shared scene or folder sort.
 	panel.querySelectorAll("[data-mg-scene-container]").forEach(container => {
 		container.addEventListener("dragover", event => {
 			if (!dragging) return;
@@ -1861,6 +1912,7 @@ function mgBindSceneSidebarDrag(panel) {
 		});
 	});
 
+	// Dropping a scene onto the center of a folder header moves that scene into the folder for GMs.
 	panel.querySelectorAll("[data-mg-scene-folder-drop]").forEach(folderDrop => {
 		folderDrop.addEventListener("dragover", event => {
 			if (!dragging) return;
@@ -1898,6 +1950,8 @@ function mgBindSceneSidebarDrag(panel) {
 	});
 }
 
+/* Scene sidebar per-user ordering
+----------------------------------------------------------------------*/
 function mgNormalizeSceneContainerId(folderId) {
 	return folderId || "";
 }
@@ -1953,6 +2007,8 @@ async function mgAppendSceneToUserOrder(folderId, sceneId) {
 	await game.user?.setFlag?.(MG_UI_NS, MG_SCENE_USER_ORDER_FLAG, order);
 }
 
+/* Scene and scene folder creation
+----------------------------------------------------------------------*/
 async function mgCreateScene(folderId = null) {
 	if (!game.user?.isGM) return;
 
@@ -2006,6 +2062,8 @@ async function mgCreateSceneFolder(parentId = null) {
 	}
 }
 
+/* Scene context menus
+----------------------------------------------------------------------*/
 function mgCloseSceneContextMenu() {
 	document.querySelectorAll(".mg-scene-context-menu, .mg-scene-folder-context-menu").forEach(menu => menu.remove());
 	document.removeEventListener("click", mgCloseSceneContextMenu);
@@ -2015,6 +2073,18 @@ function mgCloseSceneContextMenu() {
 function mgCloseSceneContextMenuOnEscape(event) {
 	if (event.key === "Escape") mgCloseSceneContextMenu();
 }
+
+globalThis.MGSidebarShared = {
+	esc: mgEsc,
+	attr: mgAttr,
+	cssUrl: mgCssUrl,
+	cssEscape: mgCssEscape,
+	isAccordionOpen: mgIsAccordionOpen,
+	setAccordionOpen: mgSetAccordionOpen,
+	toggleLeftAccordion: mgToggleLeftAccordion,
+	closeContextMenu: mgCloseSceneContextMenu,
+	closeContextMenuOnEscape: mgCloseSceneContextMenuOnEscape
+};
 
 function mgOpenSceneContextMenu(sceneId, anchor, row, event = null) {
 	const scene = game.scenes?.get(sceneId);
@@ -2109,6 +2179,8 @@ function mgOpenSceneFolderContextMenu(folderId, anchor, event = null) {
 	}, 0);
 }
 
+/* Scene folder context menu actions
+----------------------------------------------------------------------*/
 async function mgRunSceneFolderAction(folder, action) {
 	try {
 		switch (action) {
@@ -2208,6 +2280,8 @@ async function mgExportSceneFolderToCompendium(folder) {
 	ui.notifications?.warn("Foundry does not expose folder compendium export here.");
 }
 
+/* Scene context menu actions
+----------------------------------------------------------------------*/
 async function mgRunSceneAction(scene, action) {
 	try {
 		switch (action) {
@@ -2251,6 +2325,8 @@ async function mgRunSceneAction(scene, action) {
 	}
 }
 
+/* Scene action helpers
+----------------------------------------------------------------------*/
 async function mgGenerateSceneThumbnail(scene) {
 	if (typeof scene.createThumbnail !== "function") {
 		ui.notifications?.warn("This Foundry version does not expose thumbnail generation here.");
@@ -2312,6 +2388,8 @@ function mgRefreshClocksSidebarContent() {
 
 globalThis.mgRefreshClocksSidebarContent = mgRefreshClocksSidebarContent;
 
+/* Scene sidebar refresh
+----------------------------------------------------------------------*/
 function mgRefreshScenesSidebarContent() {
 	if (mgActiveSidebarTab !== "scenes") return;
 	mgSceneViewerSignature = mgGetSceneViewerSignature();
@@ -2319,6 +2397,15 @@ function mgRefreshScenesSidebarContent() {
 }
 
 globalThis.mgRefreshScenesSidebarContent = mgRefreshScenesSidebarContent;
+
+/* Actor sidebar refresh
+----------------------------------------------------------------------*/
+function mgRefreshActorsSidebarContent() {
+	if (mgActiveSidebarTab !== "actors") return;
+	mgRefreshLeftSidebarContent();
+}
+
+globalThis.mgRefreshActorsSidebarContent = mgRefreshActorsSidebarContent;
 
 function mgRefreshCharacterSidebarActor(actorId) {
 	const root = document.getElementById(MG_UI_ID);
@@ -2791,6 +2878,8 @@ function mgRenderPlayerSidebarContent() {
 	return mgRenderCharacterSidebar(actor);
 }
 
+/* Character sidebar rendering
+----------------------------------------------------------------------*/
 function mgRenderCharacterSidebar(actor) {
 	const img = actor.img || "icons/svg/mystery-man.svg";
 	const cropStyle = mgGetSidebarCropStyle(actor);
@@ -3006,6 +3095,8 @@ function mgRenderCharacterSidebar(actor) {
 	`;
 }
 
+/* Character sidebar strain rows
+----------------------------------------------------------------------*/
 function mgRenderStrainRow(type, label, cap, track) {
 	return `
 		<div class="strain-row" data-mg-strain-row="${type}">
@@ -3032,6 +3123,8 @@ function mgRenderStrainRow(type, label, cap, track) {
 	`;
 }
 
+/* Crew sidebar data resolution
+----------------------------------------------------------------------*/
 function mgResolveCrewForSidebar() {
 	const crewId = (() => {
 		try {
@@ -3140,6 +3233,8 @@ function mgResolveCrewMemberModels(crew) {
 	return { members, initiativeMembers: ordered };
 }
 
+/* Crew sidebar cards
+----------------------------------------------------------------------*/
 function mgRenderCrewStrainSummary(member, type, label, cap, track) {
 	const icon = type === "mortal" ? "fa-kit fa-mortal-strain" : "fa-kit fa-soul-strain";
 
@@ -3173,6 +3268,9 @@ function mgRenderCrewResourceSummary(kind, value) {
 }
 
 function mgRenderCrewPartyMember(member) {
+	const hasCrop = mgHasActorCrop(member.actor, "crewSidebar");
+	const cropVariables = hasCrop ? mgGetActorCropVariables(member.actor, "crewSidebar") : "";
+
 	return `
 		<article class="crew-card ${member.missing ? "is-missing" : ""}" data-uuid="${mgEsc(member.uuid)}">
 			<header class="card-head">
@@ -3181,7 +3279,9 @@ function mgRenderCrewPartyMember(member) {
 			</header>
 
 			<div class="card-main">
-				<img src="${mgEsc(member.img)}" alt="${mgEsc(member.name)}" />
+				<div class="crew-member-crop mg-cropbox ${hasCrop ? "is-cropped" : ""}">
+					<img src="${mgEsc(member.img)}" alt="${mgEsc(member.name)}" style="${cropVariables}" />
+				</div>
 
 				<div class="card-body">
 					<div class="strains">
@@ -3208,6 +3308,9 @@ function mgRenderCrewPartyMember(member) {
 }
 
 function mgRenderCrewInitiativeMember(member, canEdit) {
+	const hasCrop = mgHasActorCrop(member.actor, "crewInitiative");
+	const cropVariables = hasCrop ? mgGetActorCropVariables(member.actor, "crewInitiative") : "";
+
 	return `
 		<article
 			class="initiative-card mg-init-card ${member.hidden ? "is-muted" : ""}"
@@ -3215,7 +3318,9 @@ function mgRenderCrewInitiativeMember(member, canEdit) {
 			data-hidden="${member.hidden ? "true" : "false"}"
 			${canEdit ? 'draggable="true"' : ""}
 		>
-			<img src="${mgEsc(member.img)}" alt="${mgEsc(member.name)}" />
+			<div class="crew-initiative-crop mg-cropbox ${hasCrop ? "is-cropped" : ""}">
+				<img src="${mgEsc(member.img)}" alt="${mgEsc(member.name)}" style="${cropVariables}" />
+			</div>
 
 			<div class="initiative-main">
 				<h4>${mgEsc(member.name)}</h4>
@@ -3247,6 +3352,8 @@ function mgRenderCrewInitiativeMember(member, canEdit) {
 	`;
 }
 
+/* Crew sidebar rendering
+----------------------------------------------------------------------*/
 function mgRenderCrewSidebarContent() {
 	const crew = mgResolveCrewForSidebar();
 
@@ -3316,6 +3423,8 @@ function mgRenderCrewSidebarContent() {
 	`;
 }
 
+/* Crew sidebar initiative actions
+----------------------------------------------------------------------*/
 async function mgApplyCrewSidebarInitiative(crew, root) {
 	if (!crew?.isOwner) {
 		ui.notifications?.warn("You need owner permission to change initiative order.");
@@ -3389,6 +3498,8 @@ async function mgToggleCrewSidebarInitiativeMember(crew, card) {
 	}
 }
 
+/* Crew sidebar interactions
+----------------------------------------------------------------------*/
 function mgBindCrewSidebarContent(root) {
 	const panel = root?.querySelector("[data-mg-crew-sidebar]");
 	const crew = panel?.dataset?.mgCrewSidebar ? game.actors.get(panel.dataset.mgCrewSidebar) : null;
@@ -3424,6 +3535,8 @@ function mgBindCrewSidebarContent(root) {
 	mgBindCrewSidebarInitiativeDrag(panel, crew);
 }
 
+/* Crew sidebar initiative drag and drop
+----------------------------------------------------------------------*/
 function mgBindCrewSidebarInitiativeDrag(panel, crew) {
 	if (!crew?.isOwner) return;
 
@@ -3507,6 +3620,8 @@ function mgRefreshCrewSidebarForActor(actor) {
 	if (mgCrewSidebarContainsActor(crew, actor)) mgRefreshLeftSidebarContent();
 }
 
+/* Clock sidebar rendering
+----------------------------------------------------------------------*/
 function mgRenderClockSidebarList(scope) {
 	const clocks = game.mgClocks?.getList?.(scope) ?? [];
 	const empty = scope === "global" ? "No global clocks." : "No scene clocks.";
@@ -3577,6 +3692,8 @@ function mgRenderClocksSidebarContent() {
 	`;
 }
 
+/* Clock sidebar interactions
+----------------------------------------------------------------------*/
 function mgBindClocksSidebarContent(root) {
 	root.querySelectorAll("[data-mg-clock-add]").forEach(button => {
 		button.addEventListener("click", async () => {
@@ -3638,6 +3755,8 @@ function mgBindClockSidebarReorder(list, scope) {
 	});
 }
 
+/* Scene sidebar rendering
+----------------------------------------------------------------------*/
 function mgRenderSceneSidebarContent() {
 	const canManage = game.user?.isGM;
 	const allScenes = Array.from(game.scenes ?? []);
@@ -3666,6 +3785,12 @@ function mgRenderSceneSidebarContent() {
 			<input type="search" placeholder="Search Scenes" data-mg-scene-search />
 		</label>
 	`;
+	const collapseFolders = canManage ? `
+		<button type="button" class="mg-left-action mg-scene-collapse-folders" data-mg-scene-collapse-folders>
+			<i class="fa-solid fa-folder-tree"></i>
+			Collapse Folders
+		</button>
+	` : "";
 	const favorites = favoriteScenes.length ? mgRenderAccordion(null, {
 		id: "scene-favorites",
 		title: "Favorite Scenes",
@@ -3704,6 +3829,7 @@ function mgRenderSceneSidebarContent() {
 			<div class="mg-scene-directory-browser">
 				${search}
 				<hr class="mg-scene-directory-rule" />
+				${collapseFolders}
 
 				<div class="mg-scene-tree" data-mg-scene-tree data-mg-scene-container="">
 					${mgRenderSceneBranch(folderTree)}
@@ -3732,6 +3858,8 @@ function mgRenderActiveSceneBanner(scene) {
 	`;
 }
 
+/* Scene sidebar tree shaping
+----------------------------------------------------------------------*/
 function mgBuildSceneFolderTree(scenes, { showAllFolders = true } = {}) {
 	const sceneFolders = Array.from(game.folders ?? [])
 		.filter(folder => folder.type === "Scene")
@@ -3824,6 +3952,8 @@ function mgRenderSceneBranch(node, depth = 0) {
 		.join("");
 }
 
+/* Scene folder accordion rendering
+----------------------------------------------------------------------*/
 function mgRenderSceneFolder(node, depth = 0) {
 	const folder = node.folder;
 	const id = `scene-folder-${folder.id}`;
@@ -3876,6 +4006,8 @@ function mgRenderSceneFolder(node, depth = 0) {
 	`;
 }
 
+/* Scene row rendering and viewer presence
+----------------------------------------------------------------------*/
 function mgRenderSceneRow(scene, { favoriteList = false } = {}) {
 	const isActive = !!scene.active;
 	const isCurrent = canvas?.scene?.id === scene.id;
@@ -3930,6 +4062,8 @@ function mgGetUserViewedSceneId(user) {
 	return viewed?.id ?? viewed ?? user?.scene?.id ?? user?.scene ?? user?.getFlag?.("core", "viewedScene") ?? null;
 }
 
+/* Scene viewer presence refresh
+----------------------------------------------------------------------*/
 function mgGetSceneViewerSignature() {
 	return mgGetSceneViewerUsers()
 		.map(user => `${user.id}:${mgGetUserViewedSceneId(user) ?? ""}`)
@@ -3975,24 +4109,18 @@ function mgRenderSceneViewerDots(users) {
 	`;
 }
 
+/* Actor sidebar bridge
+----------------------------------------------------------------------*/
+function mgBindActorSidebarContent(root) {
+	globalThis.MGActorSidebar?.bindContent?.(root);
+}
+
 function mgRenderActorSidebarContent() {
-	const actors = Array.from(game.actors ?? [])
-		.filter(actor => game.user.isGM || actor.isOwner);
+	return globalThis.MGActorSidebar?.renderContent?.() ?? `<div class="mg-left-empty">Actor sidebar is still loading.</div>`;
+}
 
-	if (!actors.length) {
-		return `<div class="mg-left-empty">No visible actors found.</div>`;
-	}
-
-	return `
-		<section class="mg-left-list">
-			${actors.map(actor => `
-				<button type="button" class="mg-left-list-row" data-mg-open-actor="${actor.id}">
-					<img src="${actor.img || "icons/svg/mystery-man.svg"}" alt="" />
-					<span>${actor.name}</span>
-				</button>
-			`).join("")}
-		</section>
-	`;
+function mgTidyActorFolderConfig(html, folder) {
+	globalThis.MGActorSidebar?.tidyFolderConfig?.(html, folder);
 }
 
 function mgRenderItemSidebarContent() {
@@ -4455,11 +4583,18 @@ Hooks.on("updateUser", user => {
 	if (user?.id === game.user?.id) mgRefreshLeftSidebarTabs();
 	mgRefreshDockedPlayersBox();
 	mgRefreshScenesSidebarContent();
+	mgRefreshActorsSidebarContent();
 });
 Hooks.on("renderFolderConfig", (app, html) => {
 	const folder = app?.object ?? app?.folder;
-	if (folder?.type !== "Scene") return;
-	mgTidySceneFolderConfig(html, folder);
+	if (folder?.type === "Scene") {
+		mgTidySceneFolderConfig(html, folder);
+		window.setTimeout(() => mgTidySceneFolderConfig(html, folder), 0);
+	}
+	if (folder?.type === "Actor") {
+		mgTidyActorFolderConfig(html, folder);
+		window.setTimeout(() => mgTidyActorFolderConfig(html, folder), 0);
+	}
 });
 Hooks.on("canvasReady", () => mgRefreshScenesSidebarContent());
 ["createScene", "updateScene", "deleteScene", "createFolder", "updateFolder", "deleteFolder"].forEach(hookName => {
@@ -4469,33 +4604,100 @@ Hooks.on("canvasReady", () => mgRefreshScenesSidebarContent());
 		mgRefreshLeftSidebarContent();
 	});
 });
+["createActor", "updateActor", "deleteActor", "createFolder", "updateFolder", "deleteFolder"].forEach(hookName => {
+	Hooks.on(hookName, document => {
+		if (mgActiveSidebarTab !== "actors") return;
+		if (document?.documentName === "Folder" && document.type !== "Actor") return;
+		mgRefreshLeftSidebarContent();
+	});
+});
 
+/* Folder config cleanup
+----------------------------------------------------------------------*/
 function mgTidySceneFolderConfig(html, folder) {
 	const root = html?.jquery ? html[0] : html?.[0] ?? html;
 	if (!root?.querySelectorAll) return;
 
-	root.querySelectorAll('[name="sorting"], [name="sort"], select[name*="sort" i], input[name*="sort" i]').forEach(input => {
-		const group = input.closest(".form-group, .form-fields, .form-field, label") ?? input;
-		group.hidden = true;
-	});
+	mgHideFolderConfigSorting(root);
 
 	const fieldName = `flags.${MG_UI_NS}.${MG_SCENE_FOLDER_PLAYER_VISIBLE_FLAG}`;
-	if (root.querySelector(`[name="${fieldName}"]`)) return;
+	if (!root.querySelector(`[name="${fieldName}"]`)) {
+		const field = document.createElement("div");
+		field.className = "form-group mg-scene-folder-player-visible";
+		field.innerHTML = `
+			<label>Players Can See Folder</label>
+			<div class="form-fields">
+				<input type="checkbox" name="${fieldName}" data-dtype="Boolean" ${folder?.getFlag?.(MG_UI_NS, MG_SCENE_FOLDER_PLAYER_VISIBLE_FLAG) ? "checked" : ""} />
+			</div>
+			<p class="hint">When unchecked, players still see navigation scenes inside this folder as loose scene cards.</p>
+		`;
 
-	const field = document.createElement("div");
-	field.className = "form-group mg-scene-folder-player-visible";
-	field.innerHTML = `
-		<label>Players Can See Folder</label>
-		<div class="form-fields">
-			<input type="checkbox" name="${fieldName}" data-dtype="Boolean" ${folder?.getFlag?.(MG_UI_NS, MG_SCENE_FOLDER_PLAYER_VISIBLE_FLAG) ? "checked" : ""} />
-		</div>
-		<p class="hint">When unchecked, players still see navigation scenes inside this folder as loose scene cards.</p>
-	`;
+		const colorInput = root.querySelector('[name="color"]');
+		const colorGroup = colorInput?.closest?.(".form-group, .form-field, fieldset, .standard-form-group");
+		if (colorGroup?.parentElement) colorGroup.after(field);
+		else root.querySelector("form")?.prepend(field);
+	}
 
-	const colorInput = root.querySelector('[name="color"]');
-	const colorGroup = colorInput?.closest?.(".form-group, .form-fields, .form-field, label");
-	if (colorGroup?.parentElement) colorGroup.after(field);
-	else root.querySelector("form")?.prepend(field);
+	mgNormalizeSceneFolderConfigLayout(root);
+}
+
+function mgHideFolderConfigSorting(root) {
+	root.querySelectorAll('[name="sorting"], [name="sort"], select[name*="sort" i], input[name*="sort" i]').forEach(input => {
+		mgHideFolderConfigField(input);
+	});
+
+	root.querySelectorAll(".form-group, .form-field, fieldset, .form-fields, .standard-form-group").forEach(group => {
+		const text = group.textContent?.replace(/\s+/g, " ").trim().toLowerCase() ?? "";
+		if (text.startsWith("sorting mode") || text === "sorting" || text.startsWith("sorting ")) {
+			mgHideFolderConfigField(group);
+		}
+	});
+}
+
+function mgHideFolderConfigField(element) {
+	const group = element.closest?.(".form-group, .form-field, fieldset, .standard-form-group") ?? element;
+	group.hidden = true;
+	group.style.display = "none";
+}
+
+function mgNormalizeSceneFolderConfigLayout(root) {
+	const form = root.querySelector("form");
+	if (!form || form.dataset.mgSceneFolderLayoutNormalized === "true") return;
+
+	form.dataset.mgSceneFolderLayoutNormalized = "true";
+	form.classList.add("mg-scene-folder-config-form");
+
+	const fields = [
+		root.querySelector('[name="name"]'),
+		root.querySelector('[name="color"]'),
+		root.querySelector(`[name="flags.${MG_UI_NS}.${MG_SCENE_FOLDER_PLAYER_VISIBLE_FLAG}"]`)
+	].filter(Boolean);
+
+	fields.forEach(input => {
+		const currentGroup = input.closest(".form-group, .form-field, fieldset, .standard-form-group");
+		if (currentGroup?.classList.contains("mg-scene-folder-config-block")) return;
+
+		const block = document.createElement("div");
+		block.className = "form-group mg-scene-folder-config-block";
+		const labelText = input.name === "name"
+			? "Folder Name"
+			: input.name === "color"
+				? "Folder Color"
+				: "Players Can See Folder";
+		const hint = input.name.includes(MG_SCENE_FOLDER_PLAYER_VISIBLE_FLAG)
+			? `<p class="hint">When unchecked, players still see navigation scenes inside this folder as loose scene cards.</p>`
+			: "";
+
+		block.innerHTML = `
+			<label>${labelText}</label>
+			<div class="form-fields"></div>
+			${hint}
+		`;
+		block.querySelector(".form-fields").appendChild(input);
+
+		if (currentGroup?.parentElement) currentGroup.replaceWith(block);
+		else form.prepend(block);
+	});
 }
 
 async function mgRestoreUiState() {

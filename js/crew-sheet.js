@@ -315,6 +315,17 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 				let name = doc?.name ?? cache?.[uuid]?.name ?? "Unknown";
 				let img  = doc?.img  ?? cache?.[uuid]?.img  ?? "icons/svg/mystery-man.svg";
 				let type = doc?.type ?? cache?.[uuid]?.type ?? "character";
+				const crewSheetCrop = doc?.getFlag?.("midnight-gambit", "crops")?.crewSheet?.css || null;
+				const hasCrewSheetCrop = !!(crewSheetCrop && Object.keys(crewSheetCrop).length);
+				const cropX = Number.isFinite(crewSheetCrop?.x) ? crewSheetCrop.x : 50;
+				const cropY = Number.isFinite(crewSheetCrop?.y) ? crewSheetCrop.y : 50;
+				const cropScale = Number.isFinite(crewSheetCrop?.scale) ? crewSheetCrop.scale : 1;
+				const cropHeight = Number.isFinite(crewSheetCrop?.height) && crewSheetCrop.height > 0
+					? ` --mg-crop-h: ${crewSheetCrop.height}%;`
+					: "";
+				const crewSheetCropStyle = hasCrewSheetCrop
+					? `--mg-crop-x: ${cropX}; --mg-crop-y: ${cropY}; --mg-crop-scale: ${cropScale};${cropHeight}`
+					: "";
 				// Compute Class (Guise name) and Level to match actor-sheet.html
 				let className = "—";
 				let levelText = "—";
@@ -351,6 +362,8 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 			name,
 			img,
 			type,
+			hasCrewSheetCrop,
+			crewSheetCropStyle,
 			className,
 			levelText,
 			missing: !doc,
@@ -1144,7 +1157,7 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 		if (this._partyStrainHooksWired) return;
 		this._partyStrainHooksWired = true;
 
-		// Update when any party member's strain changes
+		// Update when any party member's image crop or strain changes
 		this._partyStrainActorHookId = Hooks.on("updateActor", (actor, changed) => {
 		// Only when this sheet is open
 		if (!this.element?.length) return;
@@ -1155,6 +1168,17 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 		// We stored UUIDs; simplest: refresh if we have a card with this actorId
 		const root = this.element?.[0];
 		if (!root?.querySelector?.(`.mg-member-card[data-actor-id="${actor.id}"]`)) return;
+
+		const mgFlags = changed?.flags?.["midnight-gambit"];
+		const cropTouched =
+			!!(mgFlags && Object.prototype.hasOwnProperty.call(mgFlags, "crops")) ||
+			Object.prototype.hasOwnProperty.call(changed ?? {}, "flags.midnight-gambit.crops") ||
+			getProperty(changed, "flags.midnight-gambit.crops") != null;
+
+		if (cropTouched) {
+			this.render(false);
+			return;
+		}
 
 		// Only react to strain/cap changes (keeps it light)
 		const touched =

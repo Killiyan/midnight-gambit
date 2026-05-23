@@ -17,6 +17,42 @@ function mgEscapeHTML(input) {
     .replaceAll("'", "&#039;");
 }
 
+function mgGetActorCropVariables(actor, key, fallbacks = []) {
+  const crops = actor?.getFlag?.(MG_NS, "crops") || {};
+  let crop = crops[key]?.css;
+  for (const fallback of fallbacks) {
+    if (crop) break;
+    crop = crops[fallback]?.css;
+  }
+  if (key === "sidebarInitiative" && crop?.model !== "skewSlicePan") return "";
+  if (!crop) return "";
+
+  const x = Number.isFinite(crop.x) ? crop.x : 50;
+  const y = Number.isFinite(crop.y) ? crop.y : 50;
+  const scale = Number.isFinite(crop.scale) ? crop.scale : 1;
+  const width = Number.isFinite(crop.width) && crop.width > 0
+    ? ` --mg-crop-w: ${crop.width}%;`
+    : "";
+  const height = Number.isFinite(crop.height) && crop.height > 0
+    ? ` --mg-crop-h: ${crop.height}%;`
+    : "";
+
+  return `--mg-crop-x: ${x}; --mg-crop-y: ${y}; --mg-crop-scale: ${scale};${width}${height}`;
+}
+
+function mgHasActorCrop(actor, key) {
+  const crop = actor?.getFlag?.(MG_NS, "crops")?.[key]?.css;
+  if (key === "sidebarInitiative" && crop?.model !== "skewSlicePan") return false;
+  return !!(crop && Object.keys(crop).length);
+}
+
+function mgActorCropTouched(changed) {
+  const mgFlags = changed?.flags?.[MG_NS];
+  return !!(mgFlags && Object.prototype.hasOwnProperty.call(mgFlags, "crops")) ||
+    Object.prototype.hasOwnProperty.call(changed ?? {}, `flags.${MG_NS}.crops`) ||
+    getProperty(changed, `flags.${MG_NS}.crops`) != null;
+}
+
 export class MGInitiativeSidebar {
   static #instance;
   static get instance() {
@@ -532,6 +568,38 @@ export class MGInitiativeSidebar {
     }
   }
 
+  refreshActorImages(actorId) {
+    const root = document.getElementById("mg-initiative-sidebar");
+    if (!root || !actorId) return;
+
+    const actor = game.actors.get(actorId);
+    const slots = root.querySelectorAll(`.mg-ini-side-slot[data-actor-id="${actorId}"]`);
+    for (const slot of slots) {
+      const imgWrap = slot.querySelector(".mg-ini-side-card-img");
+      const img = imgWrap?.querySelector("img");
+      if (img) img.src = actor?.img ?? "systems/midnight-gambit/assets/images/mg-queen.png";
+      this._applyActorCrop(imgWrap, actor);
+    }
+  }
+
+  _applyActorCrop(imgWrap, actor) {
+    if (!imgWrap) return;
+    const hasCrop = mgHasActorCrop(actor, "sidebarInitiative");
+    imgWrap.classList.toggle("is-cropped", hasCrop);
+    if (hasCrop) {
+      imgWrap.setAttribute("style", mgGetActorCropVariables(actor, "sidebarInitiative"));
+    } else {
+      imgWrap.removeAttribute("style");
+    }
+  }
+
+  _clearActorCrop(cardEl) {
+    const imgWrap = cardEl?.querySelector?.(".mg-ini-side-card-img");
+    if (!imgWrap) return;
+    imgWrap.classList.remove("is-cropped");
+    imgWrap.removeAttribute("style");
+  }
+
   _wireLiveActorRefresh() {
     if (this._liveHooksWired) return;
     this._liveHooksWired = true;
@@ -541,6 +609,11 @@ export class MGInitiativeSidebar {
       if (!this._mounted) return;
       if (!actor?.id) return;
       if (!Array.isArray(this._ids) || !this._ids.includes(actor.id)) return;
+
+      if (mgActorCropTouched(changed)) {
+        this.refreshActorImages(actor.id);
+        return;
+      }
 
       // Only react to strain/cap changes (prevents unnecessary work)
       const touched =
@@ -578,6 +651,7 @@ export class MGInitiativeSidebar {
       if (img) img.src = "";                 // clear image
       if (name) name.textContent = "END";    // label
       cardEl.classList.add("is-end");
+      this._clearActorCrop(cardEl);
       return;
     }
 
@@ -586,11 +660,13 @@ export class MGInitiativeSidebar {
     if (!id) {
       if (img) img.src = "";
       if (name) name.textContent = "";
+      this._clearActorCrop(cardEl);
       return;
     }
 
     const a = game.actors.get(id);
     if (img) img.src = a?.img ?? "icons/svg/mystery-man.svg";
+    this._applyActorCrop(cardEl.querySelector(".mg-ini-side-card-img"), a);
     if (name) name.textContent = a?.name ?? "—";
   }
 
@@ -685,6 +761,7 @@ export class MGInitiativeSidebar {
       // IMPORTANT: do not touch is-leaving / is-shifting / is-entering here
       // Only update is-empty and dataset + content.
       const img = slot.querySelector(".mg-ini-side-card-img img");
+      const imgWrap = slot.querySelector(".mg-ini-side-card-img");
       const name = slot.querySelector(".mg-ini-side-card-name");
       const card = slot.querySelector(".mg-ini-side-card");
 
@@ -699,6 +776,7 @@ export class MGInitiativeSidebar {
         if (img) img.src = "";               // no clock
         if (name) name.textContent = "END";
         if (card) card.removeAttribute("aria-hidden");
+        this._applyActorCrop(imgWrap, null);
 
         // tag the slice so CSS can style it
         const slice = slot.querySelector(".mg-ini-slice");
@@ -712,6 +790,7 @@ export class MGInitiativeSidebar {
         if (img) img.src = "";
         if (name) name.textContent = "";
         if (card) card.setAttribute("aria-hidden", "true");
+        this._applyActorCrop(imgWrap, null);
         return;
       }
 
@@ -720,6 +799,7 @@ export class MGInitiativeSidebar {
       slot.dataset.actorId = id;
 
       if (img) img.src = a?.img ?? "systems/midnight-gambit/assets/images/mg-queen.png";
+      this._applyActorCrop(imgWrap, a);
       if (name) name.textContent = a?.name ?? "—";
       if (card) card.removeAttribute("aria-hidden");
 

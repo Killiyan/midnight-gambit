@@ -356,6 +356,19 @@
       display: block;
       object-fit: cover;
     }
+
+    &.is-cropped {
+      img {
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        max-width: none;
+        max-height: none;
+        object-fit: cover;
+        transform: translate(calc((50 - var(--mg-crop-x, 50)) * 1%), calc((50 - var(--mg-crop-y, 50)) * 1%)) scale(var(--mg-crop-scale, 1));
+        transform-origin: center center;
+      }
+    }
   }
 
   .mg-ini-side-card-name {
