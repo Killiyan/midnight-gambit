@@ -79,6 +79,16 @@
     i {
       color: $mg-blue-1;
       margin: 0;
+      transition: inherit;
+    }
+
+    &:hover,
+    &:focus {
+      background: $mg-blue-4;
+
+      i {
+        color: $mg-green;
+      }
     }
   }
 
@@ -99,11 +109,11 @@
 
         &:hover,
         &:focus {
-          background: $mg-blue-3;
-          color: $mg-blue-4;
+          background: $mg-blue-main-2;
+          color: $mg-green;
 
           i {
-            color: $mg-blue-4;
+            color: $mg-green;
           }
         }
 
@@ -303,6 +313,7 @@
 
     height: var(--mg-ini-slice-h);
     border: var(--mg-ini-border) solid rgba(160, 190, 240, 0.72);
+    transition: height var(--mg-ini-trans) ease, border-color var(--mg-ini-trans) ease;
 
     // Parallelogram slice
     // clip-path: polygon(0 35%, 100% 0, 100% 65%, 0 100%);
@@ -346,6 +357,7 @@
     transform: skewY(20deg);
     transform-origin: top;
     left: 0;
+    transition: height var(--mg-ini-trans) ease, width var(--mg-ini-trans) ease, left var(--mg-ini-trans) ease;
 
     img {
       position: absolute;
@@ -358,13 +370,16 @@
     }
 
     &.is-cropped {
+      width: 130%;
+      left: -15%;
+
       img {
         inset: 0;
         width: 100%;
         height: 100%;
         max-width: none;
         max-height: none;
-        object-fit: cover;
+        object-fit: contain;
         transform: translate(calc((50 - var(--mg-crop-x, 50)) * 1%), calc((50 - var(--mg-crop-y, 50)) * 1%)) scale(var(--mg-crop-scale, 1));
         transform-origin: center center;
       }

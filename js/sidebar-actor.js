@@ -1,6 +1,8 @@
 const MG_UI_NS = "midnight-gambit";
 const MG_ACTOR_FOLDER_PLAYER_VISIBLE_FLAG = "playersCanSeeFolder";
 const MG_ACTOR_USER_ORDER_FLAG = "actorSidebarOrder";
+const MG_ACTOR_GUISE_IMAGE = "systems/midnight-gambit/assets/images/guise.jpg";
+const MG_ACTOR_DEFAULT_IMAGE = "icons/svg/mystery-man.svg";
 
 function mgShared() {
 	return globalThis.MGSidebarShared ?? {};
@@ -31,6 +33,107 @@ function mgCssEscape(value) {
 	if (typeof shared.cssEscape === "function") return shared.cssEscape(value);
 	if (window.CSS?.escape) return CSS.escape(String(value));
 	return String(value).replace(/"/g, '\\"');
+}
+
+function mgGetActorSidebarImage(actor) {
+	const img = String(actor?.img ?? "").trim();
+	if (!img || img === MG_ACTOR_DEFAULT_IMAGE || img.endsWith("/mystery-man.svg")) return MG_ACTOR_GUISE_IMAGE;
+	return img;
+}
+
+function mgGetFoundryAppClass(className) {
+	const candidates = [
+		globalThis[className],
+		globalThis.foundry?.applications?.apps?.[className],
+		globalThis.foundry?.applications?.sheets?.[className],
+		globalThis.foundry?.applications?.api?.[className]
+	];
+
+	const direct = candidates.find(candidate => typeof candidate === "function");
+	if (direct) return direct;
+
+	const foundryRoot = globalThis.foundry;
+	const seen = new Set();
+	const stack = [foundryRoot].filter(Boolean);
+	while (stack.length) {
+		const current = stack.pop();
+		if (!current || seen.has(current)) continue;
+		seen.add(current);
+
+		let names = [];
+		try {
+			names = Object.getOwnPropertyNames(current);
+		} catch (_) {
+			continue;
+		}
+
+		for (const name of names) {
+			let value;
+			try {
+				value = current[name];
+			} catch (_) {
+				continue;
+			}
+
+			if (name === className && typeof value === "function") return value;
+			if (value && typeof value === "object" && !seen.has(value)) stack.push(value);
+		}
+	}
+
+	return null;
+}
+
+async function mgRenderFoundryApp(app) {
+	if (!app || typeof app.render !== "function") return false;
+
+	try {
+		await app.render(true);
+		return true;
+	} catch (legacyErr) {
+		try {
+			await app.render({ force: true });
+			return true;
+		} catch (modernErr) {
+			try {
+				await app.render();
+				return true;
+			} catch (plainErr) {
+				console.warn("MG UI | Foundry app render failed.", { legacyErr, modernErr, plainErr });
+				return false;
+			}
+		}
+	}
+}
+
+function mgGetActorCropVariables(actor, key, fallbacks = [], options = {}) {
+	const shared = mgShared();
+	if (typeof shared.getActorCropVariables === "function") {
+		return shared.getActorCropVariables(actor, key, fallbacks, options);
+	}
+
+	const crops = actor?.getFlag?.(MG_UI_NS, "crops") || {};
+	let crop = crops[key]?.css;
+
+	for (const fallback of fallbacks) {
+		if (crop && Object.keys(crop).length) break;
+		crop = crops[fallback]?.css;
+	}
+
+	crop ||= {};
+	const x = Number.isFinite(crop.x) ? crop.x : 50;
+	const y = Number.isFinite(crop.y) ? crop.y : 50;
+	const scale = Number.isFinite(crop.scale) ? crop.scale : 1;
+	const width = !options.ignoreWidth && Number.isFinite(crop.width) && crop.width > 0 ? ` --mg-crop-w: ${crop.width}%;` : "";
+	const height = !options.ignoreHeight && Number.isFinite(crop.height) && crop.height > 0 ? ` --mg-crop-h: ${crop.height}%;` : "";
+
+	return `--mg-crop-x: ${x}; --mg-crop-y: ${y}; --mg-crop-scale: ${scale};${width}${height}`;
+}
+
+function mgHasActorCrop(actor, key) {
+	const shared = mgShared();
+	if (typeof shared.hasActorCrop === "function") return shared.hasActorCrop(actor, key);
+	const crop = actor?.getFlag?.(MG_UI_NS, "crops")?.[key]?.css;
+	return !!(crop && Object.keys(crop).length);
 }
 
 function mgIsAccordionOpen(actor, id, fallback = true) {
@@ -193,6 +296,7 @@ function mgBindActorSidebarDrag(panel) {
 
 	const finalizeContainerOrder = async container => {
 		const actorId = dragging?.dataset?.mgActorId;
+		const draggedFolderId = dragging?.dataset?.mgActorFolderId;
 		const dragToken = getDragToken();
 		if (!dragToken || !container) return;
 
@@ -217,6 +321,10 @@ function mgBindActorSidebarDrag(panel) {
 		if (actorId && game.user?.isGM && folderId !== originalFolderId) {
 			const actor = game.actors?.get(actorId);
 			await actor?.update({ folder: folderId || null });
+		}
+		if (draggedFolderId && game.user?.isGM && folderId !== originalDisplayContainer) {
+			const folder = game.folders?.get(draggedFolderId);
+			await folder?.update({ folder: folderId || null });
 		}
 	};
 
@@ -244,12 +352,15 @@ function mgBindActorSidebarDrag(panel) {
 		row.addEventListener("dragstart", event => {
 			event.stopPropagation();
 			const actorId = row.dataset.mgActorId || "";
+			const actor = game.actors?.get(actorId);
 			dragging = row;
 			dragging.dataset.mgActorDisplayContainer = dragging.parentElement?.dataset?.mgActorContainer || "";
 			row.classList.add("mg-dragging");
 			event.dataTransfer?.setData("application/x-mg-actor-id", actorId);
-			event.dataTransfer?.setData("text/plain", actorId);
-			event.dataTransfer.effectAllowed = "move";
+			event.dataTransfer?.setData("text/plain", actor?.uuid
+				? JSON.stringify({ type: "Actor", uuid: actor.uuid })
+				: actorId);
+			event.dataTransfer.effectAllowed = "copyMove";
 		});
 
 		row.addEventListener("dragend", () => {
@@ -286,7 +397,8 @@ function mgBindActorSidebarDrag(panel) {
 			if (!dragging) return;
 			const isRootContainer = container.dataset.mgActorContainer === "";
 			const isDraggingFolder = !!dragging.dataset.mgActorFolderId;
-			if ((isDraggingFolder || !game.user?.isGM) && mgNormalizeActorContainerId(container.dataset.mgActorContainer) !== mgNormalizeActorContainerId(dragging.dataset.mgActorDisplayContainer)) return;
+			const allowsFolderPromotion = isDraggingFolder && game.user?.isGM && isRootContainer;
+			if (!allowsFolderPromotion && (isDraggingFolder || !game.user?.isGM) && mgNormalizeActorContainerId(container.dataset.mgActorContainer) !== mgNormalizeActorContainerId(dragging.dataset.mgActorDisplayContainer)) return;
 			const nearestContainer = event.target.closest("[data-mg-actor-container]");
 			if (!isRootContainer && nearestContainer !== container) return;
 			event.preventDefault();
@@ -303,7 +415,8 @@ function mgBindActorSidebarDrag(panel) {
 			if (!dragging) return;
 			const isRootContainer = container.dataset.mgActorContainer === "";
 			const isDraggingFolder = !!dragging.dataset.mgActorFolderId;
-			if ((isDraggingFolder || !game.user?.isGM) && mgNormalizeActorContainerId(container.dataset.mgActorContainer) !== mgNormalizeActorContainerId(dragging.dataset.mgActorDisplayContainer)) return;
+			const allowsFolderPromotion = isDraggingFolder && game.user?.isGM && isRootContainer;
+			if (!allowsFolderPromotion && (isDraggingFolder || !game.user?.isGM) && mgNormalizeActorContainerId(container.dataset.mgActorContainer) !== mgNormalizeActorContainerId(dragging.dataset.mgActorDisplayContainer)) return;
 			const nearestContainer = event.target.closest("[data-mg-actor-container]");
 			if (!isRootContainer && nearestContainer !== container) return;
 			event.preventDefault();
@@ -451,6 +564,8 @@ function mgOpenActorContextMenu(actorId, anchor, row, event = null) {
 	menu.className = "mg-scene-context-menu mg-actor-context-menu";
 	menu.dataset.mgActorContextMenu = actor.id;
 	menu.innerHTML = `
+		<button type="button" data-mg-actor-action="edit"><i class="fa-solid fa-pen-to-square"></i> Edit Actor</button>
+		<button type="button" data-mg-actor-action="artwork"><i class="fa-solid fa-image"></i> View Artwork</button>
 		${canManage ? `<button type="button" data-mg-actor-action="ownership"><i class="fa-solid fa-user-shield"></i> Configure Ownership</button>` : ""}
 		<button type="button" data-mg-actor-action="export"><i class="fa-solid fa-file-export"></i> Export Data</button>
 		${canManage ? `<button type="button" data-mg-actor-action="import"><i class="fa-solid fa-file-import"></i> Import Data</button>` : ""}
@@ -530,8 +645,14 @@ function mgOpenActorFolderContextMenu(folderId, anchor, event = null) {
 async function mgRunActorAction(actor, action) {
 	try {
 		switch (action) {
+			case "edit":
+				actor.sheet?.render(true, { focus: true });
+				break;
+			case "artwork":
+				await mgViewActorArtwork(actor);
+				break;
 			case "ownership":
-				mgOpenActorOwnershipConfig(actor);
+				await mgOpenActorOwnershipConfig(actor);
 				break;
 			case "export":
 				actor.exportToJSON?.();
@@ -552,26 +673,159 @@ async function mgRunActorAction(actor, action) {
 	}
 }
 
-function mgOpenActorOwnershipConfig(actor) {
-	const OwnershipConfig = globalThis.DocumentOwnershipConfig ?? globalThis.foundry?.applications?.apps?.DocumentOwnershipConfig;
-	if (!OwnershipConfig) {
-		ui.notifications?.warn("Could not open ownership configuration.");
-		return;
-	}
+async function mgViewActorArtwork(actor) {
+	const src = mgGetActorSidebarImage(actor);
+	const title = actor.name || "Actor Artwork";
+	const ImagePopoutApp = mgGetFoundryAppClass("ImagePopout");
 
-	try {
-		new OwnershipConfig(actor).render(true);
-		return;
-	} catch (legacyErr) {
-		try {
-			new OwnershipConfig({ document: actor }).render(true);
-			return;
-		} catch (modernErr) {
-			console.warn("MG UI | Actor ownership config failed.", { legacyErr, modernErr });
+	if (ImagePopoutApp) {
+		const configs = [
+			() => new ImagePopoutApp({ src, uuid: actor.uuid, window: { title } }),
+			() => new ImagePopoutApp(src, { title, uuid: actor.uuid }),
+			() => new ImagePopoutApp({ src, title, uuid: actor.uuid })
+		];
+
+		for (const createApp of configs) {
+			try {
+				const app = createApp();
+				if (await mgRenderFoundryApp(app)) return;
+			} catch (err) {
+				console.warn("MG UI | Actor artwork popout construction failed.", err);
+			}
 		}
 	}
 
-	ui.notifications?.warn("Could not open ownership configuration.");
+	mgOpenFallbackArtworkDialog(actor, src, title);
+}
+
+function mgOpenFallbackArtworkDialog(actor, src, title) {
+	const content = `
+		<figure class="mg-actor-artwork-popout">
+			<img src="${mgEsc(src)}" alt="${mgAttr(actor.name)}" />
+			<figcaption>${mgEsc(actor.name)}</figcaption>
+		</figure>
+	`;
+
+	if (typeof Dialog === "function") {
+		new Dialog({
+			title,
+			content,
+			buttons: {
+				close: {
+					label: "Close"
+				}
+			},
+			default: "close"
+		}).render(true);
+		return;
+	}
+
+	window.open(src, "_blank", "noopener");
+}
+
+async function mgOpenActorOwnershipConfig(actor) {
+	const OwnershipConfig = mgGetFoundryAppClass("DocumentOwnershipConfig");
+
+	if (OwnershipConfig) {
+		const configs = [
+			() => new OwnershipConfig({ document: actor }),
+			() => new OwnershipConfig(actor)
+		];
+
+		for (const createApp of configs) {
+			try {
+				const app = createApp();
+				if (await mgRenderFoundryApp(app)) return;
+			} catch (err) {
+				console.warn("MG UI | Actor ownership config construction failed.", err);
+			}
+		}
+	}
+
+	await mgOpenFallbackOwnershipDialog(actor);
+}
+
+async function mgOpenFallbackOwnershipDialog(actor) {
+	if (!game.user?.isGM) return;
+
+	const levels = mgGetOwnershipLevels();
+	const defaultLevels = levels.filter(level => level.value >= 0);
+	const ownership = { ...(actor.ownership ?? {}) };
+	const users = Array.from(game.users ?? []);
+	const renderSelect = (name, value, choices = levels) => `
+		<select name="${mgAttr(name)}">
+			${choices.map(level => `<option value="${level.value}" ${Number(value) === level.value ? "selected" : ""}>${mgEsc(level.label)}</option>`).join("")}
+		</select>
+	`;
+	const rows = users.map(user => `
+		<div class="form-group">
+			<label>${mgEsc(user.name)}</label>
+			<div class="form-fields">
+				${renderSelect(`user.${user.id}`, ownership[user.id] ?? -1)}
+			</div>
+		</div>
+	`).join("");
+
+	const content = `
+		<form class="mg-actor-ownership-form">
+			<div class="form-group">
+				<label>Default</label>
+				<div class="form-fields">
+					${renderSelect("default", ownership.default ?? 0, defaultLevels)}
+				</div>
+			</div>
+			${rows}
+		</form>
+	`;
+
+	return Dialog.confirm({
+		title: `Configure Ownership: ${actor.name}`,
+		content,
+		yes: async html => {
+			const root = html?.jquery ? html[0] : html?.[0] ?? html;
+			const form = root?.querySelector?.(".mg-actor-ownership-form");
+			if (!form) return;
+
+			const next = {};
+			const defaultValue = Number(form.querySelector('[name="default"]')?.value ?? 0);
+			next.default = Number.isFinite(defaultValue) ? defaultValue : 0;
+
+			for (const user of users) {
+				const raw = Number(form.elements?.[`user.${user.id}`]?.value ?? -1);
+				if (Number.isFinite(raw) && raw >= 0) next[user.id] = raw;
+			}
+
+			await actor.update({ ownership: next });
+		},
+		no: () => false,
+		defaultYes: false
+	});
+}
+
+function mgGetOwnershipLevels() {
+	const constants = globalThis.CONST?.DOCUMENT_OWNERSHIP_LEVELS ?? {};
+	const fallback = {
+		NONE: 0,
+		LIMITED: 1,
+		OBSERVER: 2,
+		OWNER: 3
+	};
+	const source = Object.keys(constants).length ? constants : fallback;
+	const labels = {
+		"-1": "Default",
+		[source.NONE]: "None",
+		[source.LIMITED]: "Limited",
+		[source.OBSERVER]: "Observer",
+		[source.OWNER]: "Owner"
+	};
+
+	return [
+		{ value: -1, label: labels["-1"] },
+		{ value: source.NONE ?? 0, label: labels[source.NONE ?? 0] ?? "None" },
+		{ value: source.LIMITED ?? 1, label: labels[source.LIMITED ?? 1] ?? "Limited" },
+		{ value: source.OBSERVER ?? 2, label: labels[source.OBSERVER ?? 2] ?? "Observer" },
+		{ value: source.OWNER ?? 3, label: labels[source.OWNER ?? 3] ?? "Owner" }
+	];
 }
 
 async function mgDuplicateActor(actor) {
@@ -745,11 +999,16 @@ function mgRenderActorSidebarContent() {
 }
 
 function mgRenderAssignedActorCard(actor) {
-	const img = actor.img || "icons/svg/mystery-man.svg";
-	const style = ` style="background-image: url('${mgAttr(mgCssUrl(img))}');"`;
+	const img = mgGetActorSidebarImage(actor);
+	const hasCrop = mgHasActorCrop(actor, "actorSidebar");
+	const cropVariables = hasCrop ? mgGetActorCropVariables(actor, "actorSidebar", [], { ignoreHeight: true }) : "";
+
 	return `
 		<section class="mg-active-scene mg-active-actor" data-mg-active-actor-id="${actor.id}">
-			<button type="button" class="mg-active-scene-card mg-active-actor-card" data-mg-open-actor="${actor.id}"${style}>
+			<button type="button" class="mg-active-scene-card mg-active-actor-card" data-mg-open-actor="${actor.id}">
+				<span class="mg-actor-row-image mg-active-actor-image mg-cropbox ${hasCrop ? "is-cropped" : ""}" aria-hidden="true">
+					<img src="${mgEsc(img)}" alt="" style="${cropVariables}" />
+				</span>
 				<span class="mg-active-scene-scrim"></span>
 				<span class="mg-active-scene-kicker"><i class="fa-solid fa-user"></i> Your Character</span>
 				<span class="mg-active-scene-title">${mgEsc(actor.name)}</span>
@@ -903,8 +1162,10 @@ function mgRenderActorFolder(node, depth = 0) {
 }
 
 function mgRenderActorRow(actor) {
-	const img = actor.img || "icons/svg/mystery-man.svg";
-	const style = ` style="background-image: url('${mgAttr(mgCssUrl(img))}');"`;
+	const img = mgGetActorSidebarImage(actor);
+	const hasCrop = mgHasActorCrop(actor, "actorSidebar");
+	const cropVariables = hasCrop ? mgGetActorCropVariables(actor, "actorSidebar", [], { ignoreHeight: true }) : "";
+
 	return `
 		<article
 			class="mg-scene-row mg-actor-row"
@@ -912,7 +1173,10 @@ function mgRenderActorRow(actor) {
 			data-mg-actor-name="${mgAttr(actor.name)}"
 			data-mg-actor-folder="${actor.folder?.id ?? actor.folder ?? ""}"
 		>
-			<button type="button" class="mg-scene-row-main mg-actor-row-main" data-mg-open-actor="${actor.id}"${style}>
+			<button type="button" class="mg-scene-row-main mg-actor-row-main" data-mg-open-actor="${actor.id}">
+				<span class="mg-actor-row-image mg-cropbox ${hasCrop ? "is-cropped" : ""}" aria-hidden="true">
+					<img src="${mgEsc(img)}" alt="" style="${cropVariables}" />
+				</span>
 				<span class="mg-scene-row-scrim"></span>
 				<span class="mg-scene-row-title mg-actor-row-title">${mgEsc(actor.name)}</span>
 			</button>

@@ -309,9 +309,24 @@ body.mg-hud-enabled {
 
 		#chat-form textarea{
 			//One off color for the darker forms on the dark UI
-			border-color: $mg-blue-main-2;
+			@include mg-border();
 			background: #0D1929;
+			color: $mg-blue-2;
 			border-radius: .5rem;
+			transition: color .5s ease, border .5s ease;
+
+			&:hover {
+				box-shadow: none;
+				border-color: $mg-blue-2;
+				background: $mg-blue-4;
+				color: $mg-blue-1;
+			}
+
+			&:focus {
+				border-color: $mg-green;
+				background: $mg-blue-4;
+				color: $mg-blue-1;
+			}
 		}
 
 		#chat-controls {
@@ -390,6 +405,14 @@ body.mg-hud-enabled {
 		}
 	}
 
+	/* Quick Gambit Hand reposition until I redo it completely
+	----------------------------------------------------------------------*/	
+	.gambit-hand-ui { 
+		right: 24.875rem;
+		left: unset;
+		z-index: 70;
+	}
+
 	/* Start left sidebar
 	==============================================================================================================================================*/
 	.mg-left-sidebar {
@@ -407,7 +430,7 @@ body.mg-hud-enabled {
 		pointer-events: auto;
 
 		//Overriding Button stylings to make them less obnoxious on sidebar
-		button:not(.mg-left-accordion-toggle):not(.sidebar-tab):not(.dot):not(.mg-scene-row):not(.mg-scene-context-button):not(.mg-scene-row-main):not(.mg-active-scene-card):not(.attribute-container):not(.skill-container) {
+		button:not(.mg-left-accordion-toggle):not(.sidebar-tab):not(.dot):not(.mg-scene-row):not(.mg-scene-context-button):not(.mg-scene-row-main):not(.mg-active-scene-card):not(.attribute-container):not(.skill-container):not(.open-sheet):not(.mg-playlist-sound-control):not(.mg-difficulty-button) {
 			background: $mg-blue-main;
 			border: 1px solid $mg-blue-main-2;
 
@@ -507,7 +530,7 @@ body.mg-hud-enabled {
 
 		.sidebar-body {
 			height: calc(100% - 4.75rem);
-			padding: 1rem;
+			padding: 1rem 1rem 4rem 1rem;
 			overflow-x: hidden;
 			overflow-y: auto;
 			scrollbar-width: none;
@@ -546,7 +569,6 @@ body.mg-hud-enabled {
 			background-color: transparent;
 			color: $mg-blue-1;
 			cursor: pointer;
-
 			transition: background .5s ease, border-color .5s ease, color .5s ease, transform .5s ease;
 
 			i {
@@ -554,6 +576,10 @@ body.mg-hud-enabled {
 				padding: 0;
 				margin: 0;
 				@include mg-shadow();
+			}
+
+			&:last-of-type {
+				border-radius: 0 0 .5rem .5rem;
 			}
 
 			.tab-portrait {
@@ -566,11 +592,14 @@ body.mg-hud-enabled {
 
 			.tab-label {
 				position: absolute;
-				height: auto;
+				height: 100%;
+				display: flex;
+				justify-content: center;
+				align-items: center;
 				left: 100%;
 				top: 50%;
 				transform: translate(-.5rem, -50%);
-				z-index: 1;
+				z-index: -1;
 				padding: .45rem;
 				border: 1px solid rgba($mg-blue-1, .25);
 				border-radius: 0 .5rem .5rem 0;
@@ -597,22 +626,18 @@ body.mg-hud-enabled {
 				white-space: nowrap;
 				opacity: 0;
 				pointer-events: none;
-				transition: opacity .2s ease, transform .2s ease;
+				transition: opacity .5s ease, transform .5s ease;
 			}
 
 			&.has-portrait {
 				padding: 0;
 
 				.tab-portrait {
+					background: $white;
 					transition: filter .5s ease, background .5s ease;
 					border: 0;
 					border-radius: 0.5rem .5rem 0 0;
 					mix-blend-mode: screen;
-				}
-
-				&.is-active .tab-portrait {
-					filter: brightness(1.5);
-					background: $mg-blue-3;
 				}
 			}
 
@@ -755,10 +780,206 @@ body.mg-hud-enabled {
 			gap: .5rem;
 		}
 
-/* Scene Sidebar Start
-==============================================================================================================================================*/
+		/* Scenes, Actors, Items, Journal, Compendium, and Playlists Globals
+		==============================================================================================================================================*/
+		.mg-left-empty {
+			display: grid;
+			place-items: center;
+			gap: .5rem;
+
+			min-height: 10rem;
+			padding: 1rem;
+			text-align: center;
+			color: $mg-blue-1;
+			background: $mg-blue-main;
+			border-radius: .5rem;
+			@include mg-border();
+			@include mg-shadow();
+
+			i {
+				font-size: 1.75rem;
+				color: rgba($mg-blue-1, .7);
+			}
+		}
+
+		.mg-left-accordion {
+			margin: 0;
+			
+			&:last-of-type .mg-left-accordion-toggle {
+				border-bottom: 2px solid $mg-blue-main-2;
+			}
+
+			&:nth-of-type(even) .mg-left-accordion-toggle {
+				--mg-accordion-toggle-image: url("../assets/images/accordion-toggle-alt.jpg");
+			}
+
+			&.is-open {
+				.mg-left-accordion-toggle {
+					border-color: $mg-blue-3;
+				}
+
+				.mg-left-accordion-chevron {
+					transform: rotate(180deg);
+				}
+			}
+		}
+
+		/* Accordion Left sidebar Globals
+		----------------------------------------------------------------------*/			
+		.mg-left-accordion-toggle {
+			--mg-accordion-toggle-image: url("../assets/images/accordion-toggle.jpg");
+			width: 100%;
+			margin: 0;
+			padding: 1rem;
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			border-radius: 0;
+			color: $mg-blue-1;
+			text-align: left;
+			border: 2px solid $mg-blue-main-2;
+			border-left: 0;
+			border-right: 0;
+			@include oswald();
+			font-size: .9rem;
+			font-weight: 700;
+			text-transform: uppercase;
+			position: relative;
+			background:
+				/* subtle pearly sheen (top-center) */
+				radial-gradient(circle at 50% 0%,
+				rgba(197, 212, 236, 0.22) 0%,
+				rgba(197, 212, 236, 0.10) 35%,
+				rgba(18, 33, 55, 0.00) 70%
+				),
+				/* texture */
+				var(--mg-accordion-toggle-image);
+			background-repeat: no-repeat;
+			background-size: cover, auto 115%;
+			background-position: center, 50% 34%;
+			background-blend-mode: soft-light, multiply;
+			background-color: $mg-blue-3;
+			transition:
+				background-color .5s ease,
+				background-position 2.5s cubic-bezier(.2, .8, .2, 1),
+				background-size 2.5s cubic-bezier(.2, .8, .2, 1),
+				color .5s ease,
+				border .5s ease;
+
+			&::after {
+				content: '';
+				width: 100%;
+				height: 100%;
+				background: linear-gradient(
+					270deg,
+					rgba($mg-blue-main, 1) 0%,
+					rgba($mg-blue-main, 0) 25%,
+					rgba($mg-blue-main, 0) 35%,
+					rgba($mg-blue-main, 1) 100%
+				);
+				position: absolute;
+				left: 0;
+				top: 0;
+				opacity: 1;
+				transition: opacity .5s ease, background .5s ease;
+			}
+
+			span {
+				display: flex;
+				align-items: center;
+				gap: 1rem;
+				@include oswald();
+				font-size: 1rem;
+				font-weight: 400;
+				font-style: normal;
+				@include mg-shadow();
+				position: relative;
+				z-index: 2;
+			}
+
+			i {
+				color: $mg-blue-2;
+				font-size: 1.5rem;
+				@include mg-shadow();
+				position: relative;
+				z-index: 3;
+				transition: color .5s ease, transform .5s ease;
+			}
+
+			.mg-left-accordion.is-open &,
+			&:hover {
+				background-color: $mg-blue-main-2;
+				background-size: cover, auto 125%;
+				background-position: center, 50% 66%;
+				color: $mg-ivory;
+
+				i {
+					color: $mg-green;
+				}
+			}
+		}
+
+		.mg-left-accordion-chevron {
+			transition: transform .5s ease, color .5s ease;
+			font-size: 1.15rem !important;
+		}
+
+		.mg-left-accordion-body {
+			display: block;
+			overflow: hidden;
+			opacity: 1;
+			transition:
+			max-height .5s ease,
+			opacity .5s ease;
+
+			&[hidden] {
+				display: none;
+			}
+		}
+
+		.mg-left-accordion-inner {
+			display: grid;
+			gap: .75rem;
+			padding: 1rem;
+			border-bottom: 2px solid $mg-blue-main-2;
+			background: rgba($mg-blue-4, .6);
+		}		
+
+		/* Quick Open sheet global for Actors/Crew
+		----------------------------------------------------------------------*/			
+		.open-sheet {
+			border-radius: 0;
+			background: $mg-blue-main;
+			border: 2px solid $mg-blue-main-2;
+			border-left: 0;
+			border-right: 0;
+			display: flex;
+			justify-content: center;
+			align-items: center;
+			gap: .5rem;
+
+			i {
+				color: $mg-blue-2;
+				margin: 0;
+			}
+
+			&:hover,
+			&:focus {
+				background: $mg-blue-4;
+				color: $mg-green;
+
+				i {
+					color: $mg-blue-2;
+				}
+			}
+		}			
+		
 		&.is-scenes-tab,
-		&.is-actors-tab {
+		&.is-actors-tab,
+		&.is-items-tab,
+		&.is-journal-tab,
+		&.is-compendiums-tab,
+		&.is-playlists-tab {
 
 			.mg-left-empty {
 				margin: 0 1rem;
@@ -834,7 +1055,12 @@ body.mg-hud-enabled {
 						@include mg-shadow();
 					}
 
-					.mg-scene-collapse-folders {
+					.mg-scene-collapse-folders,
+					.mg-actor-collapse-folders,
+					.mg-item-collapse-folders,
+					.mg-journal-collapse-folders,
+					.mg-compendium-collapse-folders,
+					.mg-playlist-collapse-folders {
 						margin-bottom: 1rem;
 					}
 
@@ -866,7 +1092,7 @@ body.mg-hud-enabled {
 						position: relative;
 
 						&:after {
-							background: rgba($mg-blue-4, .7);
+							background: rgba($mg-blue-4, .5);
 							position: absolute;
 							top: 0;
 							left: 0;
@@ -877,6 +1103,13 @@ body.mg-hud-enabled {
 							mix-blend-mode: multiply;
 							pointer-events: none;
 							z-index: 2;
+						}
+
+						.mg-active-scene-kicker {
+							@include oswald();
+							font-style: italic;
+							letter-spacing: .02em;
+							font-weight: 700;
 						}
 
 						.mg-active-scene-kicker,
@@ -976,7 +1209,11 @@ body.mg-hud-enabled {
 					gap: .5rem;
 
 					&.mg-scene-drop-target,
-					&.mg-actor-drop-target {
+					&.mg-actor-drop-target,
+					&.mg-item-drop-target,
+					&.mg-journal-drop-target,
+					&.mg-compendium-drop-target,
+					&.mg-playlist-drop-target {
 						outline: 1px dashed rgba($mg-green, .8);
 						outline-offset: .25rem;
 					}
@@ -1112,6 +1349,38 @@ body.mg-hud-enabled {
 					overflow: hidden;
 				}
 
+				.mg-actor-row-image {
+					position: absolute;
+					inset: 0;
+					display: block;
+					overflow: hidden;
+					background: $mg-blue-4;
+					pointer-events: none;
+
+					img {
+						position: absolute;
+						left: 0;
+						top: 0;
+						display: block;
+						width: 100%;
+						height: 100%;
+						max-width: none;
+						max-height: none;
+						border: 0;
+						object-fit: cover;
+					}
+
+					&.is-cropped img {
+						left: 50%;
+						top: 50%;
+						width: var(--mg-crop-w, 100%);
+						height: var(--mg-crop-h, auto);
+						object-fit: unset;
+						transform: translate(calc(-1% * var(--mg-crop-x, 50)), calc(-1% * var(--mg-crop-y, 50))) scale(var(--mg-crop-scale, 1));
+						transform-origin: center center;
+					}
+				}
+
 				.mg-scene-row-scrim {
 					position: absolute;
 					inset: 0;
@@ -1218,7 +1487,11 @@ body.mg-hud-enabled {
 				}
 
 				.mg-left-accordion-toggle.mg-scene-drop-folder,
-				.mg-left-accordion-toggle.mg-actor-drop-folder {
+				.mg-left-accordion-toggle.mg-actor-drop-folder,
+				.mg-left-accordion-toggle.mg-item-drop-folder,
+				.mg-left-accordion-toggle.mg-journal-drop-folder,
+				.mg-left-accordion-toggle.mg-compendium-drop-folder,
+				.mg-left-accordion-toggle.mg-playlist-drop-folder {
 					border-color: $mg-green;
 					color: $mg-green;
 				}
@@ -1227,98 +1500,153 @@ body.mg-hud-enabled {
 				.mg-left-accordion[hidden],
 				.mg-scene-favorites[hidden],
 				.mg-scene-empty-search[hidden],
-				.mg-actor-empty-search[hidden] {
+				.mg-actor-empty-search[hidden],
+				.mg-item-empty-search[hidden],
+				.mg-journal-empty-search[hidden],
+				.mg-compendium-empty-search[hidden],
+				.mg-playlist-row-wrap[hidden],
+				.mg-playlist-empty-search[hidden],
+				[data-mg-playlist-sound-row][hidden] {
 					display: none !important;
 				}
+
+				.mg-compendium-row {
+					&.is-locked,
+					&.is-inaccessible {
+						opacity: .55;
+
+						.mg-scene-row-main {
+							filter: grayscale(.6);
+						}
+
+						.mg-scene-row-title {
+							color: $mg-blue-2;
+						}
+					}
+
+					&.is-inaccessible {
+						pointer-events: none;
+					}
+
+					small {
+						@include oswald();
+						display: block;
+						margin-top: .25rem;
+						color: $mg-blue-2;
+						font-size: .65rem;
+						font-style: italic;
+						text-transform: uppercase;
+					}
+				}
 			}
 		}
 
-		.mg-left-empty {
-			display: grid;
-			place-items: center;
-			gap: .5rem;
+		&.is-items-tab,
+		&.is-journal-tab,
+		&.is-compendiums-tab,
+		&.is-playlists-tab {
+			.mg-item-directory,
+			.mg-journal-directory,
+			.mg-compendium-directory,
+			.mg-playlist-directory {
+				.mg-active-scene {
+					.mg-active-items-card,
+					.mg-active-journals-card,
+					.mg-active-compendiums-card,
+					.mg-active-playlists-card {
+						&:hover {
+							border-color: $mg-blue-main-2;
 
-			min-height: 10rem;
-			padding: 1rem;
-			text-align: center;
-			color: $mg-blue-1;
-			background: $mg-blue-main;
-			border-radius: .5rem;
-			@include mg-border();
-			@include mg-shadow();
+							.mg-active-scene-kicker {
+								color: $mg-green;
 
-			i {
-				font-size: 1.75rem;
-				color: rgba($mg-blue-1, .7);
+								i {
+									color: $mg-blue-2;
+								}
+							}
+
+							.mg-active-scene-title {
+								color: $mg-ivory;
+							}
+						}
+					}
+				}
 			}
 		}
 
-		.mg-clock-sidebar {
-			gap: 0;
-			margin: -1rem;
+		/* Director Specifics
+		----------------------------------------------------------------------*/				
+		&.is-gm-tab {
+			.mg-gm-sidebar {
+				display: flex;
+				flex-direction: column;
+				margin: -1rem;
+				min-height: 100%;
+				padding-bottom: 3rem;
 
-			.mg-clock-sidebar-actions {
-				display: grid;
-				grid-template-columns: repeat(auto-fit, minmax(6rem, 1fr));
-				gap: 0;
+				.mg-difficulty-control {
+					border: 2px solid $mg-blue-main-2;
+					border-radius: .5rem;
+					background: rgba($mg-blue-main, .55);
+					overflow: hidden;
 
-				.mg-left-action {
-					justify-content: center;
-					font-size: .75rem;
-					padding: 1rem;
-					border-radius: 0;
-					color: $mg-ivory;
-					line-height: 1.1;
-					transition: color .5s ease, background .5s ease, border .5s ease;
+					h2 {
+						@include oswald();
+						font-size: 1rem;
+						text-transform: uppercase;
+						font-weight: 700;
+						color: $mg-blue-2;
+						width: 100%;
+						display: flex;
+						justify-content: center;
+						align-items: center;
+						padding: .5rem 0;
+						background: $mg-blue-main;
+						border-bottom: 2px solid $mg-blue-main-2;
+						margin: 0;
+					}
+
+					.mg-difficulty-buttons {
+						display: grid;
+						grid-template-columns: repeat(7, minmax(0, 1fr));
+						gap: .5rem;
+						padding: .5rem;
+						background: rgba($black,.7);
+
+						.mg-difficulty-button {
+							min-width: 0;
+							margin: 0;
+							padding: .5rem;
+							border-radius: .5rem;
+							@include oswald();
+							font-weight: 700;
+							font-style: normal;
+							font-size: .85rem;
+							text-align: center;
+							@include mg-shadow();
+							color: $mg-blue-2;
+							background: $mg-blue-4;
+							border: 2px solid $mg-blue-main-2;
+
+							&.is-active {
+								background: $mg-blue-main;
+								border-color: $mg-green;
+								color: $mg-green;
+							}
+
+							&:hover {
+								background: $mg-blue-main;
+								border-color: $mg-green;
+								color: $mg-green;
+							}
+						}						
+					}					
 				}
-			}
-
-			.mg-clock-sidebar-list {
-				display: grid;
-				gap: 1rem;
-			}
-
-			.mg-clock-sidebar-slot {
-				min-height: 6rem;
-				cursor: grab;
-
-				&.mg-dragging {
-					opacity: .55;
-				}
-			}
-
-			.mg-clock-empty {
-				min-height: 5rem;
-			}
+			}			
 		}
-
-		.open-sheet {
-			border-radius: 0;
-			background: $mg-blue-main;
-			border: 2px solid $mg-blue-main-2;
-			border-left: 0;
-			border-right: 0;
-			display: flex;
-			justify-content: center;
-			align-items: center;
-			gap: .5rem;
-
-			i {
-				color: $mg-blue-2;
-				margin: 0;
-			}
-
-			&:hover,
-			&:focus {
-				background: $mg-blue-3;
-				color: $mg-blue-4;
-
-				i {
-					color: $mg-blue-4;
-				}
-			}
-		}		
-
+		
+		/* Character Specifics
+		----------------------------------------------------------------------*/			
 		.character-tab {
 			display: flex;
 			flex-direction: column;
@@ -1448,6 +1776,7 @@ body.mg-hud-enabled {
 				text-align: center;
 				margin-right: -2rem;
 				pointer-events: none;
+				@include mg-shadow();
 
 				label {
 					@include oswald();
@@ -1456,6 +1785,7 @@ body.mg-hud-enabled {
 					font-weight: 700;
 					color: $mg-blue-2;
 					text-transform: uppercase;
+					@include mg-shadow();
 				}
 
 				&:after {
@@ -1526,6 +1856,7 @@ body.mg-hud-enabled {
 					font-size: 1rem;
 					font-weight: 700;
 					color: $mg-ivory;
+					@include mg-shadow();
 				}
 			}
 
@@ -1941,6 +2272,8 @@ body.mg-hud-enabled {
 			}
 		}
 
+		/* Crew Specifics
+		----------------------------------------------------------------------*/			
 		.crew-tab {
 			display: flex;
 			flex-direction: column;
@@ -2125,6 +2458,7 @@ body.mg-hud-enabled {
 										align-items: center;
 										aspect-ratio: 1/1;
 										z-index: 3;
+										
 
 										span {
 											@include oswald();
@@ -2132,12 +2466,14 @@ body.mg-hud-enabled {
 											font-weight: 700;
 											text-transform: uppercase;
 											color: $mg-blue-2;
+											@include mg-shadow();
 										}
 
 										strong {
 											font-size: 1rem;
 											@include oswald();
 											color: $mg-ivory;
+											@include mg-shadow();
 										}
 
 										&:after {
@@ -2215,7 +2551,13 @@ body.mg-hud-enabled {
 										font-weight: 700;
 										font-size: 1.25rem;
 										color: $mg-blue-2;
+
+										&.resource-max {
+											font-size: .75rem;
+											color: rgba($mg-blue-2, .6);
+										}
 									}
+
 								}
 							}
 						}
@@ -2415,153 +2757,406 @@ body.mg-hud-enabled {
 			}
 		}
 
-		.mg-left-accordion {
-			margin: 0;
-			
-			&:last-of-type .mg-left-accordion-toggle {
-				border-bottom: 2px solid $mg-blue-main-2;
-			}
+		/* Clock Specifics
+		----------------------------------------------------------------------*/		
+		.mg-clock-sidebar {
+			gap: 0;
+			margin: -1rem;
 
-			&:nth-of-type(even) .mg-left-accordion-toggle {
-				--mg-accordion-toggle-image: url("../assets/images/accordion-toggle-alt.jpg");
-			}
+			.mg-clock-sidebar-actions {
+				display: grid;
+				grid-template-columns: repeat(auto-fit, minmax(6rem, 1fr));
+				gap: 0;
 
-			&.is-open {
-
-				.mg-left-accordion-toggle {
-					background-color: $mg-blue-main-2;
-					border-color: $mg-blue-3;
-					background-size: cover, auto 125%;
-					background-position: center, 50% 66%;
+				.mg-left-action {
+					justify-content: center;
+					font-size: .75rem;
+					padding: 1rem;
+					border-radius: 0;
 					color: $mg-ivory;
+					line-height: 1.1;
+					transition: color .5s ease, background .5s ease, border .5s ease;
+				}
+			}
+
+			.mg-clock-sidebar-list {
+				display: grid;
+				gap: 1rem;
+			}
+
+			.mg-clock-sidebar-slot {
+				min-height: 6rem;
+				cursor: grab;
+
+				&.mg-dragging {
+					opacity: .55;
+				}
+			}
+
+			.mg-clock-empty {
+				min-height: 5rem;
+			}
+		}		
+
+		/* Playlist Specifics
+		----------------------------------------------------------------------*/
+		&.is-playlists-tab {
+			.mg-playlist-directory {
+				.mg-playlist-active-sounds,
+				.mg-playlist-volume-controls {
+					display: grid;
+					gap: .5rem;
+					margin: 1rem 1rem 0 1rem;
+					padding: 1rem;
+					border-radius: .5rem;
+					background: $mg-blue-main;
+					@include mg-border();
+					@include mg-shadow();
+				}
+
+				.mg-playlist-volume-controls {
+					margin-bottom: 1rem;
+				}
+
+				.mg-playlist-panel-header {
+					@include oswald();
+					font-weight: 700;
+					color: $mg-green;
+					font-size: .975rem;
+					font-style: italic;
+					text-transform: uppercase;
+
+					span {
+						display: flex;
+						align-items: center;
+						gap: .4rem;
+
+						i {
+							font-size: .75rem;
+							color: $mg-blue-2;
+						}
+					}
+				}
+
+				.mg-playlist-active-list {
+					display: grid;
+					gap: .5rem;
+				}
+
+				.mg-playlist-active-row {
+					display: grid;
+					grid-template-columns: auto minmax(0, 1fr);
+					align-items: stretch;
+					gap: .5rem;
+					padding: .6rem;
+					border: 1px solid rgba($mg-blue-1, .25);
+					border-radius: .5rem;
+					background: rgba($mg-blue-4, .82);
+					@include mg-shadow();
+
+					&.is-active {
+						border-color: $mg-green;
+					}
+
+					&.is-paused {
+						opacity: .78;
+					}
+
+					strong {
+						display: block;
+						color: $mg-ivory;
+						line-height: 1.1;
+						@include tiller();
+						font-size: 1rem;
+						font-weight: 700;
+					}
+
+					small {
+						@include roboto();
+						font-weight: 700;
+						display: block;
+						margin-top: .2rem;
+						color: $mg-blue-2;
+						font-size: .75rem;
+					}
+				}
+
+				.mg-playlist-active-main {
+					display: flex;
+					grid-column: span 2;
+					gap: .35rem;
+					min-width: 0;
+
+					span {
+						width: 50%;
+					}
+
+					.mg-playlist-active-progress-row {
+						display: grid;
+						grid-template-columns: auto minmax(0, 1fr);
+						align-items: center;
+						gap: .5rem;
+						width: 50%;
+
+						output {
+							color: $mg-blue-1;
+							font-size: .75rem;
+							white-space: nowrap;
+						}
+
+						progress {
+							width: 100%;
+							height: .45rem;
+							border: 1px solid $mg-blue-main-2;
+							border-radius: .5rem;
+							background: $mg-blue-main;
+						}
+
+						progress::-webkit-progress-bar {
+							border-radius: .5rem;
+							background: $mg-blue-main;
+						}
+
+						progress::-webkit-progress-value {
+							border-radius: .5rem;
+							background: $mg-blue-1;
+						}
+
+						progress::-moz-progress-bar {
+							border-radius: .5rem;
+							background: $mg-blue-1;
+						}
+					}					
+				}
+
+				.mg-playlist-active-volume {
+					grid-column: 1 / -1;
+					display: grid;
+					grid-template-columns: 1rem minmax(0, 1fr);
+					align-items: center;
+					gap: .5rem;
+					color: $mg-blue-1;
+				}
+
+				.mg-playlist-active-actions {
+					display: grid;
+					grid-template-columns: repeat(3, 2rem);
+					gap: .35rem;
+
+					.mg-playlist-sound-control {
+						background: transparent;
+						border: transparent;
+						padding: .25rem;
+						width: auto;
+						
+						i {
+							margin: 0;
+							color: $mg-blue-2;
+						}
+
+						&:hover,
+						&:focus {
+							i {
+								color: $mg-green;
+							}
+						}
+					}
+				}
+
+				.mg-playlist-volume-row {
+					display: grid;
+					grid-template-columns: minmax(5rem, 1fr) minmax(0, 1fr) 3rem;
+					align-items: center;
+					gap: .5rem;
+					color: $mg-ivory;
+					@include roboto();
+
+					span {
+						display: flex;
+						align-items: center;
+						gap: .35rem;
+						min-width: 0;
+						font-size: .75rem;
+						color: $mg-blue-1;
+
+						i {
+							color: $mg-blue-2;
+						}
+					}
+
+					output {
+						color: $mg-blue-1;
+						font-size: .75rem;
+						text-align: right;
+					}
+				}
+
+				.mg-playlist-row-wrap {
+					display: grid;
+					gap: .5rem;
+
+					&.is-open {
+						.mg-playlist-row-chevron {
+							transform: rotate(180deg);
+							color: $mg-green;
+						}
+					}
+
+					&.mg-dragging {
+						opacity: .55;
+					}
+				}
+
+				.mg-playlist-row {
+					display: flex;
+				}
+
+				.mg-playlist-row-transport {
+					display: flex;
+					flex-direction: column;
+					gap: 0;
+					align-content: center;
+					justify-items: center;
+					padding: 0;
+					width: 15%;
+
+					button {
+						border-radius: 0;
+						height: auto;
+						width: 100%;
+					}
+				}
+
+				.mg-playlist-row-main {
+					grid-template-columns: minmax(0, 1fr) auto;
+				}
+
+				.mg-playlist-row-copy {
+					position: relative;
+					z-index: 1;
+					display: grid;
+					gap: .25rem;
+					min-width: 0;
+				}
+
+				.mg-playlist-row-meta {
+					display: flex;
+					flex-wrap: wrap;
+					gap: .125rem;
+					color: $mg-blue-2;
+					@include roboto();
+					font-style: normal;
+					font-weight: 600;
+					text-transform: none;
+					line-height: 1.2;
+				}
+
+				.mg-playlist-row-chevron {
+					position: relative;
+					z-index: 1;
+					display: grid;
+					place-items: center;
+					transition: transform .3s ease, color .5s ease;
+					@include mg-shadow();
+
+					i {
+						color: $mg-blue-2;
+					}
+				}
+
+				.mg-playlist-sounds-body {
+					padding-left: 1rem;
+					background: transparent;
+				}
+
+				.mg-playlist-sounds-list {
+					display: grid;
+					gap: .5rem;
+				}
+
+				.mg-playlist-sound-card {
+					display: grid;
+					grid-template-columns: repeat(2,1fr);
+					align-items: flex-start;
+					gap: .5rem;
+					padding: .6rem;
+					border: 1px solid rgba($mg-blue-1, .25);
+					border-radius: .5rem;
+					background: rgba($mg-blue-4, .82);
+					@include mg-shadow();
+
+					&.is-active {
+						border-color: $mg-green;
+					}
+
+					strong {
+						display: block;
+						color: $mg-ivory;
+						line-height: 1.1;
+					}
+
+					small {
+						@include roboto();
+						font-weight: 700;
+						display: block;
+						margin-top: .2rem;
+						color: $mg-blue-2;
+						font-size: .75rem;
+					}
+
+					.mg-playlist-sound-title {
+						padding: .25rem .5rem 0 0;
+
+						strong {
+							@include tiller();
+							color: $mg-ivory;
+						}
+
+						span {
+							opacity: .7;
+						}
+					}
+
+					.sound-interaction {
+						display: flex;
+						flex-direction: column;
+						gap: .5rem;
+
+						.mg-playlist-sound-actions {
+							display: flex;
+							width: 100%;
+							justify-content: flex-end;
+
+							.mg-playlist-sound-control {
+								background: transparent;
+								border: transparent;
+								padding: .25rem;
+								width: auto;
+								
+								i {
+									margin: 0;
+									color: $mg-blue-2;
+								}
+
+								&:hover,
+								&:focus {
+									i {
+										color: $mg-green;
+									}
+								}
+							}
+						}
+					}					
+				}				
+
+				.mg-playlist-repeat-control.is-active {
+					color: $mg-green;
 
 					i {
 						color: $mg-green;
 					}
-				}
+				}				
 			}
-		}
-
-		.mg-left-accordion-toggle {
-			--mg-accordion-toggle-image: url("../assets/images/accordion-toggle.jpg");
-			width: 100%;
-			margin: 0;
-			padding: 1rem;
-			display: flex;
-			align-items: center;
-			justify-content: space-between;
-			border-radius: 0;
-			color: $mg-blue-1;
-			text-align: left;
-			border: 2px solid $mg-blue-main-2;
-			border-left: 0;
-			border-right: 0;
-			@include oswald();
-			font-size: .9rem;
-			font-weight: 700;
-			text-transform: uppercase;
-			position: relative;
-			background:
-				/* subtle pearly sheen (top-center) */
-				radial-gradient(circle at 50% 0%,
-				rgba(197, 212, 236, 0.22) 0%,
-				rgba(197, 212, 236, 0.10) 35%,
-				rgba(18, 33, 55, 0.00) 70%
-				),
-				/* texture */
-				var(--mg-accordion-toggle-image);
-			background-repeat: no-repeat;
-			background-size: cover, auto 115%;
-			background-position: center, 50% 34%;
-			background-blend-mode: soft-light, multiply;
-			background-color: $mg-blue-3;
-			transition:
-				background-color .5s ease,
-				background-position 2.5s cubic-bezier(.2, .8, .2, 1),
-				background-size 2.5s cubic-bezier(.2, .8, .2, 1),
-				color .5s ease,
-				border .5s ease;
-
-			&::after {
-				content: '';
-				width: 100%;
-				height: 100%;
-				background: linear-gradient(
-					270deg,
-					rgba($mg-blue-main, 1) 0%,
-					rgba($mg-blue-main, 0) 25%,
-					rgba($mg-blue-main, 0) 35%,
-					rgba($mg-blue-main, 1) 100%
-				);
-				position: absolute;
-				left: 0;
-				top: 0;
-				opacity: 1;
-				transition: opacity .5s ease, background .5s ease;
-			}
-
-			span {
-				display: flex;
-				align-items: center;
-				gap: 1rem;
-				@include oswald();
-				font-size: 1rem;
-				font-weight: 400;
-				font-style: normal;
-				@include mg-shadow();
-				position: relative;
-				z-index: 2;
-			}
-
-			i {
-				color: $mg-blue-2;
-				font-size: 1.5rem;
-				@include mg-shadow();
-				position: relative;
-				z-index: 3;
-				transition: color .5s ease, transform .5s ease;
-			}
-
-			&:hover {
-				background-color: $mg-blue-main-2;
-				background-size: cover, auto 125%;
-				background-position: center, 50% 66%;
-				color: $mg-ivory;
-
-				i {
-					color: $mg-green;
-				}
-			}
-		}
-
-		.mg-left-accordion-chevron {
-			transition: transform .5s ease, color .5s ease;
-			font-size: 1.15rem !important;
-		}
-
-		.mg-left-accordion-body {
-			display: block;
-			overflow: hidden;
-			opacity: 1;
-			transition:
-			max-height .5s ease,
-			opacity .5s ease;
-
-			&[hidden] {
-				display: none;
-			}
-		}
-
-		.mg-left-accordion-inner {
-			display: grid;
-			gap: .75rem;
-			padding: 1rem;
-			border-bottom: 2px solid $mg-blue-main-2;
-			background: rgba($mg-blue-4, .6);
-		}
-
-		.mg-left-accordion.is-open > .mg-left-accordion-toggle > .mg-left-accordion-chevron {
-			transform: rotate(180deg);
 		}
 
 	}
@@ -2680,11 +3275,13 @@ body.mg-hud-enabled {
 	cursor: pointer;
 	pointer-events: auto;
 	transition:
-	transform .5s ease,
-	left .5s ease,
-	right .5s ease,
-	background .5s ease,
-	color .5s ease;
+		transform .5s ease,
+		left .5s ease,
+		right .5s ease,
+		background .5s ease,
+		color .5s ease,
+		border .5s ease
+	;
 
 	i {
 		color: $mg-blue-3;
@@ -2695,7 +3292,7 @@ body.mg-hud-enabled {
 		background: $mg-blue-main;
 
 		i {
-			color: $mg-blue-1;
+			color: $mg-green;
 		}
 	}
 
@@ -3837,16 +4434,16 @@ body:not(.mg-hud-enabled) #mg-ui-root {
 				z-index: 30;
 
 				button {
-					border: 1px solid $mg-blue-3;
+					border: 1px solid rgba($mg-blue-1, .25);
 					background: $mg-blue-main;
 
 					&:hover,
 					&:focus {
-						background: $mg-blue-3;
-						color: $mg-blue-4;
+						background: $mg-blue-4;
+						color: $mg-green;
 
 						i {
-							color: $mg-blue-4;
+							color: $mg-green;
 						}
 					}
 
@@ -3908,7 +4505,36 @@ body:not(.mg-hud-enabled) #mg-ui-root {
 						background-size: cover;
 						background-position: top center;
 						transform-origin: top left;
-						transform: skewX(calc(-1 * var(--skX, -22deg))) scale(1.02); /* tiny scale for safety */
+						transform: skewX(calc(-1 * var(--skX, -22deg))) scale(1); /* tiny scale for safety */
+						overflow: visible;
+
+						&.is-cropped {
+							background-image: none !important;
+							overflow: visible;
+						}
+
+						img {
+							display: none;
+						}
+
+						&.is-cropped img {
+							display: block;
+							position: absolute;
+							left: 50%;
+							top: 50%;
+							width: auto;
+							height: 100%;
+							max-width: none;
+							max-height: none;
+							object-fit: unset;
+							transform:
+								translate3d(calc(-1% * var(--mg-crop-x, 50)), calc(-1% * var(--mg-crop-y, 50)), 0)
+								scale(var(--mg-crop-scale, 1));
+							transform-origin: center center;
+							backface-visibility: hidden;
+							will-change: transform;
+							image-rendering: -webkit-optimize-contrast;
+						}
 					}
 
 					.mg-ini-hoverstats {
@@ -3976,6 +4602,10 @@ body:not(.mg-hud-enabled) #mg-ui-root {
 
 						.mg-ini-image {
 							background-position: top center;
+						}
+
+						.mg-ini-image.is-cropped {
+							background-image: none !important;
 						}
 
 						&:before {
@@ -4217,9 +4847,9 @@ body:not(.mg-hud-enabled) #mg-ui-root {
 
 				&:hover,
 				&:focus {
-					background:$mg-blue-3;
+					background: $mg-blue-4;
 					border-color: $mg-blue-main-2;
-					color: $mg-ivory;
+					color: $mg-green;
 					text-shadow: none;
 					transform: translateX(.75rem);
 
@@ -4230,9 +4860,9 @@ body:not(.mg-hud-enabled) #mg-ui-root {
 				}
 
 				&.active {
-					background: $mg-blue-3;
+					background: $mg-blue-4;
 					border-color: $mg-blue-main-2;
-					color: $mg-ivory;
+					color: $mg-green;
 					text-shadow: none;
 				}
 
@@ -4516,6 +5146,176 @@ body:not(.mg-hud-enabled) #mg-ui-root {
 .form-wrap {
 	display: flex;
 	gap: .5rem;
+}
+
+/* Foundry Override Styling
+----------------------------------------------------------------------*/
+
+#client-settings,
+#keybindings,
+#tours-management,
+#default-sheets-config {
+	.window-content {
+		.sidebar {
+			border-right: 2px solid $mg-blue-main-2;
+
+			.tabs {
+
+				.item {
+					@include oswald();
+					font-size: .75rem;
+					font-weight: 700;
+					font-style: italic;
+					text-transform: uppercase;
+					padding: .5rem;
+					border-bottom: 2px solid $mg-blue-main-2;
+					transition: color .5s ease, border .5s ease;
+
+					&:hover,
+					&:focus {
+						color: $mg-green;
+						text-shadow: none;
+						border-color: $mg-green;
+					}
+
+					&.active {
+						text-shadow: none;
+						color: $mg-blue-1;
+						border-color: $mg-blue-2;
+					}
+				}
+			}
+		}
+
+		.categories {
+			button {
+				display: flex;
+				justify-content: center;
+				align-items: center;
+				text-align: left;
+				gap: .5rem;
+				background: $mg-blue-main;
+				border: 2px solid $mg-blue-main-2;
+				padding: .5rem;
+
+				&:hover {
+					background: $mg-blue-4;
+					
+					label {
+						color: $mg-green;
+					}
+
+					i {
+						color: $mg-blue-1;
+					}
+				}
+
+				i {
+					color: $mg-blue-2;
+				}
+
+				label {
+					margin-bottom: 0;
+					color: $mg-blue-2;
+					font-size: .85rem;
+					line-height: 1.1;
+					transition: color .5s ease;
+				}
+			}
+		}
+	}
+}
+
+.form-group .notes,
+.form-group .hint {
+	color: $mg-blue-2;
+
+	.form-fields label {
+		color: $mg-blue-1;
+	}
+
+	&.slim .form-fields > label {
+		color: $mg-blue-1;
+	}	
+}
+
+#permissions-config {
+	form {
+		@include mg-border();
+		overflow: hidden;
+		border-radius: .5rem;
+		padding: 1rem;
+		display: flex;
+		flex-direction: column;
+		gap: 1.125rem;
+
+		.notes {
+			flex: 0;
+		}
+
+		header.table-header {
+			background: $mg-blue-main;
+			@include mg-border;
+			color: $mg-blue-2;
+			border-radius: .5rem .5rem 0 0;
+		}
+
+		.permissions-list {
+
+			.permission {
+				border-bottom: 2px solid $mg-blue-main-2;
+				
+				.hint {
+					color: $mg-blue-2;
+				}
+			}
+		}
+	}
+}
+
+#av-config {
+
+	.tabs {
+		border-bottom: 2px solid $mg-blue-main-2;
+		display: flex;
+		padding: 0;
+		margin: -1rem -1rem 0 -1rem;
+
+		.item {
+			width: 100%;
+			background: $mg-blue-main;
+			transition: background .5s ease, color .5s ease;
+			text-shadow: none;
+			@include oswald();
+			text-transform: uppercase;
+			font-style: italic;
+			font-size: .75rem;
+			font-weight: 700;
+			display: flex;
+			justify-content: center;
+			align-items: center;
+			padding: .5rem .75rem;
+			border-radius: 0;
+			line-height: 1;
+			color: $mg-blue-2;
+			
+			i {
+				color: $mg-blue-2;
+				transition: color .5s ease;
+			}
+
+			&.active,
+			&:hover {
+				background: $mg-blue-4;
+				color: $mg-green;
+				box-shadow: none;
+
+			i {
+				color: $mg-blue-1;
+			}
+			} 				
+		}
+	}		
 }
 
 /* Pointer Event Resets

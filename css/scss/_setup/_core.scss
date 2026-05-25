@@ -137,6 +137,8 @@ button,
 form button,
 .dialog-button {
   background: $mg-blue-3;
+  border: none;
+  line-height: 1.2;
   color: $mg-ivory;
   @include oswald();
   font-size: .9rem;
@@ -145,7 +147,6 @@ form button,
   letter-spacing: .02em;
   padding: .35rem;
   font-weight: 700;
-  border: none;
   border-radius: .5rem;
   transition: background 0.5s ease, color 0.5s ease, border .5s ease;
 
@@ -156,12 +157,13 @@ form button,
 
   &:hover,
   &:focus {
-    background: $mg-blue-1;
-    color: $mg-blue-main-2;
+    background: $mg-blue-4;
+    border-color: $mg-green;
+    color: $mg-green;
     box-shadow: none;
 
     i {
-      color: $mg-blue-3;
+      color: $mg-blue-2;
     }
   }
 }
@@ -256,6 +258,7 @@ h3 {
     &::-webkit-scrollbar-thumb {
       background: $mg-blue-1;
       border-color: $mg-blue-2;
+      transition: border .5s ease, background .5s ease;
     }
 
     .chat-item {
@@ -1291,7 +1294,7 @@ h3 {
           width: 100%;
           background: $mg-blue-main;
           border-right: 2px solid $mg-blue-main-2;
-          transition: background .5s ease;
+          transition: background .5s ease, color .5s ease;
           text-shadow: none;
           @include oswald();
           text-transform: uppercase;
@@ -1365,9 +1368,11 @@ h3 {
               border: none;
               background: transparent;
               min-width: 8rem;
+              transition: background .5s ease, border .5s ease;
 
               &::webkit-scrollbar-thumb {
                 background: $mg-green;
+                transition: border .5s ease, background .5s ease;
               }
             }
 
@@ -1427,6 +1432,7 @@ h3 {
     &::-webkit-scrollbar-thumb {
       background: $mg-blue-1;
       border-color: $mg-blue-2;
+      transition: border .5s ease, background .5s ease;
     }
   }
 }
@@ -1475,6 +1481,7 @@ p {
   background: $mg-blue-4 !important;
   border-color: rgba($mg-blue-1,.5) !important;
   scrollbar-color: $mg-blue-1 $mg-blue-4 !important;
+  transition: border .5s ease, background .5s ease;
 }
 
 :root {

@@ -1,36 +1,44 @@
-.npc-sheet {
+.sheet.npc-sheet {
+
+	button {
+		padding: .5rem 1rem;
+	}
 
 	.mg-aura-toggle {
-		width: auto;
+		position: relative;
+		width: 100%;
 		background: $mg-blue-main;
 		border: 2px solid $mg-blue-main-2;
 		display: flex;
 		align-items: center;
+		justify-content: center;
 		margin: 0;
-		padding: .5rem .5rem .5rem 1rem;
 		border-radius: .5rem;
 		gap: 1rem;
 		@include oswald();
 		font-size: 1rem;
 		color: $mg-ivory;
 		text-transform: uppercase;
-		position: absolute;
-		bottom: 4.125rem;
-		left: 17.5rem;
 		z-index: 9;
-		transition: transform .5s ease;
+		transition: background .5s ease, color .5s ease;
+		overflow: hidden;
 
 		&.is-active {
 			background: $mg-blue-4;
-			border-color: $mg-blue-3;
+			border-color: $mg-blue-1;
+			color: $mg-blue-1;
 			overflow: hidden;
+
+			i {
+				color: $mg-green;
+			}
 			
 			&:hover,
 			&:focus {
-				background: $mg-blue-1;
+				background: $mg-blue-main;
 
 				i {
-				color: $mg-blue-3;
+					color: $mg-blue-1;
 				}
 			}
 
@@ -41,8 +49,8 @@
 				pointer-events: none;
 
 				// Keep it mostly top area like your initiative sheen
-				inset: -3% 0% auto -50%;
-				height: 200%;
+				inset: -3% 0% auto -112%;
+				height: 21rem;
 
 				// Match the tab shape so it doesn't look like a floating rectangle
 				border-radius: 0 .5rem .5rem 0;
@@ -99,17 +107,12 @@
 
 		&:hover,
 		&:focus {
-			background: $mg-blue-1;
-			color: $mg-blue-4;
-			border-color: $mg-blue-1;
-			transform: translateX(3.45rem);
-
-			&:after {
-				transform: translateX(3.45rem);
-			}
+			background: $mg-blue-4;
+			color: $mg-green;
+			border-color: $mg-green;
 
 			i {
-			color: $mg-blue-3;
+				color: $mg-blue-1;
 			}
 		}
 	}   
@@ -144,7 +147,7 @@
 		opacity: .85;
 		padding: .5rem;
 		border-radius: 8px;
-		background: $mg-blue-main-2;
+		background: transparent;
 		transition: background .5s ease, opacity .5s ease, color .5s ease;
 		cursor: pointer;
 		display: inline-flex;
@@ -194,13 +197,35 @@
 		}
 	}
 
-	.move-block {
-		.tags-toggle {
-			background: $mg-blue-main;
+	.basic-moves .move-container .move-block,
+	.signature-wrapper .signature-perk {
 
-			&:hover,
-			&:focus {
-				background: $mg-blue-1;
+		.status-buttons {
+			display: flex;
+			gap: 0;
+			border-top: 2px solid $mg-blue-main-2;
+
+			button {
+				background: $mg-blue-main;
+				border-radius: 0;
+				margin: 0;
+
+				i {
+					color: $mg-blue-2;
+				}
+
+				&:first-of-type {
+					border-right: 2px solid $mg-blue-main-2;
+				}
+
+				&:hover,
+				&:focus {
+					background: $mg-blue-main-2;
+
+					i {
+						color: $mg-green;
+					}
+				}
 			}
 		}
 	}

@@ -152,6 +152,7 @@ export async function evaluateRoll({
             data-skill-mod="${skillMod}"
             data-edge="${edge ? "true" : "false"}"
             data-modifier-parts='${esc(JSON.stringify(modifierParts ?? []))}'
+            data-modifier-breakdown='${esc(JSON.stringify(modifierBreakdown ?? []))}'
             data-aura-attr-mod="${auraAttrMod}"
             title="Remove Aura and reroll">
             <i class="fa-solid fa-ban"></i>

@@ -235,7 +235,7 @@ const MG_LEFT_SIDEBAR_TABS = [
 	},
 	{
 		id: "crew",
-		label: "Crew / Party",
+		label: "Crew",
 		icon: "fa-solid fa-users"
 	},
 	{
@@ -254,6 +254,12 @@ const MG_LEFT_SIDEBAR_TABS = [
 		icon: "fa-solid fa-user"
 	},
 	{
+		id: "gm",
+		label: "Director",
+		icon: "fa-solid fa-camera-movie",
+		gmOnly: true
+	},
+	{
 		id: "items",
 		label: "Items",
 		icon: "fa-solid fa-briefcase"
@@ -267,6 +273,11 @@ const MG_LEFT_SIDEBAR_TABS = [
 		id: "compendiums",
 		label: "Compendiums",
 		icon: "fa-solid fa-book"
+	},
+	{
+		id: "playlists",
+		label: "Playlists",
+		icon: "fa-solid fa-music"
 	},
 	{
 		id: "players",
@@ -619,7 +630,7 @@ function mgGetSidebarCropVariables(actor) {
 	return mgGetActorCropVariables(actor, "sidebar", ["profile"]);
 }
 
-function mgGetActorCropVariables(actor, key, fallbacks = []) {
+function mgGetActorCropVariables(actor, key, fallbacks = [], options = {}) {
 	const crops = actor?.getFlag?.("midnight-gambit", "crops") || {};
 	let crop = crops[key]?.css;
 
@@ -632,8 +643,8 @@ function mgGetActorCropVariables(actor, key, fallbacks = []) {
 	const x = Number.isFinite(crop.x) ? crop.x : 50;
 	const y = Number.isFinite(crop.y) ? crop.y : 50;
 	const scale = Number.isFinite(crop.scale) ? crop.scale : 1;
-	const width = Number.isFinite(crop.width) && crop.width > 0 ? ` --mg-crop-w: ${crop.width}%;` : "";
-	const height = Number.isFinite(crop.height) && crop.height > 0 ? ` --mg-crop-h: ${crop.height}%;` : "";
+	const width = !options.ignoreWidth && Number.isFinite(crop.width) && crop.width > 0 ? ` --mg-crop-w: ${crop.width}%;` : "";
+	const height = !options.ignoreHeight && Number.isFinite(crop.height) && crop.height > 0 ? ` --mg-crop-h: ${crop.height}%;` : "";
 
 	return `--mg-crop-x: ${x}; --mg-crop-y: ${y}; --mg-crop-scale: ${scale};${width}${height}`;
 }
@@ -719,15 +730,54 @@ function mgGetActiveAuraPenalty(attrKey) {
 	};
 }
 
+function mgGetDifficultyModifier() {
+	try {
+		const value = Number(game.settings.get("midnight-gambit", "gmDifficultyModifier") ?? 0);
+		if (!Number.isFinite(value)) return 0;
+		return Math.max(-3, Math.min(3, Math.trunc(value)));
+	} catch (_) {
+		return 0;
+	}
+}
+
 /* Adding different tabs for each sidebar section
 ----------------------------------------------------------------------*/
+function mgGetVisibleLeftSidebarTabs() {
+	const tabs = MG_LEFT_SIDEBAR_TABS.filter(tab => {
+		if (tab.gmOnly && !game.user?.isGM) return false;
+		if (tab.playerOnly && game.user?.isGM) return false;
+		return true;
+	});
+
+	if (!game.user?.isGM) return tabs;
+
+	const gmIndex = tabs.findIndex(tab => tab.id === "gm");
+	if (gmIndex <= 0) return tabs;
+
+	const gmTab = tabs[gmIndex];
+	return [gmTab, ...tabs.slice(0, gmIndex), ...tabs.slice(gmIndex + 1)];
+}
+
+function mgNormalizeLeftSidebarTabId(tabId) {
+	const visibleTabs = mgGetVisibleLeftSidebarTabs();
+	if (visibleTabs.some(tab => tab.id === tabId)) return tabId;
+
+	const replacement = visibleTabs.find(tab => tab.replaces === tabId);
+	if (replacement) return replacement.id;
+
+	const replacedByHidden = MG_LEFT_SIDEBAR_TABS.find(tab => tab.id === tabId)?.replaces;
+	if (replacedByHidden && visibleTabs.some(tab => tab.id === replacedByHidden)) return replacedByHidden;
+
+	return visibleTabs[0]?.id ?? "player";
+}
+
 function mgRenderLeftSidebarTabs() {
-	return MG_LEFT_SIDEBAR_TABS.map(tab => {
+	return mgGetVisibleLeftSidebarTabs().map(tab => {
 		const actor = tab.id === "player" ? mgGetAssignedCharacter() : null;
-		const portrait = actor?.img || "";
+		const portrait = tab.portrait || actor?.img || "";
 		const tabClass = `sidebar-tab${portrait ? " has-portrait" : ""}`;
 		const iconHtml = portrait
-			? `<img class="tab-portrait" src="${portrait}" alt="" />`
+			? `<img class="tab-portrait" src="${mgAttr(portrait)}" alt="" />`
 			: `<i class="${tab.icon}"></i>`;
 
 		return `
@@ -748,6 +798,12 @@ function mgRefreshLeftSidebarTabs() {
 	const root = document.getElementById(MG_UI_ID);
 	const tabs = root?.querySelector("[data-sidebar-tabs]");
 	if (!root || !tabs) return;
+
+	const normalizedTab = mgNormalizeLeftSidebarTabId(mgActiveSidebarTab);
+	if (normalizedTab !== mgActiveSidebarTab) {
+		mgSetLeftSidebarTab(normalizedTab);
+		return;
+	}
 
 	tabs.innerHTML = mgRenderLeftSidebarTabs();
 	mgBindLeftSidebar(root);
@@ -1487,7 +1543,9 @@ function mgSetLeftSidebarTab(tabId) {
 	const root = document.getElementById(MG_UI_ID);
 	if (!root) return;
 
-	const tab = MG_LEFT_SIDEBAR_TABS.find(t => t.id === tabId) || MG_LEFT_SIDEBAR_TABS[0];
+	const normalizedTabId = mgNormalizeLeftSidebarTabId(tabId);
+	const visibleTabs = mgGetVisibleLeftSidebarTabs();
+	const tab = visibleTabs.find(t => t.id === normalizedTabId) || visibleTabs[0];
 	if (!tab) return;
 
 	mgUndockFoundryPlayersBox();
@@ -1542,6 +1600,9 @@ function mgRenderLeftSidebarContent(tabId) {
 		case "actors":
 			return mgRenderActorSidebarContent();
 
+		case "gm":
+			return mgRenderGmSidebarContent();
+
 		case "items":
 			return mgRenderItemSidebarContent();
 
@@ -1550,6 +1611,9 @@ function mgRenderLeftSidebarContent(tabId) {
 
 		case "compendiums":
 			return mgRenderCompendiumSidebarContent();
+
+		case "playlists":
+			return mgRenderPlaylistSidebarContent();
 
 		case "players":
 			return mgRenderPlayersSidebarContent();
@@ -1582,6 +1646,26 @@ function mgBindLeftSidebarContent(root, tabId) {
 		mgBindActorSidebarContent(root);
 	}
 
+	if (tabId === "items") {
+		mgBindItemSidebarContent(root);
+	}
+
+	if (tabId === "journal") {
+		mgBindJournalSidebarContent(root);
+	}
+
+	if (tabId === "compendiums") {
+		mgBindCompendiumSidebarContent(root);
+	}
+
+	if (tabId === "playlists") {
+		mgBindPlaylistSidebarContent(root);
+	}
+
+	if (tabId === "gm") {
+		mgBindGmSidebarContent(root);
+	}
+
 	root.querySelectorAll("[data-mg-open-actor]").forEach(button => {
 		button.addEventListener("click", () => {
 			const actor = game.actors.get(button.dataset.mgOpenActor);
@@ -1607,7 +1691,7 @@ function mgBindLeftSidebarContent(root, tabId) {
 
 	root.querySelectorAll("[data-mg-open-journal]").forEach(button => {
 		button.addEventListener("click", () => {
-			const journal = game.journal.get(button.dataset.mgOpenJournal);
+			const journal = (game.journal ?? game.journals)?.get(button.dataset.mgOpenJournal);
 			journal?.sheet?.render(true, { focus: true });
 		});
 	});
@@ -1783,6 +1867,7 @@ function mgBindSceneSidebarDrag(panel) {
 
 	const finalizeContainerOrder = async container => {
 		const sceneId = dragging?.dataset?.mgSceneId;
+		const draggedFolderId = dragging?.dataset?.mgSceneFolderId;
 		const dragToken = getDragToken();
 		if (!dragToken || !container) return;
 
@@ -1807,6 +1892,10 @@ function mgBindSceneSidebarDrag(panel) {
 		if (sceneId && game.user?.isGM && folderId !== originalFolderId) {
 			const scene = game.scenes?.get(sceneId);
 			await scene?.update({ folder: folderId || null });
+		}
+		if (draggedFolderId && game.user?.isGM && folderId !== originalDisplayContainer) {
+			const folder = game.folders?.get(draggedFolderId);
+			await folder?.update({ folder: folderId || null });
 		}
 	};
 
@@ -1885,7 +1974,8 @@ function mgBindSceneSidebarDrag(panel) {
 			if (!dragging) return;
 			const isRootContainer = container.dataset.mgSceneContainer === "";
 			const isDraggingFolder = !!dragging.dataset.mgSceneFolderId;
-			if ((isDraggingFolder || !game.user?.isGM) && mgNormalizeSceneContainerId(container.dataset.mgSceneContainer) !== mgNormalizeSceneContainerId(dragging.dataset.mgSceneDisplayContainer)) return;
+			const allowsFolderPromotion = isDraggingFolder && game.user?.isGM && isRootContainer;
+			if (!allowsFolderPromotion && (isDraggingFolder || !game.user?.isGM) && mgNormalizeSceneContainerId(container.dataset.mgSceneContainer) !== mgNormalizeSceneContainerId(dragging.dataset.mgSceneDisplayContainer)) return;
 			const nearestContainer = event.target.closest("[data-mg-scene-container]");
 			if (!isRootContainer && nearestContainer !== container) return;
 			event.preventDefault();
@@ -1902,7 +1992,8 @@ function mgBindSceneSidebarDrag(panel) {
 			if (!dragging) return;
 			const isRootContainer = container.dataset.mgSceneContainer === "";
 			const isDraggingFolder = !!dragging.dataset.mgSceneFolderId;
-			if ((isDraggingFolder || !game.user?.isGM) && mgNormalizeSceneContainerId(container.dataset.mgSceneContainer) !== mgNormalizeSceneContainerId(dragging.dataset.mgSceneDisplayContainer)) return;
+			const allowsFolderPromotion = isDraggingFolder && game.user?.isGM && isRootContainer;
+			if (!allowsFolderPromotion && (isDraggingFolder || !game.user?.isGM) && mgNormalizeSceneContainerId(container.dataset.mgSceneContainer) !== mgNormalizeSceneContainerId(dragging.dataset.mgSceneDisplayContainer)) return;
 			const nearestContainer = event.target.closest("[data-mg-scene-container]");
 			if (!isRootContainer && nearestContainer !== container) return;
 			event.preventDefault();
@@ -2079,6 +2170,8 @@ globalThis.MGSidebarShared = {
 	attr: mgAttr,
 	cssUrl: mgCssUrl,
 	cssEscape: mgCssEscape,
+	getActorCropVariables: mgGetActorCropVariables,
+	hasActorCrop: mgHasActorCrop,
 	isAccordionOpen: mgIsAccordionOpen,
 	setAccordionOpen: mgSetAccordionOpen,
 	toggleLeftAccordion: mgToggleLeftAccordion,
@@ -2407,6 +2500,49 @@ function mgRefreshActorsSidebarContent() {
 
 globalThis.mgRefreshActorsSidebarContent = mgRefreshActorsSidebarContent;
 
+/* Item sidebar refresh
+----------------------------------------------------------------------*/
+function mgRefreshItemsSidebarContent() {
+	if (mgActiveSidebarTab !== "items") return;
+	mgRefreshLeftSidebarContent();
+}
+
+globalThis.mgRefreshItemsSidebarContent = mgRefreshItemsSidebarContent;
+
+/* Journal sidebar refresh
+----------------------------------------------------------------------*/
+function mgRefreshJournalSidebarContent() {
+	if (mgActiveSidebarTab !== "journal") return;
+	mgRefreshLeftSidebarContent();
+}
+
+globalThis.mgRefreshJournalSidebarContent = mgRefreshJournalSidebarContent;
+
+/* Compendium sidebar refresh
+----------------------------------------------------------------------*/
+function mgRefreshCompendiumSidebarContent() {
+	if (mgActiveSidebarTab !== "compendiums") return;
+	mgRefreshLeftSidebarContent();
+}
+
+globalThis.mgRefreshCompendiumSidebarContent = mgRefreshCompendiumSidebarContent;
+
+/* Playlist sidebar refresh
+----------------------------------------------------------------------*/
+function mgRefreshPlaylistSidebarContent() {
+	if (mgActiveSidebarTab !== "playlists") return;
+	mgRefreshLeftSidebarContent();
+}
+
+globalThis.mgRefreshPlaylistSidebarContent = mgRefreshPlaylistSidebarContent;
+
+function mgRefreshGmSidebarContent() {
+	if (mgActiveSidebarTab !== "gm") return;
+	mgRefreshLeftSidebarContent();
+}
+
+globalThis.mgRefreshGmSidebarContent = mgRefreshGmSidebarContent;
+
 function mgRefreshCharacterSidebarActor(actorId) {
 	const root = document.getElementById(MG_UI_ID);
 	const panel = root?.querySelector(`[data-mg-character-sidebar="${mgCssEscape(actorId ?? "")}"]`);
@@ -2529,6 +2665,7 @@ async function mgRollAttribute(actor, attrKey) {
 	const tempAttrMod = Number(actor.system?.tempAttributeBonuses?.[attrKey] ?? 0);
 	const aura = mgGetActiveAuraPenalty(attrKey);
 	const auraAttrMod = Number(aura.value ?? 0);
+	const difficultyMod = mgGetDifficultyModifier();
 	const finalAttrMod = baseAttrMod + tempAttrMod;
 	const pool = 2 + Math.abs(finalAttrMod);
 	const rollType = finalAttrMod >= 0 ? "kh2" : "kl2";
@@ -2536,14 +2673,22 @@ async function mgRollAttribute(actor, attrKey) {
 
 	await evaluateRoll({
 		formula: `${pool}d6${rollType}`,
-		skillMod: auraAttrMod,
-		modifierParts: [auraAttrMod],
-		modifierBreakdown: auraAttrMod !== 0 ? [{
-			key: "aura",
-			label: aura.label || "Aura Modifier",
-			icon: "fa-eye-evil",
-			value: auraAttrMod
-		}] : [],
+		skillMod: auraAttrMod + difficultyMod,
+		modifierParts: [auraAttrMod, difficultyMod],
+		modifierBreakdown: [
+			{
+				key: "aura",
+				label: aura.label || "Aura Modifier",
+				icon: "fa-eye-evil",
+				value: auraAttrMod
+			},
+			{
+				key: "difficulty",
+				label: "Difficulty",
+				icon: "fa-camera-movie",
+				value: difficultyMod
+			}
+		],
 		label: `Attr Roll: ${mgCapitalize(attrKey)}`,
 		actor,
 		edge,
@@ -2576,8 +2721,9 @@ async function mgRollSkill(actor, skillKey) {
 	const tempAttrMod = Number(actor.system?.tempAttributeBonuses?.[attrKey] ?? 0);
 	const aura = mgGetActiveAuraPenalty(attrKey);
 	const auraAttrMod = Number(aura.value ?? 0);
+	const difficultyMod = mgGetDifficultyModifier();
 	const finalAttrMod = baseAttrMod + tempAttrMod;
-	const finalSkillMod = baseSkillMod + tempSkillMod + auraAttrMod;
+	const finalSkillMod = baseSkillMod + tempSkillMod + auraAttrMod + difficultyMod;
 	const pool = 2 + Math.abs(finalAttrMod);
 	const rollType = finalAttrMod >= 0 ? "kh2" : "kl2";
 	const edge = !!actor.system?.edgeNext;
@@ -2585,11 +2731,12 @@ async function mgRollSkill(actor, skillKey) {
 	await evaluateRoll({
 		formula: `${pool}d6${rollType}`,
 		skillMod: finalSkillMod,
-		modifierParts: [baseSkillMod, tempSkillMod, auraAttrMod],
+		modifierParts: [baseSkillMod, tempSkillMod, auraAttrMod, difficultyMod],
 		modifierBreakdown: [
 			{ key: "skill", label: "Skill Bonus", icon: "fa-user-plus", value: baseSkillMod },
 			{ key: "temp", label: "Temporary Bonus", icon: "fa-handshake-angle", value: tempSkillMod },
-			{ key: "aura", label: aura.label || "Aura Modifier", icon: "fa-eye-evil", value: auraAttrMod }
+			{ key: "aura", label: aura.label || "Aura Modifier", icon: "fa-eye-evil", value: auraAttrMod },
+			{ key: "difficulty", label: "Difficulty", icon: "fa-camera-movie", value: difficultyMod }
 		],
 		label: `Skill Roll: ${MG_SKILL_LABELS[skillKey] ?? skillKey}`,
 		actor,
@@ -3206,8 +3353,10 @@ function mgResolveCrewMemberModels(crew) {
 			mcTrk: Number(strain.mortal ?? 0) || 0,
 			scTrk: Number(strain.soul ?? 0) || 0,
 			riskRemaining: Math.max(0, riskDice - riskUsed),
+			riskMax: riskDice,
 			stoValue,
 			sparkRemaining: Math.max(0, sparkSlots - sparkUsed),
+			sparkMax: sparkSlots,
 			hasSpark: actor ? mgActorHasSpark(actor) : sparkSlots > 0
 		};
 	});
@@ -3252,24 +3401,37 @@ function mgRenderCrewStrainSummary(member, type, label, cap, track) {
 	`;
 }
 
-function mgRenderCrewResourceSummary(kind, value) {
+function mgRenderCrewResourceSummary(kind, value, max = null) {
 	const icon = kind === "risk"
 		? "fa-kit fa-risk"
 		: kind === "sto"
 			? "fa-kit fa-sto"
 			: "fa-kit fa-spark";
+	const current = Number(value) || 0;
+	const total = Number(max);
+	const hasMax = Number.isFinite(total) && total > 0;
+	const labels = {
+		risk: "Risk",
+		sto: "STO",
+		spark: "Spark Slots"
+	};
+	const display = hasMax ? `${current}/${total}` : `x${current}`;
+	const displayHtml = hasMax
+		? `${mgEsc(current)}<span class="resource-max">/${mgEsc(total)}</span>`
+		: `x${mgEsc(current)}`;
+	const label = `${labels[kind] ?? mgCapitalize(kind)}: ${display}`;
 
 	return `
-		<div class="resource" data-type="${kind}">
+		<div class="resource" data-type="${kind}" title="${mgEsc(label)}" aria-label="${mgEsc(label)}">
 			<i class="${icon}"></i>
-			<span>x${Number(value) || 0}</span>
+			<span>${displayHtml}</span>
 		</div>
 		`;
 }
 
 function mgRenderCrewPartyMember(member) {
 	const hasCrop = mgHasActorCrop(member.actor, "crewSidebar");
-	const cropVariables = hasCrop ? mgGetActorCropVariables(member.actor, "crewSidebar") : "";
+	const cropVariables = hasCrop ? mgGetActorCropVariables(member.actor, "crewSidebar", [], { ignoreWidth: true }) : "";
 
 	return `
 		<article class="crew-card ${member.missing ? "is-missing" : ""}" data-uuid="${mgEsc(member.uuid)}">
@@ -3290,9 +3452,9 @@ function mgRenderCrewPartyMember(member) {
 					</div>
 
 					<div class="resources">
-						${mgRenderCrewResourceSummary("risk", member.riskRemaining)}
+						${mgRenderCrewResourceSummary("risk", member.riskRemaining, member.riskMax)}
 						${mgRenderCrewResourceSummary("sto", member.stoValue)}
-						${member.hasSpark ? mgRenderCrewResourceSummary("spark", member.sparkRemaining) : ""}
+						${member.hasSpark ? mgRenderCrewResourceSummary("spark", member.sparkRemaining, member.sparkMax) : ""}
 					</div>
 				</div>
 			</div>
@@ -3309,7 +3471,7 @@ function mgRenderCrewPartyMember(member) {
 
 function mgRenderCrewInitiativeMember(member, canEdit) {
 	const hasCrop = mgHasActorCrop(member.actor, "crewInitiative");
-	const cropVariables = hasCrop ? mgGetActorCropVariables(member.actor, "crewInitiative") : "";
+	const cropVariables = hasCrop ? mgGetActorCropVariables(member.actor, "crewInitiative", [], { ignoreWidth: true }) : "";
 
 	return `
 		<article
@@ -4123,59 +4285,93 @@ function mgTidyActorFolderConfig(html, folder) {
 	globalThis.MGActorSidebar?.tidyFolderConfig?.(html, folder);
 }
 
+function mgBindItemSidebarContent(root) {
+	globalThis.MGItemSidebar?.bindContent?.(root);
+}
+
 function mgRenderItemSidebarContent() {
-	const items = Array.from(game.items ?? []);
+	return globalThis.MGItemSidebar?.renderContent?.() ?? `<div class="mg-left-empty">Item sidebar is still loading.</div>`;
+}
 
-	if (!items.length) {
-		return `<div class="mg-left-empty">No world items found.</div>`;
-	}
-
-	return `
-		<section class="mg-left-list">
-			${items.map(item => `
-				<button type="button" class="mg-left-list-row" data-mg-open-item="${item.id}">
-					<img src="${item.img || "icons/svg/item-bag.svg"}" alt="" />
-					<span>${item.name}</span>
-				</button>
-			`).join("")}
-		</section>
-	`;
+function mgBindJournalSidebarContent(root) {
+	globalThis.MGJournalSidebar?.bindContent?.(root);
 }
 
 function mgRenderJournalSidebarContent() {
-	const journals = Array.from(game.journal ?? []);
+	return globalThis.MGJournalSidebar?.renderContent?.() ?? `<div class="mg-left-empty">Journal sidebar is still loading.</div>`;
+}
 
-	if (!journals.length) {
-		return `<div class="mg-left-empty">No journal entries found.</div>`;
-	}
-
-	return `
-		<section class="mg-left-list">
-			${journals.map(journal => `
-				<button type="button" class="mg-left-list-row" data-mg-open-journal="${journal.id}">
-					<i class="fa-solid fa-book-open"></i>
-					<span>${journal.name}</span>
-				</button>
-			`).join("")}
-		</section>
-	`;
+function mgBindCompendiumSidebarContent(root) {
+	globalThis.MGCompendiumSidebar?.bindContent?.(root);
 }
 
 function mgRenderCompendiumSidebarContent() {
-	const packs = Array.from(game.packs ?? []);
+	return globalThis.MGCompendiumSidebar?.renderContent?.() ?? `<div class="mg-left-empty">Compendium sidebar is still loading.</div>`;
+}
 
-	if (!packs.length) {
-		return `<div class="mg-left-empty">No compendiums found.</div>`;
-	}
+function mgBindPlaylistSidebarContent(root) {
+	globalThis.MGPlaylistSidebar?.bindContent?.(root);
+}
+
+function mgRenderPlaylistSidebarContent() {
+	return globalThis.MGPlaylistSidebar?.renderContent?.() ?? `<div class="mg-left-empty">Playlist sidebar is still loading.</div>`;
+}
+
+function mgBindGmSidebarContent(root) {
+	if (!game.user?.isGM) return;
+
+	root?.querySelectorAll("[data-mg-difficulty]").forEach(button => {
+		button.addEventListener("click", async event => {
+			event.preventDefault();
+			event.stopPropagation();
+
+			const value = Math.max(-3, Math.min(3, Number(button.dataset.mgDifficulty) || 0));
+			await game.settings.set("midnight-gambit", "gmDifficultyModifier", value);
+			mgRefreshGmSidebarContent();
+		});
+	});
+}
+
+function mgRenderDifficultyControl() {
+	const current = mgGetDifficultyModifier();
+	const buttons = [-3, -2, -1, 0, 1, 2, 3].map(value => {
+		const label = value > 0 ? `+${value}` : String(value);
+		const active = value === current;
+
+		return `
+			<button
+				type="button"
+				class="mg-difficulty-button ${active ? "is-active" : ""}"
+				data-mg-difficulty="${value}"
+				aria-pressed="${active ? "true" : "false"}"
+				title="Set difficulty to ${label}"
+			>
+				${label}
+			</button>
+		`;
+	}).join("");
 
 	return `
-		<section class="mg-left-list">
-			${packs.map(pack => `
-				<button type="button" class="mg-left-list-row" data-mg-open-pack="${pack.collection}">
-					<i class="fa-solid fa-box-archive"></i>
-					<span>${pack.metadata?.label || pack.collection}</span>
-				</button>
-			`).join("")}
+		<div class="mg-difficulty-control" data-mg-difficulty-control>
+			<h2>Apply Difficulty</h2>
+
+			<div class="mg-difficulty-buttons" role="group" aria-label="GM difficulty modifier">
+				${buttons}
+			</div>
+		</div>
+	`;
+}
+
+function mgRenderGmSidebarContent() {
+	return `
+		<section class="mg-gm-sidebar" data-mg-gm-sidebar>
+			${mgRenderAccordion(null, {
+				id: "gm-difficulty",
+				title: "Difficulty",
+				icon: "fa-solid fa-camera-movie",
+				open: true,
+				body: mgRenderDifficultyControl()
+			})}
 		</section>
 	`;
 }
@@ -4579,11 +4775,18 @@ Hooks.on("updateSetting", setting => {
 	if (mgActiveSidebarTab !== "crew") return;
 	if (setting?.key === "midnight-gambit.crewActorId") mgRefreshLeftSidebarContent();
 });
+Hooks.on("updateSetting", setting => {
+	if (setting?.key === "midnight-gambit.gmDifficultyModifier") mgRefreshGmSidebarContent();
+});
 Hooks.on("updateUser", user => {
 	if (user?.id === game.user?.id) mgRefreshLeftSidebarTabs();
 	mgRefreshDockedPlayersBox();
 	mgRefreshScenesSidebarContent();
 	mgRefreshActorsSidebarContent();
+	mgRefreshItemsSidebarContent();
+	mgRefreshJournalSidebarContent();
+	mgRefreshCompendiumSidebarContent();
+	mgRefreshPlaylistSidebarContent();
 });
 Hooks.on("renderFolderConfig", (app, html) => {
 	const folder = app?.object ?? app?.folder;
@@ -4608,6 +4811,34 @@ Hooks.on("canvasReady", () => mgRefreshScenesSidebarContent());
 	Hooks.on(hookName, document => {
 		if (mgActiveSidebarTab !== "actors") return;
 		if (document?.documentName === "Folder" && document.type !== "Actor") return;
+		mgRefreshLeftSidebarContent();
+	});
+});
+["createItem", "updateItem", "deleteItem", "createFolder", "updateFolder", "deleteFolder"].forEach(hookName => {
+	Hooks.on(hookName, document => {
+		if (mgActiveSidebarTab !== "items") return;
+		if (document?.documentName === "Folder" && document.type !== "Item") return;
+		mgRefreshLeftSidebarContent();
+	});
+});
+["createJournalEntry", "updateJournalEntry", "deleteJournalEntry", "createFolder", "updateFolder", "deleteFolder"].forEach(hookName => {
+	Hooks.on(hookName, document => {
+		if (mgActiveSidebarTab !== "journal") return;
+		if (document?.documentName === "Folder" && document.type !== "JournalEntry") return;
+		mgRefreshLeftSidebarContent();
+	});
+});
+["createCompendium", "updateCompendium", "deleteCompendium", "createCompendiumCollection", "updateCompendiumCollection", "deleteCompendiumCollection", "createFolder", "updateFolder", "deleteFolder"].forEach(hookName => {
+	Hooks.on(hookName, document => {
+		if (mgActiveSidebarTab !== "compendiums") return;
+		if (document?.documentName === "Folder" && document.type !== "Compendium") return;
+		mgRefreshLeftSidebarContent();
+	});
+});
+["createPlaylist", "updatePlaylist", "deletePlaylist", "createPlaylistSound", "updatePlaylistSound", "deletePlaylistSound", "createFolder", "updateFolder", "deleteFolder", "globalPlaylistVolumeChanged", "globalAmbientVolumeChanged", "globalInterfaceVolumeChanged"].forEach(hookName => {
+	Hooks.on(hookName, document => {
+		if (mgActiveSidebarTab !== "playlists") return;
+		if (document?.documentName === "Folder" && document.type !== "Playlist") return;
 		mgRefreshLeftSidebarContent();
 	});
 });

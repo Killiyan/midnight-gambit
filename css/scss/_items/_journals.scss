@@ -1,0 +1,66 @@
+/* Start Journals Rework for New UI
+==============================================================================================================================================*/
+.journal-sheet .window-content .journal-sheet-container {
+	.journal-sidebar {
+		background-color: $mg-blue-4;
+
+		.directory-header {
+			padding: 1rem;
+
+			.header-search {
+				display: flex;
+				gap: .5rem;
+
+				.action-button {
+					color: $mg-blue-2;
+					@include mg-border();
+					background: $mg-blue-4;
+					transition: color .5s ease, background .5s ease;
+					border-radius: .5rem;
+
+					&:hover {
+						text-shadow: none;
+						color: $mg-green;
+						background: $mg-blue-main;
+					}
+				}
+
+				input {
+					background: #0D1929;
+					color: $mg-blue-2;
+
+					&:placeholder {
+						color: $mg-blue-2;
+					}
+
+					&:hover,
+					&:focus {
+						border-color: $mg-green;
+						color: $mg-blue-1;
+					}
+				}
+			}
+		}
+	}
+
+	.journal-entry-content {
+		background-image: url("../assets/images/parchment.jpg");
+
+		.journal-header .title {
+			@include tiller();
+			text-align: left;
+			padding: 1rem;
+			background: rgba($mg-blue-4, .7);
+			@include mg-border();
+			font-size: 1.5rem;
+			font-weight: 700;
+			color: $mg-ivory;
+		}
+
+		.journal-entry-pages {
+			color: $mg-blue-4;
+			@include roboto();
+			opacity: 1;
+		}
+	}
+}

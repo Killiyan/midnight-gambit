@@ -1,3 +1,12 @@
+const MG_GUISE_IMAGE = "systems/midnight-gambit/assets/images/guise.jpg";
+const MG_ITEM_DEFAULT_IMAGE = "icons/svg/item-bag.svg";
+
+function mgGetGuiseSheetImage(item) {
+  const img = String(item?.img ?? "").trim();
+  if (!img || img === MG_ITEM_DEFAULT_IMAGE || img.endsWith("/item-bag.svg")) return MG_GUISE_IMAGE;
+  return img;
+}
+
 export class GuiseSheet extends ItemSheet {
 
   // DROP-IN: normalized render context
@@ -52,6 +61,7 @@ export class GuiseSheet extends ItemSheet {
     base.tags = tagList;
     base.signatureTagSelected = signatureTagSelected;
     base.moveTagSelected = moveTagSelected;
+    base.itemDisplayImg = mgGetGuiseSheetImage(this.item);
 
     return base;
   }

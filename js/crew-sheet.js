@@ -315,7 +315,8 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 				let name = doc?.name ?? cache?.[uuid]?.name ?? "Unknown";
 				let img  = doc?.img  ?? cache?.[uuid]?.img  ?? "icons/svg/mystery-man.svg";
 				let type = doc?.type ?? cache?.[uuid]?.type ?? "character";
-				const crewSheetCrop = doc?.getFlag?.("midnight-gambit", "crops")?.crewSheet?.css || null;
+				const crops = doc?.getFlag?.("midnight-gambit", "crops") || {};
+				const crewSheetCrop = crops.crewSheet?.css || null;
 				const hasCrewSheetCrop = !!(crewSheetCrop && Object.keys(crewSheetCrop).length);
 				const cropX = Number.isFinite(crewSheetCrop?.x) ? crewSheetCrop.x : 50;
 				const cropY = Number.isFinite(crewSheetCrop?.y) ? crewSheetCrop.y : 50;
@@ -325,6 +326,17 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 					: "";
 				const crewSheetCropStyle = hasCrewSheetCrop
 					? `--mg-crop-x: ${cropX}; --mg-crop-y: ${cropY}; --mg-crop-scale: ${cropScale};${cropHeight}`
+					: "";
+				const crewSheetInitiativeCrop = crops.crewSheetInitiative?.css || null;
+				const hasCrewSheetInitiativeCrop = !!(crewSheetInitiativeCrop && Object.keys(crewSheetInitiativeCrop).length);
+				const initCropX = Number.isFinite(crewSheetInitiativeCrop?.x) ? crewSheetInitiativeCrop.x : 50;
+				const initCropY = Number.isFinite(crewSheetInitiativeCrop?.y) ? crewSheetInitiativeCrop.y : 50;
+				const initCropScale = Number.isFinite(crewSheetInitiativeCrop?.scale) ? crewSheetInitiativeCrop.scale : 1;
+				const initCropWidth = Number.isFinite(crewSheetInitiativeCrop?.width) && crewSheetInitiativeCrop.width > 0
+					? ` --mg-crop-w: ${crewSheetInitiativeCrop.width}%;`
+					: "";
+				const crewSheetInitiativeCropStyle = hasCrewSheetInitiativeCrop
+					? `--mg-crop-x: ${initCropX}; --mg-crop-y: ${initCropY}; --mg-crop-scale: ${initCropScale};${initCropWidth}`
 					: "";
 				// Compute Class (Guise name) and Level to match actor-sheet.html
 				let className = "—";
@@ -364,6 +376,8 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 			type,
 			hasCrewSheetCrop,
 			crewSheetCropStyle,
+			hasCrewSheetInitiativeCrop,
+			crewSheetInitiativeCropStyle,
 			className,
 			levelText,
 			missing: !doc,
@@ -520,7 +534,7 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 
 	async _mgGetCrewDragSourceStatus(event) {
 		const el = event.target?.closest?.(
-			"[data-uuid], [data-document-uuid], [data-document-id], [data-entry-id], [data-item-id], .directory-item"
+			"[data-uuid], [data-document-uuid], [data-document-id], [data-entry-id], [data-item-id], [data-mg-item-id], [data-mg-actor-id], .directory-item"
 		);
 
 		if (!el) {
@@ -543,6 +557,8 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 			el.dataset.documentId ||
 			el.dataset.entryId ||
 			el.dataset.itemId ||
+			el.dataset.mgItemId ||
+			el.dataset.mgActorId ||
 			el.dataset.id ||
 			null;
 

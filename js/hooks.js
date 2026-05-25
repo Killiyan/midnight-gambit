@@ -41,7 +41,16 @@ Hooks.once("ready", () => {
   mgEnsureBasicUserDrawingPermission();
 
   game.socket.on("system.midnight-gambit", async (data) => {
-    if (!data || data.type !== "makeGlobalItem") return;
+    if (!data) return;
+
+    if (data.type === "playClockSfx") {
+      const sender = game.users.get(data.userId);
+      if (!sender?.isGM || sender.id === game.user.id) return;
+      mgPlayClockSfx(data.volume ?? 0.8);
+      return;
+    }
+
+    if (data.type !== "makeGlobalItem") return;
 
     // Only the GM should answer promotion requests.
     if (!game.user.isGM) return;
@@ -340,6 +349,13 @@ Hooks.on("renderChatMessage", (message, html) => {
       modifierParts = [];
     }
 
+    let modifierBreakdown = [];
+    try {
+      modifierBreakdown = JSON.parse(btn.dataset.modifierBreakdown || "[]");
+    } catch (_) {
+      modifierBreakdown = [];
+    }
+
     const auraActor = game.actors.get(auraActorId);
     const rollActor = game.actors.get(rollActorId);
 
@@ -347,10 +363,20 @@ Hooks.on("renderChatMessage", (message, html) => {
       await auraActor.update({ "system.aura.enabled": false }, { render: false });
     }
 
-    // Remove the aura amount from the modifier parts for the replay roll
-    const replayParts = modifierParts.slice();
-    const idx = replayParts.lastIndexOf(auraAttrMod);
-    if (idx !== -1) replayParts.splice(idx, 1);
+    const replayBreakdown = Array.isArray(modifierBreakdown) && modifierBreakdown.length
+      ? modifierBreakdown.filter(part => part?.key !== "aura")
+      : [];
+
+    // Remove the aura amount from the modifier parts for the replay roll.
+    // New cards carry keyed breakdown data so equal-valued difficulty mods survive correctly.
+    const replayParts = replayBreakdown.length
+      ? replayBreakdown.map(part => Number(part?.value ?? 0))
+      : modifierParts.slice();
+
+    if (!replayBreakdown.length) {
+      const idx = replayParts.indexOf(auraAttrMod);
+      if (idx !== -1) replayParts.splice(idx, 1);
+    }
 
     const replaySkillMod = skillMod - auraAttrMod;
 
@@ -359,6 +385,8 @@ Hooks.on("renderChatMessage", (message, html) => {
       rollData: {},
       skillMod: replaySkillMod,
       modifierParts: replayParts,
+      modifierBreakdown: replayBreakdown,
+      label,
       actor: rollActor,
       edge,
       auraLabel: "",
@@ -417,6 +445,38 @@ async function mgResolveCurrentCrewActor() {
 
 const MG_NS = "midnight-gambit";
 const MG_CLOCK_SFX = "systems/midnight-gambit/assets/sounds/gambit-clock.ogg";
+
+function mgClamp01(value, fallback = 1) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.max(0, Math.min(1, n));
+}
+
+function mgGetInterfaceVolume() {
+  try {
+    return mgClamp01(game.settings?.get?.("core", "globalInterfaceVolume"), 1);
+  } catch (_) {
+    return 1;
+  }
+}
+
+function mgPlayClockSfx(baseVolume = 0.8, { broadcast = false } = {}) {
+  const volume = mgClamp01(baseVolume, 0.8) * mgGetInterfaceVolume();
+
+  AudioHelper.play(
+    { src: MG_CLOCK_SFX, volume, autoplay: true, loop: false },
+    false
+  );
+
+  if (broadcast && game.user?.isGM) {
+    game.socket?.emit?.("system.midnight-gambit", {
+      type: "playClockSfx",
+      userId: game.user.id,
+      volume: mgClamp01(baseVolume, 0.8)
+    });
+  }
+}
+
 // Setting timing for the comet sweep
 const MG_SWEEP_PERIOD_MS = 1300;
 // Pause at the end of each comet loop (ms)
@@ -1054,10 +1114,7 @@ function mgMaybePlayRedSfx($wrap, id, total, filled) {
     if (game.user.isGM) {
       const c = mgClockGetById(id, mgClockScopeFromWrap($wrap)) || {};
       const broadcast = !c.gmOnly; // Public → everyone hears; GM-only → just GM
-      AudioHelper.play(
-        { src: MG_CLOCK_SFX, volume: 0.8, autoplay: true, loop: false },
-        broadcast
-      );
+      mgPlayClockSfx(0.8, { broadcast });
     }
   }
 }
@@ -1637,10 +1694,7 @@ function mgBindClock($wrap, id) {
 
     // If we just flipped from Hidden → Public, play the sting for everyone
     if (becomingPublic) {
-      AudioHelper.play(
-        { src: MG_CLOCK_SFX, volume: 0.6, autoplay: true, loop: false },
-        true // broadcast
-      );
+      mgPlayClockSfx(0.6, { broadcast: true });
     }
   });
 
@@ -2118,10 +2172,7 @@ async function mgCreateClockFromUi() {
 
 		// Public clocks play the sting for everyone.
 		if (!opts.gmOnly) {
-			AudioHelper.play(
-				{ src: MG_CLOCK_SFX, volume: 0.8, autoplay: true, loop: false },
-				true
-			);
+			mgPlayClockSfx(0.8, { broadcast: true });
 		}
 	}
 }
@@ -2306,10 +2357,7 @@ Hooks.on("getSceneControlButtons", (controls) => {
 
             // If it was created as Public, play the ominous sting for everyone
             if (!opts.gmOnly) {
-              AudioHelper.play(
-                { src: MG_CLOCK_SFX, volume: 0.8, autoplay: true, loop: false },
-                true // broadcast to all clients
-              );
+              mgPlayClockSfx(0.8, { broadcast: true });
             }
           }
         }
@@ -2365,7 +2413,7 @@ Hooks.once("ready", () => {
 			if (!opts) return null;
 			const id = await mgClockCreate({ ...opts, scope });
 			if (id && !opts.gmOnly) {
-				AudioHelper.play({ src: MG_CLOCK_SFX, volume: 0.8, autoplay: true, loop: false }, true);
+				mgPlayClockSfx(0.8, { broadcast: true });
 			}
 			await mgRenderAllClocks();
 			return id;

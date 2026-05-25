@@ -360,6 +360,11 @@
 							scale(var(--mg-crop-scale, 1));
 						transform-origin: center center;
 					}
+
+					&.mg-init-portrait.is-cropped img {
+						width: var(--mg-crop-w, 100%);
+						height: var(--mg-crop-h, auto);
+					}
 				}
 				
 				.mg-member-info,

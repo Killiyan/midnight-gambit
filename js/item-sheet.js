@@ -1,3 +1,14 @@
+const MG_ITEM_CARD_IMAGE = "systems/midnight-gambit/assets/images/items.jpg";
+const MG_ITEM_GUISE_IMAGE = "systems/midnight-gambit/assets/images/guise.jpg";
+const MG_ITEM_DEFAULT_IMAGE = "icons/svg/item-bag.svg";
+
+function mgGetItemSheetImage(item) {
+	const img = String(item?.img ?? "").trim();
+	const fallback = item?.type === "guise" ? MG_ITEM_GUISE_IMAGE : MG_ITEM_CARD_IMAGE;
+	if (!img || img === MG_ITEM_DEFAULT_IMAGE || img.endsWith("/item-bag.svg")) return fallback;
+	return img;
+}
+
 export class MidnightGambitItemSheet extends ItemSheet {
 	static get defaultOptions() {
 		return mergeObject(super.defaultOptions, {
@@ -221,6 +232,7 @@ export class MidnightGambitItemSheet extends ItemSheet {
 		context.item = this.item;
 		context.system = this.item.system ?? {};
 		context.itemType = this.item.type;
+		context.itemDisplayImg = mgGetItemSheetImage(this.item);
 		
 		context.owner = this.item.isOwner;
 		context.editable = this.isEditable;

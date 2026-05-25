@@ -1,5 +1,24 @@
 import { evaluateRoll } from "./roll-utils.js";
 
+const MG_ACTOR_GUISE_IMAGE = "systems/midnight-gambit/assets/images/guise.jpg";
+const MG_ACTOR_DEFAULT_IMAGE = "icons/svg/mystery-man.svg";
+
+function mgGetActorSheetImage(actor) {
+  const img = String(actor?.img ?? "").trim();
+  if (!img || img === MG_ACTOR_DEFAULT_IMAGE || img.endsWith("/mystery-man.svg")) return MG_ACTOR_GUISE_IMAGE;
+  return img;
+}
+
+function mgGetDifficultyModifier() {
+  try {
+    const value = Number(game.settings.get("midnight-gambit", "gmDifficultyModifier") ?? 0);
+    if (!Number.isFinite(value)) return 0;
+    return Math.max(-3, Math.min(3, Math.trunc(value)));
+  } catch (_) {
+    return 0;
+  }
+}
+
 export class MidnightGambitActorSheet extends ActorSheet {
   static get defaultOptions() {
     return mergeObject(super.defaultOptions, {
@@ -16,6 +35,7 @@ export class MidnightGambitActorSheet extends ActorSheet {
       // Make sure the actor is available in the template
       context.actor = this.actor;
       context.system = this.actor.system;
+      context.actorDisplayImg = mgGetActorSheetImage(this.actor);
 
       context.sparkAttribute = this.actor.system.sparkAttribute ?? "guile";
 
@@ -484,41 +504,58 @@ export class MidnightGambitActorSheet extends ActorSheet {
       return [
         {
           key: "profile",
-          label: "Sheet",
+          label: "Character Sheet",
           icon: "fa-solid fa-user",
           title: "Frame Character Sheet",
           hint: "Drag to pan - Mouse wheel to zoom - Esc to cancel",
+          description: "This image is placed at the top of your Character sheet next to your name, and strain.",
           src: sheetSrc,
           className: "",
           defaultsFrom: []
         },
         {
           key: "chat",
-          label: "Chat",
+          label: "Chat Avatar",
           icon: "fa-solid fa-comment",
           title: "Frame Chat Avatar",
           hint: "Drag to pan - Mouse wheel to zoom - Esc to cancel",
+          description: "This image is placed in chat every time you roll.",
           src: actorSrc,
           className: "chat-crop",
           defaultsFrom: []
         },
         {
           key: "sidebar",
-          label: "Sidebar",
+          label: "Player Sidebar",
           icon: "fa-solid fa-crop-simple",
           title: "Frame Sidebar Portrait",
           hint: "Drag to pan - Mouse wheel to zoom - Esc to cancel",
+          description: "This is the image at the top of your player sidebar (First tab.)",
           src: actorSrc,
           className: "sidebar-crop",
           defaultsFrom: ["profile"],
           saveSize: true
         },
         {
+          key: "actorSidebar",
+          label: "Actor List",
+          icon: "fa-solid fa-user",
+          title: "Frame Actor Tab Portrait",
+          hint: "Drag to pan - Mouse wheel to zoom - Esc to cancel",
+          description: "This image is placed in the Actor List Directory.",
+          src: actorSrc,
+          className: "actor-sidebar-crop",
+          defaultsFrom: ["sidebar", "profile"],
+          saveSize: true,
+          fitAxis: "width"
+        },
+        {
           key: "crewSidebar",
-          label: "Crew Tab",
+          label: "Sidebar Crew Portrait",
           icon: "fa-solid fa-users",
           title: "Frame Crew Tab Portrait",
           hint: "Drag to pan - Mouse wheel to zoom - Esc to cancel",
+          description: "This image is placed in your Crew Tab of the left sidebar, inside the Party Accordion.",
           src: actorSrc,
           className: "crew-sidebar-crop",
           defaultsFrom: ["profile"],
@@ -527,10 +564,11 @@ export class MidnightGambitActorSheet extends ActorSheet {
         },
         {
           key: "crewInitiative",
-          label: "Crew Init",
+          label: "Sidebar Crew Initiative",
           icon: "fa-solid fa-list-ol",
           title: "Frame Crew Initiative Portrait",
           hint: "Drag to pan - Mouse wheel to zoom - Esc to cancel",
+          description: "This image is placed in your Crew Tab of the left sidebar, inside the Initiative accordion.",
           src: actorSrc,
           className: "crew-initiative-crop",
           defaultsFrom: ["crewSidebar", "profile"],
@@ -543,23 +581,78 @@ export class MidnightGambitActorSheet extends ActorSheet {
           icon: "fa-solid fa-people-group",
           title: "Frame Crew Sheet Portrait",
           hint: "Drag to pan - Mouse wheel to zoom - Esc to cancel",
+          description: "This image is placed in the Party List tab of your group's Crew Sheet.",
           src: actorSrc,
           className: "crew-sheet-crop",
           saveSize: true,
           fitAxis: "height"
         },
         {
+          key: "crewSheetInitiative",
+          label: "Crew Sheet Initiative",
+          icon: "fa-solid fa-list-check",
+          title: "Frame Crew Sheet Initiative Portrait",
+          hint: "Drag to pan - Mouse wheel to zoom - Esc to cancel",
+          description: "This image is placed in the Initiative tab of your group's Crew Sheet.",
+          src: actorSrc,
+          className: "crew-sheet-initiative-crop",
+          defaultsFrom: ["actorSidebar", "sidebar", "profile"],
+          saveSize: true,
+          fitAxis: "width"
+        },
+        {
+          key: "mainInitiative",
+          label: "Main Initiative",
+          icon: "fa-kit fa-mortal-strain",
+          title: "Frame Main Initiative",
+          hint: "Drag to pan - Mouse wheel to zoom - Esc to cancel",
+          description: "These images are placed in the square on screen initiative. The Featured is when your character is first in the order, and Slice is when you are in any other position.",
+          src: actorSrc,
+          className: "main-initiative-crop",
+          defaultsFrom: [],
+          saveSize: false,
+          cropModel: "mainInitiativeBgPan",
+          cropTargets: [
+            {
+              key: "mainInitiativeFeatured",
+              label: "Featured",
+              className: "mg-crop-target-featured",
+              cropModel: "mainInitiativeFeaturedBgPan"
+            },            
+            {
+              key: "mainInitiative",
+              label: "Slice",
+              className: "mg-crop-target-slice",
+              cropModel: "mainInitiativeBgPan"
+            },
+          ]
+        },
+        {
           key: "sidebarInitiative",
-          label: "Side Init",
-          icon: "fa-solid fa-bolt",
+          label: "Side Initiative",
+          icon: "fa-kit fa-soul-strain",
           title: "Frame Sidebar Initiative",
           hint: "Drag to pan - Mouse wheel to zoom - Esc to cancel",
+          description: "These images are placed in the Sidebar initiative anchored to the chat box. The Featured is when your character is first in the order, and Slice is when you are in any other position.",
           src: actorSrc,
           className: "sidebar-initiative-crop",
           defaultsFrom: [],
           saveSize: false,
-          fitAxis: "width",
-          cropModel: "skewSlicePan"
+          cropModel: "skewSlicePan",
+          cropTargets: [
+            {
+              key: "sidebarInitiativeMain",
+              label: "Featured",
+              className: "mg-crop-target-main",
+              cropModel: "skewSliceMainPan"
+            },
+            {
+              key: "sidebarInitiative",
+              label: "Slice",
+              className: "mg-crop-target-stack",
+              cropModel: "skewSlicePan"
+            }
+          ]
         }
       ];
     }
@@ -569,30 +662,48 @@ export class MidnightGambitActorSheet extends ActorSheet {
       if (!placements.length) return;
 
       const byKey = Object.fromEntries(placements.map(p => [p.key, p]));
+      const cropTargetMarkup = placements
+        .flatMap(p => p.cropTargets?.map(t => ({ placement: p, target: t })) || [])
+        .map(({ target }) => `
+          <div class="mg-crop-target ${target.className || ""}" data-mg-crop-target="${target.key}">
+            <div class="mg-crop-target-label">${target.label || ""}</div>
+            <div class="mg-crop-stage">
+              <div class="mg-crop-img-plane">
+                <img alt="${target.label || "placement"} preview" data-mg-crop-img="${target.key}">
+              </div>
+            </div>
+          </div>
+        `)
+        .join("");
       let active = byKey[startKey] ? startKey : placements[0].key;
       let dragging = false;
+      let dragTargetKey = null;
+      let dragStage = null;
       let last = { cx: 0, cy: 0 };
       let values = {};
+      const dirtyTargets = new Set();
 
-      const getInitialValues = placement => {
+      const getTargets = placement => placement.cropTargets?.length ? placement.cropTargets : [placement];
+
+      const getInitialValues = (placement, target = placement) => {
         const crops = this.actor.getFlag("midnight-gambit", "crops") || {};
-        let saved = crops[placement.key]?.css;
-        for (const fallback of placement.defaultsFrom || []) {
+        let saved = crops[target.key]?.css;
+        for (const fallback of target.defaultsFrom || placement.defaultsFrom || []) {
           if (saved) break;
           saved = crops[fallback]?.css;
         }
         saved ||= {};
-        if (placement.cropModel && saved.model !== placement.cropModel) saved = {};
-        const hasStaleFitWidth = placement.fitAxis === "height" && Number.isFinite(saved.width);
-        const hasStaleFitHeight = placement.fitAxis === "width" && Number.isFinite(saved.height);
-        if (hasStaleFitWidth || hasStaleFitHeight) saved = {};
+        const cropModel = target.cropModel || placement.cropModel;
+        if (cropModel && saved.model !== cropModel) saved = {};
+        const savedWidth = placement.fitAxis === "height" ? null : saved.width;
+        const savedHeight = placement.fitAxis === "width" ? null : saved.height;
 
         return {
           x: Number.isFinite(saved.x) ? saved.x : 50,
           y: Number.isFinite(saved.y) ? saved.y : 50,
           scale: Number.isFinite(saved.scale) ? saved.scale : 1,
-          width: Number.isFinite(saved.width) ? saved.width : null,
-          height: Number.isFinite(saved.height) ? saved.height : null
+          width: Number.isFinite(savedWidth) ? savedWidth : null,
+          height: Number.isFinite(savedHeight) ? savedHeight : null
         };
       };
 
@@ -616,10 +727,14 @@ export class MidnightGambitActorSheet extends ActorSheet {
                 </button>
               `).join("")}
             </nav>
-            <div class="mg-crop-stage">
+            <p class="mg-crop-description" data-mg-crop-description></p>
+            <div class="mg-crop-stage mg-crop-stage-single">
               <div class="mg-crop-img-plane">
-                <img alt="preview">
+                <img alt="preview" data-mg-crop-img="single">
               </div>
+            </div>
+            <div class="mg-crop-targets" aria-label="Image placement previews">
+              ${cropTargetMarkup}
             </div>
             <div class="mg-actions">
               <button type="button" class="ghost mg-reset">Reset</button>
@@ -632,68 +747,136 @@ export class MidnightGambitActorSheet extends ActorSheet {
       const stage = $ui.find(".mg-crop-stage")[0];
       const imgEl = $ui.find(".mg-crop-stage img")[0];
 
-      const apply = () => {
-        const current = values[active];
-        imgEl.style.setProperty("--x", String(current.x));
-        imgEl.style.setProperty("--y", String(current.y));
-        imgEl.style.setProperty("--s", String(current.scale));
+      const getImgForTarget = key => {
+        if (key === active && !byKey[active]?.cropTargets?.length) return imgEl;
+        return $ui.find(`[data-mg-crop-img="${key}"]`)[0];
+      };
+
+      const apply = (key = active) => {
+        const current = values[key];
+        const img = getImgForTarget(key);
+        if (!current || !img) return;
+        img.style.setProperty("--x", String(current.x));
+        img.style.setProperty("--y", String(current.y));
+        img.style.setProperty("--s", String(current.scale));
+        const plane = img.closest?.(".mg-crop-img-plane");
+        if (plane) {
+          plane.style.setProperty("--x", String(current.x));
+          plane.style.setProperty("--y", String(current.y));
+          plane.style.setProperty("--s", String(current.scale));
+        }
+      };
+
+      const applyPlacementSize = (img, placement, current) => {
+        if (!img) return;
+        if (placement.fitAxis === "height") {
+          img.style.width = "auto";
+          img.style.height = `${Number.isFinite(current.height) ? current.height : 100}%`;
+        } else if (placement.fitAxis === "width") {
+          img.style.width = `${Number.isFinite(current.width) ? current.width : 100}%`;
+          img.style.height = "auto";
+        } else {
+          img.style.width = Number.isFinite(current.width) ? `${current.width}%` : "";
+          img.style.height = Number.isFinite(current.height) ? `${current.height}%` : "";
+        }
       };
 
       const renderPlacement = key => {
         const placement = byKey[key];
         if (!placement) return;
         active = key;
-        values[active] ||= getInitialValues(placement);
+        for (const target of getTargets(placement)) {
+          values[target.key] ||= getInitialValues(placement, target);
+        }
 
         $ui.removeClass(placements.map(p => p.className).filter(Boolean).join(" "));
         if (placement.className) $ui.addClass(placement.className);
         $ui.find(".mg-crop-title").text(placement.title);
         $ui.find(".mg-crop-hint").text(placement.hint);
+        $ui.find("[data-mg-crop-description]").text(placement.description || "");
         $ui.find("[data-mg-crop-tab]").toggleClass("is-active", false).attr("aria-selected", "false");
         $ui.find(`[data-mg-crop-tab="${key}"]`).toggleClass("is-active", true).attr("aria-selected", "true");
 
-        imgEl.src = placement.src;
-        const current = values[active];
-        if (placement.fitAxis === "height") {
-          imgEl.style.width = "auto";
-          imgEl.style.height = `${Number.isFinite(current.height) ? current.height : 100}%`;
-        } else if (placement.fitAxis === "width") {
-          imgEl.style.width = `${Number.isFinite(current.width) ? current.width : 100}%`;
-          imgEl.style.height = "auto";
-        } else {
-          imgEl.style.width = Number.isFinite(current.width) ? `${current.width}%` : "";
-          imgEl.style.height = Number.isFinite(current.height) ? `${current.height}%` : "";
+        $ui.toggleClass("has-multiple-crop-targets", !!placement.cropTargets?.length);
+        const targetKeys = new Set(getTargets(placement).map(t => t.key));
+        $ui.find("[data-mg-crop-target]").each((_, el) => {
+          el.hidden = !targetKeys.has(el.dataset.mgCropTarget);
+        });
+        for (const target of getTargets(placement)) {
+          const img = getImgForTarget(target.key);
+          const current = values[target.key];
+          if (img) {
+            img.src = placement.src;
+            const plane = img.closest?.(".mg-crop-img-plane");
+            if (plane && placement.key === "mainInitiative") {
+              plane.style.backgroundImage = `url("${placement.src}")`;
+            } else if (plane) {
+              plane.style.removeProperty("background-image");
+            }
+          }
+          applyPlacementSize(img, placement, current);
+          apply(target.key);
         }
-        apply();
       };
 
-      stage.addEventListener("pointerdown", ev => {
+      $ui.on("pointerdown", ".mg-crop-stage", ev => {
+        const placement = byKey[active];
+        const targetEl = ev.currentTarget.closest("[data-mg-crop-target]");
+        dragTargetKey = targetEl?.dataset?.mgCropTarget || active;
+        if (!getTargets(placement).some(t => t.key === dragTargetKey)) dragTargetKey = active;
+        dragStage = ev.currentTarget;
         dragging = true;
-        last = { cx: ev.clientX, cy: ev.clientY };
-        stage.setPointerCapture?.(ev.pointerId);
+        const oe = ev.originalEvent || ev;
+        last = { cx: oe.clientX, cy: oe.clientY };
+        ev.currentTarget.setPointerCapture?.(oe.pointerId);
       });
 
-      stage.addEventListener("pointermove", ev => {
+      $ui.on("pointermove", ".mg-crop-stage", ev => {
         if (!dragging) return;
-        const current = values[active];
-        const dx = ev.clientX - last.cx;
-        const dy = ev.clientY - last.cy;
+        const current = values[dragTargetKey];
+        if (!current) return;
+        const oe = ev.originalEvent || ev;
+        const dx = oe.clientX - last.cx;
+        const dy = oe.clientY - last.cy;
+        last = { cx: oe.clientX, cy: oe.clientY };
+
+        if (active === "mainInitiative") {
+          const w = Math.max(dragStage?.clientWidth || ev.currentTarget.clientWidth, 1);
+          const h = Math.max(dragStage?.clientHeight || ev.currentTarget.clientHeight, 1);
+          const pan = 0.45;
+          current.x -= ((dx / w) * 100) * pan;
+          current.y -= ((dy / h) * 100) * pan;
+          dirtyTargets.add(dragTargetKey);
+          apply(dragTargetKey);
+          return;
+        }
+
         const pan = active === "chat" || active === "crewSidebar" || active === "sidebarInitiative" ? 0.45 : 1;
-        last = { cx: ev.clientX, cy: ev.clientY };
-        current.x -= ((dx / Math.max(stage.clientWidth, 1)) * 100) * pan;
-        current.y -= ((dy / Math.max(stage.clientHeight, 1)) * 100) * pan;
-        apply();
+        current.x -= ((dx / Math.max(dragStage?.clientWidth || ev.currentTarget.clientWidth, 1)) * 100) * pan;
+        current.y -= ((dy / Math.max(dragStage?.clientHeight || ev.currentTarget.clientHeight, 1)) * 100) * pan;
+        dirtyTargets.add(dragTargetKey);
+        apply(dragTargetKey);
       });
 
-      stage.addEventListener("pointerup", () => { dragging = false; });
-      stage.addEventListener("pointercancel", () => { dragging = false; });
-      stage.addEventListener("wheel", ev => {
+      $ui.on("pointerup pointercancel", ".mg-crop-stage", () => {
+        dragging = false;
+        dragTargetKey = null;
+        dragStage = null;
+      });
+      $ui.on("wheel", ".mg-crop-stage", ev => {
         ev.preventDefault();
-        const current = values[active];
+        ev.stopPropagation();
+        const oe = ev.originalEvent || ev;
+        oe.preventDefault?.();
+        const targetEl = ev.currentTarget.closest("[data-mg-crop-target]");
+        const targetKey = targetEl?.dataset?.mgCropTarget || active;
+        const current = values[targetKey];
+        if (!current) return;
         const step = ev.shiftKey ? 0.15 : 0.05;
-        current.scale = Math.max(0.05, current.scale - (Math.sign(ev.deltaY) * step));
-        apply();
-      }, { passive: false });
+        current.scale = Math.max(0.05, current.scale - (Math.sign(oe.deltaY || 0) * step));
+        dirtyTargets.add(targetKey);
+        apply(targetKey);
+      });
 
       $ui.on("click", "[data-mg-crop-tab]", ev => {
         ev.preventDefault();
@@ -703,46 +886,64 @@ export class MidnightGambitActorSheet extends ActorSheet {
       $ui.on("click", ".mg-reset", ev => {
         ev.preventDefault();
         const placement = byKey[active];
-        values[active] = {
-          x: 50,
-          y: 50,
-          scale: 1,
-          width: placement?.fitAxis === "width" ? 100 : null,
-          height: placement?.fitAxis === "height" ? 100 : null
-        };
-        imgEl.style.width = placement?.fitAxis === "height" ? "auto" : (placement?.fitAxis === "width" ? "100%" : "");
-        imgEl.style.height = placement?.fitAxis === "height" ? "100%" : (placement?.fitAxis === "width" ? "auto" : "");
-        apply();
+        for (const target of getTargets(placement)) {
+          values[target.key] = {
+            x: 50,
+            y: 50,
+            scale: 1,
+            width: placement?.fitAxis === "width" ? 100 : null,
+            height: placement?.fitAxis === "height" ? 100 : null
+          };
+          const img = getImgForTarget(target.key);
+          applyPlacementSize(img, placement, values[target.key]);
+          dirtyTargets.add(target.key);
+          apply(target.key);
+        }
       });
 
       $ui.on("click", ".mg-cancel", () => $ui.remove());
       $ui.on("click", ".mg-save", async () => {
         try {
           const placement = byKey[active];
-          const current = values[active];
           const ns = "midnight-gambit";
           const crops = (await this.actor.getFlag(ns, "crops")) || {};
-          crops[active] = crops[active] || {};
-          const css = { x: current.x, y: current.y, scale: current.scale };
-          if (placement.cropModel) css.model = placement.cropModel;
-          if (placement.saveSize) {
-            if (placement.fitAxis === "height") {
-              css.height = (imgEl.offsetHeight / Math.max(stage.clientHeight, 1)) * 100;
-            } else if (placement.fitAxis === "width") {
-              css.width = (imgEl.offsetWidth / Math.max(stage.clientWidth, 1)) * 100;
-            } else {
-              css.width = (imgEl.offsetWidth / Math.max(stage.clientWidth, 1)) * 100;
-              css.height = (imgEl.offsetHeight / Math.max(stage.clientHeight, 1)) * 100;
+          for (const target of getTargets(placement)) {
+            if (placement.cropTargets?.length && !dirtyTargets.has(target.key)) continue;
+            const current = values[target.key];
+            const img = getImgForTarget(target.key);
+            const targetStage = img?.closest?.(".mg-crop-stage") || stage;
+            crops[target.key] = crops[target.key] || {};
+            const css = { x: current.x, y: current.y, scale: current.scale };
+            const cropModel = target.cropModel || placement.cropModel;
+            if (cropModel) css.model = cropModel;
+            if (placement.saveSize) {
+              if (placement.fitAxis === "height") {
+                css.height = (img.offsetHeight / Math.max(targetStage.clientHeight, 1)) * 100;
+              } else if (placement.fitAxis === "width") {
+                css.width = (img.offsetWidth / Math.max(targetStage.clientWidth, 1)) * 100;
+              } else {
+                css.width = (img.offsetWidth / Math.max(targetStage.clientWidth, 1)) * 100;
+                css.height = (img.offsetHeight / Math.max(targetStage.clientHeight, 1)) * 100;
+              }
             }
+            crops[target.key].css = css;
           }
-          crops[active].css = css;
           await this.actor.setFlag(ns, "crops", crops);
 
 	          if (active === "profile") this._mgInitProfileCrop(html);
 	          if (active === "chat") ui.chat?.render?.(true);
-          if (["crewSidebar", "crewInitiative", "crewSheet"].includes(active)) {
+          if (["actorSidebar", "crewSidebar", "crewInitiative", "crewSheet", "crewSheetInitiative"].includes(active)) {
             this._mgRefreshCrewSheetsForImageCrop();
+            globalThis.mgRefreshLeftSidebarContent?.();
             globalThis.MGRefreshLeftSidebarContent?.();
+          }
+          if (active === "mainInitiative") {
+            const refreshed = new Set();
+            for (const bar of [game.mgInitiative, globalThis.mgInitiativeBar]) {
+              if (!bar || refreshed.has(bar)) continue;
+              refreshed.add(bar);
+              bar.refreshActorImages?.(this.actor.id);
+            }
           }
           if (active === "sidebarInitiative") game.mgInitiativeSidebar?.refreshActorImages?.(this.actor.id);
 	          ui.notifications?.info(`${placement.title} saved.`);
@@ -1461,15 +1662,80 @@ _mgOpenSidebarCropper() {
         this.render(false);
       });
 
+      const mgEscapeChatHtml = (s) => String(s ?? "").replace(/[&<>"'`=\/]/g, c =>
+        ({
+          "&": "&amp;",
+          "<": "&lt;",
+          ">": "&gt;",
+          '"': "&quot;",
+          "'": "&#39;",
+          "`": "&#96;",
+          "=": "&#61;",
+          "/": "&#47;"
+        }[c])
+      );
+
+      const mgMoveTagIdsFromCard = (sourceEl, item) => {
+        const itemTags = Array.isArray(item?.system?.tags) ? item.system.tags : [];
+        const card = sourceEl.closest(".move-block, .signature-perk");
+        const domTags = Array.from(card?.querySelectorAll?.(".item-tag[data-tag-id]") ?? [])
+          .map(el => el.dataset.tagId)
+          .filter(Boolean);
+        return Array.from(new Set([...itemTags, ...domTags].map(String)));
+      };
+
+      const mgRenderMoveChatTags = (tagIds, item) => {
+        if (!Array.isArray(tagIds) || !tagIds.length) return "";
+
+        const defs = [
+          ...(CONFIG.MidnightGambit?.ITEM_TAGS ?? []),
+          ...(CONFIG.MidnightGambit?.WEAPON_TAGS ?? []),
+          ...(CONFIG.MidnightGambit?.ARMOR_TAGS ?? []),
+          ...(CONFIG.MidnightGambit?.MISC_TAGS ?? [])
+        ];
+        const customTags = item?.system?.customTags ?? {};
+
+        const tagHtml = tagIds
+          .map(tagId => {
+            const def = defs.find(t => String(t.id) === String(tagId));
+            const label = def?.label || String(tagId);
+            const desc = def?.description || customTags[tagId] || "";
+            return `<span class="item-tag tag" data-tag-id="${mgEscapeChatHtml(tagId)}" title="${mgEscapeChatHtml(desc)}">${mgEscapeChatHtml(label)}</span>`;
+          })
+          .join(" ");
+
+        return tagHtml ? `<strong>Tags:</strong><div class="chat-tags">${tagHtml}</div>` : "";
+      };
+
+      const mgEnrichMoveDescriptionForChat = async (text) => {
+        const raw = String(text ?? "").trim();
+        if (!raw) return "";
+        return TextEditor.enrichHTML(raw, {
+          async: true,
+          secrets: this.actor.isOwner,
+          documents: true,
+          links: true,
+          rolls: true
+        });
+      };
+
       //Making it so if you click moves in the Character sheet they post to chat!
-      html.find(".post-move").on("click", event => {
-        const name = event.currentTarget.dataset.moveName || "Unknown Move";
-        const description = event.currentTarget.dataset.moveDescription || "";
+      html.find(".post-move").off("click.mgPostMove").on("click.mgPostMove", async event => {
+        event.preventDefault();
+        event.stopPropagation();
+
+        const card = event.currentTarget.closest("[data-item-id]");
+        const item = this.actor.items.get(card?.dataset?.itemId);
+        const name = item?.name || event.currentTarget.dataset.moveName || "Unknown Move";
+        const description = item?.system?.description ?? event.currentTarget.dataset.moveDescription ?? "";
+        const descHtml = await mgEnrichMoveDescriptionForChat(description);
+        const tagsHtml = mgRenderMoveChatTags(mgMoveTagIdsFromCard(event.currentTarget, item), item);
 
         const chatContent = `
           <div class="chat-move">
-            <h2><i class="fa-solid fa-hand-fist"></i> ${name}</h2>
-            <p>${description}</p>
+            <h2><i class="fa-solid fa-hand-fist"></i> ${mgEscapeChatHtml(name)}</h2>
+            ${descHtml ? `<div class="chat-move-desc">${descHtml}</div>` : ""}
+            ${tagsHtml}
           </div>
         `;
 
@@ -1485,13 +1751,18 @@ _mgOpenSidebarCropper() {
         const source = event.currentTarget.querySelector(".post-signature");
         if (!source) return;
 
-        const name = source.dataset.perkName;
-        const description = source.dataset.perkDescription;
+        const card = source.closest("[data-item-id]");
+        const item = this.actor.items.get(card?.dataset?.itemId);
+        const name = item?.system?.signaturePerk || item?.name || source.dataset.perkName || "Signature";
+        const description = item?.system?.signatureDescription ?? item?.system?.description ?? source.dataset.perkDescription ?? "";
+        const descHtml = await mgEnrichMoveDescriptionForChat(description);
+        const tagsHtml = mgRenderMoveChatTags(mgMoveTagIdsFromCard(source, item), item);
 
         const chatContent = `
           <div class="chat-move">
-            <h2><i class="fa-solid fa-diamond"></i> Signature Perk: ${name}</h2>
-            <p>${description}</p>
+            <h2><i class="fa-solid fa-diamond"></i> Signature Perk: ${mgEscapeChatHtml(name)}</h2>
+            ${descHtml ? `<div class="chat-move-desc">${descHtml}</div>` : ""}
+            ${tagsHtml}
           </div>
         `;
 
@@ -2468,6 +2739,7 @@ _mgOpenSidebarCropper() {
 
         const aura = this._getActiveAuraPenalty(attrKey);
         const auraAttrMod = Number(aura.value ?? 0);
+        const difficultyMod = mgGetDifficultyModifier();
 
         // Aura should NOT change the dice pool anymore
         const finalAttrMod = baseAttrMod + tempAttrMod;
@@ -2480,16 +2752,22 @@ _mgOpenSidebarCropper() {
 
         await evaluateRoll({
           formula,
-          skillMod: auraAttrMod,
-          modifierParts: [auraAttrMod],
-          modifierBreakdown: auraAttrMod !== 0 ? [
+          skillMod: auraAttrMod + difficultyMod,
+          modifierParts: [auraAttrMod, difficultyMod],
+          modifierBreakdown: [
             {
               key: "aura",
               label: aura.label || "Aura Modifier",
               icon: "fa-eye-evil",
               value: auraAttrMod
+            },
+            {
+              key: "difficulty",
+              label: "Difficulty",
+              icon: "fa-camera-movie",
+              value: difficultyMod
             }
-          ] : [],
+          ],
           label: `Attr Roll: ${attrKey.charAt(0).toUpperCase() + attrKey.slice(1)}`,
           actor: this.actor,
           edge,
@@ -2613,10 +2891,11 @@ _mgOpenSidebarCropper() {
 
           const aura = this._getActiveAuraPenalty(attrKey);
           const auraAttrMod = Number(aura.value ?? 0);
+          const difficultyMod = mgGetDifficultyModifier();
 
           // Aura is now a flat final modifier, not dice-pool pressure
           const finalAttrMod = baseAttrMod + tempAttrMod;
-          const finalSkillMod = baseSkillMod + tempSkillMod + auraAttrMod;
+          const finalSkillMod = baseSkillMod + tempSkillMod + auraAttrMod + difficultyMod;
 
           const pool = 2 + Math.abs(finalAttrMod);
           const rollType = finalAttrMod >= 0 ? "kh2" : "kl2";
@@ -2633,7 +2912,7 @@ _mgOpenSidebarCropper() {
           await evaluateRoll({
             formula,
             skillMod: finalSkillMod,
-            modifierParts: [baseSkillMod, tempSkillMod, auraAttrMod],
+            modifierParts: [baseSkillMod, tempSkillMod, auraAttrMod, difficultyMod],
             modifierBreakdown: [
               {
                 key: "skill",
@@ -2652,6 +2931,12 @@ _mgOpenSidebarCropper() {
                 label: aura.label || "Aura Modifier",
                 icon: "fa-eye-evil",
                 value: auraAttrMod
+              },
+              {
+                key: "difficulty",
+                label: "Difficulty",
+                icon: "fa-camera-movie",
+                value: difficultyMod
               }
             ],
             label: `Skill Roll: ${skillLabel}`,
@@ -4779,7 +5064,7 @@ _mgOpenSidebarCropper() {
           return;
         }
 
-        const current = this.actor.img ?? "icons/svg/mystery-man.svg";
+        const current = mgGetActorSheetImage(this.actor);
 
         // Foundry permission gates: basic players often cannot open FilePicker (especially on Forge)
         const canBrowse = game.user?.can?.("FILES_BROWSE") ?? game.user?.isTrusted ?? false;
@@ -6061,7 +6346,7 @@ async _mgOpenStatPicker({ title, current }) {
 
   async _mgGetCharacterDragSourceStatus(event) {
     const el = event.target?.closest?.(
-      "[data-uuid], [data-document-uuid], [data-document-id], [data-entry-id], [data-item-id], .directory-item"
+      "[data-uuid], [data-document-uuid], [data-document-id], [data-entry-id], [data-item-id], [data-mg-item-id], [data-mg-actor-id], .directory-item"
     );
 
     if (!el) {
@@ -6088,6 +6373,8 @@ async _mgOpenStatPicker({ title, current }) {
       el.dataset.documentId ||
       el.dataset.entryId ||
       el.dataset.itemId ||
+      el.dataset.mgItemId ||
+      el.dataset.mgActorId ||
       el.dataset.id ||
       null;
 

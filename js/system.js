@@ -1,6 +1,10 @@
 import "./hooks.js";
 import "./mg-ui.js";
 import "./sidebar-actor.js";
+import "./sidebar-item.js";
+import "./sidebar-journal.js";
+import "./sidebar-compendium.js";
+import "./sidebar-playlist.js";
 import { MidnightGambitActor } from "./actor.js";
 import { MidnightGambitItem } from "./item.js";
 import { GuiseSheet } from "./guise-sheet.js";
@@ -148,6 +152,15 @@ Hooks.once("init", async () => {
     type: String,
     default: ""
   });  
+
+  game.settings.register("midnight-gambit", "gmDifficultyModifier", {
+    name: "GM Difficulty Modifier",
+    hint: "A world-level modifier applied to Midnight Gambit player rolls.",
+    scope: "world",
+    config: false,
+    type: Number,
+    default: 0
+  });
 
   //Setting custom tag rules so they persist
   game.settings.register("midnight-gambit", "customTags", {

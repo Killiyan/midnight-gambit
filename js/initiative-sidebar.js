@@ -25,6 +25,7 @@ function mgGetActorCropVariables(actor, key, fallbacks = []) {
     crop = crops[fallback]?.css;
   }
   if (key === "sidebarInitiative" && crop?.model !== "skewSlicePan") return "";
+  if (key === "sidebarInitiativeMain" && crop?.model !== "skewSliceMainPan") return "";
   if (!crop) return "";
 
   const x = Number.isFinite(crop.x) ? crop.x : 50;
@@ -43,6 +44,7 @@ function mgGetActorCropVariables(actor, key, fallbacks = []) {
 function mgHasActorCrop(actor, key) {
   const crop = actor?.getFlag?.(MG_NS, "crops")?.[key]?.css;
   if (key === "sidebarInitiative" && crop?.model !== "skewSlicePan") return false;
+  if (key === "sidebarInitiativeMain" && crop?.model !== "skewSliceMainPan") return false;
   return !!(crop && Object.keys(crop).length);
 }
 
@@ -584,10 +586,14 @@ export class MGInitiativeSidebar {
 
   _applyActorCrop(imgWrap, actor) {
     if (!imgWrap) return;
-    const hasCrop = mgHasActorCrop(actor, "sidebarInitiative");
+    const isMainSlot = imgWrap.closest?.(".mg-ini-side-slot")?.dataset?.slot === "0";
+    const cropKey = isMainSlot && mgHasActorCrop(actor, "sidebarInitiativeMain")
+      ? "sidebarInitiativeMain"
+      : "sidebarInitiative";
+    const hasCrop = mgHasActorCrop(actor, cropKey);
     imgWrap.classList.toggle("is-cropped", hasCrop);
     if (hasCrop) {
-      imgWrap.setAttribute("style", mgGetActorCropVariables(actor, "sidebarInitiative"));
+      imgWrap.setAttribute("style", mgGetActorCropVariables(actor, cropKey));
     } else {
       imgWrap.removeAttribute("style");
     }

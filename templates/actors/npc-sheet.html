@@ -113,18 +113,11 @@
           </div>
 
         </div>
-      </div>
-
-      {{#if (eq actor.type "npc")}}
-        <button type="button" class="mg-aura-toggle {{#if system.aura.enabled}}is-active{{/if}}">
-          Aura
-          <i class="fa-solid fa-eye-evil"></i>
-        </button>
-      {{/if}}      
+      </div>    
 
       <!-- Profile image (same class so your crop system can reuse styling) -->
       <div class="profile-image">
-        <img class="mg-profile-img" src="{{actor.img}}" data-edit="img" title="{{actor.name}}" />
+        <img class="mg-profile-img" src="{{actorDisplayImg}}" data-edit="img" title="{{actor.name}}" />
       </div>
 
     </div>
@@ -169,6 +162,12 @@
           {{/each}}
         </div>
 
+        {{#if (eq actor.type "npc")}}
+          <button type="button" class="mg-aura-toggle {{#if system.aura.enabled}}is-active{{/if}}">
+            Aura
+            <i class="fa-solid fa-eye-evil"></i>
+          </button>
+        {{/if}}          
 
         <!-- Moves & Signature (moved INTO general) -->
 
@@ -219,7 +218,7 @@
                   </div>
                 {{/if}}
 
-                <div class="status-buttons" style="margin-left:10px;">
+                <div class="status-buttons">
                   <button type="button" class="item-edit" data-item-id="{{signatureMove._id}}" title="Edit">
                     <i class="fa-solid fa-pen-to-square"></i>
                   </button>
@@ -278,7 +277,7 @@
                       {{/if}}
 
                       {{!-- Optional: match your primary signature controls --}}
-                      <div class="status-buttons" style="margin-left:10px;">
+                      <div class="status-buttons">
                         <button type="button" class="item-edit" data-item-id="{{this._id}}" title="Edit">
                           <i class="fa-solid fa-pen-to-square"></i>
                         </button>
@@ -428,12 +427,8 @@
               Image Settings
             </button>
 
-            <button type="button" class="mg-crop-profile">
-              <i class="fa-solid fa-user"></i> Frame Actor Profile Image
-            </button>
-
-            <button type="button" class="mg-crop-chat">
-              <i class="fa-solid fa-comment"></i> Frame Chat Image
+            <button type="button" class="mg-open-image-options">
+              <i class="fa-solid fa-crop-simple"></i> Frame Image Placements
             </button>
           </div>
         </div>

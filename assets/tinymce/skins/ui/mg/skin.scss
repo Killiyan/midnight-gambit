@@ -2993,10 +2993,12 @@ body.tox-dialog__disable-scroll {
   padding: 0;
   text-transform: none;
   width: 34px;
+  transition: background .5s ease, color .5s ease, border .5s ease;
 }
 .tox .tox-tbtn svg {
   display: block;
   fill: $mg-ivory;
+  transition: color .5s ease
 }
 .tox .tox-tbtn.tox-tbtn-more {
   padding-left: 5px;
@@ -3009,22 +3011,22 @@ body.tox-dialog__disable-scroll {
   box-shadow: none;
 }
 .tox .tox-tbtn:hover {
-  background: #cce2fa;
+  background: #122137;
   border: 0;
   box-shadow: none;
-  color: #222f3e;
+  color: #A2D729;
 }
 .tox .tox-tbtn:hover svg {
-  fill: #222f3e;
+  fill: #A2D729;
 }
 .tox .tox-tbtn:active {
-  background: #a6ccf7;
+  background: #122137;
   border: 0;
   box-shadow: none;
-  color: #222f3e;
+  color: #A2D729;
 }
 .tox .tox-tbtn:active svg {
-  fill: #222f3e;
+  fill: #A2D729;
 }
 .tox .tox-tbtn--disabled .tox-tbtn--enabled svg {
   fill: rgba(34, 47, 62, 0.5);

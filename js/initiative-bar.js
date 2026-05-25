@@ -14,6 +14,22 @@ const DRAG_MARGIN_PX = 16;
 const MG_KEY = "initiativeProgress";
 const MG_NS = "midnight-gambit";
 
+function mgGetActorCrop(actor, key) {
+  const crop = actor?.getFlag?.(MG_NS, "crops")?.[key]?.css;
+  if (key === "mainInitiative" && crop?.model !== "mainInitiativeBgPan") return null;
+  if (key === "mainInitiativeFeatured" && crop?.model !== "mainInitiativeFeaturedBgPan") return null;
+  return crop && Object.keys(crop).length ? crop : null;
+}
+
+function mgActorCropTouched(changed) {
+  const mgFlags = changed?.flags?.[MG_NS];
+  const changedKeys = Object.keys(changed ?? {});
+  return !!(mgFlags && Object.prototype.hasOwnProperty.call(mgFlags, "crops")) ||
+    Object.prototype.hasOwnProperty.call(changed ?? {}, `flags.${MG_NS}.crops`) ||
+    changedKeys.some(key => key.startsWith(`flags.${MG_NS}.crops.`)) ||
+    getProperty(changed, `flags.${MG_NS}.crops`) != null;
+}
+
 export class MGInitiativeBar extends Application {
   static #instance;
   static get instance() {
@@ -407,7 +423,9 @@ export class MGInitiativeBar extends Application {
       const img = a.img || a.prototypeToken?.texture?.src || "icons/svg/mystery-man.svg";
       // NOTE: The hover stats panel is inert until CSS is added.
       btn.innerHTML = `
-        <div class="mg-ini-image" style="background-image: url('${img}');"></div>
+        <div class="mg-ini-image" style="background-image: url('${img}');">
+          <img src="${img}" alt="">
+        </div>
 
         <div class="mg-ini-hoverstats" aria-hidden="true">
           <div class="mg-ini-hs-row" data-type="mortal">
@@ -439,6 +457,7 @@ export class MGInitiativeBar extends Application {
       stage.appendChild(btn);
       // Populate stats immediately (so first hover is correct)
       this._refreshSliceHoverStats(btn, a);
+      this._applyActorCrop(btn, a, false);
 
     }
   }
@@ -661,6 +680,63 @@ export class MGInitiativeBar extends Application {
     el.style.setProperty("--bleedL", `${Math.ceil(bleedL)}px`);
 
     el.classList.toggle("is-featured", !!featured);
+    const actor = el.dataset.actorId && el.dataset.actorId !== END_ID ? game.actors.get(el.dataset.actorId) : null;
+    this._applyActorCrop(el, actor, !!featured);
+  }
+
+  _applyActorCrop(sliceEl, actor, featured = false) {
+    const imgEl = sliceEl?.querySelector?.(".mg-ini-image");
+    if (!imgEl) return;
+    let image = imgEl.querySelector("img");
+    if (actor && !image) {
+      image = document.createElement("img");
+      image.alt = "";
+      imgEl.appendChild(image);
+    }
+    if (image && actor) {
+      image.src = actor.img || actor.prototypeToken?.texture?.src || "icons/svg/mystery-man.svg";
+    }
+
+    const crop = featured
+      ? (mgGetActorCrop(actor, "mainInitiativeFeatured") || mgGetActorCrop(actor, "mainInitiative"))
+      : mgGetActorCrop(actor, "mainInitiative");
+
+    imgEl.classList.toggle("is-cropped", !!crop);
+    if (!crop) {
+      imgEl.style.removeProperty("--mg-crop-x");
+      imgEl.style.removeProperty("--mg-crop-y");
+      imgEl.style.removeProperty("--mg-crop-bg-size");
+      imgEl.style.removeProperty("--mg-crop-scale");
+      return;
+    }
+
+    const x = Number.isFinite(crop.x) ? crop.x : 50;
+    const y = Number.isFinite(crop.y) ? crop.y : 50;
+    const scale = Number.isFinite(crop.scale) ? crop.scale : 1;
+    imgEl.style.setProperty("--mg-crop-x", String(x));
+    imgEl.style.setProperty("--mg-crop-y", String(y));
+    imgEl.style.setProperty("--mg-crop-bg-size", `${Math.max(1, scale) * 100}%`);
+    imgEl.style.setProperty("--mg-crop-scale", String(Math.max(1, scale)));
+  }
+
+  refreshActorImages(actorId) {
+    const stage = this._root?.querySelector?.(".mg-ini-diag-stage");
+    if (!stage || !actorId) return;
+    const actor = game.actors.get(actorId);
+    const slices = stage.querySelectorAll(`.mg-ini-slice[data-actor-id="${actorId}"]`);
+    for (const slice of slices) {
+      const imgEl = slice.querySelector(".mg-ini-image");
+      if (imgEl) {
+        const src = actor?.img || actor?.prototypeToken?.texture?.src || "icons/svg/mystery-man.svg";
+        imgEl.style.backgroundImage = `url('${src}')`;
+        const image = imgEl.querySelector("img");
+        if (image) image.src = src;
+      }
+      this._applyActorCrop(slice, actor, slice.classList.contains("is-featured"));
+    }
+    if (Array.isArray(this._ids) && this._ids.length) {
+      this._layoutDiagonal(this._ids);
+    }
   }
 
   /** Save current initiative progress so reopen resumes from here */
@@ -2058,6 +2134,11 @@ export class MGInitiativeBar extends Application {
       // Only actors currently in our initiative order
       const ids = Array.isArray(this._ids) ? this._ids : [];
       if (!actor?.id || !ids.includes(actor.id)) return;
+
+      if (mgActorCropTouched(changed)) {
+        this.refreshActorImages(actor.id);
+        return;
+      }
 
       // Only react to strain/capacity changes (prevents spam + accidental rerenders)
       const touchedStrain =

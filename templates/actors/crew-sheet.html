@@ -136,8 +136,8 @@
 				<div class="mg-initiative-list">
 					{{#each initiativeMembers as |m|}}
 					<article class="mg-init-card {{#if m.hidden}}is-muted{{/if}}" data-uuid="{{m.uuid}}" data-hidden="{{m.hidden}}">
-						<div class="mg-init-portrait">
-							<img src="{{m.img}}" alt="{{m.name}}" />
+						<div class="mg-init-portrait {{#if m.hasCrewSheetInitiativeCrop}}is-cropped{{/if}}">
+							<img src="{{m.img}}" alt="{{m.name}}" style="{{m.crewSheetInitiativeCropStyle}}" />
 						</div>
 
 						<div class="mg-init-main">
