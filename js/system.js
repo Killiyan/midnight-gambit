@@ -21,6 +21,71 @@ const MG_HUD_CLASS = "mg-hud-enabled";
 const MG_HUD_TRANSITION_MS = 1000;
 
 let mgHudTransitionTimer = null;
+let mgHudChordLatched = false;
+const mgHudChordKeys = new Set();
+const mgHudChordPressedAt = new Map();
+
+function mgIsEditableKeyTarget(target) {
+	if (!target) return false;
+	if (target.isContentEditable) return true;
+
+	const editable = target.closest?.("input, textarea, select, [contenteditable='true'], [contenteditable='']");
+	return !!editable;
+}
+
+function mgActivateChatSidebar() {
+	const sidebar = ui?.sidebar;
+
+	if (sidebar && typeof sidebar.activateTab === "function") {
+		sidebar.activateTab("chat");
+	} else {
+		document.querySelector('#sidebar-tabs [data-tab="chat"], #sidebar [data-tab="chat"]')?.click();
+	}
+
+	const chat = document.getElementById("chat");
+	if (chat) {
+		chat.classList.add("active");
+		chat.style.display = "";
+	}
+
+	ui?.chat?.scrollBottom?.();
+}
+
+function mgBindHudChordToggle() {
+	if (document.body?.dataset.mgHudChordBound === "true") return;
+	document.body.dataset.mgHudChordBound = "true";
+
+	document.addEventListener("keydown", event => {
+		if (event.repeat || mgIsEditableKeyTarget(event.target)) return;
+		if (event.code !== "KeyM" && event.code !== "KeyG") return;
+		if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+
+		mgHudChordKeys.add(event.code);
+		mgHudChordPressedAt.set(event.code, performance.now());
+		event.preventDefault();
+		event.stopPropagation();
+
+		if (mgHudChordLatched || !mgHudChordKeys.has("KeyM") || !mgHudChordKeys.has("KeyG")) return;
+		if (Math.abs(mgHudChordPressedAt.get("KeyM") - mgHudChordPressedAt.get("KeyG")) > 350) return;
+
+		mgHudChordLatched = true;
+		void mgToggleHudMode();
+	}, true);
+
+	document.addEventListener("keyup", event => {
+		if (event.code !== "KeyM" && event.code !== "KeyG") return;
+
+		mgHudChordKeys.delete(event.code);
+		mgHudChordPressedAt.delete(event.code);
+		if (!mgHudChordKeys.has("KeyM") || !mgHudChordKeys.has("KeyG")) mgHudChordLatched = false;
+	}, true);
+
+	window.addEventListener("blur", () => {
+		mgHudChordKeys.clear();
+		mgHudChordPressedAt.clear();
+		mgHudChordLatched = false;
+	});
+}
 
 function mgClearHudTransitionClasses() {
 	document.body?.classList.remove(
@@ -49,6 +114,7 @@ function mgApplyHudMode(enabled, options = {}) {
 
 	if (!animate || currentlyEnabled === nextEnabled) {
 		body.classList.toggle(MG_HUD_CLASS, nextEnabled);
+		if (nextEnabled) mgActivateChatSidebar();
 		game.mgUi?.refreshLogo?.();
 		return;
 	}
@@ -62,6 +128,7 @@ function mgApplyHudMode(enabled, options = {}) {
 		mgHudTransitionTimer = window.setTimeout(() => {
 			// 2) Switch actual UI state.
 			body.classList.add(MG_HUD_CLASS);
+			mgActivateChatSidebar();
 			game.mgUi?.refreshLogo?.();
 
 			body.classList.remove("mg-ui-exiting-foundry");
@@ -193,13 +260,8 @@ Hooks.once("init", async () => {
 
   game.keybindings.register("midnight-gambit", "toggleMgHud", {
     name: "Toggle Midnight Gambit HUD",
-    hint: "Switch between default Foundry UI and Midnight Gambit HUD mode.",
-    editable: [
-      {
-        key: "KeyM",
-        modifiers: [KeyboardManager.MODIFIER_KEYS.CONTROL, KeyboardManager.MODIFIER_KEYS.SHIFT]
-      }
-    ],
+    hint: "Switch between default Foundry UI and Midnight Gambit HUD mode by pressing M and G together.",
+    editable: [],
     onDown: () => {
       mgToggleHudMode();
       return true;
@@ -441,6 +503,7 @@ Hooks.once("init", async () => {
 Hooks.once("ready", () => {
 	const enabled = game.settings.get("midnight-gambit", "mgHudEnabled");
 	mgApplyHudMode(enabled);
+	mgBindHudChordToggle();
 
 	game.mgUi?.refreshLogo?.();
 
