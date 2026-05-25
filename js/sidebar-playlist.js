@@ -1318,7 +1318,8 @@ function mgRenderPlaylistSoundRow(playlist, sound) {
 
 globalThis.MGPlaylistSidebar = {
 	bindContent: mgBindPlaylistSidebarContent,
-	renderContent: mgRenderPlaylistSidebarContent
+	renderContent: mgRenderPlaylistSidebarContent,
+	renderActiveSoundsPanel: mgRenderActiveSoundsPanel
 };
 
 Hooks.on("renderPlaylistConfig", mgBindPlaylistConfigImageField);

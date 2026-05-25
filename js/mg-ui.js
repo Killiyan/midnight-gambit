@@ -626,6 +626,16 @@ function mgGetSidebarCropStyle(actor) {
 	return `style="${variables}"`;
 }
 
+function mgGetDirectorActorImage(actor) {
+	const img = String(actor?.img ?? "").trim();
+
+	if (!img || img === "icons/svg/mystery-man.svg" || img.endsWith("/mystery-man.svg")) {
+		return "systems/midnight-gambit/assets/images/guise.jpg";
+	}
+
+	return img;
+}
+
 function mgGetSidebarCropVariables(actor) {
 	return mgGetActorCropVariables(actor, "sidebar", ["profile"]);
 }
@@ -2705,6 +2715,20 @@ async function mgRollAttribute(actor, attrKey) {
 	}
 }
 
+async function mgRollNpcAttribute(actor, attrKey) {
+	if (!actor || actor.type !== "npc" || !attrKey) return;
+
+	const attrMod = Number(actor.system?.attributes?.[attrKey] ?? actor.system?.baseAttributes?.[attrKey] ?? 0) || 0;
+	const pool = 2 + Math.abs(attrMod);
+	const rollType = attrMod >= 0 ? "kh2" : "kl2";
+
+	await evaluateRoll({
+		formula: `${pool}d6${rollType}`,
+		label: `NPC Attribute Roll: ${mgCapitalize(attrKey)}`,
+		actor
+	});
+}
+
 async function mgRollSkill(actor, skillKey) {
 	if (!actor || !skillKey) return;
 	if (skillKey === "spark" && !mgActorHasSpark(actor)) {
@@ -4317,6 +4341,19 @@ function mgRenderPlaylistSidebarContent() {
 	return globalThis.MGPlaylistSidebar?.renderContent?.() ?? `<div class="mg-left-empty">Playlist sidebar is still loading.</div>`;
 }
 
+function mgRenderDirectorPlaylistControl() {
+	const panel = globalThis.MGPlaylistSidebar?.renderActiveSoundsPanel?.();
+	if (!panel) return `<div class="mg-left-empty">Playlist sidebar is still loading.</div>`;
+
+	return `
+		<div class="mg-scene-directory mg-playlist-directory mg-director-playlist-directory">
+			<div class="mg-scene-directory-header">
+				${panel}
+			</div>
+		</div>
+	`;
+}
+
 function mgBindGmSidebarContent(root) {
 	if (!game.user?.isGM) return;
 
@@ -4330,8 +4367,52 @@ function mgBindGmSidebarContent(root) {
 			mgRefreshGmSidebarContent();
 		});
 	});
+
+	root?.querySelectorAll("[data-mg-open-aura-actor]").forEach(button => {
+		button.addEventListener("click", event => {
+			event.preventDefault();
+			event.stopPropagation();
+
+			const actor = game.actors.get(button.dataset.mgOpenAuraActor);
+			actor?.sheet?.render(true, { focus: true });
+		});
+	});
+
+	root?.querySelectorAll("[data-mg-clear-aura]").forEach(button => {
+		button.addEventListener("click", async event => {
+			event.preventDefault();
+			event.stopPropagation();
+
+			const actor = game.actors.get(button.dataset.mgClearAura);
+
+			if (actor?.type === "npc") {
+				await actor.update({ "system.aura.enabled": false }, { render: false });
+			}
+
+			const current = game.settings.get("midnight-gambit", "activeAuraActorId");
+			if (current === button.dataset.mgClearAura) {
+				await game.settings.set("midnight-gambit", "activeAuraActorId", "");
+			}
+
+			mgRefreshGmSidebarContent();
+		});
+	});
+
+	root?.querySelectorAll("[data-mg-roll-aura-attribute]").forEach(button => {
+		button.addEventListener("click", async event => {
+			event.preventDefault();
+			event.stopPropagation();
+
+			const actor = game.actors.get(button.dataset.mgAuraActor);
+			await mgRollNpcAttribute(actor, button.dataset.mgRollAuraAttribute);
+		});
+	});
+
+	mgBindPlaylistSidebarContent(root);
 }
 
+/* Get Difficulty for GM Sidebar
+----------------------------------------------------------------------*/
 function mgRenderDifficultyControl() {
 	const current = mgGetDifficultyModifier();
 	const buttons = [-3, -2, -1, 0, 1, 2, 3].map(value => {
@@ -4362,6 +4443,123 @@ function mgRenderDifficultyControl() {
 	`;
 }
 
+/* Get Active Aura for GM Sidebar
+----------------------------------------------------------------------*/
+function mgGetActiveAuraActor() {
+	let activeAuraActorId = "";
+
+	try {
+		activeAuraActorId = game.settings.get("midnight-gambit", "activeAuraActorId");
+	} catch (_) {
+		return null;
+	}
+
+	if (!activeAuraActorId) return null;
+
+	const actor = game.actors.get(activeAuraActorId);
+	if (!actor || actor.type !== "npc" || !actor.system?.aura?.enabled) return null;
+
+	return actor;
+}
+
+function mgRenderAuraAttributePills(actor) {
+	const attrs = actor?.system?.attributes ?? actor?.system?.baseAttributes ?? {};
+	const keys = ["tenacity", "finesse", "resolve", "guile", "instinct", "presence"];
+
+	return `
+		<div class="mg-director-aura-pills" aria-label="Aura modifiers">
+			${keys.map(key => {
+				const npcValue = Number(attrs[key] ?? 0) || 0;
+				const rollValue = -npcValue;
+				const label = key.slice(0, 3).toUpperCase();
+
+				return `
+					<button
+						type="button"
+						class="mg-director-aura-pill ${rollValue === 0 ? "is-zero" : ""}"
+						data-mg-aura-actor="${actor.id}"
+						data-mg-roll-aura-attribute="${key}"
+						title="Roll ${mgCapitalize(key)} for ${mgAttr(actor.name)}"
+					>
+						<span>${label}</span>
+						<strong>${mgSigned(rollValue)}</strong>
+					</button>
+				`;
+			}).join("")}
+		</div>
+	`;
+}
+
+function mgRenderDirectorAuraActorRow(actor) {
+	const img = mgGetDirectorActorImage(actor);
+	const hasCrop = mgHasActorCrop(actor, "actorSidebar");
+	const cropVariables = hasCrop ? mgGetActorCropVariables(actor, "actorSidebar", [], { ignoreHeight: true }) : "";
+	const auraLabel = String(actor.system?.aura?.label || "Oppressive Presence");
+
+	return `
+		<div class="mg-director-aura-card">
+			<article
+				class="mg-scene-row mg-actor-row mg-director-aura-row"
+				data-mg-active-actor-id="${actor.id}"
+				data-mg-actor-id="${actor.id}"
+				data-mg-actor-name="${mgAttr(actor.name)}"
+			>
+				<button type="button" class="mg-scene-row-main mg-actor-row-main" data-mg-open-aura-actor="${actor.id}">
+					<span class="mg-actor-row-image mg-cropbox ${hasCrop ? "is-cropped" : ""}" aria-hidden="true">
+						<img src="${mgEsc(img)}" alt="" style="${cropVariables}" />
+					</span>
+					<span class="mg-scene-row-scrim"></span>
+					<span class="mg-scene-row-title mg-actor-row-title">${mgEsc(actor.name)}</span>
+				</button>
+
+				<button
+					type="button"
+					class="mg-scene-context-button mg-actor-context-button mg-director-clear-aura"
+					data-mg-clear-aura="${actor.id}"
+					title="Clear active aura"
+					aria-label="Clear active aura from ${mgAttr(actor.name)}"
+				>
+					<i class="fa-solid fa-ban"></i>
+				</button>
+			</article>
+
+			<div class="mg-director-aura-meta">
+				<div class="mg-director-aura-label">
+					<i class="fa-solid fa-eye-evil"></i>
+					<span>${mgEsc(auraLabel)}</span>
+				</div>
+
+				${mgRenderAuraAttributePills(actor)}
+			</div>
+		</div>
+	`;
+}
+
+function mgRenderAuraControl() {
+	const actor = mgGetActiveAuraActor();
+
+	if (!actor) {
+		return `
+			<div class="mg-scene-directory mg-director-aura-directory">
+				<div class="mg-director-aura-empty">
+					<i class="fa-solid fa-eye-slash"></i>
+					<span>No active aura.</span>
+				</div>
+			</div>
+		`;
+	}
+
+	return `
+		<div class="mg-scene-directory mg-director-aura-directory" data-mg-director-aura-control>
+			<div class="mg-scene-list">
+				${mgRenderDirectorAuraActorRow(actor)}
+			</div>
+		</div>
+	`;
+}
+
+/* Render GM Sidebar
+----------------------------------------------------------------------*/
 function mgRenderGmSidebarContent() {
 	return `
 		<section class="mg-gm-sidebar" data-mg-gm-sidebar>
@@ -4371,6 +4569,22 @@ function mgRenderGmSidebarContent() {
 				icon: "fa-solid fa-camera-movie",
 				open: true,
 				body: mgRenderDifficultyControl()
+			})}
+
+			${mgRenderAccordion(null, {
+				id: "gm-auras",
+				title: "Auras",
+				icon: "fa-solid fa-eye-evil",
+				open: true,
+				body: mgRenderAuraControl()
+			})}
+
+			${mgRenderAccordion(null, {
+				id: "gm-playlist",
+				title: "Sounds / Playlist",
+				icon: "fa-solid fa-music",
+				open: true,
+				body: mgRenderDirectorPlaylistControl()
 			})}
 		</section>
 	`;
@@ -4750,9 +4964,10 @@ function mgRefreshActiveTool(forcedTool = null) {
 
 	mgSetOrbBadge(mgActiveControl, mgActiveTool);
 }
-/**
- * Keep active styles roughly synced when Foundry controls rerender.
- */
+
+/* Refresh hooks
+==============================================================================================================================================*/
+
 Hooks.on("renderSceneControls", () => {
   mgRefreshActiveControl();
   mgRefreshActiveTool();
@@ -4776,7 +4991,12 @@ Hooks.on("updateSetting", setting => {
 	if (setting?.key === "midnight-gambit.crewActorId") mgRefreshLeftSidebarContent();
 });
 Hooks.on("updateSetting", setting => {
-	if (setting?.key === "midnight-gambit.gmDifficultyModifier") mgRefreshGmSidebarContent();
+	if (
+		setting?.key === "midnight-gambit.gmDifficultyModifier" ||
+		setting?.key === "midnight-gambit.activeAuraActorId"
+	) {
+		mgRefreshGmSidebarContent();
+	}
 });
 Hooks.on("updateUser", user => {
 	if (user?.id === game.user?.id) mgRefreshLeftSidebarTabs();
@@ -4837,10 +5057,27 @@ Hooks.on("canvasReady", () => mgRefreshScenesSidebarContent());
 });
 ["createPlaylist", "updatePlaylist", "deletePlaylist", "createPlaylistSound", "updatePlaylistSound", "deletePlaylistSound", "createFolder", "updateFolder", "deleteFolder", "globalPlaylistVolumeChanged", "globalAmbientVolumeChanged", "globalInterfaceVolumeChanged"].forEach(hookName => {
 	Hooks.on(hookName, document => {
-		if (mgActiveSidebarTab !== "playlists") return;
+		if (mgActiveSidebarTab !== "playlists" && mgActiveSidebarTab !== "gm") return;
 		if (document?.documentName === "Folder" && document.type !== "Playlist") return;
 		mgRefreshLeftSidebarContent();
 	});
+});
+
+Hooks.on("updateActor", (actor, changed) => {
+	if (!game.user?.isGM) return;
+	if (mgActiveSidebarTab !== "gm") return;
+	if (actor?.type !== "npc") return;
+
+	const auraChanged =
+		foundry.utils.getProperty(changed, "system.aura") !== undefined ||
+		foundry.utils.getProperty(changed, "system.aura.enabled") !== undefined ||
+		foundry.utils.getProperty(changed, "system.aura.label") !== undefined ||
+		foundry.utils.getProperty(changed, "system.attributes") !== undefined ||
+		foundry.utils.getProperty(changed, "system.baseAttributes") !== undefined;
+
+	if (!auraChanged) return;
+
+	mgRefreshGmSidebarContent();
 });
 
 /* Folder config cleanup
