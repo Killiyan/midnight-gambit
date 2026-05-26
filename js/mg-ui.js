@@ -1734,6 +1734,35 @@ function mgBindLeftSidebarContent(root, tabId) {
 			console.warn("MG UI | Manage Modules failed.", err);
 		}
 	});
+
+	root.querySelector("[data-mg-settings-invites]")?.addEventListener("click", () => {
+		try {
+			new InvitationLinks().render(true);
+		} catch (err) {
+			ui.notifications?.warn("Could not open Invitation Links.");
+			console.warn("MG UI | Invitation Links failed.", err);
+		}
+	});
+
+	root.querySelector("[data-mg-settings-logout]")?.addEventListener("click", () => {
+		try {
+			if (typeof game.logOut === "function") return game.logOut();
+			window.location.href = foundry.utils.getRoute("logout");
+		} catch (err) {
+			ui.notifications?.warn("Could not log out.");
+			console.warn("MG UI | Log out failed.", err);
+		}
+	});
+
+	root.querySelector("[data-mg-settings-setup]")?.addEventListener("click", () => {
+		try {
+			if (typeof game.shutDown === "function") return game.shutDown();
+			window.location.href = foundry.utils.getRoute("setup");
+		} catch (err) {
+			ui.notifications?.warn("Could not return to setup.");
+			console.warn("MG UI | Return to Setup failed.", err);
+		}
+	});
 }
 
 /* Scene sidebar interactions
@@ -4606,6 +4635,21 @@ function mgRenderSettingsSidebarContent() {
 			<button type="button" class="mg-left-action" data-mg-settings-modules>
 				<i class="fa-solid fa-cube"></i>
 				Manage Modules
+			</button>
+
+			<button type="button" class="mg-left-action" data-mg-settings-invites>
+				<i class="fa-solid fa-link"></i>
+				Invitation Links
+			</button>
+
+			<button type="button" class="mg-left-action" data-mg-settings-logout>
+				<i class="fa-solid fa-right-from-bracket"></i>
+				Log out
+			</button>
+
+			<button type="button" class="mg-left-action" data-mg-settings-setup>
+				<i class="fa-solid fa-door-open"></i>
+				Return to Setup
 			</button>
 		</section>
 	`;

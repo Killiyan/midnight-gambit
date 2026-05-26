@@ -6691,7 +6691,9 @@ async _mgOpenStatPicker({ title, current }) {
   ==============================================================================*/
   async _onDropItemCreate(itemData) {
 
-    const rawType = itemData?.type ?? itemData?.system?.type;
+    const rawType = itemData?.type === "Item"
+      ? (itemData?.data?.type ?? itemData?.system?.type ?? itemData?.system?.system?.type)
+      : (itemData?.type ?? itemData?.data?.type ?? itemData?.system?.type);
     const allowedCharacterTypes = this._mgCharacterAllowedDropTypes();
 
     if (!allowedCharacterTypes.has(rawType)) {
@@ -6959,7 +6961,7 @@ async _mgOpenStatPicker({ title, current }) {
 
     /* Learned Move drop-on-actor
     ---------------------------------------------------------------------*/
-    if (itemData.type === "move") {
+    if (rawType === "move") {
       console.log("✅ Dropped a Move on actor");
 
       // 1) Hydrate move data whether from compendium UUID or raw data
@@ -6972,9 +6974,18 @@ async _mgOpenStatPicker({ title, current }) {
           moveDoc = src.toObject();
         } else {
           // From world item or drag payload
-          const data = itemData.system?.system ? itemData.system : itemData;
-          if (!data?.name || !data?.type) throw new Error("Dropped Move missing fields");
-          moveDoc = data;
+          const candidates = [
+            itemData?.data,
+            itemData?.system?.system ? itemData.system : null,
+            itemData
+          ].filter(Boolean);
+
+          const data = candidates.find(d => d?.name && d?.type);
+          if (!data) {
+            console.warn("MG | Dropped Move payload missing required fields:", itemData);
+            throw new Error("Dropped Move missing fields");
+          }
+          moveDoc = foundry.utils.deepClone(data);
         }
       } catch (err) {
         console.error("Failed to read dropped Move:", err);
@@ -7351,6 +7362,10 @@ async _mgOpenStatPicker({ title, current }) {
         if (!this._mgCharacterAllowedDropTypes().has(type)) {
           ui.notifications?.warn(`${type || "That item"} cannot be added to a Character sheet.`);
           return false;
+        }
+
+        if (type === "move") {
+          return this._onDropItemCreate(src.toObject());
         }
 
         // Important:
