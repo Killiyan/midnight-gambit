@@ -19,7 +19,7 @@ export class MidnightGambitActor extends Actor {
       data.aura ??= {};
       data.aura.enabled = Boolean(data.aura.enabled);
       data.aura.label = String(data.aura.label ?? "");
-    }    
+    }
 
     // --- Skill defaults (ensures sheet renders even on older actors) ---
     data.skills ??= {};
@@ -181,7 +181,7 @@ export class MidnightGambitActor extends Actor {
     const sparkSlotsBonus = Number(data.actorSettings?.sparkSlotsBonus ?? 0) || 0;
 
     // Final visible Spark slots = derived from guise/caster rules + manual settings bonus
-    data.sparkSlots = Math.max(0, data.derivedSparkSlots + sparkSlotsBonus);    
+    data.sparkSlots = Math.max(0, data.derivedSparkSlots + sparkSlotsBonus);
 
     // Derived (what the game rules say right now from Guise logic)
     const derivedRiskDice = Number(riskFromGuises) || 5;
@@ -221,6 +221,7 @@ export class MidnightGambitActor extends Actor {
       s.gambits.discard ??= [];
       s.gambits.handSize ??= 3;   // tweak later if you like
       s.gambits.deckSize ??= 10;  // optional cap, not enforced yet
+      s.gambits.cardDesign ??= "midnight";
 
       // Nothing special needed for Assets; they are embedded Items of type "asset"
     }
@@ -236,7 +237,7 @@ export class MidnightGambitActor extends Actor {
 
 
     /* Level-derived caps & unlock flags
-    ----------------------------------------------------------------------*/  
+    ----------------------------------------------------------------------*/
     const lvl = Math.max(1, Math.min(12, Number(data.level) || 1));
     const L = LEVEL_TABLE?.[lvl] ?? null;
 
@@ -245,6 +246,7 @@ export class MidnightGambitActor extends Actor {
     data.gambits.maxDrawSize ??= 3;   // existing field in your template
     data.gambits.maxDeckSize ??= 3;   // keep as-is unless you want to scale deck size later
     data.gambits.maxEquip ??= 3;      // NEW field for "Equipped Gambits" cap (UI can read it)
+    data.gambits.cardDesign ??= "midnight";
 
     data.unlocks ??= { trickDeck:false, aceInSleeve:false, signaturePerk:false, finalHand:false, allTiers:false, dualClass:false };
 
@@ -282,8 +284,8 @@ export class MidnightGambitActor extends Actor {
     return this.getFlag("midnight-gambit", "state") ?? {};
   }
 
-  /* Utility: write to our MG flag bucket 
-  ----------------------------------------------------------------------*/  
+  /* Utility: write to our MG flag bucket
+  ----------------------------------------------------------------------*/
   async _setMgFlags(patch) {
     const curr = this._mgFlags();
     const next = foundry.utils.mergeObject(curr, patch, { inplace: false });
@@ -292,7 +294,7 @@ export class MidnightGambitActor extends Actor {
   }
 
   /* Ensure the "pending" reward counters exist and are numeric
-  ----------------------------------------------------------------------*/  
+  ----------------------------------------------------------------------*/
   _ensurePending(base) {
     const p = { attributes:0, skills:0, moves:0, sparkSlots:0, signaturePerk:0, finalHandDiscoverable:0, ...base };
     for (const k of Object.keys(p)) {
@@ -302,7 +304,7 @@ export class MidnightGambitActor extends Actor {
   }
 
   /* Compute what this level grants (already factoring spark for caster type)
-  ----------------------------------------------------------------------*/  
+  ----------------------------------------------------------------------*/
   _computeGrantsForLevel(lvl) {
     const L = LEVEL_TABLE?.[lvl] ?? null;
     if (!L) return null;
@@ -319,9 +321,9 @@ export class MidnightGambitActor extends Actor {
       finalHandDiscoverable: Number(g.finalHandDiscoverable || 0)
     };
   }
-  
+
   /* Pretty label for tier (optional helper for chat)
-  ----------------------------------------------------------------------*/  
+  ----------------------------------------------------------------------*/
   _tierLabelForLevel(lvl) {
     const t = LEVEL_TABLE?.[lvl]?.caps?.tier ?? "";
     switch (t) {
@@ -487,7 +489,7 @@ export class MidnightGambitActor extends Actor {
     const flags = this._mgFlags();
     const pending = this._ensurePending(flags.pending ?? {});
 
-    const dec = (k) => { if (pending[k] > 0) pending[k] -= 1; else throw new Error(`No pending ${k} to spend`); }; 
+    const dec = (k) => { if (pending[k] > 0) pending[k] -= 1; else throw new Error(`No pending ${k} to spend`); };
 
     switch (type) {
       case "attribute": {
@@ -541,7 +543,7 @@ export class MidnightGambitActor extends Actor {
         // Track in snapshot for undo
         return created[0];
       }
-      
+
       default:
         throw new Error(`Unknown spend type: ${type}`);
     }
@@ -690,7 +692,7 @@ export class MidnightGambitActor extends Actor {
     if (promotedPrimaryId) {
       updates["system.guise"] = promotedPrimaryId;
     }
-    updates["system.secondaryGuises"] = workingSecondary;    
+    updates["system.secondaryGuises"] = workingSecondary;
 
     if (!isCasterNow) {
       // No caster Guise remaining → remove access to Spark entirely.
@@ -707,7 +709,7 @@ export class MidnightGambitActor extends Actor {
     }
 
     await this.update(updates, { render: false });
-  }  
+  }
 
   // Optional shim: keep for older code paths / modules that might still call it.
   // You can remove this once you’re confident everything is v11+.

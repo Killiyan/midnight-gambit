@@ -29,7 +29,8 @@
 					"deck": [],
 					"drawn": [],
 					"discard": [],
-					"handSize": 3
+					"handSize": 3,
+					"cardDesign": "pearl"
 				},
 				"tier": 1
 			}
@@ -213,7 +214,8 @@
 			"drawn": [], 
 			"locked": false,
 			"maxDeckSize": 3,
-			"maxDrawSize": 3
+			"maxDrawSize": 3,
+			"cardDesign": "midnight"
 		},
 		"class": "class placeholder",
 		"level": 1,

@@ -1468,6 +1468,33 @@
             </div>
           </section>
 
+          <!-- GAMBIT CARD DESIGN -->
+          <section class="mg-setting-section">
+            <h3>Gambit Card Design</h3>
+
+            <div class="wrapper">
+              <p class="mg-muted">Choose the kintsugi design used by your floating Gambit hand.</p>
+
+              <div class="guise-toggles gambit-design-toggles">
+                {{#each gambitCardDesigns as |design|}}
+                  <div class="guise-toggle-row gambit-design-toggle-row" data-gambit-design="{{design.id}}">
+                    <span class="guise-toggle-name">{{design.name}}</span>
+
+                    <button type="button"
+                            class="mg-primary-toggle mg-gambit-design-toggle {{#if design.isSelected}}is-on{{else}}is-off{{/if}}"
+                            data-gambit-design="{{design.id}}"
+                            aria-pressed="{{#if design.isSelected}}true{{else}}false{{/if}}"
+                            title="Use {{design.name}} Gambit card design">
+                      <span class="mg-primary-toggle-track">
+                        <span class="mg-primary-toggle-knob"></span>
+                      </span>
+                    </button>
+                  </div>
+                {{/each}}
+              </div>
+            </div>
+          </section>
+
           <!-- RESOURCES -->
           <section class="mg-setting-section">
             <h3>Resources</h3>

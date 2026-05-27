@@ -165,7 +165,7 @@ export async function evaluateRoll({
   const edgeHeader = edge
     ? `
       <div class="edge-label">
-        <strong><i class="fa-solid fa-scythe"></i></strong>
+        <div class="edge-icon"><i class="fa-solid fa-scythe"></i></div>
         <span><strong>EDGE</strong> (rolled twice, kept higher)</span>
       </div>
     `

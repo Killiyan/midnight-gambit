@@ -39,7 +39,7 @@ export class MidnightGambitActorSheet extends ActorSheet {
 
       context.sparkAttribute = this.actor.system.sparkAttribute ?? "guile";
 
-      
+
       const deckIds = context.system.gambits.deck ?? [];
       const drawnIds = context.system.gambits.drawn ?? [];
       const discardIds = context.system.gambits.discard ?? [];
@@ -72,7 +72,7 @@ export class MidnightGambitActorSheet extends ActorSheet {
         : false;
 
       context.hasActiveGuise = hasSystemGuise || hasItemGuise;
-      
+
       context.gambitDeck = deckIds.map(id => this.actor.items.get(id)).filter(Boolean);
       context.gambitDrawn = drawnIds.map(id => this.actor.items.get(id)).filter(Boolean);
       context.gambitDiscard = discardIds.map(id => this.actor.items.get(id)).filter(Boolean);
@@ -82,7 +82,7 @@ export class MidnightGambitActorSheet extends ActorSheet {
         const mid = (total - 1) / 2;
         const angle = (i - mid) * 10; // spacing angle
         return { ...card, rotate: angle };
-      });      
+      });
 
       if (!this.actor?.system?.gambits) {
         console.warn("Missing gambit data on actor.");
@@ -146,7 +146,7 @@ export class MidnightGambitActorSheet extends ActorSheet {
       const storedTempAttrBonuses = this.actor.system?.tempAttributeBonuses ?? {};
       context.tempAttributeBonuses = Object.fromEntries(
         context.attributeKeys.map((key) => [key, Number(storedTempAttrBonuses[key] ?? 0)])
-      );      
+      );
 
       const storedTempSkillBonuses = this.actor.system?.tempSkillBonuses ?? {};
 
@@ -156,7 +156,7 @@ export class MidnightGambitActorSheet extends ActorSheet {
           Number(storedTempSkillBonuses[key] ?? 0)
         ])
       );
-      
+
       context.skillAttrShort = {
         brawl: "ten", endure: "ten", athletics: "ten",
         aim: "fin", stealth: "fin", sleight: "fin",
@@ -218,7 +218,7 @@ export class MidnightGambitActorSheet extends ActorSheet {
       context.isFullCaster = ct === "full";
       context.isHalfCaster = ct === "half";
       context.casterType = ct;
-      
+
       for (const item of context.actor.items) {
         const mc = item.system.mortalCapacity || 0;
         const sc = item.system.soulCapacity || 0;
@@ -373,7 +373,7 @@ export class MidnightGambitActorSheet extends ActorSheet {
           }));
         })
       );
-        
+
       // --- Settings tab: Primary/Secondary toggles -------------------------------
       // Resolve refs to embedded ids first so UI state is stable.
       const normalizeGuiseRefToId = (ref) => {
@@ -398,7 +398,15 @@ export class MidnightGambitActorSheet extends ActorSheet {
         name: g.name,
         isPrimary: g.id === primaryResolvedId,
         isSecondary: secondaryResolvedIds.includes(g.id)
-      }));    
+      }));
+
+      const gambitCardDesign = this.actor.system?.gambits?.cardDesign || "midnight";
+      context.gambitCardDesigns = [
+        { id: "midnight", name: "Midnight", isSelected: gambitCardDesign === "midnight" },
+        { id: "pearl", name: "Pearl", isSelected: gambitCardDesign === "pearl" },
+        { id: "cobalt", name: "Cobalt", isSelected: gambitCardDesign === "cobalt" },
+        { id: "noir", name: "Noir", isSelected: gambitCardDesign === "noir" }
+      ];
 
       // ----------------------------------------------------------------------
       // Enrich embedded Move items used for multi-guise / signature perk drops
@@ -422,7 +430,7 @@ export class MidnightGambitActorSheet extends ActorSheet {
       // Extra basic moves from secondary guises (embedded move items with guiseSource)
       context.enrichedEmbeddedGuiseMoves = await Promise.all(
         (context.embeddedGuiseMoves ?? []).map(enrichMoveItem)
-      );      
+      );
 
       // Embedded signature perks (from secondary guises OR standalone drops)
       const embeddedSigItems = this.actor.items.filter(i =>
@@ -442,7 +450,7 @@ export class MidnightGambitActorSheet extends ActorSheet {
             html: await TextEditor.enrichHTML(desc, { async: true })
           };
         })
-      );   
+      );
 
       // -------------------------
       // Actor Settings (Settings tab)
@@ -618,7 +626,7 @@ export class MidnightGambitActorSheet extends ActorSheet {
               label: "Featured",
               className: "mg-crop-target-featured",
               cropModel: "mainInitiativeFeaturedBgPan"
-            },            
+            },
             {
               key: "mainInitiative",
               label: "Slice",
@@ -1428,7 +1436,7 @@ _mgOpenSidebarCropper() {
         }
       });
 
-      
+
       /** This looks for risk dice amount and applies similar click logic */
       html.find(".risk-dot").on("click", async (event) => {
         const el = event.currentTarget;
@@ -2352,7 +2360,7 @@ _mgOpenSidebarCropper() {
 
         // Soft render so anything else derived catches up without doing weird click flicker
         this.render(false);
-      });      
+      });
 
       // Update the capacity ticker numbers without re-rendering the sheet
       const updateCapacityTickerUI = (html, actor) => {
@@ -2708,6 +2716,28 @@ _mgOpenSidebarCropper() {
           }
         });
 
+      html.find(".mg-gambit-design-toggle")
+        .off("click.mgGambitDesign")
+        .on("click.mgGambitDesign", async (ev) => {
+          ev.preventDefault();
+
+          const clicked = ev.currentTarget;
+          const design = clicked.dataset.gambitDesign;
+          const allowed = ["pearl", "cobalt", "midnight", "noir"];
+          if (!allowed.includes(design)) return;
+
+          const wrap = clicked.closest(".gambit-design-toggles");
+          const toggles = wrap ? Array.from(wrap.querySelectorAll(".mg-gambit-design-toggle")) : [];
+
+          toggles.forEach(btn => {
+            btn.classList.toggle("is-on", btn === clicked);
+            btn.classList.toggle("is-off", btn !== clicked);
+            btn.setAttribute("aria-pressed", btn === clicked ? "true" : "false");
+          });
+
+          await this.actor.update({ "system.gambits.cardDesign": design });
+        });
+
       // Attribute base edit: fixed -2 to +3 picker
       html.find(".attribute-modifier").on("contextmenu", async (event) => {
         event.preventDefault();
@@ -2784,7 +2814,7 @@ _mgOpenSidebarCropper() {
           if (btn) btn.classList.remove("is-active");
         }
       });
-      
+
       // Handle disabling duplicate spark school selections
       const select1 = html.find("#spark-school-1");
       const select2 = html.find("#spark-school-2");
@@ -2865,7 +2895,7 @@ _mgOpenSidebarCropper() {
           event.preventDefault();
           event.stopPropagation();
           await this._mgOpenTempSkillBonusesDialog();
-        });      
+        });
 
       html.find(".skill-name, .skill-value")
         .off("click.mgSkillRoll")
@@ -2954,7 +2984,7 @@ _mgOpenSidebarCropper() {
             if (btn) btn.classList.remove("is-active");
           }
       });
-      
+
       // Skill base edit: fixed -2 to +3 picker
       html.find(".skill-value").on("contextmenu", async (event) => {
         event.preventDefault();
@@ -3111,7 +3141,7 @@ _mgOpenSidebarCropper() {
         if (item?.sheet) {
           item.sheet.render(true);
         }
-      });      
+      });
 
       html.find(".item-quantity").on("change", async (event) => {
         const itemId = event.currentTarget
@@ -3312,7 +3342,7 @@ _mgOpenSidebarCropper() {
         }
 
         item.sheet?.render(true);
-      });      
+      });
 
       //Repair Armor
       html.find(".repair-armor").on("click", async (event) => {
@@ -3713,7 +3743,7 @@ _mgOpenSidebarCropper() {
         let mgInvSearchGrid = null;        // the temporary grid we render matches into
         let mgInvCardHomes = null;         // Map(cardEl -> { parent, next })
         let mgInvBucketEls = null;         // cached bucket wrapper nodes (optional)
-        
+
         const ensureSearchGrid = () => {
           const tabEl = $tab?.[0];
           if (!tabEl) return null;
@@ -4488,7 +4518,7 @@ _mgOpenSidebarCropper() {
         $root[0]._mgRefreshTagsOverflow = refreshAll;
 
         // Also re-measure once after layout settles (fonts, rich text, etc.)
-        setTimeout(refreshAll, 0);        
+        setTimeout(refreshAll, 0);
 
         // Click handler for BOTH tabs
         $root
@@ -4593,7 +4623,7 @@ _mgOpenSidebarCropper() {
 
           wraps.forEach(setupOne);
         };
-        
+
         // expose for other listeners (like card expand)
         $root[0]._mgInvRefreshInnerSeeAll = refreshAll;
 
@@ -4676,7 +4706,7 @@ _mgOpenSidebarCropper() {
         if (inventoryCreated && !hasBaseItem) {
           button.remove();
         }
-      });      
+      });
 
       // Enable tooltips manually after rendering the sheet
       html.find(".sync-tags").on("click", async (event) => {
@@ -5312,7 +5342,7 @@ _mgOpenSidebarCropper() {
     // After Foundry finishes painting, nudge the header so text is always visible
     this._mgRepaintHeader();
   }
-    
+
   //END EVENT LISTENERS
   //---------------------------------------------------------------------------------------------------------------------------
 
@@ -5726,7 +5756,6 @@ _mgOpenSidebarCropper() {
 
   _mgMarkHandCardActive(el, isActive) {
     if (!el) return;
-    el.style.transition = "opacity 160ms ease";
     el.style.opacity = isActive ? "0.15" : "1";
   }
 
@@ -5879,7 +5908,7 @@ _mgOpenSidebarCropper() {
   ==============================================================================*/
 
   /* Putting icons next to buttons on all sections
-  ----------------------------------------------------------------------*/  
+  ----------------------------------------------------------------------*/
   _mgBtn(text, faRight = "fa-arrow-right") {
     return `${text} <i class="fa-solid ${faRight}"></i>`;
   }
@@ -5948,7 +5977,7 @@ async _mgOpenStatPicker({ title, current }) {
 
     dlg.render(true);
   });
-}  
+}
 
   async _mgPrompt({
     title,
@@ -6454,7 +6483,7 @@ async _mgOpenStatPicker({ title, current }) {
       type: itemType,
       tier
     };
-  } 
+  }
 
   _mgIsInternalSheetDrag(event) {
     const types = Array.from(event?.dataTransfer?.types ?? []);
@@ -6699,7 +6728,7 @@ async _mgOpenStatPicker({ title, current }) {
     if (!allowedCharacterTypes.has(rawType)) {
       ui.notifications?.warn(`${rawType || "That item"} cannot be added to a Character sheet.`);
       return [];
-    }    
+    }
 
     // --- Guard: block Crew-tier Gambits from being dropped on Character sheets ---
     try {
@@ -6933,7 +6962,7 @@ async _mgOpenStatPicker({ title, current }) {
       await this.render(true);
       return [];
     }
-        
+
     /* Gambit Item creation and limits
     ----------------------------------------------------------------------*/
     if (itemData.type === "gambit") {
@@ -7309,7 +7338,7 @@ async _mgOpenStatPicker({ title, current }) {
     const $root = html instanceof jQuery ? html : $(html);
     $root.find("[data-requires-guise]").toggle(hasGuise);
     $root.find("[data-hides-with-guise]").toggle(!hasGuise);
-  } 
+  }
 
   async _onDrop(event) {
     let data = null;
@@ -7422,4 +7451,3 @@ async _mgOpenStatPicker({ title, current }) {
     return super.close(options);
   }
 }
-

@@ -39,6 +39,7 @@ Hooks.once("ready", () => {
   game.mgInitiative = MGInitiativeBar.instance;
 
   mgEnsureBasicUserDrawingPermission();
+  renderAssignedGambitHand();
 
   game.socket.on("system.midnight-gambit", async (data) => {
     if (!data) return;
@@ -132,65 +133,326 @@ Hooks.on("createItem", async (item, options, userId) => {
   ui.notifications.info(`Learned Move added: ${item.name}`);
 });
 
-Hooks.on("renderActorSheet", async (app, html, data) => {
-  renderGambitHand(app.actor);
+Hooks.on("updateActor", (actor) => {
+  if (actor.id === game.user.character?.id) renderGambitHand(actor);
+});
+
+Hooks.on("updateUser", (user) => {
+  if (user.id === game.user.id) renderAssignedGambitHand();
 });
 
 /* Setting Player's Gambit Hand
 ==============================================================================================================================================*/
 
-function renderGambitHand(actor) {
-  const existing = document.querySelector(`#gambit-hand-ui-${actor.id}`);
-  if (existing) existing.remove();
+function renderAssignedGambitHand() {
+  renderGambitHand(mgGetAssignedCharacter());
+}
 
-  if (!actor.isOwner || actor.type !== "character") return;
+function mgGetAssignedCharacter() {
+  const actor = game.user.character;
+  if (!actor || actor.type !== "character" || !actor.isOwner) return null;
+  return actor;
+}
+
+function renderGambitHand(actor) {
+  document.querySelectorAll("[data-mg-floating-gambit-hand], .gambit-hand-ui[id^='gambit-hand-ui-']").forEach(el => {
+    el._mgGambitPositionCleanup?.();
+    el.remove();
+  });
+
+  if (!actor) return;
 
   const drawnIds = actor.system.gambits.drawn ?? [];
-  const drawnItems = drawnIds.map(id => actor.items.get(id)).filter(Boolean);
+  const drawnItems = drawnIds.map(entry => mgResolveGambitItem(actor, entry)).filter(Boolean);
+  const deckIds = actor.system.gambits.deck ?? [];
   const total = drawnItems.length;
-  const mid = (total - 1) / 2;
 
   const handHtml = document.createElement("div");
-  handHtml.id = `gambit-hand-ui-${actor.id}`;
-  handHtml.classList.add("gambit-hand-ui");
+  handHtml.id = "gambit-hand-ui";
+  handHtml.dataset.mgFloatingGambitHand = "true";
+  handHtml.dataset.actorId = actor.id;
+  handHtml.classList.add("gambit-hand-ui", `gambit-design-${mgGetGambitCardDesign(actor)}`);
+  handHtml.innerHTML = `
+    <button class="gambit-hand-toggle" type="button" aria-expanded="false" title="Show Gambits">
+      <i class="fa-solid fa-chevron-up"></i>
+    </button>
+    <div class="gambit-hand-cards"></div>
+  `;
+
+  const toggle = handHtml.querySelector(".gambit-hand-toggle");
+  const cardsWrap = handHtml.querySelector(".gambit-hand-cards");
+
+  toggle.addEventListener("click", (ev) => {
+    ev.preventDefault();
+    ev.stopPropagation();
+
+    const expanded = !handHtml.classList.contains("is-expanded");
+    const unlockDelay = 500;
+
+    window.clearTimeout(handHtml._mgGambitTransitionTimer);
+    handHtml.classList.add("is-transitioning");
+    handHtml.classList.toggle("is-expanded", expanded);
+    toggle.setAttribute("aria-expanded", String(expanded));
+    toggle.title = expanded ? "Hide Gambits" : "Show Gambits";
+    toggle.querySelector("i")?.classList.toggle("fa-chevron-down", expanded);
+    toggle.querySelector("i")?.classList.toggle("fa-chevron-up", !expanded);
+
+    const unlockCards = () => {
+      handHtml.classList.remove("is-transitioning");
+      handHtml.removeEventListener("transitionend", onTransitionEnd);
+      window.clearTimeout(handHtml._mgGambitTransitionTimer);
+      handHtml._mgGambitTransitionTimer = null;
+    };
+
+    const onTransitionEnd = (event) => {
+      if (event.target !== handHtml || event.propertyName !== "transform") return;
+      unlockCards();
+    };
+
+    handHtml.addEventListener("transitionend", onTransitionEnd);
+    handHtml._mgGambitTransitionTimer = window.setTimeout(unlockCards, unlockDelay);
+  });
+
+  if (!total) {
+    const empty = document.createElement("div");
+    empty.className = "gambit-hand-empty";
+    empty.innerHTML = deckIds.length
+      ? `
+        <button class="gambit-hand-draw" type="button">
+          <i class="fa-solid fa-cards"></i>
+          <span>Draw</span>
+        </button>
+      `
+      : `
+        <p class="gambit-hand-empty-message">Create a deck from the compendium before drawing.</p>
+      `;
+
+    if (deckIds.length) {
+      empty.querySelector(".gambit-hand-draw")?.addEventListener("click", async (ev) => {
+        ev.preventDefault();
+        ev.stopPropagation();
+        await mgDrawGambits(actor);
+      });
+    }
+
+    cardsWrap.appendChild(empty);
+  }
 
   drawnItems.forEach((card, i) => {
     const div = document.createElement("div");
     div.className = "gambit-hand-card";
     div.dataset.itemId = card.id;
-    div.style.setProperty("--rotate", `${(i - mid) * 10}deg`);
+    div.style.setProperty("--stack-index", String(total - i));
     div.innerHTML = `
-      <div class="gambit-title">${card.name}</div>
+      <div class="gambit-title" data-title="${mgEscapeHtml(card.name)}">${mgEscapeHtml(card.name)}</div>
     `;
 
-    div.addEventListener("click", async () => {
-      await ChatMessage.create({
-        user: game.user.id,
-        speaker: ChatMessage.getSpeaker({ actor }),
-        content: `
-          <div class="gambit-chat-card">
-            <h2><i class="fa-solid fa-cards"></i> ${card.name}</h2>
-            <p>${card.system.description}</p>
-          </div>
-        `
-      });
-
-      const { drawn = [], discard = [] } = actor.system.gambits;
-      const newDrawn = drawn.filter(id => id !== card.id);
-      const newDiscard = [...discard, card.id];
-
-      await actor.update({
-        "system.gambits.drawn": newDrawn,
-        "system.gambits.discard": newDiscard
-      });
-
-      div.remove();
+    div.addEventListener("contextmenu", async (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      if (handHtml.classList.contains("is-transitioning")) return;
+      await mgPreviewGambit(actor, card);
     });
 
-    handHtml.appendChild(div);
+    div.addEventListener("click", async (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      if (handHtml.classList.contains("is-transitioning")) return;
+      await mgPlayGambit(actor, card);
+    });
+
+    cardsWrap.appendChild(div);
   });
 
   document.body.appendChild(handHtml);
+  mgTrackGambitHandPosition(handHtml);
+}
+
+function mgTrackGambitHandPosition(handHtml) {
+  let raf = null;
+  let followUntil = 0;
+
+  const follow = () => {
+    mgPositionGambitHand(handHtml);
+    if (performance.now() < followUntil) raf = requestAnimationFrame(follow);
+    else raf = null;
+  };
+
+  const update = () => {
+    followUntil = performance.now() + 600;
+    if (!raf) follow();
+  };
+
+  update();
+  window.addEventListener("resize", update, { passive: true });
+
+  const sidebar = document.querySelector("#sidebar");
+  const uiRight = document.querySelector("#ui-right");
+  const resizeObserver = globalThis.ResizeObserver ? new ResizeObserver(update) : null;
+  if (resizeObserver) {
+    if (sidebar) resizeObserver.observe(sidebar);
+    if (uiRight) resizeObserver.observe(uiRight);
+  }
+
+  const mutationObserver = new MutationObserver(update);
+  [sidebar, uiRight, document.body].filter(Boolean).forEach(el => {
+    mutationObserver.observe(el, { attributes: true, attributeFilter: ["class", "style"] });
+  });
+
+  handHtml._mgGambitPositionCleanup = () => {
+    window.removeEventListener("resize", update);
+    if (raf) cancelAnimationFrame(raf);
+    resizeObserver?.disconnect();
+    mutationObserver.disconnect();
+  };
+}
+
+function mgPositionGambitHand(handHtml) {
+  const gutter = 16;
+  let right = gutter;
+
+  const sidebar = document.querySelector("#sidebar");
+  if (sidebar) {
+    const rect = sidebar.getBoundingClientRect();
+    const style = getComputedStyle(sidebar);
+    const isVisible = style.display !== "none" && style.visibility !== "hidden" && rect.width > 0 && rect.left < window.innerWidth;
+    if (isVisible) right = Math.max(gutter, window.innerWidth - rect.left + gutter);
+  }
+
+  handHtml.style.setProperty("--mg-gambit-dock-right", `${right}px`);
+}
+
+async function mgPlayGambit(actor, card) {
+  const descHtml = await mgGambitDescriptionHtml(card);
+
+  await ChatMessage.create({
+    user: game.user.id,
+    speaker: ChatMessage.getSpeaker({ actor }),
+    content: `
+      <div class="gambit-chat-card">
+        <h2><i class="fa-solid fa-cards"></i> ${mgEscapeHtml(card.name)}</h2>
+        ${descHtml}
+      </div>
+    `
+  });
+
+  const { drawn = [], discard = [] } = actor.system.gambits;
+  const cardId = mgGambitEntryId(card);
+  const newDrawn = drawn.filter(entry => mgGambitEntryId(entry) !== cardId);
+  const newDiscard = [...discard, cardId];
+
+  await actor.update({
+    "system.gambits.drawn": newDrawn,
+    "system.gambits.discard": newDiscard
+  });
+
+  document.querySelectorAll(".gambit-hand-card").forEach(cardEl => {
+    if (cardEl.dataset.itemId === cardId) cardEl.remove();
+  });
+  document.querySelector(".mg-gz-backdrop")?.remove();
+}
+
+async function mgPreviewGambit(actor, card) {
+  document.querySelector(".mg-gz-backdrop")?.remove();
+
+  const descHtml = await mgGambitDescriptionHtml(card);
+  const overlay = document.createElement("div");
+  overlay.className = `mg-gz-backdrop gambit-design-${mgGetGambitCardDesign(actor)}`;
+  overlay.innerHTML = `
+    <article class="mg-gz-card" role="dialog" aria-modal="true" aria-label="${mgEscapeHtml(card.name)}">
+      <button class="mg-gz-close" type="button" title="Close" aria-label="Close">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+      <h2 class="gambit-title" data-title="${mgEscapeHtml(card.name)}">${mgEscapeHtml(card.name)}</h2>
+      <div class="mg-gz-body">${descHtml || "<em>No description.</em>"}</div>
+      <button class="mg-gz-play" type="button">
+        <i class="fa-solid fa-play"></i>
+        <span>Play</span>
+      </button>
+    </article>
+  `;
+
+  const close = () => overlay.remove();
+  overlay.addEventListener("click", (ev) => {
+    if (ev.target === overlay || ev.target.closest(".mg-gz-close")) close();
+  });
+  overlay.addEventListener("contextmenu", (ev) => {
+    ev.preventDefault();
+    if (ev.target === overlay) close();
+  });
+  overlay.querySelector(".mg-gz-play")?.addEventListener("click", async (ev) => {
+    ev.preventDefault();
+    ev.stopPropagation();
+    await mgPlayGambit(actor, card);
+  });
+
+  document.body.appendChild(overlay);
+  requestAnimationFrame(() => overlay.classList.add("mg-gz-show"));
+}
+
+async function mgGambitDescriptionHtml(card) {
+  const raw = card?.system?.description ?? "";
+  if (globalThis.TextEditor?.enrichHTML) return TextEditor.enrichHTML(raw, { async: true });
+  return raw ? `<p>${mgEscapeHtml(raw)}</p>` : "";
+}
+
+async function mgDrawGambits(actor) {
+  const { deck = [], drawn = [], maxDrawSize = 3, locked = false } = actor.system.gambits ?? {};
+
+  if (locked || drawn.length >= maxDrawSize || deck.length === 0) {
+    ui.notifications.warn("Cannot draw more cards.");
+    return;
+  }
+
+  const drawCount = Math.min(maxDrawSize - drawn.length, deck.length);
+  const shuffled = mgShuffle(deck);
+  const drawnNow = shuffled.slice(0, drawCount);
+  const newDrawn = [...drawn, ...drawnNow];
+  const newDeck = deck.filter(id => !drawnNow.includes(id));
+
+  await actor.update({
+    "system.gambits.deck": newDeck,
+    "system.gambits.drawn": newDrawn,
+    "system.gambits.locked": true
+  });
+
+  renderGambitHand(actor);
+}
+
+function mgShuffle(array) {
+  const copy = [...(array ?? [])];
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy;
+}
+
+function mgResolveGambitItem(actor, entry) {
+  const id = mgGambitEntryId(entry);
+  if (id) return actor.items.get(id) ?? game.items?.get(id) ?? globalThis.fromUuidSync?.(id) ?? null;
+  if (entry?.name) return entry;
+  return null;
+}
+
+function mgGambitEntryId(entry) {
+  if (!entry) return null;
+  if (typeof entry === "string") return entry;
+  return entry.id ?? entry._id ?? entry.uuid ?? null;
+}
+
+function mgGetGambitCardDesign(actor) {
+  const design = actor?.system?.gambits?.cardDesign || "midnight";
+  return ["pearl", "cobalt", "midnight", "noir"].includes(design) ? design : "midnight";
+}
+
+function mgEscapeHtml(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
 }
 
 /* MG Chat Hook
@@ -3009,7 +3271,7 @@ Hooks.on("renderChatMessage", (message, html) => {
         </div>
       `).join("")}
     </div>
-  `;  
+  `;
 
   const modifiersHtml = `
     <div class="mg-roll-modifiers ${skillMod !== 0 ? "" : "is-empty"}">
@@ -3120,7 +3382,7 @@ Hooks.on("renderChatMessage", (message, html) => {
       ${stoFlourishBtn}
     </div>
   `;
-  
+
   // --- Compose the follow-up message ---
   const content = `
     <div class="mg-chat-card chat-roll mg-roll-card mg-risk-result" data-total="${newTotal}">
@@ -3168,7 +3430,7 @@ Hooks.on("renderChatMessage", (message, html) => {
     content,
     type: CONST.CHAT_MESSAGE_TYPES.OTHER
   }));
-  
+
   function mgRestrictedMetaHtml(message) {
   if (!mgIsRestrictedMessage(message) || !mgCanViewerSeeRoll(message)) return "";
 
@@ -3196,7 +3458,7 @@ Hooks.on("renderChatMessage", (message, html) => {
     if (!names.length) return "Hidden Roll";
 
     return `To: ${names.join(", ")}`;
-  }  
+  }
 
   // Carry STO session forward so the next Risk Again click is still the same session
   try { await newMsg.setFlag("midnight-gambit", "stoSession", stoSession); } catch (e) {}

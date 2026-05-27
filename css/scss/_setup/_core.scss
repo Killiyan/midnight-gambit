@@ -1065,7 +1065,8 @@ h3 {
   .edge-label {
     font-size: .75rem;
     @include roboto();
-    display: flex;
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
     align-items: center;
     gap: .5rem;
     background: $mg-blue-main-2;
@@ -1075,17 +1076,22 @@ h3 {
     @include mg-border();
 
     span {
-      padding: .5rem;
+      padding: .125rem;
+      grid-column: span 4;
     }
 
     i {
+      color: $mg-green;
+    }
+
+    .edge-icon {
+      height: 100%;
       padding: .5rem;
-      background: $mg-blue-3;
-      color: $mg-blue-4;
+      background: rgba($black, .75);
       display: flex;
       justify-content: center;
       align-items: center;
-      width: auto;
+      width: auto;        
     }
   }
 }
