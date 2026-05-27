@@ -1642,9 +1642,31 @@ body.mg-hud-enabled {
 					.mg-director-aura-empty {
 						background: $mg-blue-4;
 						width: 100%;
-						padding: 1rem;
 						@include mg-border();
 						border-radius: .5rem;
+						overflow: hidden;
+						display: flex;
+						gap: 1rem;
+
+						i {
+							width: 25%;
+							height: 100%;
+							background: $mg-blue-3;
+							padding: .25rem;
+							display: flex;
+							justify-content: center;
+							align-items: center;
+						}
+
+						span {
+							padding: .5rem;
+							font-size: 1rem;
+							@include tiller();
+							letter-spacing: .02em;
+							font-weight: 700;
+							color: $mg-blue-2;
+							padding: 1rem 0;
+						}
 					}
 
 					.mg-director-aura-card {
