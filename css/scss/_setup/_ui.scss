@@ -3508,6 +3508,296 @@ body {
 	}
 }
 
+/* Floating Gambit Hand Moves Toggle
+----------------------------------------------------------------------*/
+body .gambit-hand-ui {
+	--mg-hand-controls-w: 3.625rem;
+	transform: none;
+
+	&.is-expanded {
+		transform: none;
+
+		.gambit-hand-stage {
+			transform: translate3d(0, 1.125rem, 0);
+		}
+	}
+
+	.gambit-hand-controls {
+		pointer-events: auto;
+		position: fixed;
+		right: var(--mg-gambit-dock-right, 1rem);
+		bottom: 1rem;
+		z-index: 20;
+		display: flex;
+		flex-direction: column;
+		justify-content: flex-end;
+		gap: .5rem;
+
+		.gambit-hand-slide-controls {
+			pointer-events: auto;
+			display: flex;
+			flex-direction: column;
+			gap: .5rem;
+			justify-content: flex-end;
+			opacity: 0;
+			visibility: hidden;
+			transition: opacity .5s ease, visibility 0s linear .5s;
+
+			&.is-visible {
+				opacity: 1;
+				visibility: visible;
+				transition: opacity .5s ease, visibility 0s;
+			}
+		}
+
+		.gambit-hand-perma-toggles {
+			display: flex;
+			flex-direction: column;
+			gap: .5rem;
+		}			
+	}
+
+	.gambit-hand-view-toggle,
+	.gambit-hand-slide-controls button {
+		pointer-events: auto;
+		width: 2.625rem;
+		height: 2.625rem;
+		margin: 0;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		border: 2px solid $mg-blue-main-2;
+		border-radius: .5rem;
+		background:
+			radial-gradient(circle at 50% 0%, rgba(197, 212, 236, .22) 0%, rgba(197, 212, 236, .10) 35%, rgba(18, 33, 55, 0) 70%),
+			url("../assets/images/filigree.jpg");
+		background-size: 350%;
+		background-position: center, 50% 45%;
+		background-blend-mode: soft-light, multiply;
+		background-color: $mg-blue-4;
+		color: $mg-blue-1;
+		box-shadow: 0 5px 16px rgba($black, .45);
+		backdrop-filter: blur(4px);
+		transition: background-color .35s ease, border-color .35s ease, color .35s ease;
+
+		i {
+			color: $mg-blue-1;
+			margin: 0;
+			@include mg-shadow();
+		}
+
+		&:hover {
+			background-color: $mg-blue-3;
+			border-color: $mg-blue-1;
+			color: $mg-green;
+
+			i {
+				color: $mg-green;
+			}
+		}
+
+		&:disabled {
+			opacity: .45;
+			pointer-events: none;
+		}
+	}
+
+	.gambit-hand-stage {
+		position: relative;
+		width: min(30rem, calc(100vw - 4rem));
+		margin-right: var(--mg-hand-controls-w);
+		display: grid;
+		justify-items: end;
+		align-items: end;
+		pointer-events: none;
+		transform: translate3d(0, calc(100% - 3.75rem), 0);
+		transition: transform .45s ease;
+	}
+
+	.gambit-hand-cards {
+		grid-area: 1 / 1;
+		opacity: 0;
+		visibility: hidden;
+		pointer-events: none !important;
+		transition: opacity .5s ease, visibility 0s linear .5s;
+
+		.gambit-hand-card {
+			pointer-events: none !important;
+
+			&.gambit-move-hand-card {
+				&[data-move-kind="signature"] .gambit-move-kind {
+					--mg-accordion-toggle-image: url("../assets/images/accordion-toggle.jpg");
+					background:
+						/* subtle pearly sheen (top-center) */
+						radial-gradient(circle at 50% 0%,
+						rgba(197, 212, 236, 0.22) 0%,
+						rgba(197, 212, 236, 0.10) 35%,
+						rgba(18, 33, 55, 0.00) 70%
+						),
+						/* texture */
+						var(--mg-accordion-toggle-image);
+					background-repeat: no-repeat;
+					background-size: cover;
+					background-position: center;
+					background-blend-mode: soft-light, multiply;
+					background-color: $mg-blue-4;
+				}			
+
+				&[data-move-kind="learned"] .gambit-move-kind {
+					background: $mg-blue-4;
+				}
+			}
+		}
+
+		&.is-active-view {
+			opacity: 1;
+			visibility: visible;
+			pointer-events: all !important;
+			transition: opacity .5s ease, visibility 0s;
+
+			.gambit-hand-card {
+				pointer-events: all !important;
+			}
+		}
+	}
+
+	&.is-moves-mode {
+		.gambit-hand-cards-moves {
+			position: relative;
+			width: min(30rem, calc(100vw - 4rem));
+			max-width: 30rem;
+			justify-content: flex-end;
+			overflow-x: hidden;
+			overflow-y: hidden;
+			padding: 1.5rem 2.25rem 2.25rem 2.25rem;
+			@include mg-border();
+			background: rgba($black,.2);
+			border-radius: .5rem;
+			scroll-behavior: smooth;
+		}
+
+		.gambit-hand-card {
+			margin-left: -4.75rem;
+
+			&:first-child {
+				margin-left: 0;
+			}
+		}
+	}
+
+	.gambit-move-hand-card {
+		background-image:
+			linear-gradient(145deg, rgba($mg-blue-main, .35), rgba($mg-blue-4, .15)),
+			url("/systems/midnight-gambit/assets/images/Gambits-Midnight.jpg");
+		background-size: cover;
+		align-items: stretch;
+		justify-content: space-between;
+		padding: .75rem .55rem 1rem;
+
+		.gambit-title {
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			min-height: 6rem;
+			padding: .5rem;
+			font-size: 1rem;
+			line-height: 1.05;
+			word-break: normal;
+			overflow-wrap: anywhere;
+		}
+	}
+
+	.gambit-move-kind {
+		position: relative;
+		z-index: 3;
+		align-self: center;
+		max-width: 100%;
+		border-bottom: 2px solid $mg-blue-main-2;
+		padding: .5rem .75rem;
+		background: $mg-blue-main;
+		color: $mg-blue-1;
+		@include tiller();
+		font-size: .8rem;
+		font-weight: 700;
+		line-height: 1;
+		text-align: left;
+		display: flex;
+		align-items: center;
+		gap: .4rem;
+		@include mg-shadow();
+		position: absolute;
+		top: 0;
+		left: 0;
+		width: 100%;
+		height: auto;
+
+			i {
+				color: $mg-blue-2;
+				font-size: .75rem;
+			}
+		}
+	}
+
+.mg-move-preview {
+	.gambit-move-kind {
+		position: absolute;
+		top: 0;
+		left: 0;
+		width: 100%;
+		background: $mg-blue-main;
+		color: $mg-blue-1;
+		border-bottom: 2px solid $mg-blue-main-2;
+		padding: .5rem 1rem;
+		min-height: 3rem;
+		font-size: 1.25rem;
+		@include tiller();
+		font-weight: 700;
+		display: flex;
+		align-items: center;
+		gap: 1rem;
+
+		i {
+			color: $mg-blue-2;
+		}
+	}
+
+	&[data-move-kind="signature"] {
+		.gambit-move-kind  {
+			--mg-accordion-toggle-image: url("../assets/images/accordion-toggle.jpg");
+			background:
+				/* subtle pearly sheen (top-center) */
+				radial-gradient(circle at 50% 0%,
+				rgba(197, 212, 236, 0.22) 0%,
+				rgba(197, 212, 236, 0.10) 35%,
+				rgba(18, 33, 55, 0.00) 70%
+				),
+				/* texture */
+				var(--mg-accordion-toggle-image);
+			background-repeat: no-repeat;
+			background-size: cover;
+			background-position: center;
+			background-blend-mode: soft-light, multiply;
+			background-color: $mg-blue-4;
+		}
+	}
+
+	&[data-move-kind="learned"] {
+		.gambit-move-kind  {
+			background: $mg-blue-4;
+		}
+	}
+
+	&[data-move-kind="basic"] {
+		.gambit-move-kind {
+			background: $mg-blue-main;
+		}
+	}	
+
+	.mg-gz-play {
+		gap: .5rem;
+	}
+}
+
 /* MG ORB: Horizontal Scene Control Rail
 ----------------------------------------------------------------------*/
 

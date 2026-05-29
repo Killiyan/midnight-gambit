@@ -165,7 +165,13 @@ function renderGambitHand(actor) {
   const drawnIds = actor.system.gambits.drawn ?? [];
   const drawnItems = drawnIds.map(entry => mgResolveGambitItem(actor, entry)).filter(Boolean);
   const deckIds = actor.system.gambits.deck ?? [];
-  const total = drawnItems.length;
+  const moveItems = mgGetHandMoves(actor);
+  const viewStorageKey = `midnight-gambit.gambitHandView.${game.user?.id ?? "user"}.${actor.id}`;
+  let activeView = "gambits";
+  try {
+    activeView = localStorage.getItem(viewStorageKey) ?? "gambits";
+  } catch (_) {}
+  if (!["gambits", "moves"].includes(activeView)) activeView = "gambits";
 
   const handHtml = document.createElement("div");
   handHtml.id = "gambit-hand-ui";
@@ -173,14 +179,139 @@ function renderGambitHand(actor) {
   handHtml.dataset.actorId = actor.id;
   handHtml.classList.add("gambit-hand-ui", `gambit-design-${mgGetGambitCardDesign(actor)}`);
   handHtml.innerHTML = `
-    <button class="gambit-hand-toggle" type="button" aria-expanded="false" title="Show Gambits">
-      <i class="fa-solid fa-chevron-up"></i>
-    </button>
-    <div class="gambit-hand-cards"></div>
+    <div class="gambit-hand-controls">
+      <div class="gambit-hand-slide-controls" aria-hidden="true">
+      
+        <button class="gambit-hand-slide-left" type="button" title="Move Left" aria-label="Move Left">
+          <i class="fa-solid fa-chevron-left"></i>
+        </button>
+
+        <button class="gambit-hand-slide-right" type="button" title="Move Right" aria-label="Move Right">
+          <i class="fa-solid fa-chevron-right"></i>
+        </button>
+      </div>
+
+      <div class="gambit-hand-perma-toggles">
+        <button class="gambit-hand-view-toggle" type="button" title="Show Moves" aria-label="Show Moves" aria-pressed="false">
+          <i class="fa-kit fa-mortal-strain"></i>
+        </button>
+
+        <button class="gambit-hand-toggle" type="button" aria-expanded="false" title="Show Gambits">
+          <i class="fa-solid fa-chevron-up"></i>
+        </button>  
+      </div>
+
+    </div>
+    <div class="gambit-hand-stage">
+      <div class="gambit-hand-cards gambit-hand-cards-gambits"></div>
+      <div class="gambit-hand-cards gambit-hand-cards-moves"></div>
+    </div>
   `;
 
   const toggle = handHtml.querySelector(".gambit-hand-toggle");
-  const cardsWrap = handHtml.querySelector(".gambit-hand-cards");
+  const viewToggle = handHtml.querySelector(".gambit-hand-view-toggle");
+  const slideControls = handHtml.querySelector(".gambit-hand-slide-controls");
+  const slideLeft = handHtml.querySelector(".gambit-hand-slide-left");
+  const slideRight = handHtml.querySelector(".gambit-hand-slide-right");
+  const gambitCardsWrap = handHtml.querySelector(".gambit-hand-cards-gambits");
+  const moveCardsWrap = handHtml.querySelector(".gambit-hand-cards-moves");
+  let moveSlideIndex = 0;
+  let visibleView = activeView;
+  let viewSwitchTimer = null;
+
+  const syncViewButton = () => {
+    const movesActive = activeView === "moves";
+    viewToggle?.classList.toggle("is-active", movesActive);
+    viewToggle?.setAttribute("aria-pressed", String(movesActive));
+    if (!movesActive) mgSetSlideControlsVisible(slideControls, false);
+    if (viewToggle) {
+      viewToggle.title = movesActive ? "Show Gambits" : "Show Moves";
+      viewToggle.setAttribute("aria-label", viewToggle.title);
+      const icon = viewToggle.querySelector("i");
+      if (icon) icon.className = movesActive ? "fa-solid fa-cards" : "fa-kit fa-mortal-strain";
+    }
+  };
+
+  const syncModeClasses = () => {
+    const movesVisible = visibleView === "moves";
+    handHtml.classList.toggle("is-moves-mode", movesVisible);
+    handHtml.classList.toggle("is-gambits-mode", !movesVisible);
+  };
+
+  const syncVisibleLayer = () => {
+    syncModeClasses();
+    gambitCardsWrap?.classList.toggle("is-active-view", visibleView === "gambits");
+    moveCardsWrap?.classList.toggle("is-active-view", visibleView === "moves");
+  };
+
+  const switchHandView = (nextView) => {
+    if (!["gambits", "moves"].includes(nextView) || nextView === activeView || handHtml.classList.contains("is-view-switching")) return;
+
+    window.clearTimeout(viewSwitchTimer);
+    activeView = nextView;
+    syncViewButton();
+
+    try {
+      localStorage.setItem(viewStorageKey, activeView);
+    } catch (err) {
+      console.warn("MG | Could not save Gambit hand view.", err);
+    }
+
+    gambitCardsWrap?.classList.remove("is-active-view");
+    moveCardsWrap?.classList.remove("is-active-view");
+    handHtml.classList.add("is-view-switching");
+
+    viewSwitchTimer = window.setTimeout(() => {
+      visibleView = activeView;
+      syncVisibleLayer();
+      handHtml.classList.remove("is-view-switching");
+
+      if (visibleView === "moves") {
+        moveSlideIndex = mgUpdateMoveHandSlider(moveCardsWrap, moveSlideIndex, slideLeft, slideRight, { jump: true });
+      }
+    }, 500);
+  };
+
+  const renderHands = () => {
+    if (gambitCardsWrap) {
+      gambitCardsWrap.innerHTML = "";
+      renderGambitHandCards(actor, gambitCardsWrap, handHtml, drawnItems, deckIds);
+    }
+
+    if (moveCardsWrap) {
+      moveCardsWrap.innerHTML = "";
+      renderMoveHandCards(actor, moveCardsWrap, handHtml, moveItems);
+      mgSetMoveHandScrollLayout(moveCardsWrap);
+    }
+
+    syncViewButton();
+    visibleView = activeView;
+    syncVisibleLayer();
+    moveSlideIndex = 0;
+    requestAnimationFrame(() => mgUpdateMoveHandSlider(moveCardsWrap, moveSlideIndex, slideLeft, slideRight, { jump: true }));
+  };
+
+  viewToggle?.addEventListener("click", (ev) => {
+    ev.preventDefault();
+    ev.stopPropagation();
+    if (handHtml.classList.contains("is-transitioning") || handHtml.classList.contains("is-view-switching")) return;
+
+    switchHandView(activeView === "moves" ? "gambits" : "moves");
+  });
+
+  slideLeft?.addEventListener("click", (ev) => {
+    ev.preventDefault();
+    ev.stopPropagation();
+    moveSlideIndex += 1;
+    moveSlideIndex = mgUpdateMoveHandSlider(moveCardsWrap, moveSlideIndex, slideLeft, slideRight);
+  });
+
+  slideRight?.addEventListener("click", (ev) => {
+    ev.preventDefault();
+    ev.stopPropagation();
+    moveSlideIndex -= 1;
+    moveSlideIndex = mgUpdateMoveHandSlider(moveCardsWrap, moveSlideIndex, slideLeft, slideRight);
+  });
 
   toggle.addEventListener("click", (ev) => {
     ev.preventDefault();
@@ -213,6 +344,14 @@ function renderGambitHand(actor) {
     handHtml._mgGambitTransitionTimer = window.setTimeout(unlockCards, unlockDelay);
   });
 
+  renderHands();
+  document.body.appendChild(handHtml);
+  mgTrackGambitHandPosition(handHtml);
+}
+
+function renderGambitHandCards(actor, cardsWrap, handHtml, drawnItems, deckIds) {
+  const total = drawnItems.length;
+
   if (!total) {
     const empty = document.createElement("div");
     empty.className = "gambit-hand-empty";
@@ -242,7 +381,7 @@ function renderGambitHand(actor) {
     const div = document.createElement("div");
     div.className = "gambit-hand-card";
     div.dataset.itemId = card.id;
-    div.style.setProperty("--stack-index", String(total - i));
+    div.style.setProperty("--stack-index", String(i + 1));
     div.innerHTML = `
       <div class="gambit-title" data-title="${mgEscapeHtml(card.name)}">${mgEscapeHtml(card.name)}</div>
     `;
@@ -263,9 +402,111 @@ function renderGambitHand(actor) {
 
     cardsWrap.appendChild(div);
   });
+}
 
-  document.body.appendChild(handHtml);
-  mgTrackGambitHandPosition(handHtml);
+function renderMoveHandCards(actor, cardsWrap, handHtml, moveItems) {
+  const total = moveItems.length;
+
+  if (!total) {
+    const empty = document.createElement("div");
+    empty.className = "gambit-hand-empty gambit-hand-empty-moves";
+    empty.innerHTML = `
+      <p class="gambit-hand-empty-message">No Moves available yet.</p>
+    `;
+    cardsWrap.appendChild(empty);
+    return;
+  }
+
+  moveItems.forEach((move, i) => {
+    const div = document.createElement("div");
+    div.className = "gambit-hand-card gambit-move-hand-card";
+    div.dataset.moveId = move.id;
+    div.dataset.moveKind = move.kind;
+    div.style.setProperty("--stack-index", String(i + 1));
+    div.innerHTML = `
+      <div class="gambit-move-kind"><i class="fa-solid ${mgGetMoveKindIcon(move)}"></i> ${mgEscapeHtml(move.label)}</div>
+      <div class="gambit-title" data-title="${mgEscapeHtml(move.name)}">${mgEscapeHtml(move.name)}</div>
+    `;
+
+    div.addEventListener("contextmenu", async (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      if (handHtml.classList.contains("is-transitioning")) return;
+      await mgPreviewMove(actor, move);
+    });
+
+    div.addEventListener("click", async (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      if (handHtml.classList.contains("is-transitioning")) return;
+      await mgPostMove(actor, move);
+    });
+
+    cardsWrap.appendChild(div);
+  });
+}
+
+function mgSetMoveHandScrollLayout(cardsWrap) {
+  if (!cardsWrap) return;
+
+  Object.assign(cardsWrap.style, {
+    width: "min(30rem, calc(100vw - 4rem))",
+    maxWidth: "30rem",
+    justifyContent: "flex-start",
+    overflowX: "hidden",
+    overflowY: "hidden",
+  });
+}
+
+function mgClearMoveHandScrollLayout(cardsWrap) {
+  if (!cardsWrap) return;
+
+  [
+    "width",
+    "maxWidth",
+    "justifyContent",
+    "overflowX",
+    "overflowY"
+  ].forEach((prop) => cardsWrap.style.removeProperty(prop));
+
+  cardsWrap.scrollLeft = 0;
+}
+
+function mgGetMoveHandSliderState(cardsWrap) {
+  if (!cardsWrap) return { max: 0, step: 1, pages: 1 };
+
+  const max = Math.max(0, cardsWrap.scrollWidth - cardsWrap.clientWidth);
+  const step = Math.max(1, Math.floor(cardsWrap.clientWidth * 0.78));
+  const pages = Math.max(1, Math.ceil(max / step) + 1);
+
+  return { max, step, pages };
+}
+
+function mgUpdateMoveHandSlider(cardsWrap, requestedIndex, leftButton, rightButton, { jump = false } = {}) {
+  const { max, step, pages } = mgGetMoveHandSliderState(cardsWrap);
+  const index = Math.max(0, Math.min(pages - 1, Number(requestedIndex) || 0));
+  const target = Math.max(0, max - (index * step));
+
+  cardsWrap?.scrollTo?.({
+    left: target,
+    behavior: jump ? "auto" : "smooth"
+  });
+
+  if (leftButton) leftButton.disabled = index >= pages - 1 || max <= 0;
+  if (rightButton) rightButton.disabled = index <= 0 || max <= 0;
+  const controls = leftButton?.closest?.(".gambit-hand-slide-controls") || rightButton?.closest?.(".gambit-hand-slide-controls");
+  if (controls) {
+    const inMovesMode = cardsWrap?.closest?.(".gambit-hand-ui")?.classList?.contains("is-moves-mode");
+    mgSetSlideControlsVisible(controls, inMovesMode && pages > 1 && max > 8);
+  }
+
+  return index;
+}
+
+function mgSetSlideControlsVisible(controls, visible) {
+  if (!controls) return;
+  controls.classList.toggle("is-visible", !!visible);
+  controls.setAttribute("aria-hidden", visible ? "false" : "true");
 }
 
 function mgTrackGambitHandPosition(handHtml) {
@@ -390,8 +631,83 @@ async function mgPreviewGambit(actor, card) {
   requestAnimationFrame(() => overlay.classList.add("mg-gz-show"));
 }
 
+async function mgPostMove(actor, move) {
+  const descHtml = await mgMoveDescriptionHtml(move);
+  const icon = mgGetMoveKindIcon(move);
+
+  await ChatMessage.create({
+    user: game.user.id,
+    speaker: ChatMessage.getSpeaker({ actor }),
+    content: `
+      <div class="chat-move">
+        <h2><i class="fa-solid ${icon}"></i> ${mgEscapeHtml(move.name)}</h2>
+        ${descHtml}
+      </div>
+    `
+  });
+}
+
+async function mgPreviewMove(actor, move) {
+  document.querySelector(".mg-gz-backdrop")?.remove();
+
+  const descHtml = await mgMoveDescriptionHtml(move);
+  const icon = mgGetMoveKindIcon(move);
+  const overlay = document.createElement("div");
+  overlay.className = `mg-gz-backdrop gambit-design-${mgGetGambitCardDesign(actor)} mg-move-preview`;
+  overlay.dataset.moveKind = move.kind || "basic";
+  overlay.innerHTML = `
+    <article class="mg-gz-card" role="dialog" aria-modal="true" aria-label="${mgEscapeHtml(move.name)}">
+      <button class="mg-gz-close" type="button" title="Close" aria-label="Close">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+      <div class="gambit-move-kind"><i class="fa-solid ${icon}"></i> ${mgEscapeHtml(move.label)}</div>
+      <h2 class="gambit-title" data-title="${mgEscapeHtml(move.name)}">${mgEscapeHtml(move.name)}</h2>
+      <div class="mg-gz-body">${descHtml || "<em>No description.</em>"}</div>
+      <button class="mg-gz-play mg-gz-post-move" type="button">
+        <i class="fa-solid fa-messages"></i>
+        <span>Post</span>
+      </button>
+    </article>
+  `;
+
+  const close = () => overlay.remove();
+  overlay.addEventListener("click", (ev) => {
+    if (ev.target === overlay || ev.target.closest(".mg-gz-close")) close();
+  });
+  overlay.addEventListener("contextmenu", (ev) => {
+    ev.preventDefault();
+    if (ev.target === overlay) close();
+  });
+  overlay.querySelector(".mg-gz-post-move")?.addEventListener("click", async (ev) => {
+    ev.preventDefault();
+    ev.stopPropagation();
+    await mgPostMove(actor, move);
+    close();
+  });
+
+  document.body.appendChild(overlay);
+  requestAnimationFrame(() => overlay.classList.add("mg-gz-show"));
+}
+
+function mgGetMoveKindIcon(move) {
+  switch (move?.kind) {
+    case "signature":
+      return "fa-diamond";
+    case "learned":
+      return "fa-book";
+    default:
+      return "fa-hand-fist";
+  }
+}
+
 async function mgGambitDescriptionHtml(card) {
   const raw = card?.system?.description ?? "";
+  if (globalThis.TextEditor?.enrichHTML) return TextEditor.enrichHTML(raw, { async: true });
+  return raw ? `<p>${mgEscapeHtml(raw)}</p>` : "";
+}
+
+async function mgMoveDescriptionHtml(move) {
+  const raw = move?.description ?? "";
   if (globalThis.TextEditor?.enrichHTML) return TextEditor.enrichHTML(raw, { async: true });
   return raw ? `<p>${mgEscapeHtml(raw)}</p>` : "";
 }
@@ -444,6 +760,104 @@ function mgGambitEntryId(entry) {
 function mgGetGambitCardDesign(actor) {
   const design = actor?.system?.gambits?.cardDesign || "midnight";
   return ["pearl", "cobalt", "midnight", "noir"].includes(design) ? design : "midnight";
+}
+
+function mgGetHandMoves(actor) {
+  const moves = [];
+  const seen = new Set();
+  const allGuises = actor.items.filter(i => i.type === "guise");
+  const primaryRef = actor.system?.guiseId || actor.system?.guise || null;
+  const primaryGuise = primaryRef
+    ? actor.items.get(primaryRef) || allGuises.find(g => g.uuid === primaryRef) || null
+    : null;
+
+  const addMove = ({ id, name, description, kind, label, sourceOrder = 0 }) => {
+    const cleanName = String(name ?? "").trim();
+    const cleanDescription = String(description ?? "").trim();
+    if (!cleanName && !cleanDescription) return;
+
+    const key = id || `${kind}:${cleanName}:${cleanDescription}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+
+    moves.push({
+      id: key,
+      name: cleanName || "Unnamed Move",
+      description: cleanDescription,
+      kind,
+      label,
+      sourceOrder
+    });
+  };
+
+  const addGuiseMoves = (guise, sourceOrder) => {
+    if (!guise) return;
+
+    addMove({
+      id: `signature:${guise.id}`,
+      name: guise.system?.signaturePerk ?? guise.name,
+      description: guise.system?.signatureDescription ?? "",
+      kind: "signature",
+      label: "Signature Perk",
+      sourceOrder
+    });
+
+    const rawMoves = Array.isArray(guise.system?.moves) ? guise.system.moves : [];
+    rawMoves.forEach((move, index) => {
+      addMove({
+        id: `basic:${guise.id}:${index}:${move?.name ?? ""}`,
+        name: move?.name ?? "Unnamed Move",
+        description: move?.description ?? "",
+        kind: "basic",
+        label: "Basic Move",
+        sourceOrder: sourceOrder + index / 100
+      });
+    });
+  };
+
+  addGuiseMoves(primaryGuise, 0);
+
+  allGuises
+    .filter(g => !primaryGuise || g.id !== primaryGuise.id)
+    .forEach((guise, index) => addGuiseMoves(guise, 10 + index));
+
+  actor.items
+    .filter(item => item.type === "move" && item.system?.isSignature === true)
+    .forEach((item, index) => {
+      addMove({
+        id: item.id,
+        name: item.name,
+        description: item.system?.description ?? "",
+        kind: "signature",
+        label: "Signature Perk",
+        sourceOrder: 50 + index
+      });
+    });
+
+  const learnedOrder = actor.getFlag("midnight-gambit", "moveOrder") ?? [];
+  const learnedOrderMap = new Map(
+    (Array.isArray(learnedOrder) ? learnedOrder : []).map((id, index) => [id, index])
+  );
+
+  actor.items
+    .filter(item => item.type === "move" && item.system?.learned === true && item.system?.isSignature !== true)
+    .sort((a, b) => {
+      const aOrder = learnedOrderMap.has(a.id) ? learnedOrderMap.get(a.id) : Number.MAX_SAFE_INTEGER;
+      const bOrder = learnedOrderMap.has(b.id) ? learnedOrderMap.get(b.id) : Number.MAX_SAFE_INTEGER;
+      return aOrder - bOrder;
+    })
+    .forEach((item, index) => {
+      addMove({
+        id: item.id,
+        name: item.name,
+        description: item.system?.description ?? "",
+        kind: "learned",
+        label: "Learned Move",
+        sourceOrder: 100 + index
+      });
+    });
+
+  return moves.sort((a, b) => a.sourceOrder - b.sourceOrder || a.name.localeCompare(b.name));
 }
 
 function mgEscapeHtml(value) {

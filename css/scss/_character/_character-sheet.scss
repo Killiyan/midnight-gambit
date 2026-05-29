@@ -1773,6 +1773,7 @@ ol li {
 
           .move-desc {
             line-height: 1.8;
+            color: $mg-blue-2;
 
             p {
               margin: 0;
@@ -3065,8 +3066,7 @@ ol li {
       @include mg-shadow();
     }
 
-    &:hover,
-    &:focus {
+    &:hover {
       background-color: $mg-blue-3;
       border-color: $mg-blue-1;
       color: $mg-green;
@@ -3107,7 +3107,7 @@ ol li {
       display: flex;
       justify-content: center;
       align-items: center;
-      @include mg-shadow();
+      filter: drop-shadow(-3px 2px 2px #000);
 
       &:first-child {
         margin-left: 0;
@@ -3186,11 +3186,12 @@ ol li {
       }
 
       .gambit-title {
-        padding: 1rem;
+        width: 95%;
         @include tiller();
         text-align: center;
         font-weight: 800;
         font-size: 18.5px;
+        overflow-wrap: break-word;
         letter-spacing: .02em;
         line-height: 1;
         position: relative;
@@ -3199,29 +3200,7 @@ ol li {
         text-shadow: 5px 5px 10px $black;
         filter: drop-shadow(0 0 0.75rem $black);
         z-index: 3;
-        pointer-events: none;
-
-        &::after {
-          content: attr(data-title);
-          position: absolute;
-          inset: 0;
-          font: inherit;
-          letter-spacing: inherit;
-          line-height: inherit;
-          text-transform: inherit;
-          text-align: inherit;
-          padding: inherit;
-
-          color: transparent;
-          -webkit-text-fill-color: transparent;
-          background: url("/systems/midnight-gambit/assets/images/shimmer.png") center / 180% auto;
-          -webkit-background-clip: text;
-          background-clip: text;
-          opacity: .55;
-          mix-blend-mode: screen;
-          pointer-events: none;
-          z-index: 1;
-        }        
+        pointer-events: none;       
       }
     }    
   }
@@ -3278,6 +3257,17 @@ ol li {
     opacity: 1;
   }
 
+  &.mg-move-preview {
+
+    .mg-gz-card {
+      padding-top: 4rem;
+
+      .mg-gz-close {
+        border-radius: 0;
+      }      
+    }
+  }
+
   .mg-gz-card {
     margin: 0;
     transform: scale(.96);
@@ -3287,6 +3277,7 @@ ol li {
 
   &.mg-gz-show .mg-gz-card {
     transform: scale(1);
+    min-width: 26rem;
     opacity: 1;
   }
 
@@ -3365,6 +3356,16 @@ ol li {
         display: none;
       }
 
+      .gambit-move-kind {
+        color: $mg-blue-4;
+        background: $mg-ivory;
+        border-bottom: 2px solid $mg-ivory-3;
+
+        i {
+          color: $mg-blue-4;
+        }
+      }
+
       .mg-gz-close {
         background: rgba($black, .6);
 
@@ -3395,6 +3396,8 @@ ol li {
       .mg-gz-close {
         background: $mg-ivory;
         border: 2px solid $mg-ivory-3;
+        border-top: 0;
+        border-right: 0;
 
         i {
           color: $mg-blue-4;
@@ -3469,9 +3472,9 @@ ol li {
       }
 
       .gambit-title {
-        text-shadow: none;
+        text-shadow: 0 0 1rem $black;
         color: $mg-ivory;
-        filter: none;
+        filter: drop-shadow(1px 3px 0.5rem #000);
       }
 
       .mg-gz-body {
@@ -3678,7 +3681,7 @@ ol li {
     color: $mg-blue-2;
     @include mg-border();
     border-radius: .5rem;
-    font-size: 1rem;
+    font-size: .875rem;
     position: relative;
     z-index: 2;
     overflow-y: scroll;
@@ -3686,7 +3689,6 @@ ol li {
     grid-row: span 3;
     width: 85%;
     margin: 0 auto;
-    font-weight: 700;
 
     p {
       margin: 0;
@@ -3703,6 +3705,7 @@ ol li {
     background-color: $mg-blue-main;
     border-top: 2px solid $mg-blue-main-2;
     grid-row: span 1;
+    padding: .75rem 0;
 
     i {
       color: $mg-blue-2;
@@ -3721,7 +3724,7 @@ ol li {
 
   .mg-gz-close {
     position: absolute;
-    top: -2px;
+    top: 0;
     right: -2px;
     width: 3rem;
     height: auto;
@@ -3730,6 +3733,7 @@ ol li {
     padding: .5rem;
     background: $mg-blue-4;
     transition: background .5s ease, box-shadow .5s ease;
+    z-index: 15;
 
     i {
       margin: 0;
