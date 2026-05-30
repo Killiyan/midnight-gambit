@@ -383,7 +383,7 @@ function renderGambitHandCards(actor, cardsWrap, handHtml, drawnItems, deckIds) 
     div.dataset.itemId = card.id;
     div.style.setProperty("--stack-index", String(i + 1));
     div.innerHTML = `
-      <div class="gambit-title" data-title="${mgEscapeHtml(card.name)}">${mgEscapeHtml(card.name)}</div>
+      <div class="gambit-title">${mgEscapeHtml(card.name)}</div>
     `;
 
     div.addEventListener("contextmenu", async (ev) => {
@@ -425,7 +425,7 @@ function renderMoveHandCards(actor, cardsWrap, handHtml, moveItems) {
     div.style.setProperty("--stack-index", String(i + 1));
     div.innerHTML = `
       <div class="gambit-move-kind"><i class="fa-solid ${mgGetMoveKindIcon(move)}"></i> ${mgEscapeHtml(move.label)}</div>
-      <div class="gambit-title" data-title="${mgEscapeHtml(move.name)}">${mgEscapeHtml(move.name)}</div>
+      <div class="gambit-title">${mgEscapeHtml(move.name)}</div>
     `;
 
     div.addEventListener("contextmenu", async (ev) => {
@@ -604,7 +604,7 @@ async function mgPreviewGambit(actor, card) {
       <button class="mg-gz-close" type="button" title="Close" aria-label="Close">
         <i class="fa-solid fa-xmark"></i>
       </button>
-      <h2 class="gambit-title" data-title="${mgEscapeHtml(card.name)}">${mgEscapeHtml(card.name)}</h2>
+      <h2 class="gambit-title">${mgEscapeHtml(card.name)}</h2>
       <div class="mg-gz-body">${descHtml || "<em>No description.</em>"}</div>
       <button class="mg-gz-play" type="button">
         <i class="fa-solid fa-play"></i>
@@ -660,8 +660,8 @@ async function mgPreviewMove(actor, move) {
       <button class="mg-gz-close" type="button" title="Close" aria-label="Close">
         <i class="fa-solid fa-xmark"></i>
       </button>
-      <div class="gambit-move-kind"><i class="fa-solid ${icon}"></i> ${mgEscapeHtml(move.label)}</div>
-      <h2 class="gambit-title" data-title="${mgEscapeHtml(move.name)}">${mgEscapeHtml(move.name)}</h2>
+      <div class="gambit-move-kind"><span><i class="fa-solid ${icon}"></i> ${mgEscapeHtml(move.label)}</span></div>
+      <h2 class="gambit-title">${mgEscapeHtml(move.name)}</h2>
       <div class="mg-gz-body">${descHtml || "<em>No description.</em>"}</div>
       <button class="mg-gz-play mg-gz-post-move" type="button">
         <i class="fa-solid fa-messages"></i>

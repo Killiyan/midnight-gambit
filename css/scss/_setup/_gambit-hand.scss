@@ -1,0 +1,1222 @@
+/* Floating Gambit Hand Moves Toggle
+----------------------------------------------------------------------*/
+body .gambit-hand-ui {
+	--mg-hand-controls-w: 3.625rem;
+	transform: none;
+
+	&.is-expanded {
+		transform: none;
+
+		.gambit-hand-stage {
+			transform: translateY(1.125rem);
+		}
+	}
+
+	.gambit-hand-controls {
+		pointer-events: auto;
+		position: fixed;
+		right: var(--mg-gambit-dock-right, 1rem);
+		bottom: 1rem;
+		z-index: 20;
+		display: flex;
+		flex-direction: column;
+		justify-content: flex-end;
+		gap: .5rem;
+
+		.gambit-hand-slide-controls {
+			pointer-events: auto;
+			display: flex;
+			flex-direction: column;
+			gap: .5rem;
+			justify-content: flex-end;
+			opacity: 0;
+			visibility: hidden;
+			transition: opacity .5s ease, visibility 0s linear .5s;
+
+			&.is-visible {
+				opacity: 1;
+				visibility: visible;
+				transition: opacity .5s ease, visibility 0s;
+			}
+		}
+
+		.gambit-hand-perma-toggles {
+			display: flex;
+			flex-direction: column;
+			gap: .5rem;
+		}			
+	}
+
+	.gambit-hand-view-toggle,
+	.gambit-hand-slide-controls button {
+		pointer-events: auto;
+		width: 2.625rem;
+		height: 2.625rem;
+		margin: 0;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		border: 2px solid $mg-blue-main-2;
+		border-radius: .5rem;
+		background:
+			radial-gradient(circle at 50% 0%, rgba(197, 212, 236, .22) 0%, rgba(197, 212, 236, .10) 35%, rgba(18, 33, 55, 0) 70%),
+			url("../assets/images/filigree.jpg");
+		background-size: 350%;
+		background-position: center, 50% 45%;
+		background-blend-mode: soft-light, multiply;
+		background-color: $mg-blue-4;
+		color: $mg-blue-1;
+		box-shadow: 0 5px 16px rgba($black, .45);
+		backdrop-filter: blur(4px);
+		transition: background-color .35s ease, border-color .35s ease, color .35s ease;
+
+		i {
+			color: $mg-blue-1;
+			margin: 0;
+			@include mg-shadow();
+		}
+
+		&:hover {
+			background-color: $mg-blue-3;
+			border-color: $mg-blue-1;
+			color: $mg-green;
+
+			i {
+				color: $mg-green;
+			}
+		}
+
+		&:disabled {
+			opacity: .45;
+			pointer-events: none;
+		}
+	}
+
+	.gambit-hand-stage {
+		position: relative;
+		width: min(30rem, calc(100vw - 4rem));
+		margin-right: var(--mg-hand-controls-w);
+		display: grid;
+		justify-items: end;
+		align-items: end;
+		pointer-events: none;
+		transform: translateY(calc(100% - 3.75rem));
+		transition: transform .45s ease;
+	}
+
+	.gambit-hand-cards {
+		grid-area: 1 / 1;
+		opacity: 0;
+		visibility: hidden;
+		pointer-events: none !important;
+		transition: opacity .5s ease, visibility 0s linear .5s;
+
+		.gambit-hand-card {
+			pointer-events: none !important;
+
+			&.gambit-move-hand-card {
+				&[data-move-kind="signature"] .gambit-move-kind {
+					--mg-accordion-toggle-image: url("../assets/images/accordion-toggle.jpg");
+					background:
+						/* subtle pearly sheen (top-center) */
+						radial-gradient(circle at 50% 0%,
+						rgba(197, 212, 236, 0.22) 0%,
+						rgba(197, 212, 236, 0.10) 35%,
+						rgba(18, 33, 55, 0.00) 70%
+						),
+						/* texture */
+						var(--mg-accordion-toggle-image);
+					background-repeat: no-repeat;
+					background-size: cover;
+					background-position: center;
+					background-blend-mode: soft-light, multiply;
+					background-color: $mg-blue-4;
+				}			
+
+				&[data-move-kind="learned"] .gambit-move-kind {
+					background: $mg-blue-5;
+					border-color: $mg-blue-4;
+				}
+			}
+		}
+
+		&.is-active-view {
+			opacity: 1;
+			visibility: visible;
+			pointer-events: all !important;
+			transition: opacity .5s ease, visibility 0s;
+
+			.gambit-hand-card {
+				pointer-events: all !important;
+			}
+		}
+	}
+
+	&.is-moves-mode {
+		.gambit-hand-cards-moves {
+			position: relative;
+			width: min(30rem, calc(100vw - 4rem));
+			max-width: 30rem;
+			justify-content: flex-end;
+			overflow-x: hidden;
+			overflow-y: hidden;
+			padding: 1.875rem 2.25rem 2.25rem 2.25rem;
+			@include mg-border();
+			background: rgba($black,.2);
+			border-radius: .5rem;
+			scroll-behavior: smooth;
+		}
+
+		.gambit-hand-card {
+			margin-left: -4.75rem;
+
+			&:first-child {
+				margin-left: 0;
+			}
+		}
+	}
+
+	.gambit-move-hand-card {
+		background-image:
+			linear-gradient(145deg, rgba($mg-blue-main, .35), rgba($mg-blue-4, .15)),
+			url("/systems/midnight-gambit/assets/images/Gambits-Midnight.jpg");
+		background-size: cover;
+		align-items: stretch;
+		justify-content: space-between;
+		padding: .75rem .55rem 1rem;
+		transform: none;
+		will-change: auto;
+
+		&:hover {
+			transform: translateY(-1rem);
+		}
+
+		.gambit-title {
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			min-height: 6rem;
+			padding: .5rem;
+			font-size: 1rem;
+			line-height: 1.05;
+			word-break: normal;
+			overflow-wrap: anywhere;
+		}
+	}
+
+	.gambit-move-kind {
+		position: relative;
+		z-index: 3;
+		align-self: center;
+		max-width: 100%;
+		border-bottom: 2px solid $mg-blue-main-2;
+		padding: .5rem .75rem;
+		background: $mg-blue-main;
+		color: $mg-blue-1;
+		@include tiller();
+		font-size: .8rem;
+		font-weight: 700;
+		line-height: 1;
+		text-align: left;
+		display: flex;
+		align-items: center;
+		gap: .4rem;
+		@include mg-shadow();
+		position: absolute;
+		top: 0;
+		left: 0;
+		width: 100%;
+		height: auto;
+
+		i {
+			color: $mg-blue-2;
+			font-size: .75rem;
+		}
+	}
+}
+
+.mg-move-preview.mg-gz-show {
+	.gambit-move-kind {
+		position: absolute;
+		top: 0;
+		left: 0;
+		width: 100%;
+		background: $mg-blue-main;
+		color: $mg-blue-1;
+		border-bottom: 2px solid $mg-blue-main-2;
+		padding: .5rem 1rem;
+		min-height: 3rem;
+		font-size: 1.25rem;
+		@include tiller();
+		font-weight: 700;
+		display: flex;
+		align-items: center;
+		gap: 1rem;
+
+		i {
+			color: $mg-blue-2;
+		}
+	}
+
+	&[data-move-kind="signature"] {
+		.gambit-move-kind  {
+			--mg-accordion-toggle-image: url("../assets/images/accordion-toggle.jpg");
+			background:
+				/* subtle pearly sheen (top-center) */
+				radial-gradient(circle at 50% 0%,
+				rgba(197, 212, 236, 0.22) 0%,
+				rgba(197, 212, 236, 0.10) 35%,
+				rgba(18, 33, 55, 0.00) 70%
+				),
+				/* texture */
+				var(--mg-accordion-toggle-image);
+			background-repeat: no-repeat;
+			background-size: cover;
+			background-position: center;
+			background-blend-mode: soft-light, multiply;
+			background-color: $mg-blue-4;
+
+			span {
+				z-index: 3;
+			}
+		}
+	}
+
+	&[data-move-kind="learned"] {
+		.gambit-move-kind  {
+			background: $mg-blue-4;
+		}
+	}
+
+	&[data-move-kind="basic"] {
+		.gambit-move-kind {
+			background: $mg-blue-main-2;
+			border-bottom: 2px solid $mg-blue-4;
+		}
+
+		.mg-gz-card .mg-gz-close {
+			border-left: 2px solid $mg-blue-4;
+			border-bottom: 2px solid $mg-blue-4;
+		}
+	}	
+
+	.mg-gz-play {
+		gap: .5rem;
+	}
+}
+
+/*Gambit Hand UI
+==============================================================================*/
+.gambit-hand-ui {
+	position: fixed;
+	right: var(--mg-gambit-dock-right, 1rem);
+	bottom: 0;
+	display: flex;
+	flex-direction: column;
+	align-items: flex-end;
+	justify-content: center;
+	z-index: 50;
+	transform: translate3d(0, calc(100% - 6.25rem), 0);
+	transition: transform .45s ease;
+	pointer-events: none;
+	gap: 1rem;
+
+	&.is-expanded {
+		transform: translate3d(0, 1.125rem, 0);
+		pointer-events: all;
+
+	.gambit-hand-toggle i {
+		color: $mg-green;
+	}
+
+	.gambit-hand-cards {
+		pointer-events: all;
+
+		.gambit-hand-card {
+			pointer-events: all;
+		}
+	}
+	}
+
+	&.is-transitioning,
+	&.is-expanded.is-transitioning {
+		.gambit-hand-cards,
+		.gambit-hand-card {
+			pointer-events: none;
+		}
+	}
+
+	&.gambit-design-midnight .gambit-hand-cards .gambit-hand-card {
+		background-image: url("/systems/midnight-gambit/assets/images/Gambits-Midnight.jpg");
+		background-size: cover;
+		
+		.gambit-title {
+			color: $mg-ivory;    
+		}
+		
+		&:before {
+			display: none;
+		}
+	}    
+
+	/* Pearl UI Hand Override
+	----------------------------------------------------------------------*/  
+	&.gambit-design-pearl .gambit-hand-cards .gambit-hand-card {
+		background-image: url("/systems/midnight-gambit/assets/images/Gambits-Pearl.jpg");
+		background-size: cover;
+		
+		.gambit-title {
+			color: $mg-blue-4;
+			text-shadow: none;
+			filter: none;          
+		}
+		
+		&:before,
+		&:after {
+			display: none;
+		}
+
+		&.gambit-move-hand-card[data-move-kind="signature"] .gambit-move-kind {
+			background-color: $mg-ivory-2;
+			background-blend-mode: normal;
+			color: $mg-blue-4;
+			border-color: rgba($black, .2);
+
+			&:after {
+				content: '';
+				position: absolute;
+				top: 0;
+				left: 0;
+				width: 100%;
+				height: 100%;
+				background: rgba($mg-ivory-3,.7);
+				z-index: -2;
+			}
+
+			i {
+				color: $mg-blue-4;
+			}
+		}
+		
+		&.gambit-move-hand-card[data-move-kind="basic"] .gambit-move-kind {
+			background: $mg-ivory-2;
+			color: $mg-blue-4;
+			border-color: rgba($black, .4);
+
+			i {
+				color: $mg-blue-4;
+			}     
+		}      
+
+		&.gambit-move-hand-card[data-move-kind="learned"] .gambit-move-kind {
+			background: $mg-ivory-3;
+			color: $mg-blue-4;
+			border-color: rgba($black, .4);
+
+			&:after {
+				content: '';
+				position: absolute;
+				top: 0;
+				left: 0;
+				width: 100%;
+				height: 100%;
+				background: rgba($black,.1);
+				z-index: -2;
+			}           
+
+			i {
+				color: $mg-blue-4;
+			}
+		}
+	}
+
+	/* Cobalt UI Hand Override
+	----------------------------------------------------------------------*/    
+	&.gambit-design-cobalt .gambit-hand-cards .gambit-hand-card {
+		background-image: url("/systems/midnight-gambit/assets/images/Gambits-Cobalt.jpg");
+		background-size: cover;
+		
+		.gambit-title {
+			color: $mg-ivory;    
+		}
+		
+		&:before {
+			display: none;
+		}      
+	}  
+
+	/* Noir UI Hand Override
+	----------------------------------------------------------------------*/    	
+	&.gambit-design-noir .gambit-hand-cards .gambit-hand-card {
+		background-image: url("/systems/midnight-gambit/assets/images/Gambits-Noir.jpg");
+		background-size: cover;
+		
+
+		&.gambit-move-hand-card[data-move-kind="signature"] .gambit-move-kind {
+			background-color: rgba($black,.8);
+			background-blend-mode: multiply;
+			color: $mg-ivory;
+			border-color: $mg-ivory-2;         
+
+			i {
+				color: $mg-ivory-2;
+			}
+		}
+
+		&.gambit-move-hand-card[data-move-kind="basic"] .gambit-move-kind {
+			background-color: $black;
+			background-blend-mode: multiply;
+			color: $mg-ivory;
+			border-color: $mg-ivory-2;
+
+			&:after {
+				content: '';
+				position: absolute;
+				top: 0;
+				left: 0;
+				width: 100%;
+				height: 100%;
+				background: rgba($mg-ivory,.1);
+				z-index: -2;
+			} 
+
+			i {
+				color: $mg-ivory-2;
+			}
+		}
+		
+		&.gambit-move-hand-card[data-move-kind="learned"] .gambit-move-kind {
+			background-color: rgba($black,.5);
+			background-blend-mode: multiply;
+			color: $mg-ivory;
+			border-color: $mg-ivory-2;
+
+			&:after {
+				content: '';
+				position: absolute;
+				top: 0;
+				left: 0;
+				width: 100%;
+				height: 100%;
+				background: rgba($mg-ivory,.175);
+				z-index: -2;
+			}         
+
+			i {
+				color: $mg-ivory-2;
+			}
+		}        
+		
+		.gambit-title {
+			color: $mg-ivory;    
+		}
+		
+		&:before {
+			display: none;
+		}      
+	}  
+
+	.gambit-hand-toggle {
+		pointer-events: auto;
+		width: 2.625rem;
+		height: 2.625rem;
+		margin: 0;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		border: 2px solid $mg-blue-main-2;
+		border-radius: .5rem;
+		background:
+			radial-gradient(circle at 50% 0%, rgba(197, 212, 236, .22) 0%, rgba(197, 212, 236, .10) 35%, rgba(18, 33, 55, 0) 70%),
+			url("../assets/images/filigree.jpg");
+		background-size: 350%;
+		background-position: center, 50% 45%;
+		background-blend-mode: soft-light, multiply;
+		background-color: $mg-blue-4;
+		color: $mg-blue-1;
+		box-shadow: 0 5px 16px rgba($black, .45);
+		backdrop-filter: blur(4px);
+		transition: background-color .35s ease, border-color .35s ease, color .35s ease;
+
+		i {
+			color: $mg-blue-1;
+			margin: 0;
+			@include mg-shadow();
+		}
+
+		&:hover {
+			background-color: $mg-blue-3;
+			border-color: $mg-blue-1;
+			color: $mg-green;
+
+			i {
+				color: $mg-green;
+			}
+		}
+	}
+
+	.gambit-hand-cards {
+		display: flex;
+		justify-content: flex-end;
+		align-items: flex-end;
+		width: min(28rem, calc(100vw - 4rem));
+		height: auto;
+		pointer-events: none;
+		@include mg-shadow();
+
+		.gambit-hand-card {
+			background-image: url("/systems/midnight-gambit/assets/images/card-background.png");
+			background-size: cover;
+			pointer-events: none;
+			flex: 0 0 140px;
+			width: 140px;
+			height: auto;
+			aspect-ratio: 5 / 7;
+			margin: 0 0 0 -3.75rem;
+			border-radius: .5rem;
+			transform: translate3d(0, 0, 0);
+			transform-origin: bottom center;
+			transition: transform .24s ease, box-shadow .24s ease, filter .24s ease;
+			will-change: transform;
+			cursor: pointer;
+			overflow: hidden;
+			z-index: var(--stack-index);
+			position: relative;
+			display: flex;
+			justify-content: center;
+			align-items: center;
+			filter: drop-shadow(-3px 2px 2px #000);
+
+			&:first-child {
+				margin-left: 0;
+			}
+
+			&:before,
+			&:after {
+				content: '';
+				position: absolute;
+				pointer-events: none;
+			}
+
+			&:before {
+				background-image: url("/systems/midnight-gambit/assets/images/shimmer.png");
+				background-size: cover;
+				top: 0;
+				left: 0;
+				width: 100%;
+				height: 100%;
+				mix-blend-mode: multiply;
+				z-index: 1;
+			}
+
+			&:after {
+				inset: 0;
+				display: block;
+				opacity: 0;
+				mix-blend-mode: screen;
+				z-index: 2;
+				background:
+					linear-gradient(
+					105deg,
+					transparent 0%,
+					rgba($mg-blue-4, 0) 34%,
+					rgba($mg-blue-3, .26) 45%,
+					rgba($mg-blue-1, .82) 50%,
+					rgba($mg-blue-3, .26) 55%,
+					rgba($mg-blue-4, 0) 66%,
+					transparent 100%
+				);
+				background-size: 260% 100%;
+				background-position: 160% 0;
+				filter: blur(.6px);
+			}
+
+			&:hover {
+				transform: translate3d(0, -1rem, 0) scale(1.055);
+				z-index: 100;
+
+				&:after {
+					display: block;
+					animation: mg-gambit-card-gleam var(--mg-gleam-speed, 1.9s) ease-in-out infinite;
+				}
+			}
+
+			@keyframes mg-gambit-card-gleam {
+				0% {
+					opacity: 0;
+					background-position: 160% 0;
+				}
+
+				10% {
+					opacity: var(--mg-gleam-opacity, .85);
+				}
+
+				45% {
+					opacity: var(--mg-gleam-opacity, .85);
+					background-position: -60% 0;
+				}
+
+				60%,
+				100% {
+					opacity: 0;
+					background-position: -60% 0;
+				}
+			}
+
+			.gambit-title {
+				width: 95%;
+				@include tiller();
+				text-align: center;
+				font-weight: 800;
+				font-size: 18.5px;
+				overflow-wrap: break-word;
+				letter-spacing: .02em;
+				line-height: 1;
+				position: relative;
+				text-transform: uppercase;
+				color: $mg-ivory;
+				text-shadow: 5px 5px 10px $black;
+				filter: drop-shadow(0 0 0.75rem $black);
+				z-index: 3;
+				pointer-events: none;       
+			}
+		}    
+	}
+
+  .gambit-hand-empty {
+		width: 140px;
+		aspect-ratio: 5 / 7;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		border: 2px solid #aaa;
+		border-radius: 12px;
+		background-image: url("/systems/midnight-gambit/assets/images/card-background.png");
+		background-size: cover;
+		overflow: hidden;
+
+		.gambit-hand-draw {
+			display: inline-flex;
+			align-items: center;
+			justify-content: center;
+			gap: .5rem;
+			pointer-events: auto;
+		}
+
+		.gambit-hand-empty-message {
+			position: relative;
+			z-index: 3;
+			margin: 0;
+			padding: 1rem;
+			text-align: center;
+			color: $mg-ivory;
+			text-transform: uppercase;
+			@include oswald();
+			@include mg-shadow();
+		}
+	}
+}
+
+.mg-gz-backdrop {
+	position: fixed;
+	inset: 0;
+	z-index: 12000;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 2rem;
+	background: rgba($black, .42);
+	backdrop-filter: blur(3px);
+	opacity: 0;
+	pointer-events: auto;
+	transition: opacity .25s ease;
+
+	&.mg-gz-show {
+		opacity: 1;
+	}
+
+	&.mg-move-preview {
+
+		.mg-gz-card {
+		padding-top: 4rem;
+
+		.mg-gz-close {
+			border-radius: 0;
+		}      
+		}
+	}
+
+	.mg-gz-card {
+		margin: 0;
+		transform: scale(.96);
+		transition: transform .25s ease, opacity .25s ease, box-shadow .25s ease;
+		opacity: 0;
+	}
+
+	&.mg-gz-show .mg-gz-card {
+		transform: scale(1);
+		min-width: 26rem;
+		opacity: 1;
+	}
+
+	/* Midnight Preview Override
+	----------------------------------------------------------------------*/    
+	&.gambit-design-midnight {
+		.mg-gz-card {
+			background-image: url("/systems/midnight-gambit/assets/images/Gambits-Midnight.jpg");
+			background-size: cover;
+			pointer-events: auto;
+			border: none;
+
+			&:before,
+			&:after {
+				display: none;
+			}
+
+			.mg-gz-close {
+				background: $mg-blue-main;
+				border-left: 2px solid $mg-blue-main-2;
+				border-bottom: 2px solid $mg-blue-main-2;
+
+				i {
+					color: $mg-blue-2;
+				}
+
+				&:hover,
+				&:focus {
+					background: $mg-blue-4;
+
+					i {
+					color: $mg-green;
+					}
+				}
+			}
+
+			.gambit-title {
+				text-shadow: none;
+				color: $mg-ivory;
+			}
+
+			.mg-gz-body {
+				background: $mg-blue-main;
+				color: $mg-blue-2;
+				border: 2px solid $mg-blue-main-2;
+			}
+
+			.mg-gz-play {
+				background: $mg-blue-main;
+				color: $mg-ivory;
+				border-top: 2px solid $mg-blue-main-2;
+
+				i {
+					color: $mg-blue-2;
+				}
+
+				&:hover {
+					background: $mg-blue-4;
+					color: $mg-green;
+
+					i {
+					color: $mg-blue-1;
+					}
+				}
+			}
+		}
+	}    
+
+	/* Pearl Preview Override
+	----------------------------------------------------------------------*/    	
+	&.gambit-design-pearl {
+		.mg-gz-card {
+			background-image: url("/systems/midnight-gambit/assets/images/Gambits-Pearl.jpg");
+			background-size: cover;
+			pointer-events: auto;
+			border: none;
+
+			&:before,
+			&:after {
+				display: none;
+			}
+
+			.gambit-move-kind {
+				color: $mg-blue-4;
+				background: $mg-ivory;
+				border-bottom: 2px solid $mg-ivory-3;
+
+				i {
+					color: $mg-blue-4;
+				}
+			}
+
+			.mg-gz-close {
+				background: rgba($black, .6);
+
+				i {
+					color: $mg-blue-1;
+				}
+
+				&:hover,
+				&:focus {
+					background-color: rgba($black, .8);
+
+					i {
+					color: $mg-green;
+					}
+				}
+			}
+
+			.gambit-title {
+				text-shadow: none;
+				color: $mg-ivory;
+
+				&:before,
+				&:after {
+					display: none;
+				}            
+			}
+
+			.mg-gz-close {
+				background: $mg-ivory;
+				border: 2px solid $mg-ivory-3;
+				border-top: 0;
+				border-right: 0;
+
+				i {
+					color: $mg-blue-4;
+				}
+
+				&:hover,
+				&:focus {
+					background: $mg-blue-4;
+
+					i {
+					color: $mg-green;
+					}
+				}
+			}
+
+			.mg-gz-body {
+				background: $mg-ivory;
+				color: $mg-blue-4;
+				border: 2px solid $mg-ivory-3;
+			}
+
+			.mg-gz-play {
+				background: $mg-ivory;
+				color: $mg-blue-4;
+				border-top: 2px solid $mg-ivory-3;
+
+				i {
+					color: $mg-blue-4;
+				}
+
+				&:hover {
+					background: $mg-blue-4;
+					color: $mg-green;
+
+					i {
+					color: $mg-blue-1;
+					}
+				}
+			}
+		}
+		
+		&[data-move-kind="signature"] .mg-gz-card .gambit-move-kind {
+			color: $mg-blue-4;
+			border-color: rgba($black, .2);
+			--mg-accordion-toggle-image: url("../assets/images/accordion-toggle.jpg");
+			background:
+				/* subtle pearly sheen (top-center) */
+				radial-gradient(circle at 50% 0%,
+				rgba(197, 212, 236, 0.22) 0%,
+				rgba(197, 212, 236, 0.10) 35%,
+				rgba(18, 33, 55, 0.00) 70%
+				),
+				/* texture */
+				var(--mg-accordion-toggle-image);
+			background-repeat: no-repeat;
+			background-size: cover;
+			background-position: center;		
+			background-color: $mg-ivory-2;
+			background-blend-mode: normal;
+			border: 0;
+
+			&:after {
+			content: '';
+			position: absolute;
+			top: 0;
+			left: 0;
+			width: 100%;
+			height: 100%;
+			background: rgba($mg-ivory-3,.7);
+			z-index: 1;
+			}
+
+			i {
+			color: $mg-blue-4;
+			}		
+		}
+
+		&[data-move-kind="learned"] .mg-gz-card .gambit-move-kind {
+			background: $mg-ivory-3;
+			color: $mg-blue-4;
+			border-color: rgba($black, .4);
+
+			&:after {
+				content: '';
+				position: absolute;
+				top: 0;
+				left: 0;
+				width: 100%;
+				height: 100%;
+				background: rgba($black,.025);
+				z-index: 1;
+			}           
+
+			i {
+				color: $mg-blue-4;
+			}
+		}	
+	}
+
+	/* Cobalt Preview Override
+	----------------------------------------------------------------------*/    	
+	&.gambit-design-cobalt {
+		.mg-gz-card {
+			background-image: url("/systems/midnight-gambit/assets/images/Gambits-Cobalt.jpg");
+			background-size: cover;
+			pointer-events: auto;
+			border: none;
+
+			&:before,
+			&:after {
+				display: none;
+			}
+
+			.mg-gz-close {
+				background: $mg-blue-main;
+				border-left: 2px solid $mg-blue-main-2;
+				border-bottom: 2px solid $mg-blue-main-2;
+
+				i {
+					color: $mg-blue-2;
+				}
+
+				&:hover,
+				&:focus {
+					background: $mg-blue-4;
+
+					i {
+					color: $mg-green;
+					}
+				}
+			}
+
+			.gambit-title {
+				text-shadow: 0 0 1rem $black;
+				color: $mg-ivory;
+				filter: drop-shadow(1px 3px 0.5rem #000);
+			}
+
+			.mg-gz-body {
+				background: $mg-blue-main;
+				color: $mg-blue-2;
+				border: 2px solid $mg-blue-main-2;
+			}
+
+			.mg-gz-play {
+				background: $mg-blue-main;
+				color: $mg-ivory;
+				border-top: 2px solid $mg-blue-main-2;
+
+				i {
+					color: $mg-blue-2;
+				}
+
+				&:hover {
+					background: $mg-blue-4;
+					color: $mg-green;
+
+					i {
+					color: $mg-blue-1;
+					}
+				}
+			}
+		}
+	}
+
+	/* Noir Preview Override
+	----------------------------------------------------------------------*/    	
+	&.gambit-design-noir {
+
+		&[data-move-kind="signature"] .mg-gz-card .gambit-move-kind {
+			
+		}
+	}
+}
+
+.mg-gz-card {
+	background-image: url("/systems/midnight-gambit/assets/images/card-background.png");
+	background-size: cover;
+	pointer-events: auto;
+	aspect-ratio: 5 / 7;
+	margin: 0 -40px;
+	border: 2px solid #fff;
+	border-radius: 12px;
+	transform: rotate(var(--rotate));
+	transition: transform 0.2s, box-shadow 0.2s;
+	cursor: pointer;
+	overflow: hidden;
+	z-index: 1;
+	position: relative;
+	max-width: 20rem;
+	overflow: hidden;
+	display: grid;
+	grid-template-rows: repeat(5,1fr);
+	padding-top: 3rem;
+
+	&:before,
+	&:after {
+		content: '';
+		background-image: url("/systems/midnight-gambit/assets/images/shimmer.png");
+		background-size: cover;
+		position: absolute;
+		top: 0;
+		left: 0;
+		width: 100%;
+		height: 100%;
+		mix-blend-mode: overlay;
+		z-index: 1;
+		pointer-events: none;
+	}
+
+	&:before {
+		mix-blend-mode: multiply;
+		pointer-events: none;
+	}
+
+	.gambit-title {
+		padding: 1rem;
+		@include tiller();
+		text-align: center;
+		font-weight: 800;
+		font-size: 1.5rem;
+		letter-spacing: -.02em;
+		line-height: 1;
+		text-transform: uppercase;
+		position: relative;
+		color: $mg-ivory;
+		text-shadow: 7px 5px 2px $mg-blue-main;
+		filter: drop-shadow(0 0 0.75rem $black);
+		width: 100%;
+		z-index: 3;
+		pointer-events: none;
+		border: none;
+		grid-row: span 1;
+			display: flex;
+			justify-content: center;
+			align-items: center;    
+
+		&::after {
+			content: attr(data-title);
+			position: absolute;
+			inset: 0;
+			font: inherit;
+			letter-spacing: inherit;
+			line-height: inherit;
+			text-transform: inherit;
+			text-align: inherit;
+			padding: inherit;
+
+			color: transparent;
+			-webkit-text-fill-color: transparent;
+			background: url("/systems/midnight-gambit/assets/images/shimmer.png") center / 180% auto;
+			-webkit-background-clip: text;
+			background-clip: text;
+			opacity: .55;
+			mix-blend-mode: screen;
+			pointer-events: none;
+			z-index: 1;
+		}     
+	}
+
+	.mg-gz-header {
+		width: 80%;
+	}
+
+	.mg-gz-body {
+		padding: .75rem 1rem;
+		background: rgba($mg-blue-4, .9);
+		color: $mg-blue-2;
+		@include mg-border();
+		border-radius: .5rem;
+		font-size: .875rem;
+		position: relative;
+		z-index: 2;
+		overflow-y: scroll;
+		line-height: 1.3;
+		grid-row: span 3;
+		width: 85%;
+		margin: 0 auto;
+
+		p {
+			margin: 0;
+		}
+	}
+
+	.mg-gz-play {
+		width: 100%;
+		margin: auto 0 0 0;
+		border-radius: 0;
+		border-radius: 0;
+		position: relative;
+		z-index: 2;
+		background-color: $mg-blue-main;
+		border-top: 2px solid $mg-blue-main-2;
+		grid-row: span 1;
+		padding: .75rem 0;
+
+		i {
+			color: $mg-blue-2;
+		}
+
+		&:hover,
+		&:focus {
+			background: $mg-blue-4;
+			color: $mg-green;
+
+			i {
+			color: $mg-blue-1;
+			}
+		}
+	}
+
+	.mg-gz-close {
+		position: absolute;
+		top: 0;
+		right: -2px;
+		width: 3rem;
+		height: auto;
+		border-radius: 0 0 0 .5rem;
+		aspect-ratio: 1/1;
+		padding: .5rem;
+		background: $mg-blue-4;
+		transition: background .5s ease, box-shadow .5s ease;
+		z-index: 15;
+
+		i {
+			margin: 0;
+			color: $mg-blue-1;
+			transition: color .5s ease;
+		}
+
+		&:hover,
+		&:focus {
+			background: $mg-blue-1;
+
+			i {
+			color: $mg-blue-3;
+			}
+		}
+	}
+}
