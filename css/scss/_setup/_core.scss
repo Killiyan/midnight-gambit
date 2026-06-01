@@ -1093,6 +1093,12 @@ h3 {
       align-items: center;
       width: auto;        
     }
+
+    &.mg-strain-effect-label {
+      i {
+        color: $mg-blue-1;
+      }
+    }
   }
 }
 

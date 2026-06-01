@@ -1,3 +1,75 @@
+const MG_MORTAL_ATTRS = new Set(["tenacity", "finesse", "resolve"]);
+const MG_SOUL_ATTRS = new Set(["guile", "instinct", "presence"]);
+
+export function mgGetStrainRollEffects(actor, attrKey = "") {
+  const strain = actor?.system?.strain ?? {};
+  const mortalTrack = Math.max(0, Number(strain.mortal ?? 0) || 0);
+  const soulTrack = Math.max(0, Number(strain.soul ?? 0) || 0);
+  const key = String(attrKey ?? "").toLowerCase();
+
+  const tree =
+    MG_MORTAL_ATTRS.has(key) ? "mortal" :
+    MG_SOUL_ATTRS.has(key) ? "soul" :
+    "";
+
+  const track = tree === "mortal" ? mortalTrack : tree === "soul" ? soulTrack : 0;
+  const diePenalty = track >= 4 ? -2 : track >= 2 ? -1 : 0;
+
+  return {
+    tree,
+    track,
+    mortalTrack,
+    soulTrack,
+    diePenalty,
+    stoRiskLocked: mortalTrack >= 3 || soulTrack >= 3,
+    out: track >= 5
+  };
+}
+
+export function mgApplyStrainAttributePenalty(attrMod, effects) {
+  const baseAttrMod = Number(attrMod) || 0;
+  const penalty = Number(effects?.diePenalty ?? 0) || 0;
+  return baseAttrMod + penalty;
+}
+
+export function mgGetStrainEffectBadge(effects, { includeGlobalLock = true } = {}) {
+  const track = Number(effects?.track ?? 0) || 0;
+  let tree = String(effects?.tree ?? "");
+  let sourceTrack = track;
+  const diePenalty = Number(effects?.diePenalty ?? 0) || 0;
+
+  if (!tree || sourceTrack < 2) {
+    if (!includeGlobalLock) return null;
+
+    const mortalTrack = Number(effects?.mortalTrack ?? 0) || 0;
+    const soulTrack = Number(effects?.soulTrack ?? 0) || 0;
+
+    if (mortalTrack >= 3 || soulTrack >= 3) {
+      tree = mortalTrack >= soulTrack ? "mortal" : "soul";
+      sourceTrack = Math.max(mortalTrack, soulTrack);
+    } else {
+      return null;
+    }
+  }
+
+  const iconClass = tree === "mortal" ? "fa-kit fa-mortal-strain" : "fa-kit fa-soul-strain";
+  const hasTreePenalty = track >= 2 && String(effects?.tree ?? "") === tree;
+  const penaltyText = sourceTrack >= 5 && hasTreePenalty
+    ? "Out"
+    : [
+        hasTreePenalty ? `${diePenalty} ${Math.abs(diePenalty) === 1 ? "die" : "dice"}` : "",
+        sourceTrack >= 3 ? "no Risk/STO" : ""
+      ].filter(Boolean).join(", ");
+
+  return {
+    tree,
+    track: sourceTrack,
+    iconClass,
+    penaltyText,
+    title: `${sourceTrack} Track Damage: ${penaltyText}`
+  };
+}
+
 export async function evaluateRoll({
   formula,
   rollData = {},
@@ -11,7 +83,8 @@ export async function evaluateRoll({
   auraAttrMod = 0,
   auraSourceActorId = "",
   auraSourceTokenId = "",
-  auraIconClass = "fa-eye-evil"
+  auraIconClass = "fa-eye-evil",
+  strainEffects = null
 }) {
   const esc = (value) =>
     String(value ?? "").replace(/[&<>"']/g, (m) => ({
@@ -89,7 +162,9 @@ export async function evaluateRoll({
     resultClass = "result-flourish";
   }
 
-  const stoValue = Number(actor?.system?.sto?.value ?? 0);
+  const activeStrainEffects = strainEffects ?? mgGetStrainRollEffects(actor, "");
+  const stoRiskLocked = !!activeStrainEffects.stoRiskLocked;
+  const stoValue = stoRiskLocked ? 0 : Number(actor?.system?.sto?.value ?? 0);
 
   const needComp = total <= 6 ? (7 - total) : 0;
   const needFlourish = total <= 10 ? (11 - total) : 0;
@@ -153,6 +228,7 @@ export async function evaluateRoll({
             data-edge="${edge ? "true" : "false"}"
             data-modifier-parts='${esc(JSON.stringify(modifierParts ?? []))}'
             data-modifier-breakdown='${esc(JSON.stringify(modifierBreakdown ?? []))}'
+            data-strain-effects='${esc(JSON.stringify(activeStrainEffects ?? null))}'
             data-aura-attr-mod="${auraAttrMod}"
             title="Remove Aura and reroll">
             <i class="fa-solid fa-ban"></i>
@@ -171,10 +247,20 @@ export async function evaluateRoll({
     `
     : "";
 
+  const strainBadge = mgGetStrainEffectBadge(activeStrainEffects);
+  const strainHeader = strainBadge
+    ? `
+      <div class="edge-label mg-strain-effect-label ${esc(strainBadge.tree)}">
+        <div class="edge-icon"><i class="${esc(strainBadge.iconClass)}"></i></div>
+        <span><strong>${esc(strainBadge.track)} Track Damage:</strong> ${esc(strainBadge.penaltyText)}</span>
+      </div>
+    `
+    : "";
+
   const sessionId = foundry.utils.randomID();
   const usedRisk = Number(actor?.system?.riskUsed ?? 0);
   const totalRisk = Number(actor?.system?.riskDice ?? 0);
-  const canRisk = !!actor && kept.length >= 2 && usedRisk < totalRisk;
+  const canRisk = !!actor && kept.length >= 2 && usedRisk < totalRisk && !stoRiskLocked;
 
   const riskBtn = (actor && kept.length >= 2)
     ? `
@@ -185,7 +271,7 @@ export async function evaluateRoll({
         data-skill-mod="${skillMod}"
         data-session-id="${sessionId}"
         ${canRisk ? "" : 'disabled aria-disabled="true"'}
-        title="Risk It">
+        title="${stoRiskLocked ? "Risk unavailable: Track damage" : "Risk It"}">
         <i class="fa-kit fa-risk"></i>
       </button>
     `
@@ -351,6 +437,7 @@ export async function evaluateRoll({
         </div>
 
         ${edgeHeader}
+        ${strainHeader}
 
         <div class="mg-roll-math-wrap ${edge ? "has-edge" : ""}">
           <div class="mg-roll-math ${hasDroppedDice ? "is-interactive" : ""}" ${hasDroppedDice ? 'role="button" tabindex="0" aria-expanded="false"' : ""}>

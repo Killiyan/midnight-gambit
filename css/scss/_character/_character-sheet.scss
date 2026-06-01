@@ -338,6 +338,32 @@ ol li {
         width: calc(100% - 2.125rem);
         box-shadow: 5px 5px 10px rgba(0,0,0,0.5);
         overflow: hidden;
+        position: relative;
+
+        > .mg-strain-warning-badge {
+          position: absolute;
+          top: .45rem;
+          width: 1.9rem;
+          height: 1.9rem;
+          border-radius: .5rem;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: rgba($black, .75);
+          border: 2px solid $mg-blue-3;
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.28);
+          z-index: 3;
+          pointer-events: auto;
+
+          i {
+            color: $mg-blue-1;
+            font-size: .9rem;
+          }
+        }
+
+        > .mg-strain-warning-badge {
+          left: .45rem;
+        }
         
         label {
           @include oswald();
@@ -347,6 +373,11 @@ ol li {
           padding: 1rem;
           margin: 0;
           background-color: $mg-blue-main;
+
+          span {
+            position: relative;
+            z-index: 3;
+          }
         }
 
         .attribute-interior {
@@ -1065,6 +1096,33 @@ ol li {
         width: calc(100% - 2.125rem);
         box-shadow: 5px 5px 10px rgba(0,0,0,0.5);
         overflow: hidden;
+        position: relative;
+
+        > .mg-strain-warning-badge {
+          position: absolute;
+          top: -2px;
+          width: auto;
+          height: auto;
+          aspect-ratio: 1/1;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 2;
+          pointer-events: auto;
+          @include mg-border();
+          background: rgba($black, .6);
+          border-color: $mg-alert-2;
+
+          i {
+            font-size: .875rem;
+            color: $mg-alert-2;
+          }
+        }
+
+        > .mg-strain-warning-badge {
+          left: -2px;
+          border-radius: 0 0 .5rem 0;
+        }
         
         label {
           @include oswald();
@@ -1073,7 +1131,7 @@ ol li {
           color: $mg-blue-1;
           padding: 1rem;
           margin: 0;
-          background-color: $mg-blue-main;
+          background-color: $mg-blue-main;         
         }
 
         .attribute-interior {
@@ -1106,7 +1164,8 @@ ol li {
               box-shadow: 0 4px 12px rgba(0, 0, 0, 0.28);
               z-index: 2;
               pointer-events: none;
-            }            
+            }
+
           }
 
           hr {
@@ -1183,7 +1242,8 @@ ol li {
             box-shadow: 0 3px 8px rgba(0, 0, 0, .3);
             z-index: 2;
             pointer-events: none;
-          }          
+          }
+
         }
       }
     }
@@ -3333,6 +3393,10 @@ ol li {
 
         &.gambit-design-toggles {
           flex-wrap: wrap;
+        }
+
+        &.gambit-hand-ui-toggles .gambit-hand-ui-toggle-row {
+          width: 100%;
         }
 
         .guise-toggle-row {

@@ -1,4 +1,4 @@
-import { evaluateRoll } from "./roll-utils.js";
+import { evaluateRoll, mgApplyStrainAttributePenalty, mgGetStrainEffectBadge, mgGetStrainRollEffects } from "./roll-utils.js";
 
 /* Midnight Gambit Custom UI
 ==============================================================================================================================================*/
@@ -48,6 +48,18 @@ const MG_SKILL_ATTRIBUTE_MAP = {
 	command: "presence", charm: "presence", perform: "presence",
 	spark: "guile"
 };
+
+function mgRenderStrainEffectBadge(effects) {
+	const badge = mgGetStrainEffectBadge(effects, { includeGlobalLock: false });
+	if (!badge) return "";
+
+	return `
+		<span class="mg-strain-warning-badge ${mgEsc(badge.tree)}" title="${mgEsc(badge.title)}">
+			<i class="fa-solid fa-exclamation"></i>
+		</span>
+	`;
+}
+
 const MG_SKILL_LABELS = {
 	brawl: "Brawl",
 	endure: "Endure",
@@ -477,7 +489,7 @@ function mgSigned(value) {
 function mgClampStatValue(value) {
 	const n = Number(value);
 	if (!Number.isFinite(n)) return 0;
-	return Math.max(-2, Math.min(3, Math.trunc(n)));
+	return Math.max(-3, Math.min(3, Math.trunc(n)));
 }
 
 function mgCapitalize(value) {
@@ -2706,8 +2718,15 @@ async function mgRollAttribute(actor, attrKey) {
 	const auraAttrMod = Number(aura.value ?? 0);
 	const difficultyMod = mgGetDifficultyModifier();
 	const finalAttrMod = baseAttrMod + tempAttrMod;
-	const pool = 2 + Math.abs(finalAttrMod);
-	const rollType = finalAttrMod >= 0 ? "kh2" : "kl2";
+	const strainEffects = mgGetStrainRollEffects(actor, attrKey);
+	if (strainEffects.out) {
+		ui.notifications?.warn(`${mgCapitalize(attrKey)} is unavailable at ${strainEffects.track} ${strainEffects.tree} track.`);
+		return;
+	}
+
+	const strainedAttrMod = mgApplyStrainAttributePenalty(finalAttrMod, strainEffects);
+	const pool = 2 + Math.abs(strainedAttrMod);
+	const rollType = strainedAttrMod >= 0 ? "kh2" : "kl2";
 	const edge = !!actor.system?.edgeNext;
 
 	await evaluateRoll({
@@ -2735,7 +2754,8 @@ async function mgRollAttribute(actor, attrKey) {
 		auraAttrMod,
 		auraSourceActorId: aura.sourceActorId,
 		auraSourceTokenId: aura.sourceTokenId,
-		auraIconClass: "fa-eye-evil"
+		auraIconClass: "fa-eye-evil",
+		strainEffects
 	});
 
 	if (edge) {
@@ -2777,8 +2797,15 @@ async function mgRollSkill(actor, skillKey) {
 	const difficultyMod = mgGetDifficultyModifier();
 	const finalAttrMod = baseAttrMod + tempAttrMod;
 	const finalSkillMod = baseSkillMod + tempSkillMod + auraAttrMod + difficultyMod;
-	const pool = 2 + Math.abs(finalAttrMod);
-	const rollType = finalAttrMod >= 0 ? "kh2" : "kl2";
+	const strainEffects = mgGetStrainRollEffects(actor, attrKey);
+	if (strainEffects.out) {
+		ui.notifications?.warn(`${MG_SKILL_LABELS[skillKey] ?? skillKey} is unavailable at ${strainEffects.track} ${strainEffects.tree} track.`);
+		return;
+	}
+
+	const strainedAttrMod = mgApplyStrainAttributePenalty(finalAttrMod, strainEffects);
+	const pool = 2 + Math.abs(strainedAttrMod);
+	const rollType = strainedAttrMod >= 0 ? "kh2" : "kl2";
 	const edge = !!actor.system?.edgeNext;
 
 	await evaluateRoll({
@@ -2797,7 +2824,8 @@ async function mgRollSkill(actor, skillKey) {
 		auraLabel: aura.label,
 		auraAttrMod,
 		auraSourceActorId: aura.sourceActorId,
-		auraSourceTokenId: aura.sourceTokenId
+		auraSourceTokenId: aura.sourceTokenId,
+		strainEffects
 	});
 
 	if (edge) {
@@ -2827,13 +2855,13 @@ async function mgEditActorStat(actor, type, key, button) {
 async function mgOpenStatPicker(title, current) {
 	return new Promise(resolve => {
 		let settled = false;
-		const choices = [-2, -1, 0, 1, 2, 3];
+		const choices = [-3, -2, -1, 0, 1, 2, 3];
 		const dlg = new Dialog({
 			title,
 			content: `
 				<div class="mg-stat-picker">
 					${choices.map(value => `
-						<button type="button" data-value="${value}" class="${value === current ? "is-selected" : ""}">
+						<button class="mg-stat-choice ${value === current ? "selected" : ""}" type="button" data-value="${value}" aria-pressed="${value === current ? "true" : "false"}">
 							${mgSigned(value)}
 						</button>
 					`).join("")}
@@ -3169,9 +3197,12 @@ function mgRenderCharacterSidebar(actor) {
 				const attrValue = Number(actor.system?.attributes?.[attrKey] ?? 0) || 0;
 				const baseValue = Number(actor.system?.baseAttributes?.[attrKey] ?? attrValue) || 0;
 				const tempValue = Number(actor.system?.tempAttributeBonuses?.[attrKey] ?? 0) || 0;
+				const attrStrainEffects = mgGetStrainRollEffects(actor, attrKey);
+				const attrStrainBadge = mgRenderStrainEffectBadge(attrStrainEffects);
 
 				return `
 					<div class="attribute-card" data-attr="${attrKey}">
+						${attrStrainBadge}
 						<div
 							class="attribute-roll"
 						>

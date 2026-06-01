@@ -215,7 +215,8 @@
 			"locked": false,
 			"maxDeckSize": 3,
 			"maxDrawSize": 3,
-			"cardDesign": "midnight"
+			"cardDesign": "midnight",
+			"handUiEnabled": true
 		},
 		"class": "class placeholder",
 		"level": 1,

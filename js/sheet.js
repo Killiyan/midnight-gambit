@@ -1,4 +1,4 @@
-import { evaluateRoll } from "./roll-utils.js";
+import { evaluateRoll, mgApplyStrainAttributePenalty, mgGetStrainEffectBadge, mgGetStrainRollEffects } from "./roll-utils.js";
 
 const MG_ACTOR_GUISE_IMAGE = "systems/midnight-gambit/assets/images/guise.jpg";
 const MG_ACTOR_DEFAULT_IMAGE = "icons/svg/mystery-man.svg";
@@ -163,6 +163,25 @@ export class MidnightGambitActorSheet extends ActorSheet {
           key,
           Number(storedTempSkillBonuses[key] ?? 0)
         ])
+      );
+
+      context.strainAttributeEffects = Object.fromEntries(
+        context.attributeKeys.map((key) => [
+          key,
+          mgGetStrainEffectBadge(mgGetStrainRollEffects(this.actor, key), { includeGlobalLock: false })
+        ])
+      );
+      context.strainAttributeTrees = Object.fromEntries(
+        context.attributeKeys.map((key) => {
+          const effects = mgGetStrainRollEffects(this.actor, key);
+          return [
+            key,
+            {
+              tree: effects.tree,
+              iconClass: effects.tree === "mortal" ? "fa-kit fa-mortal-strain" : "fa-kit fa-soul-strain"
+            }
+          ];
+        })
       );
 
       context.skillAttrShort = {
@@ -500,6 +519,7 @@ export class MidnightGambitActorSheet extends ActorSheet {
       }));
 
       const gambitCardDesign = this.actor.system?.gambits?.cardDesign || "midnight";
+      context.gambitHandUiEnabled = this.actor.system?.gambits?.handUiEnabled !== false;
       context.gambitCardDesigns = [
         { id: "midnight", name: "Midnight", isSelected: gambitCardDesign === "midnight" },
         { id: "pearl", name: "Pearl", isSelected: gambitCardDesign === "pearl" },
@@ -1483,6 +1503,32 @@ _mgOpenSidebarCropper() {
         btn.classList.toggle("is-active", !cur);
       });
 
+      const refreshStrainEffectBadges = () => {
+        const root = html[0];
+        if (!root) return;
+
+        root.querySelectorAll(".attribute-column[data-attr]").forEach((column) => {
+          column.querySelector(":scope > .mg-strain-warning-badge")?.remove();
+
+          const attrKey = column.dataset.attr;
+          const effect = mgGetStrainEffectBadge(
+            mgGetStrainRollEffects(this.actor, attrKey),
+            { includeGlobalLock: false }
+          );
+          if (!effect) return;
+
+          const badge = document.createElement("span");
+          badge.className = `mg-strain-warning-badge ${effect.tree}`;
+          badge.dataset.tooltip = effect.title;
+
+          const icon = document.createElement("i");
+          icon.className = "fa-solid fa-exclamation";
+          badge.appendChild(icon);
+
+          column.prepend(badge);
+        });
+      };
+
       // This updates the strain amount on click; we suppress full re-render to avoid UI jump
       html.find(".strain-dot").on("click", async (event) => {
         event.preventDefault();
@@ -1533,6 +1579,8 @@ _mgOpenSidebarCropper() {
         if ($tickerText.length) {
           $tickerText.text(newValue);
         }
+
+        refreshStrainEffectBadges();
       });
 
 
@@ -2276,6 +2324,8 @@ _mgOpenSidebarCropper() {
           // Optional max labels if you have them
           const maxEl = html[0]?.querySelector(`.capacity-max[data-type='${type}']`);
           if (maxEl) maxEl.textContent = String(getMax());
+
+          refreshStrainEffectBadges();
         };
 
         // SHIFT+CLICK = TEMP MAX capacity adjust
@@ -2860,7 +2910,23 @@ _mgOpenSidebarCropper() {
           await this.actor.update({ "system.gambits.cardDesign": design });
         });
 
-      // Attribute base edit: fixed -2 to +3 picker
+      html.find(".mg-gambit-hand-ui-toggle")
+        .off("click.mgGambitHandUi")
+        .on("click.mgGambitHandUi", async (ev) => {
+          ev.preventDefault();
+
+          const clicked = ev.currentTarget;
+          const enabled = clicked.getAttribute("aria-pressed") !== "true";
+
+          clicked.classList.toggle("is-on", enabled);
+          clicked.classList.toggle("is-off", !enabled);
+          clicked.setAttribute("aria-pressed", enabled ? "true" : "false");
+          clicked.title = enabled ? "Hide Gambit hand UI" : "Show Gambit hand UI";
+
+          await this.actor.update({ "system.gambits.handUiEnabled": enabled });
+        });
+
+      // Attribute base edit: fixed -3 to +3 picker
       html.find(".attribute-modifier").on("contextmenu", async (event) => {
         event.preventDefault();
 
@@ -2896,8 +2962,15 @@ _mgOpenSidebarCropper() {
         // Aura should NOT change the dice pool anymore
         const finalAttrMod = baseAttrMod + tempAttrMod;
 
-        const pool = 2 + Math.abs(finalAttrMod);
-        const rollType = finalAttrMod >= 0 ? "kh2" : "kl2";
+        const strainEffects = mgGetStrainRollEffects(this.actor, attrKey);
+        if (strainEffects.out) {
+          ui.notifications?.warn(`${attrKey.charAt(0).toUpperCase() + attrKey.slice(1)} is unavailable at ${strainEffects.track} ${strainEffects.tree} track.`);
+          return;
+        }
+
+        const strainedAttrMod = mgApplyStrainAttributePenalty(finalAttrMod, strainEffects);
+        const pool = 2 + Math.abs(strainedAttrMod);
+        const rollType = strainedAttrMod >= 0 ? "kh2" : "kl2";
         const formula = `${pool}d6${rollType}`;
 
         const edge = !!this.actor.system.edgeNext;
@@ -2927,7 +3000,8 @@ _mgOpenSidebarCropper() {
           auraAttrMod,
           auraSourceActorId: aura.sourceActorId,
           auraSourceTokenId: aura.sourceTokenId,
-          auraIconClass: "fa-eye-evil"
+          auraIconClass: "fa-eye-evil",
+          strainEffects
         });
 
         if (edge) {
@@ -3048,13 +3122,20 @@ _mgOpenSidebarCropper() {
           // Aura is now a flat final modifier, not dice-pool pressure
           const finalAttrMod = baseAttrMod + tempAttrMod;
           const finalSkillMod = baseSkillMod + tempSkillMod + auraAttrMod + difficultyMod;
+          const skillLabel = skillLabels[skillKey] ?? skillKey;
 
-          const pool = 2 + Math.abs(finalAttrMod);
-          const rollType = finalAttrMod >= 0 ? "kh2" : "kl2";
+          const strainEffects = mgGetStrainRollEffects(this.actor, attrKey);
+          if (strainEffects.out) {
+            ui.notifications?.warn(`${skillLabel} is unavailable at ${strainEffects.track} ${strainEffects.tree} track.`);
+            return;
+          }
+
+          const strainedAttrMod = mgApplyStrainAttributePenalty(finalAttrMod, strainEffects);
+          const pool = 2 + Math.abs(strainedAttrMod);
+          const rollType = strainedAttrMod >= 0 ? "kh2" : "kl2";
           const formula = `${pool}d6${rollType}`;
 
           const edge = !!this.actor.system.edgeNext;
-          const skillLabel = skillLabels[skillKey] ?? skillKey;
 
           const bonusText =
             (tempSkillMod !== 0 || auraAttrMod !== 0)
@@ -3097,7 +3178,8 @@ _mgOpenSidebarCropper() {
             auraLabel: aura.label,
             auraAttrMod,
             auraSourceActorId: aura.sourceActorId,
-            auraSourceTokenId: aura.sourceTokenId
+            auraSourceTokenId: aura.sourceTokenId,
+            strainEffects
           });
 
           if (edge) {
@@ -3107,7 +3189,7 @@ _mgOpenSidebarCropper() {
           }
       });
 
-      // Skill base edit: fixed -2 to +3 picker
+      // Skill base edit: fixed -3 to +3 picker
       html.find(".skill-value").on("contextmenu", async (event) => {
         event.preventDefault();
 
@@ -5433,7 +5515,39 @@ _mgOpenSidebarCropper() {
           }
         }
 
+      // Live strain updates while sheet is open, without a full sheet render.
+      if (this._strainHookId) Hooks.off("updateActor", this._strainHookId);
+      this._strainHookId = Hooks.on("updateActor", (actor, changes) => {
+        if (actor.id !== this.actor.id) return;
+
+        const strainChanged =
+          foundry.utils.hasProperty(changes, "system.strain") ||
+          foundry.utils.hasProperty(changes, "system.strain.mortal") ||
+          foundry.utils.hasProperty(changes, "system.strain.soul") ||
+          foundry.utils.hasProperty(changes, "system.strain.mortal capacity") ||
+          foundry.utils.hasProperty(changes, "system.strain.soul capacity");
+
+        if (!strainChanged) return;
+
+        for (const type of ["mortal", "soul"]) {
+          const trackValue = Number(actor.system?.strain?.[type] ?? 0);
+          const $track = this.element.find(`.strain-track[data-strain="${type}"]`);
+          $track.find(".strain-dot").each((_, node) => {
+            const v = Number(node.dataset.value);
+            node.classList.toggle("filled", v <= trackValue);
+          });
+
+          const capKey = `${type} capacity`;
+          const capValue = Number(actor.system?.strain?.[capKey] ?? 0);
+          const capEl = this.element[0]?.querySelector(`.capacity-value[data-type="${type}"]`);
+          if (capEl) capEl.textContent = String(Math.max(0, capValue));
+        }
+
+        refreshStrainEffectBadges();
+      });
+
       // Live STO updates while sheet is open
+      if (this._stoHookId) Hooks.off("updateActor", this._stoHookId);
       this._stoHookId = Hooks.on("updateActor", (actor, changes) => {
         if (actor.id !== this.actor.id) return;
 
@@ -5806,14 +5920,6 @@ _mgOpenSidebarCropper() {
     return overlay;
   }
 
-  async close(options) {
-    if (this._stoHookId) {
-      Hooks.off("updateActor", this._stoHookId);
-      this._stoHookId = null;
-    }
-    return super.close(options);
-  }
-
   /**
    * Pull a styled clone of the hand card to the exact viewport center.
    * We animate the fixed-position shell (not the inner ghost) so centering is precise.
@@ -6040,7 +6146,7 @@ _mgOpenSidebarCropper() {
   _mgClampStatValue(value) {
     const n = Number(value);
     if (!Number.isFinite(n)) return 0;
-    return Math.max(-2, Math.min(3, Math.trunc(n)));
+    return Math.max(-3, Math.min(3, Math.trunc(n)));
   }
 
   _mgFormatSigned(n) {
@@ -6049,7 +6155,7 @@ _mgOpenSidebarCropper() {
   }
 
   _mgStatPickerHtml(current) {
-    const choices = [-2, -1, 0, 1, 2, 3];
+    const choices = [-3, -2, -1, 0, 1, 2, 3];
 
     return `
       <div class="mg-stat-picker">
@@ -7729,6 +7835,13 @@ async _mgOpenStatPicker({ title, current }) {
     try {
       if (this._mgCrewNameHook) Hooks.off("updateActor", this._mgCrewNameHook);
       this._mgCrewNameHook = null;
+    } catch (_) {}
+
+    try {
+      if (this._strainHookId) Hooks.off("updateActor", this._strainHookId);
+      if (this._stoHookId) Hooks.off("updateActor", this._stoHookId);
+      this._strainHookId = null;
+      this._stoHookId = null;
     } catch (_) {}
 
     return super.close(options);

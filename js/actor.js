@@ -229,7 +229,7 @@ export class MidnightGambitActor extends Actor {
 
     // === Clamp attributes ===
     for (const key of Object.keys(base)) {
-      base[key] = Math.max(-2, Math.min(3, base[key]));
+      base[key] = Math.max(-3, Math.min(3, base[key]));
     }
 
     data.level ??= 1;
@@ -248,6 +248,7 @@ export class MidnightGambitActor extends Actor {
     data.gambits.maxDeckSize ??= 3;   // keep as-is unless you want to scale deck size later
     data.gambits.maxEquip ??= 3;      // NEW field for "Equipped Gambits" cap (UI can read it)
     data.gambits.cardDesign ??= "midnight";
+    data.gambits.handUiEnabled ??= true;
     data.gambits.handHidden ??= [];
     data.gambits.moveOrder ??= [];
     data.gambits.moveHidden ??= [];
@@ -505,7 +506,7 @@ export class MidnightGambitActor extends Actor {
 
         dec("attributes");
 
-        const next = Math.max(-2, Math.min(3, curr + 1));
+        const next = Math.max(-3, Math.min(3, curr + 1));
         await this.update({ [`system.baseAttributes.${key}`]: next });
         break;
       }
@@ -518,7 +519,7 @@ export class MidnightGambitActor extends Actor {
 
         dec("skills");
 
-        const next = Math.max(-2, Math.min(3, curr + 1));
+        const next = Math.max(-3, Math.min(3, curr + 1));
         await this.update({ [`system.skills.${key}`]: next });
         break;
       }

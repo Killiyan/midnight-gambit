@@ -2040,6 +2040,34 @@ body.mg-hud-enabled {
 				box-shadow: 5px 5px 10px rgba($black, .35);
 				overflow: hidden;
 				display: flex;
+				position: relative;
+
+				> .mg-strain-warning-badge {
+				position: absolute;
+				top: -2px;
+				left: -2px;
+				width: auto;
+				height: auto;
+				aspect-ratio: 1/1;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				z-index: 2;
+				pointer-events: auto;
+				@include mg-border();
+				background: rgba($black, .6);
+				border-color: $mg-alert-2;
+
+				i {
+					font-size: .875rem;
+					color: $mg-alert-2;
+				}
+				}
+
+				> .mg-strain-warning-badge {
+					top: -2px;
+					border-radius: 0 0 .5rem 0;
+				}
 
 				label {
 					color: $mg-blue-1;
@@ -2195,6 +2223,7 @@ body.mg-hud-enabled {
 					position: relative;
 					height: 100%;
 					min-height: 2.375rem;
+
 				}
 
 				em {
@@ -2356,6 +2385,7 @@ body.mg-hud-enabled {
 						display: flex;
 						justify-content: center;
 						align-items: center;
+
 					}
 				}
 

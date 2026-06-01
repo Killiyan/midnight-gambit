@@ -2,7 +2,7 @@ import { MidnightGambitCrewSheet } from "./crew-sheet.js";
 import { MGInitiativeBar } from "./initiative-bar.js";
 import { MGInitiativeSidebar } from "./initiative-sidebar.js";
 import { MGInitiativeController } from "./initiative-controller.js";
-import { evaluateRoll } from "./roll-utils.js";
+import { evaluateRoll, mgGetStrainRollEffects } from "./roll-utils.js";
 
 
 async function mgEnsureBasicUserDrawingPermission() {
@@ -133,8 +133,18 @@ Hooks.on("createItem", async (item, options, userId) => {
   ui.notifications.info(`Learned Move added: ${item.name}`);
 });
 
-Hooks.on("updateActor", (actor) => {
-  if (actor.id === game.user.character?.id) renderGambitHand(actor);
+function mgActorUpdateTouchesGambitHand(changes = {}) {
+  return (
+    foundry.utils.hasProperty(changes, "system.gambits") ||
+    foundry.utils.hasProperty(changes, "flags.midnight-gambit.moveOrder") ||
+    changes?.flags?.["midnight-gambit"]?.moveOrder !== undefined
+  );
+}
+
+Hooks.on("updateActor", (actor, changes) => {
+  if (actor.id !== game.user.character?.id) return;
+  if (!mgActorUpdateTouchesGambitHand(changes)) return;
+  renderGambitHand(actor);
 });
 
 Hooks.on("updateUser", (user) => {
@@ -209,6 +219,7 @@ function renderGambitHand(actor) {
   });
 
   if (!actor) return;
+  if (actor.system?.gambits?.handUiEnabled === false) return;
 
   const drawnIds = actor.system.gambits.drawn ?? [];
   const hiddenGambitIds = new Set(
@@ -445,7 +456,7 @@ function renderGambitHandCards(actor, cardsWrap, handHtml, drawnItems, deckIds) 
 
   if (!total) {
     const empty = document.createElement("div");
-    empty.className = "gambit-hand-empty";
+    empty.className = "gambit-hand-empty gambit-hand-card";
     empty.innerHTML = deckIds.length
       ? `
         <button class="gambit-hand-draw" type="button">
@@ -1183,6 +1194,13 @@ Hooks.on("renderChatMessage", (message, html) => {
       modifierBreakdown = [];
     }
 
+    let strainEffects = null;
+    try {
+      strainEffects = JSON.parse(btn.dataset.strainEffects || "null");
+    } catch (_) {
+      strainEffects = null;
+    }
+
     const auraActor = game.actors.get(auraActorId);
     const rollActor = game.actors.get(rollActorId);
 
@@ -1219,7 +1237,8 @@ Hooks.on("renderChatMessage", (message, html) => {
       auraLabel: "",
       auraAttrMod: 0,
       auraSourceActorId: "",
-      auraSourceTokenId: ""
+      auraSourceTokenId: "",
+      strainEffects
     });
 
     btn.disabled = true;
@@ -1711,6 +1730,26 @@ function mgHotColor(hslStr) {
   return `hsl(${h}, ${s}%, ${l}%)`;
 }
 
+function mgGetClockChatSpeaker() {
+  const actor = game.user?.character ?? null;
+
+  if (actor) {
+    return {
+      scene: null,
+      actor: actor.id,
+      token: null,
+      alias: actor.name
+    };
+  }
+
+  return {
+    scene: null,
+    actor: null,
+    token: null,
+    alias: game.user?.name || "Gamemaster"
+  };
+}
+
 // Post a chat line when the clock ticks down (remaining decreased)
 async function mgAnnounceClockTickDown(name, remaining, total, gmOnly) {
   const title = name ? `<strong>${name}</strong>` : "The clock";
@@ -1731,7 +1770,7 @@ async function mgAnnounceClockTickDown(name, remaining, total, gmOnly) {
   `;
   const data = {
     user: game.user.id,
-    speaker: ChatMessage.getSpeaker(),
+    speaker: mgGetClockChatSpeaker(),
     content
   };
   // If GM-only clock, whisper to GMs; otherwise, broadcast
@@ -3485,7 +3524,7 @@ Hooks.on("renderChatMessage", (message, html) => {
     ) return;
 
     const rollContainer = root.querySelector(".dice-roll");
-    const roll = message?.roll;
+    const roll = Array.isArray(message?.rolls) ? message.rolls[0] : null;
     if (!rollContainer || !roll) return;
 
     if (rollContainer.dataset.mgVanillaProcessed === "true") return;
@@ -3708,19 +3747,21 @@ Hooks.on("renderChatMessage", (message, html) => {
 
   // Core handler for both the first Risk and "Risk Again"
   const handleRiskClick = async (btn) => {
-    disableBtn(btn); // UI first
-
-    // Mark this message as consumed so refresh doesn't re-enable it
-    try { await message.setFlag("midnight-gambit", "riskConsumed", true); } catch (e) {}
-
     const actorId  = btn.dataset.actorId;
     const keptStr  = btn.dataset.kept || "";
     const skillMod = Number(btn.dataset.skillMod || 0);
     const sessionId = btn.dataset.sessionId || message.getFlag("midnight-gambit", "stoSession")?.sessionId || foundry.utils.randomID();
 
-
     const actor = game.actors.get(actorId);
     if (!actor) return ui.notifications.warn("Actor not found for Risk.");
+    if (mgGetStrainRollEffects(actor).stoRiskLocked) {
+      return ui.notifications.warn("Risk is unavailable while either strain track is at 3 or higher.");
+    }
+
+    disableBtn(btn); // UI first
+
+    // Mark this message as consumed so refresh doesn't re-enable it
+    try { await message.setFlag("midnight-gambit", "riskConsumed", true); } catch (e) {}
 
     const kept = keptStr.split(",").map(n => Number(n)).filter(Number.isFinite);
     if (kept.length < 2) return ui.notifications.warn("Risk requires two kept dice.");
@@ -3784,7 +3825,8 @@ Hooks.on("renderChatMessage", (message, html) => {
   // Can we risk again? (only show the button if there are dice left)
   const usedNow  = Number(actor.system?.riskUsed ?? 0);
   const totalRD  = Number(actor.system?.riskDice ?? 0);
-  const canAgain = usedNow < totalRD;
+  const stoRiskLocked = mgGetStrainRollEffects(actor).stoRiskLocked;
+  const canAgain = usedNow < totalRD && !stoRiskLocked;
 
   // --- Build resultText to match your original style, but for the NEW result ---
   let resultLabel = "";
@@ -3856,7 +3898,7 @@ Hooks.on("renderChatMessage", (message, html) => {
               data-kept="${newDice.join(",")}"
               data-skill-mod="${skillMod}"
               data-session-id="${sessionId}"
-              title="Risk">
+              title="${stoRiskLocked ? "Risk unavailable: Track damage" : "Risk"}">
         <i class="fa-kit fa-risk"></i>
       </button>`
     : `<button type="button"
@@ -3891,7 +3933,7 @@ Hooks.on("renderChatMessage", (message, html) => {
 
   const stoValue = Number(actor.system?.sto?.value ?? 0);
 
-  if (stoValue > 0) {
+  if (stoValue > 0 && !stoRiskLocked) {
     // From Failure -> Complication or Flourish
     if (newTotal <= 6) {
       const needComp = 7 - newTotal;
@@ -3996,35 +4038,6 @@ Hooks.on("renderChatMessage", (message, html) => {
     type: CONST.CHAT_MESSAGE_TYPES.OTHER
   }));
 
-  function mgRestrictedMetaHtml(message) {
-  if (!mgIsRestrictedMessage(message) || !mgCanViewerSeeRoll(message)) return "";
-
-  return `
-    <div class="mg-roll-private-meta">
-      <i class="fa-solid fa-eye-slash" aria-hidden="true"></i>
-      <span>${mgRestrictedTargetLabel(message)}</span>
-    </div>
-  `;
-}
-
-  function mgRestrictedTargetLabel(message) {
-    if (!mgIsRestrictedMessage(message)) return "";
-
-    // Self roll / blind style
-    if (message?.blind) return "Hidden Roll";
-
-    const ids = Array.isArray(message?.whisper) ? message.whisper : [];
-    if (!ids.length) return "Hidden Roll";
-
-    const names = ids
-      .map(id => game.users.get(id)?.name)
-      .filter(Boolean);
-
-    if (!names.length) return "Hidden Roll";
-
-    return `To: ${names.join(", ")}`;
-  }
-
   // Carry STO session forward so the next Risk Again click is still the same session
   try { await newMsg.setFlag("midnight-gambit", "stoSession", stoSession); } catch (e) {}
 
@@ -4034,7 +4047,9 @@ Hooks.on("renderChatMessage", (message, html) => {
   const riskBtn = root.querySelector(".mg-risk-it");
   if (riskBtn) {
     const consumed = message.getFlag("midnight-gambit", "riskConsumed");
-    if (consumed) disableBtn(riskBtn);
+    const actor = game.actors.get(riskBtn.dataset.actorId);
+    const locked = actor ? mgGetStrainRollEffects(actor).stoRiskLocked : false;
+    if (consumed || locked) disableBtn(riskBtn);
     else riskBtn.addEventListener("click", () => handleRiskClick(riskBtn), { once: true });
   }
 
@@ -4042,9 +4057,16 @@ Hooks.on("renderChatMessage", (message, html) => {
   const riskAgainBtn = root.querySelector(".mg-risk-again");
   if (riskAgainBtn) {
     const consumed = message.getFlag("midnight-gambit", "riskConsumed");
-    if (consumed) disableBtn(riskAgainBtn);
+    const actor = game.actors.get(riskAgainBtn.dataset.actorId);
+    const locked = actor ? mgGetStrainRollEffects(actor).stoRiskLocked : false;
+    if (consumed || locked) disableBtn(riskAgainBtn);
     else riskAgainBtn.addEventListener("click", () => handleRiskClick(riskAgainBtn), { once: true });
   }
+
+  root.querySelectorAll(".mg-spend-sto").forEach((btn) => {
+    const actor = game.actors.get(btn.dataset.actorId);
+    if (actor && mgGetStrainRollEffects(actor).stoRiskLocked) disableBtn(btn);
+  });
 
   html.on("click", ".mg-spend-sto", async (event) => {
     event.preventDefault();
@@ -4052,6 +4074,9 @@ Hooks.on("renderChatMessage", (message, html) => {
     const btn = event.currentTarget;
     const actor = game.actors.get(btn.dataset.actorId);
     if (!actor) return;
+    if (mgGetStrainRollEffects(actor).stoRiskLocked) {
+      return ui.notifications.warn("STO is unavailable while either strain track is at 3 or higher.");
+    }
 
     const spend = Number(btn.dataset.spend);
     if (!spend) return;
@@ -4780,11 +4805,235 @@ Hooks.on("renderActorSheet", mgClearTinyMceSheetFocus);
 // Item sheets: Weapon, Armor, Misc, Gambit, Asset, Move, Guise
 Hooks.on("renderItemSheet", mgClearTinyMceSheetFocus);
 
+/* Chat motion
+----------------------------------------------------------------------*/
+const mgChatMotion = {
+  animatedElements: new WeakSet(),
+  pendingElements: new Map(),
+  observer: null,
+  observerLog: null,
+  ready: false,
+  wasNearBottom: true,
+  activeUntil: 0,
+  duration: 500,
+  entryDelay: 90,
+  settleFrames: 2,
+  maxSettleFrames: 600
+};
+
+function mgShouldAnimateChat() {
+  return !globalThis.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+}
+
+function mgIsChatNearBottom(threshold = 140) {
+  const log = document.querySelector("#chat-log");
+  if (!log) return true;
+
+  const distanceFromBottom = log.scrollHeight - (log.scrollTop + log.clientHeight);
+  return distanceFromBottom < threshold;
+}
+
+function mgChatMessageChildSelector() {
+  return ".chat-message, .message";
+}
+
+function mgChatMotionShouldSkip(el) {
+  return !!el?.querySelector?.(".mg-risk-result");
+}
+
+function mgScrollChatBottom({ smooth = true } = {}) {
+  const log = document.querySelector("#chat-log");
+  if (!log) return;
+
+  const top = log.scrollHeight;
+  if (smooth && mgShouldAnimateChat() && typeof log.scrollTo === "function") {
+    log.scrollTo({ top, behavior: "smooth" });
+  } else {
+    log.scrollTop = top;
+  }
+}
+
+function mgChatEntryTargetHeight(el) {
+  const styles = getComputedStyle(el);
+  return (
+    el.scrollHeight +
+    (parseFloat(styles.borderTopWidth) || 0) +
+    (parseFloat(styles.borderBottomWidth) || 0)
+  );
+}
+
+function mgPrepareChatEntry(el) {
+  if (el.dataset.mgChatMotionPrepared === "true") return;
+
+  el.dataset.mgChatMotionPrepared = "true";
+  el.style.transition = "none";
+  el.style.height = "0px";
+  el.style.opacity = "0";
+  el.style.overflow = "hidden";
+  el.style.transform = "translate3d(14px, 0, 0)";
+  el.style.willChange = "height, opacity, transform";
+}
+
+function mgAnimateChatEntry(newMessageEl) {
+  if (!mgChatMotion.ready || !mgShouldAnimateChat()) return;
+  if (!newMessageEl || mgChatMotion.animatedElements.has(newMessageEl)) return;
+  if (mgChatMotionShouldSkip(newMessageEl)) return;
+
+  const log = document.querySelector("#chat-log");
+  if (!log) return;
+
+  mgChatMotion.animatedElements.add(newMessageEl);
+  mgChatMotion.activeUntil = Date.now() + mgChatMotion.duration + mgChatMotion.entryDelay + 250;
+
+  const targetHeight = mgChatEntryTargetHeight(newMessageEl);
+  const shouldStickToBottom = mgChatMotion.wasNearBottom || mgIsChatNearBottom(targetHeight + 140);
+
+  newMessageEl.style.height = "0px";
+  newMessageEl.style.opacity = "0";
+  newMessageEl.style.transform = "translate3d(14px, 0, 0)";
+  newMessageEl.getBoundingClientRect();
+
+  newMessageEl.style.transition = [
+    `height ${mgChatMotion.duration}ms cubic-bezier(.2, .8, .2, 1)`,
+    `opacity ${mgChatMotion.duration}ms cubic-bezier(.2, .8, .2, 1) ${mgChatMotion.entryDelay}ms`,
+    `transform ${mgChatMotion.duration}ms cubic-bezier(.2, .8, .2, 1) ${mgChatMotion.entryDelay}ms`
+  ].join(", ");
+  newMessageEl.style.height = `${targetHeight}px`;
+  newMessageEl.style.opacity = "1";
+  newMessageEl.style.transform = "translate3d(0, 0, 0)";
+
+  if (shouldStickToBottom) mgFollowChatBottom(mgChatMotion.duration + mgChatMotion.entryDelay + 50);
+
+  window.setTimeout(() => {
+    newMessageEl.style.transition = "";
+    newMessageEl.style.height = "";
+    newMessageEl.style.opacity = "";
+    newMessageEl.style.overflow = "";
+    newMessageEl.style.transform = "";
+    newMessageEl.style.willChange = "";
+    delete newMessageEl.dataset.mgChatMotionPrepared;
+  }, mgChatMotion.duration + mgChatMotion.entryDelay + 250);
+}
+
+function mgFollowChatBottom(duration) {
+  const log = document.querySelector("#chat-log");
+  if (!log) return;
+
+  const end = performance.now() + duration;
+  const follow = () => {
+    log.scrollTop = log.scrollHeight;
+    if (performance.now() < end) requestAnimationFrame(follow);
+  };
+
+  requestAnimationFrame(follow);
+}
+
+function mgIsChatEntryReady(el) {
+  const rect = el.getBoundingClientRect();
+  const styles = getComputedStyle(el);
+
+  return (
+    el.scrollHeight > 8 &&
+    rect.width > 8 &&
+    styles.display !== "none" &&
+    styles.visibility !== "hidden"
+  );
+}
+
+function mgQueueChatEntryAnimation(el) {
+  if (!mgChatMotion.ready || !mgShouldAnimateChat() || !el || mgChatMotion.animatedElements.has(el)) return;
+  if (mgChatMotionShouldSkip(el)) return;
+  if (mgChatMotion.pendingElements.has(el)) return;
+
+  mgPrepareChatEntry(el);
+  mgChatMotion.pendingElements.set(el, {
+    frames: 0,
+    stableFrames: 0,
+    lastHeight: -1
+  });
+
+  mgSettleChatEntryAnimation(el);
+}
+
+function mgSettleChatEntryAnimation(el) {
+  const state = mgChatMotion.pendingElements.get(el);
+  if (!state) return;
+
+  requestAnimationFrame(() => {
+    if (!document.contains(el) || mgChatMotion.animatedElements.has(el)) {
+      mgChatMotion.pendingElements.delete(el);
+      return;
+    }
+
+    const ready = mgIsChatEntryReady(el);
+    const height = ready ? Math.round(mgChatEntryTargetHeight(el)) : 0;
+    const isStable = ready && Math.abs(height - state.lastHeight) <= 1;
+
+    state.frames += 1;
+    state.stableFrames = isStable ? state.stableFrames + 1 : 0;
+    state.lastHeight = height;
+
+    if (
+      (ready && state.stableFrames >= mgChatMotion.settleFrames) ||
+      (ready && state.frames >= mgChatMotion.maxSettleFrames)
+    ) {
+      mgChatMotion.pendingElements.delete(el);
+      mgAnimateChatEntry(el);
+      return;
+    }
+
+    if (state.frames >= mgChatMotion.maxSettleFrames) {
+      mgChatMotion.pendingElements.delete(el);
+      return;
+    }
+
+    mgSettleChatEntryAnimation(el);
+  });
+}
+
+function mgFindAddedChatMessages(node) {
+  if (!(node instanceof Element)) return [];
+
+  if (node.parentElement?.id === "chat-log" && node.matches(mgChatMessageChildSelector())) {
+    return [node];
+  }
+
+  return [];
+}
+
+function mgInstallChatMotionObserver(log) {
+  if (!log || mgChatMotion.observerLog === log) return;
+
+  mgChatMotion.observer?.disconnect();
+  mgChatMotion.observerLog = log;
+  mgChatMotion.observer = new MutationObserver((mutations) => {
+    for (const mutation of mutations) {
+      for (const node of mutation.addedNodes) {
+        for (const messageEl of mgFindAddedChatMessages(node)) {
+          mgQueueChatEntryAnimation(messageEl);
+        }
+      }
+    }
+  });
+
+  mgChatMotion.observer.observe(log, { childList: true });
+}
+
+Hooks.on("createChatMessage", () => {
+  mgChatMotion.wasNearBottom = mgIsChatNearBottom();
+});
+
 /* Force Chat to Start at Bottom (refresh-safe)
 ----------------------------------------------------------------------*/
 let mgDidInitialChatScroll = false;
 
 Hooks.on("renderChatLog", (app, html) => {
+  mgInstallChatMotionObserver(html.find("#chat-log")[0]);
+
+  window.setTimeout(() => {
+    mgChatMotion.ready = true;
+  }, 500);
+
   // Only force on the first render after a refresh/reload.
   if (mgDidInitialChatScroll) return;
   mgDidInitialChatScroll = true;
@@ -4812,12 +5061,13 @@ Hooks.on("renderChatLog", (app, html) => {
 Hooks.on("renderChatMessage", (_message, html) => {
   const log = document.querySelector("#chat-log");
   if (!log) return;
+  if (Date.now() < mgChatMotion.activeUntil) return;
 
   const distanceFromBottom = log.scrollHeight - (log.scrollTop + log.clientHeight);
 
   // If user is basically at the bottom, keep them pinned
-  if (distanceFromBottom < 40) {
-    requestAnimationFrame(() => { log.scrollTop = log.scrollHeight; });
+  if (distanceFromBottom < 140) {
+    requestAnimationFrame(() => mgScrollChatBottom({ smooth: true }));
   }
 });
 
@@ -4855,7 +5105,7 @@ Hooks.on("renderChatMessage", (message, html) => {
   });
 });
 
-// --- Apply privacy badge + target line to ANY visible restricted MG roll ---
+// --- Apply privacy badge to ANY visible restricted MG roll ---
 Hooks.on("renderChatMessage", (message, html) => {
   const root = html[0];
   if (!root) return;
@@ -4875,11 +5125,6 @@ Hooks.on("renderChatMessage", (message, html) => {
       labelWrap.insertAdjacentHTML("beforeend", mgRestrictedBadgeHtml(message));
     }
 
-    // 2) Ensure the "To: Gamemaster" / target line exists on ANY restricted MG roll
-    const header = card.querySelector(".mg-roll-header");
-    if (header && !card.querySelector(".mg-roll-private-meta")) {
-      header.insertAdjacentHTML("afterend", mgRestrictedMetaHtml(message));
-    }
   }
 });
 

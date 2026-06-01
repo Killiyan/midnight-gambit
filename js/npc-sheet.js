@@ -764,29 +764,21 @@ export class MidnightGambitNpcSheet extends ActorSheet {
       const el = event.currentTarget;
       const key = el.dataset.key;
 
-      const current = Number(el.getAttribute("data-base")) || 0;
-
-      const val = await Dialog.prompt({
+      const current = this._mgClampStatValue(el.getAttribute("data-base"));
+      const val = await this._mgOpenStatPicker({
         title: `Edit ${key}`,
-        content: `<label>Base ${key}: <input type="number" value="${current}" name="value" /></label>`,
-        label: "Save",
-        callback: (dlgHtml) => dlgHtml.find('input[name="value"]').val(),
-        rejectClose: false
-      }).catch(() => null);
+        current
+      });
 
       if (val === null) return;
 
       const next = this._mgClampStatValue(val);
-      if (!Number.isFinite(next)) {
-        ui.notifications.warn("Please enter a valid number.");
-        return;
-      }
 
       await this.actor.update({ [`system.baseAttributes.${key}`]: next }, { render: false });
 
       // reflect immediately without re-render
       el.setAttribute("data-base", String(next));
-      el.textContent = next >= 0 ? `+${next}` : `${next}`;
+      el.textContent = this._mgFormatSigned(next);
     });
 
     // ----------------------------
@@ -938,6 +930,73 @@ export class MidnightGambitNpcSheet extends ActorSheet {
       btn.classList.toggle("is-active", next);
     });
 
+  }
+
+  _mgClampStatValue(value) {
+    const n = Number(value);
+    if (!Number.isFinite(n)) return 0;
+    return Math.max(-3, Math.min(3, Math.trunc(n)));
+  }
+
+  _mgFormatSigned(n) {
+    const v = Number(n) || 0;
+    return v >= 0 ? `+${v}` : `${v}`;
+  }
+
+  _mgStatPickerHtml(current) {
+    const choices = [-3, -2, -1, 0, 1, 2, 3];
+
+    return `
+      <div class="mg-stat-picker">
+        ${choices.map(v => `
+          <button
+            type="button"
+            class="mg-stat-choice ${v === current ? "selected" : ""}"
+            data-value="${v}"
+            aria-pressed="${v === current ? "true" : "false"}"
+          >
+            ${this._mgFormatSigned(v)}
+          </button>
+        `).join("")}
+      </div>
+    `;
+  }
+
+  async _mgOpenStatPicker({ title, current }) {
+    let settled = false;
+
+    return new Promise((resolve) => {
+      const dlg = new Dialog({
+        title,
+        content: `
+          <h2 class="modal-headline">${title}</h2>
+          ${this._mgStatPickerHtml(current)}
+        `,
+        buttons: {
+          cancel: {
+            label: "Cancel",
+            callback: () => {
+              settled = true;
+              resolve(null);
+            }
+          }
+        },
+        render: (html) => {
+          html.closest(".app").addClass("mg-stat-picker-dialog");
+
+          html.find(".mg-stat-choice").on("click", (ev) => {
+            settled = true;
+            resolve(Number(ev.currentTarget.dataset.value));
+            dlg.close();
+          });
+        },
+        close: () => {
+          if (!settled) resolve(null);
+        }
+      });
+
+      dlg.render(true);
+    });
   }
 
   /** Wrap the profile img in a cropbox and apply saved vars from flags. */

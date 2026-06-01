@@ -171,7 +171,14 @@
           {{#each attributeKeys as |key|}}
 
             <div class="attribute-column" data-attr="{{key}}">
-              <label class="attribute-label">{{key}}</label>
+              {{#with (lookup ../strainAttributeEffects key) as |effect|}}
+                <span class="mg-strain-warning-badge {{effect.tree}}"
+                      data-tooltip="{{effect.title}}">
+                  <i class="fa-solid fa-exclamation"></i>
+                </span>
+              {{/with}}
+
+              <label class="attribute-label"><span>{{key}}</span></label>
 
               <div class="attribute-interior">
                 <!-- Attribute Header -->
@@ -1532,6 +1539,30 @@
               {{else}}
                 <div class="mg-muted">No Guise assigned.</div>
               {{/if}}
+            </div>
+          </section>
+
+          <!-- GAMBIT HAND UI -->
+          <section class="mg-setting-section">
+            <h3>Gambit Hand UI</h3>
+
+            <div class="wrapper">
+              <p class="mg-muted">Show or hide the floating Gambit hand at the bottom of your player UI.</p>
+
+              <div class="guise-toggles gambit-hand-ui-toggles">
+                <div class="guise-toggle-row gambit-hand-ui-toggle-row">
+                  <span class="guise-toggle-name">Show Hand</span>
+
+                  <button type="button"
+                          class="mg-primary-toggle mg-gambit-hand-ui-toggle {{#if gambitHandUiEnabled}}is-on{{else}}is-off{{/if}}"
+                          aria-pressed="{{#if gambitHandUiEnabled}}true{{else}}false{{/if}}"
+                          title="{{#if gambitHandUiEnabled}}Hide{{else}}Show{{/if}} Gambit hand UI">
+                    <span class="mg-primary-toggle-track">
+                      <span class="mg-primary-toggle-knob"></span>
+                    </span>
+                  </button>
+                </div>
+              </div>
             </div>
           </section>
 
