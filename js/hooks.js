@@ -144,6 +144,54 @@ Hooks.on("updateUser", (user) => {
 /* Setting Player's Gambit Hand
 ==============================================================================================================================================*/
 
+const MG_TEAM_PLAY_ACTIONS = [
+  {
+    id: "assist",
+    name: "Assist",
+    description: "Aid another player's action this round, giving them +1 die to their roll, but you cannot take another action this round. You must feasibly be able to help them.",
+    kind: "team",
+    styleKind: "basic",
+    label: "Team Play",
+    icon: "fa-handshake-angle"
+  },
+  {
+    id: "set-up",
+    name: "Set Up",
+    description: "Prepare something to make a future action stronger. The next attack vs that enemy deals +1 Strain or gains Edge.",
+    kind: "team",
+    styleKind: "basic",
+    label: "Team Play",
+    icon: "fa-screwdriver-wrench"
+  },
+  {
+    id: "swap-turns",
+    name: "Swap Turns",
+    description: "You let another player act immediately, taking your place in the order. You can only use this once per fight.",
+    kind: "team",
+    styleKind: "basic",
+    label: "Team Play",
+    icon: "fa-rotate"
+  },
+  {
+    id: "cover",
+    name: "Cover",
+    description: "You protect another player or yourself from danger. Take the next attack aimed at them, or grant a bonus to defense.",
+    kind: "team",
+    styleKind: "basic",
+    label: "Team Play",
+    icon: "fa-shield-halved"
+  },
+  {
+    id: "coordinate",
+    name: "Coordinate",
+    description: "Two players can combine their turns to activate a special move or Gambit, utilizing both their abilities at once.",
+    kind: "team",
+    styleKind: "basic",
+    label: "Team Play",
+    icon: "fa-people-arrows"
+  }
+];
+
 function renderAssignedGambitHand() {
   renderGambitHand(mgGetAssignedCharacter());
 }
@@ -163,7 +211,15 @@ function renderGambitHand(actor) {
   if (!actor) return;
 
   const drawnIds = actor.system.gambits.drawn ?? [];
-  const drawnItems = drawnIds.map(entry => mgResolveGambitItem(actor, entry)).filter(Boolean);
+  const hiddenGambitIds = new Set(
+    (Array.isArray(actor.system.gambits.handHidden) ? actor.system.gambits.handHidden : [])
+      .map(entry => mgGambitEntryId(entry))
+      .filter(Boolean)
+  );
+  const drawnItems = drawnIds
+    .filter(entry => !hiddenGambitIds.has(mgGambitEntryId(entry)))
+    .map(entry => mgResolveGambitItem(actor, entry))
+    .filter(Boolean);
   const deckIds = actor.system.gambits.deck ?? [];
   const moveItems = mgGetHandMoves(actor);
   const viewStorageKey = `midnight-gambit.gambitHandView.${game.user?.id ?? "user"}.${actor.id}`;
@@ -171,7 +227,7 @@ function renderGambitHand(actor) {
   try {
     activeView = localStorage.getItem(viewStorageKey) ?? "gambits";
   } catch (_) {}
-  if (!["gambits", "moves"].includes(activeView)) activeView = "gambits";
+  if (!["gambits", "moves", "team"].includes(activeView)) activeView = "gambits";
 
   const handHtml = document.createElement("div");
   handHtml.id = "gambit-hand-ui";
@@ -192,6 +248,10 @@ function renderGambitHand(actor) {
       </div>
 
       <div class="gambit-hand-perma-toggles">
+        <button class="gambit-hand-team-toggle" type="button" title="Show Team Play Actions" aria-label="Show Team Play Actions" aria-pressed="false">
+          <i class="fa-solid fa-people-arrows"></i>
+        </button>
+
         <button class="gambit-hand-view-toggle" type="button" title="Show Moves" aria-label="Show Moves" aria-pressed="false">
           <i class="fa-kit fa-mortal-strain"></i>
         </button>
@@ -205,50 +265,65 @@ function renderGambitHand(actor) {
     <div class="gambit-hand-stage">
       <div class="gambit-hand-cards gambit-hand-cards-gambits"></div>
       <div class="gambit-hand-cards gambit-hand-cards-moves"></div>
+      <div class="gambit-hand-cards gambit-hand-cards-team"></div>
     </div>
   `;
 
   const toggle = handHtml.querySelector(".gambit-hand-toggle");
+  const teamToggle = handHtml.querySelector(".gambit-hand-team-toggle");
   const viewToggle = handHtml.querySelector(".gambit-hand-view-toggle");
   const slideControls = handHtml.querySelector(".gambit-hand-slide-controls");
   const slideLeft = handHtml.querySelector(".gambit-hand-slide-left");
   const slideRight = handHtml.querySelector(".gambit-hand-slide-right");
   const gambitCardsWrap = handHtml.querySelector(".gambit-hand-cards-gambits");
   const moveCardsWrap = handHtml.querySelector(".gambit-hand-cards-moves");
-  let moveSlideIndex = 0;
+  const teamCardsWrap = handHtml.querySelector(".gambit-hand-cards-team");
+  let handSlideIndex = 0;
+  let lastStandardView = activeView === "team" ? "gambits" : activeView;
   let visibleView = activeView;
   let viewSwitchTimer = null;
 
+  const getScrollableCardsWrap = () => visibleView === "team" ? teamCardsWrap : moveCardsWrap;
+
   const syncViewButton = () => {
-    const movesActive = activeView === "moves";
+    const teamActive = activeView === "team";
+    const standardView = teamActive ? lastStandardView : activeView;
+    const movesActive = !teamActive && activeView === "moves";
+
+    teamToggle?.classList.toggle("is-active", teamActive);
+    teamToggle?.setAttribute("aria-pressed", String(teamActive));
     viewToggle?.classList.toggle("is-active", movesActive);
     viewToggle?.setAttribute("aria-pressed", String(movesActive));
-    if (!movesActive) mgSetSlideControlsVisible(slideControls, false);
+    if (activeView === "gambits") mgSetSlideControlsVisible(slideControls, false);
     if (viewToggle) {
-      viewToggle.title = movesActive ? "Show Gambits" : "Show Moves";
+      viewToggle.title = standardView === "moves" ? "Show Gambits" : "Show Moves";
       viewToggle.setAttribute("aria-label", viewToggle.title);
       const icon = viewToggle.querySelector("i");
-      if (icon) icon.className = movesActive ? "fa-solid fa-cards" : "fa-kit fa-mortal-strain";
+      if (icon) icon.className = standardView === "moves" ? "fa-solid fa-cards" : "fa-kit fa-mortal-strain";
     }
   };
 
   const syncModeClasses = () => {
     const movesVisible = visibleView === "moves";
+    const teamVisible = visibleView === "team";
     handHtml.classList.toggle("is-moves-mode", movesVisible);
-    handHtml.classList.toggle("is-gambits-mode", !movesVisible);
+    handHtml.classList.toggle("is-team-mode", teamVisible);
+    handHtml.classList.toggle("is-gambits-mode", visibleView === "gambits");
   };
 
   const syncVisibleLayer = () => {
     syncModeClasses();
     gambitCardsWrap?.classList.toggle("is-active-view", visibleView === "gambits");
     moveCardsWrap?.classList.toggle("is-active-view", visibleView === "moves");
+    teamCardsWrap?.classList.toggle("is-active-view", visibleView === "team");
   };
 
   const switchHandView = (nextView) => {
-    if (!["gambits", "moves"].includes(nextView) || nextView === activeView || handHtml.classList.contains("is-view-switching")) return;
+    if (!["gambits", "moves", "team"].includes(nextView) || nextView === activeView || handHtml.classList.contains("is-view-switching")) return;
 
     window.clearTimeout(viewSwitchTimer);
     activeView = nextView;
+    if (activeView !== "team") lastStandardView = activeView;
     syncViewButton();
 
     try {
@@ -259,6 +334,7 @@ function renderGambitHand(actor) {
 
     gambitCardsWrap?.classList.remove("is-active-view");
     moveCardsWrap?.classList.remove("is-active-view");
+    teamCardsWrap?.classList.remove("is-active-view");
     handHtml.classList.add("is-view-switching");
 
     viewSwitchTimer = window.setTimeout(() => {
@@ -266,8 +342,8 @@ function renderGambitHand(actor) {
       syncVisibleLayer();
       handHtml.classList.remove("is-view-switching");
 
-      if (visibleView === "moves") {
-        moveSlideIndex = mgUpdateMoveHandSlider(moveCardsWrap, moveSlideIndex, slideLeft, slideRight, { jump: true });
+      if (visibleView === "moves" || visibleView === "team") {
+        handSlideIndex = mgUpdateMoveHandSlider(getScrollableCardsWrap(), handSlideIndex, slideLeft, slideRight, { jump: true });
       }
     }, 500);
   };
@@ -284,33 +360,48 @@ function renderGambitHand(actor) {
       mgSetMoveHandScrollLayout(moveCardsWrap);
     }
 
+    if (teamCardsWrap) {
+      teamCardsWrap.innerHTML = "";
+      renderTeamPlayHandCards(actor, teamCardsWrap, handHtml);
+      mgSetMoveHandScrollLayout(teamCardsWrap);
+    }
+
     syncViewButton();
     visibleView = activeView;
     syncVisibleLayer();
-    moveSlideIndex = 0;
-    requestAnimationFrame(() => mgUpdateMoveHandSlider(moveCardsWrap, moveSlideIndex, slideLeft, slideRight, { jump: true }));
+    handSlideIndex = 0;
+    requestAnimationFrame(() => mgUpdateMoveHandSlider(getScrollableCardsWrap(), handSlideIndex, slideLeft, slideRight, { jump: true }));
   };
+
+  teamToggle?.addEventListener("click", (ev) => {
+    ev.preventDefault();
+    ev.stopPropagation();
+    if (handHtml.classList.contains("is-transitioning") || handHtml.classList.contains("is-view-switching")) return;
+
+    switchHandView(activeView === "team" ? lastStandardView : "team");
+  });
 
   viewToggle?.addEventListener("click", (ev) => {
     ev.preventDefault();
     ev.stopPropagation();
     if (handHtml.classList.contains("is-transitioning") || handHtml.classList.contains("is-view-switching")) return;
 
-    switchHandView(activeView === "moves" ? "gambits" : "moves");
+    const standardView = activeView === "team" ? lastStandardView : activeView;
+    switchHandView(standardView === "moves" ? "gambits" : "moves");
   });
 
   slideLeft?.addEventListener("click", (ev) => {
     ev.preventDefault();
     ev.stopPropagation();
-    moveSlideIndex += 1;
-    moveSlideIndex = mgUpdateMoveHandSlider(moveCardsWrap, moveSlideIndex, slideLeft, slideRight);
+    handSlideIndex += 1;
+    handSlideIndex = mgUpdateMoveHandSlider(getScrollableCardsWrap(), handSlideIndex, slideLeft, slideRight);
   });
 
   slideRight?.addEventListener("click", (ev) => {
     ev.preventDefault();
     ev.stopPropagation();
-    moveSlideIndex -= 1;
-    moveSlideIndex = mgUpdateMoveHandSlider(moveCardsWrap, moveSlideIndex, slideLeft, slideRight);
+    handSlideIndex -= 1;
+    handSlideIndex = mgUpdateMoveHandSlider(getScrollableCardsWrap(), handSlideIndex, slideLeft, slideRight);
   });
 
   toggle.addEventListener("click", (ev) => {
@@ -377,7 +468,11 @@ function renderGambitHandCards(actor, cardsWrap, handHtml, drawnItems, deckIds) 
     cardsWrap.appendChild(empty);
   }
 
-  drawnItems.forEach((card, i) => {
+  // Saved hand order is top-to-bottom in the sheet, but the floating hand fans out
+  // right-to-left: slot 1 is the rightmost/top card.
+  const visualItems = drawnItems.slice().reverse();
+
+  visualItems.forEach((card, i) => {
     const div = document.createElement("div");
     div.className = "gambit-hand-card";
     div.dataset.itemId = card.id;
@@ -417,7 +512,11 @@ function renderMoveHandCards(actor, cardsWrap, handHtml, moveItems) {
     return;
   }
 
-  moveItems.forEach((move, i) => {
+  // Saved move hand order is top-to-bottom in the sheet, but the floating hand
+  // opens from the right edge. Render reversed so list item 1 is rightmost/top.
+  const visualItems = moveItems.slice().reverse();
+
+  visualItems.forEach((move, i) => {
     const div = document.createElement("div");
     div.className = "gambit-hand-card gambit-move-hand-card";
     div.dataset.moveId = move.id;
@@ -440,6 +539,37 @@ function renderMoveHandCards(actor, cardsWrap, handHtml, moveItems) {
       ev.stopPropagation();
       if (handHtml.classList.contains("is-transitioning")) return;
       await mgPostMove(actor, move);
+    });
+
+    cardsWrap.appendChild(div);
+  });
+}
+
+function renderTeamPlayHandCards(actor, cardsWrap, handHtml) {
+  // Keep Team Play consistent with the hand: first action sits at the right edge.
+  MG_TEAM_PLAY_ACTIONS.slice().reverse().forEach((action, i) => {
+    const div = document.createElement("div");
+    div.className = "gambit-hand-card gambit-move-hand-card gambit-team-play-hand-card";
+    div.dataset.teamActionId = action.id;
+    div.dataset.moveKind = action.styleKind || action.kind;
+    div.style.setProperty("--stack-index", String(i + 1));
+    div.innerHTML = `
+      <div class="gambit-move-kind"><i class="fa-solid ${action.icon}"></i> ${mgEscapeHtml(action.label)}</div>
+      <div class="gambit-title">${mgEscapeHtml(action.name)}</div>
+    `;
+
+    div.addEventListener("contextmenu", async (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      if (handHtml.classList.contains("is-transitioning")) return;
+      await mgPreviewMove(actor, action);
+    });
+
+    div.addEventListener("click", async (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      if (handHtml.classList.contains("is-transitioning")) return;
+      await mgPostMove(actor, action);
     });
 
     cardsWrap.appendChild(div);
@@ -496,8 +626,9 @@ function mgUpdateMoveHandSlider(cardsWrap, requestedIndex, leftButton, rightButt
   if (rightButton) rightButton.disabled = index <= 0 || max <= 0;
   const controls = leftButton?.closest?.(".gambit-hand-slide-controls") || rightButton?.closest?.(".gambit-hand-slide-controls");
   if (controls) {
-    const inMovesMode = cardsWrap?.closest?.(".gambit-hand-ui")?.classList?.contains("is-moves-mode");
-    mgSetSlideControlsVisible(controls, inMovesMode && pages > 1 && max > 8);
+    const hand = cardsWrap?.closest?.(".gambit-hand-ui");
+    const inScrollableMode = hand?.classList?.contains("is-moves-mode") || hand?.classList?.contains("is-team-mode");
+    mgSetSlideControlsVisible(controls, inScrollableMode && pages > 1 && max > 8);
   }
 
   return index;
@@ -577,14 +708,15 @@ async function mgPlayGambit(actor, card) {
     `
   });
 
-  const { drawn = [], discard = [] } = actor.system.gambits;
+  const { drawn = [], discard = [], handHidden = [] } = actor.system.gambits;
   const cardId = mgGambitEntryId(card);
   const newDrawn = drawn.filter(entry => mgGambitEntryId(entry) !== cardId);
   const newDiscard = [...discard, cardId];
 
   await actor.update({
     "system.gambits.drawn": newDrawn,
-    "system.gambits.discard": newDiscard
+    "system.gambits.discard": newDiscard,
+    "system.gambits.handHidden": handHidden.filter(entry => mgGambitEntryId(entry) !== cardId)
   });
 
   document.querySelectorAll(".gambit-hand-card").forEach(cardEl => {
@@ -654,7 +786,7 @@ async function mgPreviewMove(actor, move) {
   const icon = mgGetMoveKindIcon(move);
   const overlay = document.createElement("div");
   overlay.className = `mg-gz-backdrop gambit-design-${mgGetGambitCardDesign(actor)} mg-move-preview`;
-  overlay.dataset.moveKind = move.kind || "basic";
+  overlay.dataset.moveKind = move.styleKind || move.kind || "basic";
   overlay.innerHTML = `
     <article class="mg-gz-card" role="dialog" aria-modal="true" aria-label="${mgEscapeHtml(move.name)}">
       <button class="mg-gz-close" type="button" title="Close" aria-label="Close">
@@ -690,7 +822,11 @@ async function mgPreviewMove(actor, move) {
 }
 
 function mgGetMoveKindIcon(move) {
+  if (move?.icon) return move.icon;
+
   switch (move?.kind) {
+    case "team":
+      return "fa-people-arrows";
     case "signature":
       return "fa-diamond";
     case "learned":
@@ -857,7 +993,22 @@ function mgGetHandMoves(actor) {
       });
     });
 
-  return moves.sort((a, b) => a.sourceOrder - b.sourceOrder || a.name.localeCompare(b.name));
+  const hidden = new Set(
+    (Array.isArray(actor.system?.gambits?.moveHidden) ? actor.system.gambits.moveHidden : [])
+      .map(String)
+  );
+  const handOrder = Array.isArray(actor.system?.gambits?.moveOrder)
+    ? actor.system.gambits.moveOrder.map(String)
+    : [];
+  const handOrderMap = new Map(handOrder.map((id, index) => [id, index]));
+
+  return moves
+    .filter(move => !hidden.has(String(move.id)))
+    .sort((a, b) => {
+      const aOrder = handOrderMap.has(String(a.id)) ? handOrderMap.get(String(a.id)) : Number.MAX_SAFE_INTEGER;
+      const bOrder = handOrderMap.has(String(b.id)) ? handOrderMap.get(String(b.id)) : Number.MAX_SAFE_INTEGER;
+      return aOrder - bOrder || a.sourceOrder - b.sourceOrder || a.name.localeCompare(b.name);
+    });
 }
 
 function mgEscapeHtml(value) {
@@ -4439,6 +4590,7 @@ Hooks.once("ready", async () => {
       if (!Array.isArray(g.deck))    up["system.gambits.deck"]    = [];
       if (!Array.isArray(g.drawn))   up["system.gambits.drawn"]   = [];
       if (!Array.isArray(g.discard)) up["system.gambits.discard"] = [];
+      if (!Array.isArray(g.handHidden)) up["system.gambits.handHidden"] = [];
       if (!Number.isFinite(Number(g.handSize))) up["system.gambits.handSize"] = 3;
       if (!Number.isFinite(Number(g.deckSize))) up["system.gambits.deckSize"] = 10;
       needs ||= Object.keys(up).some(k => k.startsWith("system.gambits"));

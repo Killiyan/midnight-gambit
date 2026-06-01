@@ -550,6 +550,40 @@
           </div>
         </div>
 
+        {{#if moveHandControls.length}}
+          <div class="moves-section mg-move-hand-order-section">
+            <h3 class="mg-content"><i class="fa-solid fa-layer-group"></i> Move Hand Order</h3>
+
+            <div class="mg-hand-order-list" data-mg-order-list="move-hand">
+              {{#each moveHandControls as |move|}}
+                <article class="mg-hand-order-card {{#if move.hidden}}is-muted{{/if}}" data-move-hand-id="{{move.id}}" data-hidden="{{move.hidden}}" draggable="true">
+                  <div class="mg-hand-order-main">
+                    <div class="mg-hand-order-name">{{move.name}}</div>
+                    <div class="mg-hand-order-meta">{{move.label}}</div>
+                  </div>
+
+                  <div class="mg-hand-order-actions">
+                    <button type="button"
+                            class="mg-hand-order-eye"
+                            title="{{#if move.hidden}}Show in Moves Hand{{else}}Hide from Moves Hand{{/if}}"
+                            aria-pressed="{{#unless move.hidden}}true{{/unless}}">
+                      {{#if move.hidden}}
+                        <i class="fa-regular fa-eye-slash"></i>
+                      {{else}}
+                        <i class="fa-regular fa-eye"></i>
+                      {{/if}}
+                    </button>
+
+                    <div class="mg-hand-order-grip" aria-hidden="true">
+                      <i class="fa-solid fa-grip-lines"></i>
+                    </div>
+                  </div>
+                </article>
+              {{/each}}
+            </div>
+          </div>
+        {{/if}}
+
       </div>
 
       <!--This is our Deck, and currently drawn Gambits-->
@@ -594,6 +628,39 @@
                 </div>
               </div>
             {{/each}}
+
+            {{#if gambitHandControls.length}}
+              <div class="mg-hand-order-panel">
+                <h3 class="mg-content"><i class="fa-solid fa-layer-group"></i> Hand Order</h3>
+
+                <div class="mg-hand-order-list" data-mg-order-list="gambit-hand">
+                  {{#each gambitHandControls as |card|}}
+                    <article class="mg-hand-order-card {{#if card.hidden}}is-muted{{/if}}" data-item-id="{{card.id}}" data-hidden="{{card.hidden}}" draggable="true">
+                      <div class="mg-hand-order-main">
+                        <div class="mg-hand-order-name">{{card.name}}</div>
+                      </div>
+
+                      <div class="mg-hand-order-actions">
+                        <button type="button"
+                                class="mg-hand-order-eye"
+                                title="{{#if card.hidden}}Show in Hand{{else}}Hide from Hand{{/if}}"
+                                aria-pressed="{{#unless card.hidden}}true{{/unless}}">
+                          {{#if card.hidden}}
+                            <i class="fa-regular fa-eye-slash"></i>
+                          {{else}}
+                            <i class="fa-regular fa-eye"></i>
+                          {{/if}}
+                        </button>
+
+                        <div class="mg-hand-order-grip" aria-hidden="true">
+                          <i class="fa-solid fa-grip-lines"></i>
+                        </div>
+                      </div>
+                    </article>
+                  {{/each}}
+                </div>
+              </div>
+            {{/if}}
           </div>
 
           <div class="gambit-deck">

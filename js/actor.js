@@ -219,6 +219,7 @@ export class MidnightGambitActor extends Actor {
       s.gambits.deck ??= [];      // array of embedded Item IDs (type: gambit)
       s.gambits.drawn ??= [];
       s.gambits.discard ??= [];
+      s.gambits.handHidden ??= [];
       s.gambits.handSize ??= 3;   // tweak later if you like
       s.gambits.deckSize ??= 10;  // optional cap, not enforced yet
       s.gambits.cardDesign ??= "midnight";
@@ -247,6 +248,9 @@ export class MidnightGambitActor extends Actor {
     data.gambits.maxDeckSize ??= 3;   // keep as-is unless you want to scale deck size later
     data.gambits.maxEquip ??= 3;      // NEW field for "Equipped Gambits" cap (UI can read it)
     data.gambits.cardDesign ??= "midnight";
+    data.gambits.handHidden ??= [];
+    data.gambits.moveOrder ??= [];
+    data.gambits.moveHidden ??= [];
 
     data.unlocks ??= { trickDeck:false, aceInSleeve:false, signaturePerk:false, finalHand:false, allTiers:false, dualClass:false };
 

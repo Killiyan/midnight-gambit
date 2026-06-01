@@ -76,6 +76,14 @@ export class MidnightGambitActorSheet extends ActorSheet {
       context.gambitDeck = deckIds.map(id => this.actor.items.get(id)).filter(Boolean);
       context.gambitDrawn = drawnIds.map(id => this.actor.items.get(id)).filter(Boolean);
       context.gambitDiscard = discardIds.map(id => this.actor.items.get(id)).filter(Boolean);
+      const handHiddenIds = Array.isArray(context.system.gambits?.handHidden)
+        ? context.system.gambits.handHidden.map(String)
+        : [];
+      context.gambitHandControls = context.gambitDrawn.map(card => ({
+        id: card.id,
+        name: card.name,
+        hidden: handHiddenIds.includes(String(card.id))
+      }));
 
       context.gambitDrawnWithAngle = context.gambitDrawn.map((card, i, arr) => {
         const total = arr.length;
@@ -322,10 +330,11 @@ export class MidnightGambitActorSheet extends ActorSheet {
           : [];
 
         context.enrichedMoves = await Promise.all(
-          rawMoves.map(async (m) => {
+          rawMoves.map(async (m, index) => {
             const tags = parseTags(m?.tags ?? m?.tagsCsv);
             return {
               ...m,
+              handId: `basic:${context.guise.id}:${index}:${m?.name ?? ""}`,
               tags,
               html: await TextEditor.enrichHTML(String(m?.description ?? ""), { async: true })
             };
@@ -351,6 +360,7 @@ export class MidnightGambitActorSheet extends ActorSheet {
           .filter(g => (g.system?.signaturePerk ?? "").trim() || (g.system?.signatureDescription ?? "").trim())
           .map(async (g) => ({
             _id: g.id,
+            handId: `signature:${g.id}`,
             name: g.system?.signaturePerk ?? g.name,
             description: g.system?.signatureDescription ?? "",
             html: await TextEditor.enrichHTML(String(g.system?.signatureDescription ?? ""), { async: true }),
@@ -363,8 +373,9 @@ export class MidnightGambitActorSheet extends ActorSheet {
       context.enrichedSecondaryBasicMoves = await Promise.all(
         secondaryGuiseDocs.flatMap((g) => {
           const rawMoves = Array.isArray(g.system?.moves) ? g.system.moves : [];
-          return rawMoves.map(async (m) => ({
+          return rawMoves.map(async (m, index) => ({
             _id: `${g.id}-${m.name ?? "move"}`,
+            handId: `basic:${g.id}:${index}:${m?.name ?? ""}`,
             name: m.name ?? "Unnamed Move",
             description: m.description ?? "",
             html: await TextEditor.enrichHTML(String(m.description ?? ""), { async: true }),
@@ -373,6 +384,94 @@ export class MidnightGambitActorSheet extends ActorSheet {
           }));
         })
       );
+
+      {
+        const moveHidden = new Set(
+          (Array.isArray(context.system.gambits?.moveHidden) ? context.system.gambits.moveHidden : [])
+            .map(String)
+        );
+        const moveOrder = Array.isArray(context.system.gambits?.moveOrder)
+          ? context.system.gambits.moveOrder.map(String)
+          : [];
+        const orderMap = new Map(moveOrder.map((id, index) => [id, index]));
+        const controls = [];
+        const seenControls = new Set();
+
+        const addMoveControl = ({ id, name, label, sourceOrder = 0 }) => {
+          const cleanId = String(id ?? "");
+          if (!cleanId || seenControls.has(cleanId)) return;
+          seenControls.add(cleanId);
+          controls.push({
+            id: cleanId,
+            name: String(name || "Unnamed Move"),
+            label,
+            hidden: moveHidden.has(cleanId),
+            sourceOrder
+          });
+        };
+
+        if (context.guise) {
+          addMoveControl({
+            id: `signature:${context.guise.id}`,
+            name: context.guise.system?.signaturePerk || context.guise.name,
+            label: "Signature Perk",
+            sourceOrder: 0
+          });
+        }
+
+        context.enrichedMoves.forEach((move, index) => {
+          addMoveControl({
+            id: move.handId,
+            name: move.name,
+            label: "Basic Move",
+            sourceOrder: 1 + index / 100
+          });
+        });
+
+        context.enrichedSecondarySignatureMoves.forEach((move, index) => {
+          addMoveControl({
+            id: move.handId,
+            name: move.name,
+            label: "Signature Perk",
+            sourceOrder: 10 + index
+          });
+        });
+
+        context.enrichedSecondaryBasicMoves.forEach((move, index) => {
+          addMoveControl({
+            id: move.handId,
+            name: move.name,
+            label: "Basic Move",
+            sourceOrder: 30 + index / 100
+          });
+        });
+
+        allMoves
+          .filter(move => move.system?.isSignature === true)
+          .forEach((move, index) => {
+            addMoveControl({
+              id: move.id,
+              name: move.name,
+              label: "Signature Perk",
+              sourceOrder: 50 + index
+            });
+          });
+
+        context.learnedMoves.forEach((move, index) => {
+          addMoveControl({
+            id: move.id,
+            name: move.name,
+            label: "Learned Move",
+            sourceOrder: 100 + index
+          });
+        });
+
+        context.moveHandControls = controls.sort((a, b) => {
+          const aOrder = orderMap.has(a.id) ? orderMap.get(a.id) : Number.MAX_SAFE_INTEGER;
+          const bOrder = orderMap.has(b.id) ? orderMap.get(b.id) : Number.MAX_SAFE_INTEGER;
+          return aOrder - bOrder || a.sourceOrder - b.sourceOrder || a.name.localeCompare(b.name);
+        });
+      }
 
       // --- Settings tab: Primary/Secondary toggles -------------------------------
       // Resolve refs to embedded ids first so UI state is stable.
@@ -1795,7 +1894,8 @@ _mgOpenSidebarCropper() {
 
         await this.actor.update({
           "system.gambits.deck": updatedDeck,
-          "system.gambits.drawn": updatedDrawn
+          "system.gambits.drawn": updatedDrawn,
+          "system.gambits.handHidden": (this.actor.system.gambits.handHidden ?? []).filter(id => id !== itemId)
         }, { render: false });
 
         this.render(false);
@@ -1869,7 +1969,10 @@ _mgOpenSidebarCropper() {
 
           await this.actor.update({
             "system.gambits.deck":  source === "deck" ? from : to,
-            "system.gambits.drawn": source === "deck" ? to   : from
+            "system.gambits.drawn": source === "deck" ? to   : from,
+            ...(source === "drawn"
+              ? { "system.gambits.handHidden": (this.actor.system.gambits.handHidden ?? []).filter(id => id !== itemId) }
+              : {})
           });
         };
       };
@@ -1929,6 +2032,25 @@ _mgOpenSidebarCropper() {
       html.find('.gambit-hand').on('dragover', e => e.preventDefault());
       html.find('.gambit-deck').on('drop', handleDrop("deck"));
       html.find('.gambit-hand').on('drop', handleDrop("drawn"));
+
+      this._mgBindHandOrderList(html, {
+        listSelector: '[data-mg-order-list="gambit-hand"]',
+        cardSelector: ".mg-hand-order-card",
+        idAttr: "itemId",
+        orderPath: "system.gambits.drawn",
+        hiddenPath: "system.gambits.handHidden",
+        hiddenLabel: "Hand"
+      });
+
+      this._mgBindHandOrderList(html, {
+        listSelector: '[data-mg-order-list="move-hand"]',
+        cardSelector: ".mg-hand-order-card",
+        idAttr: "moveHandId",
+        orderPath: "system.gambits.moveOrder",
+        hiddenPath: "system.gambits.moveHidden",
+        hiddenLabel: "Moves Hand",
+        filterToCurrentOrder: false
+      });
 
       // Spark slot click logic
       html.find(".spark-dot").on("click", async (event) => {
@@ -4800,6 +4922,7 @@ _mgOpenSidebarCropper() {
             "system.gambits.deck": newDeck,
             "system.gambits.drawn": [],
             "system.gambits.discard": [],
+            "system.gambits.handHidden": [],
             "system.gambits.locked": false
           });
 
@@ -4835,13 +4958,14 @@ _mgOpenSidebarCropper() {
         await this._mgPostGambitToChat(item);
 
         // Discard after playing
-        const { drawn = [], discard = [] } = this.actor.system.gambits;
+        const { drawn = [], discard = [], handHidden = [] } = this.actor.system.gambits;
         const updatedDrawn = drawn.filter(id => id !== itemId);
         const updatedDiscard = [...discard, itemId];
 
         await this.actor.update({
           "system.gambits.drawn": updatedDrawn,
-          "system.gambits.discard": updatedDiscard
+          "system.gambits.discard": updatedDiscard,
+          "system.gambits.handHidden": handHidden.filter(id => id !== itemId)
         });
       });
 
@@ -7114,6 +7238,160 @@ async _mgOpenStatPicker({ title, current }) {
   //END DRAG AND DROP
   //---------------------------------------------------------------------------------------------------------------------------
 
+  /* Sheet hand order helpers. Shared shape so Moves can plug into this list later.
+  ---------------------------------------------------------------------*/
+  _mgBindHandOrderList(html, {
+    listSelector,
+    cardSelector,
+    idAttr = "itemId",
+    orderPath,
+    hiddenPath,
+    hiddenLabel = "Hand",
+    filterToCurrentOrder = true
+  } = {}) {
+    const $root = html instanceof jQuery ? html : $(html);
+    const $list = $root.find(listSelector);
+    if (!$list.length || !cardSelector || !orderPath || !hiddenPath) return;
+
+    const HAND_ORDER_MIME = "application/x-midnightgambit-hand-order";
+    const dragScope = `${this.actor.id}:${orderPath}`;
+    const getId = (el) => el?.dataset?.[idAttr] || el?.getAttribute?.(`data-${idAttr.replace(/[A-Z]/g, m => `-${m.toLowerCase()}`)}`);
+    const readArray = (path) => {
+      const value = foundry.utils.getProperty(this.actor, path);
+      return Array.isArray(value) ? value.map(String) : [];
+    };
+    const isOwnDrag = (ev) => {
+      const native = ev?.originalEvent ?? ev;
+      const types = Array.from(native?.dataTransfer?.types ?? []);
+      return types.includes(HAND_ORDER_MIME) && !!dragId && !!dragEl;
+    };
+
+    let dragId = null;
+    let dragEl = null;
+    const placeholder = document.createElement("div");
+    placeholder.className = "mg-hand-order-placeholder";
+    placeholder.setAttribute("aria-hidden", "true");
+
+    const clearPreview = () => {
+      placeholder.remove();
+      $list.find(".mg-hand-order-placeholder").remove();
+      $list.find(`${cardSelector}.mg-dragging`).removeClass("mg-dragging");
+    };
+
+    const persistOrderFromDom = async () => {
+      const live = new Set(readArray(orderPath));
+      const ids = $list.find(cardSelector).toArray().map(getId).filter(id => id && (!filterToCurrentOrder || !live.size || live.has(String(id))));
+      for (const id of readArray(orderPath)) {
+        if (!ids.includes(id)) ids.push(id);
+      }
+      await this.actor.update({ [orderPath]: ids }, { render: false });
+    };
+
+    $list.off(".mgHandOrder");
+    clearPreview();
+
+    $list.on("click.mgHandOrder", ".mg-hand-order-eye", async (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+
+      const button = ev.currentTarget;
+      const card = button.closest(cardSelector);
+      const id = getId(card);
+      if (!id) return;
+
+      const wasHidden = card.dataset.hidden === "true";
+      const nowHidden = !wasHidden;
+      card.dataset.hidden = String(nowHidden);
+      card.classList.toggle("is-muted", nowHidden);
+      button.title = nowHidden ? `Show in ${hiddenLabel}` : `Hide from ${hiddenLabel}`;
+      button.setAttribute("aria-pressed", String(!nowHidden));
+      const icon = button.querySelector("i");
+      if (icon) icon.className = nowHidden ? "fa-regular fa-eye-slash" : "fa-regular fa-eye";
+
+      try {
+        const hidden = new Set(readArray(hiddenPath));
+        if (nowHidden) hidden.add(String(id));
+        else hidden.delete(String(id));
+        await this.actor.update({ [hiddenPath]: Array.from(hidden) }, { render: false });
+      } catch (err) {
+        card.dataset.hidden = String(wasHidden);
+        card.classList.toggle("is-muted", wasHidden);
+        if (icon) icon.className = wasHidden ? "fa-regular fa-eye-slash" : "fa-regular fa-eye";
+        ui.notifications?.warn(`Could not update ${hiddenLabel} visibility.`);
+        console.warn("MG | Hand visibility toggle failed:", err);
+      }
+    });
+
+    $list.on("dragstart.mgHandOrder", cardSelector, (ev) => {
+      const native = ev.originalEvent ?? ev;
+      if (native.target?.closest?.("button")) {
+        native.preventDefault?.();
+        return;
+      }
+
+      dragEl = ev.currentTarget;
+      dragId = getId(dragEl);
+      if (!dragId) return;
+
+      const rect = dragEl.getBoundingClientRect();
+      placeholder.style.height = `${rect.height}px`;
+      dragEl.classList.add("mg-dragging");
+      native.dataTransfer?.setData(HAND_ORDER_MIME, JSON.stringify({ scope: dragScope, id: dragId }));
+      native.dataTransfer?.setData("text/plain", dragId);
+      native.dataTransfer?.setDragImage?.(dragEl, rect.width - 16, rect.height / 2);
+    });
+
+    $list.on("dragover.mgHandOrder", `${cardSelector}, .mg-hand-order-placeholder`, (ev) => {
+      if (!isOwnDrag(ev)) return;
+      ev.preventDefault();
+      ev.stopPropagation();
+
+      const target = ev.currentTarget;
+      const refEl = target.classList.contains("mg-hand-order-placeholder") ? placeholder : target;
+      if (refEl === dragEl || !refEl.parentElement) return;
+
+      const bounds = refEl.getBoundingClientRect();
+      const midY = bounds.top + bounds.height / 2;
+      if ((ev.originalEvent?.clientY ?? 0) < midY) {
+        refEl.parentElement.insertBefore(placeholder, refEl);
+      } else {
+        refEl.parentElement.insertBefore(placeholder, refEl.nextSibling);
+      }
+    });
+
+    $list.on("dragover.mgHandOrder", (ev) => {
+      if (!isOwnDrag(ev)) return;
+      if (ev.target.closest(cardSelector)) return;
+      ev.preventDefault();
+      ev.stopPropagation();
+      if (placeholder.parentElement !== $list[0]) $list[0].appendChild(placeholder);
+    });
+
+    const finalize = async () => {
+      if (!dragId || !dragEl) return;
+      try {
+        const parent = placeholder.parentElement;
+        if (parent) parent.insertBefore(dragEl, placeholder);
+        await persistOrderFromDom();
+      } finally {
+        clearPreview();
+        dragId = null;
+        dragEl = null;
+      }
+    };
+
+    $list.on("drop.mgHandOrder", async (ev) => {
+      if (!isOwnDrag(ev)) return;
+      ev.preventDefault();
+      ev.stopPropagation();
+      await finalize();
+    });
+
+    $list.on("dragend.mgHandOrder", async () => {
+      await finalize();
+    });
+  }
+
   /* Move order helpers (class-safe)
   ---------------------------------------------------------------------*/
   async _mgGetMoveOrder() {
@@ -7271,16 +7549,21 @@ async _mgOpenStatPicker({ title, current }) {
       if (!dragId || !dragEl) return;
       ev.preventDefault();
 
-      // If no placeholder (edge case), do nothing
-      if (!placeholder.parentNode) return;
+      try {
+        // If no placeholder, treat the drop as cancelled but still clean up.
+        if (!placeholder.parentNode) return;
 
-      // Move the card to the placeholder position
-      placeholder.parentNode.insertBefore(dragEl, placeholder);
-      clearPreview();
+        // Move the card to the placeholder position
+        placeholder.parentNode.insertBefore(dragEl, placeholder);
 
-      // Persist order flag
-      const ids = $grid.find(".move-block").map((_i, el) => el.dataset.itemId).get();
-      await this.actor.setFlag("midnight-gambit", "moveOrder", ids);
+        // Persist order flag
+        const ids = $grid.find(".move-block").map((_i, el) => el.dataset.itemId).get();
+        await this.actor.setFlag("midnight-gambit", "moveOrder", ids);
+      } finally {
+        clearPreview();
+        dragId = null;
+        dragEl = null;
+      }
     });
 
     // Re-apply saved order once on render

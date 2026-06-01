@@ -47,6 +47,7 @@ body .gambit-hand-ui {
 		}			
 	}
 
+	.gambit-hand-team-toggle,
 	.gambit-hand-view-toggle,
 	.gambit-hand-slide-controls button {
 		pointer-events: auto;
@@ -79,6 +80,16 @@ body .gambit-hand-ui {
 		&:hover {
 			background-color: $mg-blue-3;
 			border-color: $mg-blue-1;
+			color: $mg-green;
+
+			i {
+				color: $mg-green;
+			}
+		}
+
+		&.is-active {
+			background-color: $mg-blue-main-2;
+			border-color: $mg-green;
 			color: $mg-green;
 
 			i {
@@ -152,8 +163,10 @@ body .gambit-hand-ui {
 		}
 	}
 
-	&.is-moves-mode {
-		.gambit-hand-cards-moves {
+	&.is-moves-mode,
+	&.is-team-mode {
+		.gambit-hand-cards-moves,
+		.gambit-hand-cards-team {
 			position: relative;
 			width: min(30rem, calc(100vw - 4rem));
 			max-width: 30rem;
@@ -168,7 +181,7 @@ body .gambit-hand-ui {
 		}
 
 		.gambit-hand-card {
-			margin-left: -4.75rem;
+			margin-left: -4.25rem;
 
 			&:first-child {
 				margin-left: 0;
@@ -567,7 +580,7 @@ body .gambit-hand-ui {
 			width: 140px;
 			height: auto;
 			aspect-ratio: 5 / 7;
-			margin: 0 0 0 -3.75rem;
+			margin: 0 0 0 -3.25rem;
 			border-radius: .5rem;
 			transform: translate3d(0, 0, 0);
 			transform-origin: bottom center;
@@ -634,6 +647,10 @@ body .gambit-hand-ui {
 					display: block;
 					animation: mg-gambit-card-gleam var(--mg-gleam-speed, 1.9s) ease-in-out infinite;
 				}
+			}
+
+			&:hover ~ .gambit-hand-card {
+				transform: translateX(3rem);
 			}
 
 			@keyframes mg-gambit-card-gleam {
