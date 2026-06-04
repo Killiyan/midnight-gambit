@@ -41,26 +41,167 @@
 				}
 			}
 		}
+
+		.pages-list {
+
+			.directory-item {
+				border-top: 2px solid $mg-blue-main-2;
+				border-bottom: 2px solid transparent;
+				@include tiller();
+				font-weight: 700;
+				transition: border .5s ease;
+
+				.page-number {
+					color: $mg-blue-2;
+				}
+
+				.page-title {
+					transition: color .5s ease;
+					color: $mg-blue-1;
+
+					&:hover {
+						text-shadow: none;
+						color: $mg-green;
+					}
+				}
+
+				&.active {
+					border-top: 2px solid $mg-green;
+					border-bottom: 2px solid $mg-green;
+
+					.page-title {
+						color: $mg-green;
+					}
+
+					&:first-of-type {
+						border-color: $mg-green;
+					}
+
+					&+ :not(.active) {
+						border-top:1px solid $mg-green;
+					}
+				}
+			}
+		}
 	}
 
 	.journal-entry-content {
 		background-image: url("../assets/images/parchment.jpg");
 
-		.journal-header .title {
-			@include tiller();
-			text-align: left;
-			padding: 1rem;
-			background: rgba($mg-blue-4, .7);
-			@include mg-border();
-			font-size: 1.5rem;
-			font-weight: 700;
-			color: $mg-ivory;
+		.journal-header {
+
+			.title {
+				@include tiller();
+				text-align: left;
+				padding: 1rem;
+				background: rgba($mg-blue-4, .7);
+				@include mg-border();
+				font-size: 1.5rem;
+				font-weight: 700;
+				color: $mg-ivory;
+			}
 		}
 
 		.journal-entry-pages {
 			color: $mg-blue-4;
 			@include roboto();
 			opacity: 1;
+
+			.journal-entry-page {
+				padding: 1.125rem;
+
+				&:hover {
+					.edit-container .editor-edit {
+						opacity: 1;
+					}
+				}
+
+				h1 {
+					font-size: 2rem;
+				}
+
+				h2 {
+					font-size: 1.75rem;
+				}
+				
+				h3 {
+					font-size: 1.5rem;
+				}
+
+				p {
+					font-size: 1rem;
+				}
+
+				li {
+					font-size: 1rem;
+				}
+
+				.editor-edit {
+					@include mg-border();
+					background: $mg-blue-main;
+					display: block;
+					opacity: .5;
+					transition: border .5s ease, background .5s ease, color .5s ease, opacity .5s ease;
+
+					i {
+						color: $mg-blue-2;
+						font-size: 1rem;
+						transition: color .5s ease;
+					}
+
+					&:hover,
+					&:focus {
+						border-color: $mg-green;
+						background-color: $mg-blue-4;
+
+						i {
+							color: $mg-green;
+							text-shadow: none;
+						}
+					}
+				}			
+			}
+		}
+	}
+}
+
+.sheet.journal-entry-page .journal-header {
+	display: flex;
+	flex-direction: column;
+	justify-content: flex-start;
+	
+	.page-level {
+		align-items: flex-start;
+		margin: 0;
+		display: grid;
+		grid-template-columns: repeat(4, 1fr);
+		gap: .5rem;
+		height: auto;
+		flex: none;
+		margin-top: .5rem;
+
+		.heading-level {
+			grid-column: span 3;
+			display: flex;
+			flex-direction: column;
+			align-items: flex-start;
+
+			label {
+				margin: 0 0 .25rem 0;
+				max-height: 1.5rem;
+			}
+
+			select {
+				width: 100%;
+				min-height: 1.75rem;
+			}
+		}
+
+		.show-title .checkbox {
+			display: flex;
+			flex-direction: column;
+			height: auto;
+			margin: 0;
 		}
 	}
 }

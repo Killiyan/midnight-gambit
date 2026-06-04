@@ -21,6 +21,13 @@ function mgGetActorCrop(actor, key) {
   return crop && Object.keys(crop).length ? crop : null;
 }
 
+function mgGetActorInitiativeImage(actor) {
+  return String(actor?.getFlag?.(MG_NS, "crops")?.mainInitiative?.src ?? "").trim() ||
+    actor?.img ||
+    actor?.prototypeToken?.texture?.src ||
+    "icons/svg/mystery-man.svg";
+}
+
 function mgActorCropTouched(changed) {
   const mgFlags = changed?.flags?.[MG_NS];
   const changedKeys = Object.keys(changed ?? {});
@@ -420,7 +427,7 @@ export class MGInitiativeBar extends Application {
       btn.className = "mg-ini-slice";
       btn.dataset.actorId = id;
       btn.title = a.name;
-      const img = a.img || a.prototypeToken?.texture?.src || "icons/svg/mystery-man.svg";
+      const img = mgGetActorInitiativeImage(a);
       // NOTE: The hover stats panel is inert until CSS is added.
       btn.innerHTML = `
         <div class="mg-ini-image" style="background-image: url('${img}');">
@@ -694,7 +701,9 @@ export class MGInitiativeBar extends Application {
       imgEl.appendChild(image);
     }
     if (image && actor) {
-      image.src = actor.img || actor.prototypeToken?.texture?.src || "icons/svg/mystery-man.svg";
+      const src = mgGetActorInitiativeImage(actor);
+      image.src = src;
+      imgEl.style.backgroundImage = `url('${src}')`;
     }
 
     const crop = featured
@@ -727,7 +736,7 @@ export class MGInitiativeBar extends Application {
     for (const slice of slices) {
       const imgEl = slice.querySelector(".mg-ini-image");
       if (imgEl) {
-        const src = actor?.img || actor?.prototypeToken?.texture?.src || "icons/svg/mystery-man.svg";
+        const src = mgGetActorInitiativeImage(actor);
         imgEl.style.backgroundImage = `url('${src}')`;
         const image = imgEl.querySelector("img");
         if (image) image.src = src;

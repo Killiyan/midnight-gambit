@@ -41,6 +41,12 @@ function mgGetActorCropVariables(actor, key, fallbacks = []) {
   return `--mg-crop-x: ${x}; --mg-crop-y: ${y}; --mg-crop-scale: ${scale};${width}${height}`;
 }
 
+function mgGetActorSidebarInitiativeImage(actor, fallback = "systems/midnight-gambit/assets/images/mg-queen.png") {
+  return String(actor?.getFlag?.(MG_NS, "crops")?.sidebarInitiative?.src ?? "").trim() ||
+    actor?.img ||
+    fallback;
+}
+
 function mgHasActorCrop(actor, key) {
   const crop = actor?.getFlag?.(MG_NS, "crops")?.[key]?.css;
   if (key === "sidebarInitiative" && crop?.model !== "skewSlicePan") return false;
@@ -579,7 +585,7 @@ export class MGInitiativeSidebar {
     for (const slot of slots) {
       const imgWrap = slot.querySelector(".mg-ini-side-card-img");
       const img = imgWrap?.querySelector("img");
-      if (img) img.src = actor?.img ?? "systems/midnight-gambit/assets/images/mg-queen.png";
+      if (img) img.src = mgGetActorSidebarInitiativeImage(actor);
       this._applyActorCrop(imgWrap, actor);
     }
   }
@@ -671,7 +677,7 @@ export class MGInitiativeSidebar {
     }
 
     const a = game.actors.get(id);
-    if (img) img.src = a?.img ?? "icons/svg/mystery-man.svg";
+    if (img) img.src = mgGetActorSidebarInitiativeImage(a, "icons/svg/mystery-man.svg");
     this._applyActorCrop(cardEl.querySelector(".mg-ini-side-card-img"), a);
     if (name) name.textContent = a?.name ?? "—";
   }
@@ -804,7 +810,7 @@ export class MGInitiativeSidebar {
       slot.classList.remove("is-empty");
       slot.dataset.actorId = id;
 
-      if (img) img.src = a?.img ?? "systems/midnight-gambit/assets/images/mg-queen.png";
+      if (img) img.src = mgGetActorSidebarInitiativeImage(a);
       this._applyActorCrop(imgWrap, a);
       if (name) name.textContent = a?.name ?? "—";
       if (card) card.removeAttribute("aria-hidden");

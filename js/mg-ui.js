@@ -1,4 +1,5 @@
 import { evaluateRoll, mgApplyStrainAttributePenalty, mgGetStrainEffectBadge, mgGetStrainRollEffects } from "./roll-utils.js";
+import { MGInitiativeController } from "./initiative-controller.js";
 
 /* Midnight Gambit Custom UI
 ==============================================================================================================================================*/
@@ -639,13 +640,19 @@ function mgGetSidebarCropStyle(actor) {
 }
 
 function mgGetDirectorActorImage(actor) {
-	const img = String(actor?.img ?? "").trim();
+	const override = mgGetActorPlacementImage(actor, "actorSidebar", "");
+	const img = String(override || actor?.img || "").trim();
 
 	if (!img || img === "icons/svg/mystery-man.svg" || img.endsWith("/mystery-man.svg")) {
 		return "systems/midnight-gambit/assets/images/guise.jpg";
 	}
 
 	return img;
+}
+
+function mgGetActorPlacementImage(actor, key, fallback = actor?.img || "icons/svg/mystery-man.svg") {
+	const src = String(actor?.getFlag?.("midnight-gambit", "crops")?.[key]?.src ?? "").trim();
+	return src || fallback;
 }
 
 function mgGetSidebarCropVariables(actor) {
@@ -796,7 +803,7 @@ function mgNormalizeLeftSidebarTabId(tabId) {
 function mgRenderLeftSidebarTabs() {
 	return mgGetVisibleLeftSidebarTabs().map(tab => {
 		const actor = tab.id === "player" ? mgGetAssignedCharacter() : null;
-		const portrait = tab.portrait || actor?.img || "";
+		const portrait = tab.portrait || (actor ? mgGetActorPlacementImage(actor, "sidebar", actor.img || "") : "");
 		const tabClass = `sidebar-tab${portrait ? " has-portrait" : ""}`;
 		const iconHtml = portrait
 			? `<img class="tab-portrait" src="${mgAttr(portrait)}" alt="" />`
@@ -2221,6 +2228,7 @@ globalThis.MGSidebarShared = {
 	attr: mgAttr,
 	cssUrl: mgCssUrl,
 	cssEscape: mgCssEscape,
+	getActorPlacementImage: mgGetActorPlacementImage,
 	getActorCropVariables: mgGetActorCropVariables,
 	hasActorCrop: mgHasActorCrop,
 	isAccordionOpen: mgIsAccordionOpen,
@@ -3109,7 +3117,7 @@ function mgRenderPlayerSidebarContent() {
 /* Character sidebar rendering
 ----------------------------------------------------------------------*/
 function mgRenderCharacterSidebar(actor) {
-	const img = actor.img || "icons/svg/mystery-man.svg";
+	const img = mgGetActorPlacementImage(actor, "sidebar");
 	const cropStyle = mgGetSidebarCropStyle(actor);
 	const cropVariables = mgGetSidebarCropVariables(actor);
 	const guiseName = mgResolveGuiseName(actor);
@@ -3427,6 +3435,8 @@ function mgResolveCrewMemberModels(crew) {
 			actorId: actor?.id ?? null,
 			name: actor?.name ?? cached.name ?? "Unknown",
 			img: actor?.img ?? cached.img ?? "icons/svg/mystery-man.svg",
+			crewSidebarImg: actor ? mgGetActorPlacementImage(actor, "crewSidebar") : (cached.img ?? "icons/svg/mystery-man.svg"),
+			crewInitiativeImg: actor ? mgGetActorPlacementImage(actor, "crewInitiative") : (cached.img ?? "icons/svg/mystery-man.svg"),
 			guiseText: guiseNames.length ? guiseNames.join(" / ") : "No Guise",
 			levelText: Number.isFinite(Number(actor?.system?.level))
 				? String(Number(actor.system.level))
@@ -3526,7 +3536,7 @@ function mgRenderCrewPartyMember(member) {
 
 			<div class="card-main">
 				<div class="crew-member-crop mg-cropbox ${hasCrop ? "is-cropped" : ""}">
-					<img src="${mgEsc(member.img)}" alt="${mgEsc(member.name)}" style="${cropVariables}" />
+					<img src="${mgEsc(member.crewSidebarImg || member.img)}" alt="${mgEsc(member.name)}" style="${cropVariables}" />
 				</div>
 
 				<div class="card-body">
@@ -3565,7 +3575,7 @@ function mgRenderCrewInitiativeMember(member, canEdit) {
 			${canEdit ? 'draggable="true"' : ""}
 		>
 			<div class="crew-initiative-crop mg-cropbox ${hasCrop ? "is-cropped" : ""}">
-				<img src="${mgEsc(member.img)}" alt="${mgEsc(member.name)}" style="${cropVariables}" />
+				<img src="${mgEsc(member.crewInitiativeImg || member.img)}" alt="${mgEsc(member.name)}" style="${cropVariables}" />
 			</div>
 
 			<div class="initiative-main">
@@ -3614,7 +3624,7 @@ function mgRenderCrewSidebarContent() {
 
 	const img = crew.img || "systems/midnight-gambit/assets/images/mg-queen.png";
 	const tier = mgResolveCrewTier(crew);
-	const canEdit = !!crew.isOwner;
+	const canEdit = true;
 	const { members, initiativeMembers } = mgResolveCrewMemberModels(crew);
 	const partyBody = members.length
 		? members.map(mgRenderCrewPartyMember).join("")
@@ -3672,11 +3682,6 @@ function mgRenderCrewSidebarContent() {
 /* Crew sidebar initiative actions
 ----------------------------------------------------------------------*/
 async function mgApplyCrewSidebarInitiative(crew, root) {
-	if (!crew?.isOwner) {
-		ui.notifications?.warn("You need owner permission to change initiative order.");
-		return;
-	}
-
 	const list = root?.querySelector("[data-mg-crew-init-list]");
 	const cards = Array.from(list?.querySelectorAll(".mg-init-card") ?? [])
 		.filter(card => card.dataset.hidden !== "true");
@@ -3696,24 +3701,12 @@ async function mgApplyCrewSidebarInitiative(crew, root) {
 		return;
 	}
 
-	await crew.update({ "system.initiative.order": uuids });
-	await crew.setFlag("midnight-gambit", "initiativeOrder", actorIds);
-	await crew.setFlag("midnight-gambit", "initiativeReset", {
-		ids: actorIds,
-		syncId: `sidebar-${crew.id}-${Date.now()}`
-	});
-	await game.settings.set("midnight-gambit", "activeCrewUuid", crew.uuid);
-	await game.settings.set("midnight-gambit", "crewActorId", crew.id);
+	await MGInitiativeController.instance.applyOrder(crew, uuids, actorIds);
 
 	ui.notifications?.info("Initiative order applied.");
 }
 
 async function mgToggleCrewSidebarInitiativeMember(crew, card) {
-	if (!crew?.isOwner) {
-		ui.notifications?.warn("You need owner permission to change initiative visibility.");
-		return;
-	}
-
 	const uuid = card?.dataset?.uuid;
 	if (!uuid) return;
 
@@ -3739,7 +3732,6 @@ async function mgToggleCrewSidebarInitiativeMember(crew, card) {
 		card.dataset.hidden = String(wasHidden);
 		card.classList.toggle("is-muted", wasHidden);
 		if (icon) icon.className = `fa-regular ${wasHidden ? "fa-eye-slash" : "fa-eye"}`;
-		ui.notifications?.warn("You need owner permission to change initiative visibility.");
 		console.warn("MG UI | Crew sidebar initiative visibility failed.", err);
 	}
 }
@@ -3784,8 +3776,6 @@ function mgBindCrewSidebarContent(root) {
 /* Crew sidebar initiative drag and drop
 ----------------------------------------------------------------------*/
 function mgBindCrewSidebarInitiativeDrag(panel, crew) {
-	if (!crew?.isOwner) return;
-
 	const list = panel?.querySelector("[data-mg-crew-init-list]");
 	if (!list) return;
 	if (list.dataset.mgCrewDragBound === "true") return;
@@ -3835,7 +3825,6 @@ function mgBindCrewSidebarInitiativeDrag(panel, crew) {
 		try {
 			await crew.update({ "system.initiative.order": newOrder }, { render: false });
 		} catch (err) {
-			ui.notifications?.warn("You need owner permission to change initiative order.");
 			console.warn("MG UI | Crew sidebar initiative reorder failed.", err);
 			mgRefreshLeftSidebarContent();
 		}

@@ -9,6 +9,11 @@ function mgGetActorSheetImage(actor) {
   return img;
 }
 
+function mgGetActorPlacementImage(actor, key, fallback = mgGetActorSheetImage(actor)) {
+  const src = String(actor?.getFlag?.("midnight-gambit", "crops")?.[key]?.src ?? "").trim();
+  return src || fallback;
+}
+
 function mgGetDifficultyModifier() {
   try {
     const value = Number(game.settings.get("midnight-gambit", "gmDifficultyModifier") ?? 0);
@@ -35,7 +40,7 @@ export class MidnightGambitActorSheet extends ActorSheet {
       // Make sure the actor is available in the template
       context.actor = this.actor;
       context.system = this.actor.system;
-      context.actorDisplayImg = mgGetActorSheetImage(this.actor);
+      context.actorDisplayImg = mgGetActorPlacementImage(this.actor, "profile");
 
       context.sparkAttribute = this.actor.system.sparkAttribute ?? "guile";
 
@@ -613,7 +618,9 @@ export class MidnightGambitActorSheet extends ActorSheet {
       }
 
       // Apply from flags
-      const crop = this.actor.getFlag("midnight-gambit", "crops")?.profile?.css || {};
+      const crops = this.actor.getFlag("midnight-gambit", "crops") || {};
+      const crop = crops.profile?.css || {};
+      $img.attr("src", mgGetActorPlacementImage(this.actor, "profile"));
       const x = Number.isFinite(crop.x) ? crop.x : 50;
       const y = Number.isFinite(crop.y) ? crop.y : 50;
       const s = Number.isFinite(crop.scale) ? crop.scale : 1;
@@ -624,8 +631,7 @@ export class MidnightGambitActorSheet extends ActorSheet {
     }
 
     _mgGetImageCropPlacements(html) {
-      const $root = html instanceof jQuery ? html : $(html);
-      const sheetSrc = $root.find("img.mg-profile-img").first().attr("src") || this.actor?.img;
+      const sheetSrc = mgGetActorSheetImage(this.actor);
       const actorSrc = this.actor?.img || sheetSrc;
 
       return [
@@ -788,7 +794,11 @@ export class MidnightGambitActorSheet extends ActorSheet {
       const placements = this._mgGetImageCropPlacements(html).filter(p => p.src);
       if (!placements.length) return;
 
+      const savedCrops = this.actor.getFlag("midnight-gambit", "crops") || {};
       const byKey = Object.fromEntries(placements.map(p => [p.key, p]));
+      const imageOverrides = Object.fromEntries(
+        placements.map(p => [p.key, typeof savedCrops[p.key]?.src === "string" ? savedCrops[p.key].src : ""])
+      );
       const cropTargetMarkup = placements
         .flatMap(p => p.cropTargets?.map(t => ({ placement: p, target: t })) || [])
         .map(({ target }) => `
@@ -854,7 +864,19 @@ export class MidnightGambitActorSheet extends ActorSheet {
                 </button>
               `).join("")}
             </nav>
-            <p class="mg-crop-description" data-mg-crop-description></p>
+            <div class="mg-crop-description-row">
+              <p class="mg-crop-description" data-mg-crop-description></p>
+              <div class="mg-crop-image-tools" data-mg-crop-image-tools hidden>
+                <button type="button" class="ghost mg-crop-select-image">
+                  <i class="fa-solid fa-image"></i>
+                  Select Image
+                </button>
+                <button type="button" class="ghost mg-crop-use-default">
+                  <i class="fa-solid fa-rotate-left"></i>
+                  Use Default
+                </button>
+              </div>
+            </div>
             <div class="mg-crop-stage mg-crop-stage-single">
               <div class="mg-crop-img-plane">
                 <img alt="preview" data-mg-crop-img="single">
@@ -873,6 +895,23 @@ export class MidnightGambitActorSheet extends ActorSheet {
 
       const stage = $ui.find(".mg-crop-stage")[0];
       const imgEl = $ui.find(".mg-crop-stage img")[0];
+      const canBrowseFiles = () => game.user?.can?.("FILES_BROWSE") ?? game.user?.isTrusted ?? false;
+      const getPlacementSrc = placement => imageOverrides[placement.key] || placement.src;
+      const promoteAboveCropModal = app => {
+        for (const delay of [0, 50, 150]) {
+          setTimeout(() => {
+            const $picker = app?.element;
+            $picker?.css?.({
+              "z-index": 10050,
+              "max-height": "80vh"
+            });
+            $picker?.find?.(".window-content")?.css?.({
+              "max-height": "calc(80vh - 2rem)",
+              "overflow": "auto"
+            });
+          }, delay);
+        }
+      };
 
       const getImgForTarget = key => {
         if (key === active && !byKey[active]?.cropTargets?.length) return imgEl;
@@ -921,6 +960,10 @@ export class MidnightGambitActorSheet extends ActorSheet {
         $ui.find(".mg-crop-title").text(placement.title);
         $ui.find(".mg-crop-hint").text(placement.hint);
         $ui.find("[data-mg-crop-description]").text(placement.description || "");
+        const imageTools = $ui.find("[data-mg-crop-image-tools]");
+        imageTools.prop("hidden", false);
+        const canReset = !!imageOverrides[placement.key] || getTargets(placement).some(t => !!savedCrops[t.key]?.css);
+        imageTools.find(".mg-crop-use-default").prop("disabled", !canReset);
         $ui.find("[data-mg-crop-tab]").toggleClass("is-active", false).attr("aria-selected", "false");
         $ui.find(`[data-mg-crop-tab="${key}"]`).toggleClass("is-active", true).attr("aria-selected", "true");
 
@@ -933,10 +976,11 @@ export class MidnightGambitActorSheet extends ActorSheet {
           const img = getImgForTarget(target.key);
           const current = values[target.key];
           if (img) {
-            img.src = placement.src;
+            const previewSrc = getPlacementSrc(placement);
+            img.src = previewSrc;
             const plane = img.closest?.(".mg-crop-img-plane");
             if (plane && placement.key === "mainInitiative") {
-              plane.style.backgroundImage = `url("${placement.src}")`;
+              plane.style.backgroundImage = `url("${previewSrc}")`;
             } else if (plane) {
               plane.style.removeProperty("background-image");
             }
@@ -1028,6 +1072,96 @@ export class MidnightGambitActorSheet extends ActorSheet {
         }
       });
 
+      $ui.on("click", ".mg-crop-select-image", ev => {
+        ev.preventDefault();
+        const placement = byKey[active];
+        if (!placement) return;
+
+        const applyImage = (path) => {
+          const next = String(path ?? "").trim();
+          if (!next) return;
+          imageOverrides[placement.key] = next;
+          renderPlacement(placement.key);
+        };
+
+        const current = imageOverrides[placement.key] || placement.src;
+        if (canBrowseFiles()) {
+          const fp = new FilePicker({
+            type: "image",
+            current,
+            callback: applyImage
+          });
+          fp.render(true);
+          promoteAboveCropModal(fp);
+          return;
+        }
+
+        new Dialog({
+          title: `Set ${placement.label} Image`,
+          content: `
+            <p>You don't have file browsing permissions, but you can still set an image by URL/path.</p>
+            <div class="form-group">
+              <label>Image URL or Path</label>
+              <input type="text" name="mgImgPath" value="${Handlebars.escapeExpression(current)}" style="width:100%;" />
+            </div>
+          `,
+          buttons: {
+            save: {
+              icon: '<i class="fa-solid fa-check"></i>',
+              label: "Use Image",
+              callback: (dialogHtml) => applyImage(dialogHtml.find('input[name="mgImgPath"]').val())
+            },
+            cancel: {
+              icon: '<i class="fa-solid fa-xmark"></i>',
+              label: "Cancel"
+            }
+          },
+          default: "save"
+        }).render(true);
+      });
+
+      $ui.on("click", ".mg-crop-use-default", async ev => {
+        ev.preventDefault();
+        const placement = byKey[active];
+        if (!placement) return;
+        imageOverrides[placement.key] = "";
+        for (const target of getTargets(placement)) {
+          values[target.key] = {
+            x: 50,
+            y: 50,
+            scale: 1,
+            width: placement?.fitAxis === "width" ? 100 : null,
+            height: placement?.fitAxis === "height" ? 100 : null
+          };
+          dirtyTargets.add(target.key);
+        }
+        try {
+          const ns = "midnight-gambit";
+          const crops = (await this.actor.getFlag(ns, "crops")) || {};
+          const deleteUpdates = {
+            [`flags.${ns}.crops.${placement.key}.-=src`]: null
+          };
+          crops[placement.key] = crops[placement.key] || {};
+          delete crops[placement.key].src;
+          for (const target of getTargets(placement)) {
+            deleteUpdates[`flags.${ns}.crops.${target.key}.-=css`] = null;
+            if (!crops[target.key]) continue;
+            delete crops[target.key].css;
+            if (!Object.keys(crops[target.key]).length) delete crops[target.key];
+            if (savedCrops[target.key]) delete savedCrops[target.key].css;
+          }
+          if (crops[placement.key] && !Object.keys(crops[placement.key]).length) delete crops[placement.key];
+          if (savedCrops[placement.key]) delete savedCrops[placement.key].src;
+          await this.actor.setFlag(ns, "crops", crops);
+          await this.actor.update(deleteUpdates);
+          this._mgRefreshImagePlacement(placement.key, html);
+        } catch (err) {
+          console.error("MG | Failed to reset placement image:", err);
+          ui.notifications?.error("Failed to reset placement image. See console.");
+        }
+        renderPlacement(placement.key);
+      });
+
       $ui.on("click", ".mg-cancel", () => $ui.remove());
       $ui.on("click", ".mg-save", async () => {
         try {
@@ -1055,24 +1189,22 @@ export class MidnightGambitActorSheet extends ActorSheet {
             }
             crops[target.key].css = css;
           }
+          {
+            crops[placement.key] = crops[placement.key] || {};
+            const overrideSrc = String(imageOverrides[placement.key] || "").trim();
+            if (overrideSrc) crops[placement.key].src = overrideSrc;
+            else delete crops[placement.key].src;
+            if (!Object.keys(crops[placement.key]).length) delete crops[placement.key];
+            savedCrops[placement.key] = savedCrops[placement.key] || {};
+            if (overrideSrc) savedCrops[placement.key].src = overrideSrc;
+            else delete savedCrops[placement.key].src;
+          }
           await this.actor.setFlag(ns, "crops", crops);
+          if (!String(imageOverrides[placement.key] || "").trim()) {
+            await this.actor.update({ [`flags.${ns}.crops.${placement.key}.-=src`]: null });
+          }
 
-	          if (active === "profile") this._mgInitProfileCrop(html);
-	          if (active === "chat") ui.chat?.render?.(true);
-          if (["actorSidebar", "crewSidebar", "crewInitiative", "crewSheet", "crewSheetInitiative"].includes(active)) {
-            this._mgRefreshCrewSheetsForImageCrop();
-            globalThis.mgRefreshLeftSidebarContent?.();
-            globalThis.MGRefreshLeftSidebarContent?.();
-          }
-          if (active === "mainInitiative") {
-            const refreshed = new Set();
-            for (const bar of [game.mgInitiative, globalThis.mgInitiativeBar]) {
-              if (!bar || refreshed.has(bar)) continue;
-              refreshed.add(bar);
-              bar.refreshActorImages?.(this.actor.id);
-            }
-          }
-          if (active === "sidebarInitiative") game.mgInitiativeSidebar?.refreshActorImages?.(this.actor.id);
+          this._mgRefreshImagePlacement(active, html);
 	          ui.notifications?.info(`${placement.title} saved.`);
         } catch (err) {
           console.error("MG | Save image crop failed:", err);
@@ -1092,6 +1224,28 @@ export class MidnightGambitActorSheet extends ActorSheet {
 	      document.body.appendChild($ui[0]);
 	      renderPlacement(active);
 	    }
+
+    _mgRefreshImagePlacement(key, html) {
+      if (key === "profile") this._mgInitProfileCrop(html);
+      if (key === "chat") ui.chat?.render?.(true);
+
+      if (["sidebar", "actorSidebar", "crewSidebar", "crewInitiative", "crewSheet", "crewSheetInitiative"].includes(key)) {
+        this._mgRefreshCrewSheetsForImageCrop();
+        globalThis.mgRefreshLeftSidebarContent?.();
+        globalThis.MGRefreshLeftSidebarContent?.();
+      }
+
+      if (key === "mainInitiative") {
+        const refreshed = new Set();
+        for (const bar of [game.mgInitiative, globalThis.mgInitiativeBar]) {
+          if (!bar || refreshed.has(bar)) continue;
+          refreshed.add(bar);
+          bar.refreshActorImages?.(this.actor.id);
+        }
+      }
+
+      if (key === "sidebarInitiative") game.mgInitiativeSidebar?.refreshActorImages?.(this.actor.id);
+    }
 
     _mgRefreshCrewSheetsForImageCrop() {
       const actorUuid = this.actor?.uuid;
@@ -1424,992 +1578,981 @@ _mgOpenSidebarCropper() {
 }
 
 
-    /** Binds event listeners after rendering. This is the Event listener for most the system*/
-    async activateListeners(html) {
-      super.activateListeners(html);
+  /** Binds event listeners after rendering. This is the Event listener for most the system*/
+  async activateListeners(html) {
+    super.activateListeners(html);
 
-      this._mgInitProfileCrop(html);
-      html.find(".mg-open-image-options").off("click.mgImageOptions").on("click.mgImageOptions", (ev) => {
-        ev.preventDefault();
-        this._mgOpenImageOptions(html);
-      });
+    this._mgInitProfileCrop(html);
+    html.find(".mg-open-image-options").off("click.mgImageOptions").on("click.mgImageOptions", (ev) => {
+      ev.preventDefault();
+      this._mgOpenImageOptions(html);
+    });
 
-      html.find(".mg-crop-profile").off("click.mgCrop").on("click.mgCrop", (ev) => {
-        ev.preventDefault();
-        this._mgOpenImageOptions(html, "profile");
-      });
+    html.find(".mg-crop-profile").off("click.mgCrop").on("click.mgCrop", (ev) => {
+      ev.preventDefault();
+      this._mgOpenImageOptions(html, "profile");
+    });
 
-      html.find(".mg-crop-chat").off("click.mgCropChat").on("click.mgCropChat", (ev) => {
-        ev.preventDefault();
-        this._mgOpenImageOptions(html, "chat");
-      });
+    html.find(".mg-crop-chat").off("click.mgCropChat").on("click.mgCropChat", (ev) => {
+      ev.preventDefault();
+      this._mgOpenImageOptions(html, "chat");
+    });
 
-      html.find(".mg-crop-sidebar").off("click.mgCropSidebar").on("click.mgCropSidebar", (ev) => {
-        ev.preventDefault();
-        this._mgOpenImageOptions(html, "sidebar");
-      });
+    html.find(".mg-crop-sidebar").off("click.mgCropSidebar").on("click.mgCropSidebar", (ev) => {
+      ev.preventDefault();
+      this._mgOpenImageOptions(html, "sidebar");
+    });
 
-      // Owner / GM? Full interactivity. Otherwise: view-only and bail out.
-      const isOwner = this.actor?.testUserPermission?.(game.user, "OWNER") || game.user.isGM;
-      if (!isOwner) {
-        // (If you pasted the tab-hiding helper earlier, keep this call. If not, it's safe to ignore.)
-        if (typeof this._mgRestrictTabsForNonOwners === "function") {
-          this._mgRestrictTabsForNonOwners(html);
+    // Owner / GM? Full interactivity. Otherwise: view-only and bail out.
+    const isOwner = this.actor?.testUserPermission?.(game.user, "OWNER") || game.user.isGM;
+    if (!isOwner) {
+      // (If you pasted the tab-hiding helper earlier, keep this call. If not, it's safe to ignore.)
+      if (typeof this._mgRestrictTabsForNonOwners === "function") {
+        this._mgRestrictTabsForNonOwners(html);
+      }
+      this._mgMakeReadOnly(html);
+      return;
+    }
+
+    this._mgBindSheetWideDrop(html);
+
+    // Dynamically apply .narrow-mode based on sheet width
+    const appWindow = html[0]?.closest(".window-app");
+    const form = html[0];
+
+    if (appWindow && form) {
+      const observer = new ResizeObserver(entries => {
+        for (let entry of entries) {
+          const width = entry.contentRect.width;
+          if (width < 700) {
+            form.classList.add("narrow-mode");
+          } else {
+            form.classList.remove("narrow-mode");
+          }
         }
-        this._mgMakeReadOnly(html);
+      });
+
+      observer.observe(appWindow);
+      this._resizeObserver = observer;
+    }
+
+    // Shuffle Function
+    function shuffleArray(array) {
+      const copy = [...(array ?? [])];
+      for (let i = copy.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [copy[i], copy[j]] = [copy[j], copy[i]];
+      }
+      return copy;
+    }
+
+    // MG Edge Toggle Button
+    html.find(".mg-edge-toggle").on("click", async (ev) => {
+      ev.preventDefault();
+      const cur = !!this.actor.system.edgeNext;
+      await this.actor.update({ "system.edgeNext": !cur }, { render: false });
+
+      // Update UI immediately without re-render
+      const btn = ev.currentTarget;
+      btn.classList.toggle("is-active", !cur);
+    });
+
+    const refreshStrainEffectBadges = () => {
+      const root = html[0];
+      if (!root) return;
+
+      root.querySelectorAll(".attribute-column[data-attr]").forEach((column) => {
+        column.querySelector(":scope > .mg-strain-warning-badge")?.remove();
+
+        const attrKey = column.dataset.attr;
+        const effect = mgGetStrainEffectBadge(
+          mgGetStrainRollEffects(this.actor, attrKey),
+          { includeGlobalLock: false }
+        );
+        if (!effect) return;
+
+        const badge = document.createElement("span");
+        badge.className = `mg-strain-warning-badge ${effect.tree}`;
+        badge.dataset.tooltip = effect.title;
+
+        const icon = document.createElement("i");
+        icon.className = "fa-solid fa-exclamation";
+        badge.appendChild(icon);
+
+        column.prepend(badge);
+      });
+    };
+
+    // This updates the strain amount on click; we suppress full re-render to avoid UI jump
+    html.find(".strain-dot").on("click", async (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+
+      // Kill any active input focus
+      if (document.activeElement) {
+        try { document.activeElement.blur(); } catch (_) {}
+      }
+
+      const el = event.currentTarget;
+      const strainType   = el.dataset.type;           // "mortal" | "soul" (your dots use data-type)
+      const clickedValue = Number(el.dataset.value);  // 1..N
+
+      const actor = this.actor;
+      if (!actor) return;
+
+      const currentValue = getProperty(actor.system.strain, strainType);
+      const newValue = Math.max(
+        0,
+        clickedValue === currentValue ? clickedValue - 1 : clickedValue
+      );
+
+      // 1) Update the document WITHOUT triggering a render (important for multiplayer UI consistency)
+      await actor.update({ [`system.strain.${strainType}`]: newValue }, { render: false });
+
+      // 2) Manually reflect the change in the currently open sheet:
+      // 2a) dots
+      const $track = html.find(`.strain-track[data-strain="${strainType}"]`);
+      $track.find(".strain-dot").each((_, node) => {
+        const v = Number(node.dataset.value);
+        node.classList.toggle("filled", v <= newValue);
+      });
+
+      // 2b) ticker number inside the shield (covers common patterns)
+      // Try input first
+      const $tickerInput = html.find(
+        `input[name="system.strain.${strainType}"], input[data-strain="${strainType}"].strain-ticker`
+      );
+      if ($tickerInput.length) {
+        $tickerInput.val(newValue);
+      }
+
+      // Try plain text spans/divs (e.g., the number inside the shield)
+      const $tickerText = html.find(
+        `[data-strain-current="${strainType}"], .strain-current[data-strain="${strainType}"], .strain-ticker-value[data-strain="${strainType}"]`
+      );
+      if ($tickerText.length) {
+        $tickerText.text(newValue);
+      }
+
+      refreshStrainEffectBadges();
+    });
+
+
+    /** This looks for risk dice amount and applies similar click logic */
+    html.find(".risk-dot").on("click", async (event) => {
+      const el = event.currentTarget;
+      const clicked = parseInt(el.dataset.value);
+      const riskDice = this.actor.system.riskDice ?? 5;
+      const currentUsed = this.actor.system.riskUsed ?? 0;
+      const currentlyFilled = riskDice - currentUsed;
+
+      let newUsed;
+
+      if (clicked > currentlyFilled) {
+        // Clicked an unfilled dot → fill up to it
+        newUsed = riskDice - clicked;
+      } else {
+        // Clicked a filled dot → unfill it and all to the right
+        newUsed = riskDice - (clicked - 1);
+      }
+
+      /**This tracks how much Risk you have used, and calculates it with your current*/
+      console.log(`Risk click: ${clicked} → riskUsed: ${newUsed} (was ${currentUsed})`);
+
+      await this.actor.update({ "system.riskUsed": newUsed });
+
+      this.render(false);
+    });
+
+    /** STO (Stacking the Odds) tracker — click to add or spend */
+    html.find(".sto-dot")
+      .off("click.mgSTO")
+      .on("click.mgSTO", async (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+
+        const el = event.currentTarget;
+        const clicked = Number(el.dataset.value);
+        if (!Number.isFinite(clicked)) return;
+
+        const actor = this.actor;
+        if (!actor) return;
+
+        const current = Number(actor.system?.sto?.value ?? 0);
+
+        // Core rule:
+        // - click empty → set to clicked
+        // - click filled → drop to clicked - 1
+        let next = (clicked <= current)
+          ? clicked - 1
+          : clicked;
+
+        next = Math.max(0, next);
+
+        await actor.update(
+          { "system.sto.value": next },
+          { render: false }
+        );
+
+        // Patch UI immediately (no full render)
+        const $track = this.element.find(`.sto-track[data-track="sto"]`);
+        $track.find(".sto-dot").each((_, node) => {
+          const v = Number(node.dataset.value);
+          node.classList.toggle("filled", v <= next);
+        });
+      });
+
+
+
+
+    /**This is the listener for clicking the Flashback Resource */
+    html.find(".flashback-dot").on("click", async (event) => {
+      const current = this.actor.system.flashbackUsed ?? false;
+      await this.actor.update({ "system.flashbackUsed": !current });
+      this.render(false);
+    });
+
+    html.find(".load-icon").on("click", async (event) => {
+      const selected = event.currentTarget.dataset.load;
+      await this.actor.update({ "system.load": selected });
+
+      // Remove all selected immediately
+      html.find(".load-icon").removeClass("selected");
+
+      const $clicked = $(event.currentTarget);
+
+      // Step 1: Force reflow to commit the style
+      void $clicked[0].offsetWidth;
+
+      // Step 2: Add animating class
+      $clicked.addClass("selected");
+    });
+
+    /** This adds a tab section for the character sheet and sets the selectors for said tabs. Also sets the tabs to stay on the active tab after a render */
+    // It also makes the data stored locally not on the system
+    const groupEl = html.find("nav.sheet-tabs")[0];
+    const group = groupEl?.getAttribute("data-group") || "main";
+
+    // Unique key per actor + viewer (and per tab group if you add more later)
+    const TAB_KEY = `mg.tab.${this.actor.id}.${game.user.id}.${group}`;
+    const initialTab = localStorage.getItem(TAB_KEY) || "general";
+
+    // Keep the active tab per-actor/per-user
+    const tabs = new Tabs({
+      navSelector: groupEl ? `nav.sheet-tabs[data-group="${group}"]` : `nav.sheet-tabs`,
+      // Use the standard container that holds your <section class="tab" ...> panes
+      contentSelector: `.sheet-body`,
+      initial: initialTab,
+      // Foundry v11 will call this; make sure it's a function
+      callback: (_tabs, _html, _event) => { /* no-op, but prevents v11 crash */ }
+    });
+    tabs.bind(html[0]);
+
+
+    // Save selection locally (no actor flags = no sync to other users)
+    html.find(groupEl ? `nav.sheet-tabs[data-group="${group}"]` : `nav.sheet-tabs`)
+      .on("click", "[data-tab]", (ev) => {
+        const tab = ev.currentTarget.dataset.tab;
+        if (tab) localStorage.setItem(TAB_KEY, tab);
+
+        // After the tab becomes visible, re-measure tag stacks so .short/toggles are correct
+        setTimeout(() => {
+          html[0]?._mgRefreshTagsOverflow?.();
+        }, 0);
+      });
+
+      // Move floating tab nav outside .window-content so it's not clipped
+      const nav = html.find(".sheet-tabs.floating");
+      const app = html.closest(".window-app");
+      if (nav.length && app.length) {
+        app.append(nav);
+
+        // --- Settings tab glow + count badge (nav lives in .window-app now) ---
+        const appRoot = app; // jQuery of .window-app
+
+        const refreshSettingsGlow = async () => {
+          const state = (await this.actor.getFlag("midnight-gambit", "state")) ?? {};
+          const p = state.pending ?? {};
+          const total = Object.values(p).reduce((a, n) => a + (Number(n) || 0), 0);
+          const hasPending = total > 0;
+
+          const navBtn = appRoot.find('nav.sheet-tabs [data-tab="settings"]');
+          if (!navBtn.length) return;
+
+          navBtn.toggleClass("mg-pending-glow", hasPending);
+          navBtn.find(".mg-pending-badge").remove();
+          if (hasPending) {
+            navBtn.append(`<p class="mg-pending-badge" aria-hidden="true">${total}</p>`);
+          }
+        };
+
+        // Run once when the sheet renders (no await here)
+        refreshSettingsGlow().catch(err => console.warn("MG glow init failed:", err));
+
+        // Re-run when this actor's flags change (pending updates)
+        this._onActorUpdatePending = async (doc, changes) => {
+          if (doc.id !== this.actor.id) return;
+
+          // Be lenient: if any midnight-gambit flags changed, refresh
+          const mgFlagsChanged =
+            foundry.utils.getProperty(changes, "flags.midnight-gambit") !== undefined ||
+            foundry.utils.getProperty(changes, "flags['midnight-gambit']") !== undefined ||
+            foundry.utils.getProperty(changes, "flags") !== undefined;
+
+          if (mgFlagsChanged) await refreshSettingsGlow();
+        };
+
+        Hooks.on("updateActor", this._onActorUpdatePending);
+      }
+
+    // Drawing button for Gambits
+    html.find(".draw-gambit").on("click", async () => {
+      event.preventDefault();
+      event.stopPropagation();
+      const { deck = [], drawn = [], maxDrawSize = 3, locked = false } = this.actor.system.gambits;
+
+      if (locked || drawn.length >= maxDrawSize || deck.length === 0) {
+        ui.notifications.warn("Cannot draw more cards.");
         return;
       }
 
-      this._mgBindSheetWideDrop(html);
+      const drawCount = Math.min(maxDrawSize - drawn.length, deck.length);
+      const shuffled = shuffleArray(deck);
 
-      // Dynamically apply .narrow-mode based on sheet width
-      const appWindow = html[0]?.closest(".window-app");
-      const form = html[0];
+      const drawnNow = shuffled.slice(0, drawCount);
+      const newDrawn = [...drawn, ...drawnNow];
+      const newDeck  = deck.filter(id => !drawnNow.includes(id));
 
-      if (appWindow && form) {
-        const observer = new ResizeObserver(entries => {
-          for (let entry of entries) {
-            const width = entry.contentRect.width;
-            if (width < 700) {
-              form.classList.add("narrow-mode");
-            } else {
-              form.classList.remove("narrow-mode");
-            }
-          }
-        });
-
-        observer.observe(appWindow);
-        this._resizeObserver = observer;
-      }
-
-      // Shuffle Function
-      function shuffleArray(array) {
-        const copy = [...(array ?? [])];
-        for (let i = copy.length - 1; i > 0; i--) {
-          const j = Math.floor(Math.random() * (i + 1));
-          [copy[i], copy[j]] = [copy[j], copy[i]];
-        }
-        return copy;
-      }
-
-      // MG Edge Toggle Button
-      html.find(".mg-edge-toggle").on("click", async (ev) => {
-        ev.preventDefault();
-        const cur = !!this.actor.system.edgeNext;
-        await this.actor.update({ "system.edgeNext": !cur }, { render: false });
-
-        // Update UI immediately without re-render
-        const btn = ev.currentTarget;
-        btn.classList.toggle("is-active", !cur);
+      await this.actor.update({
+        "system.gambits.deck": newDeck,
+        "system.gambits.drawn": newDrawn,
+        "system.gambits.locked": true
       });
+    });
 
-      const refreshStrainEffectBadges = () => {
-        const root = html[0];
-        if (!root) return;
+    //Discard Gambit
+    html.find(".discard-card").on("click", async (event) => {
+      event.preventDefault();
+      event.stopPropagation();
 
-        root.querySelectorAll(".attribute-column[data-attr]").forEach((column) => {
-          column.querySelector(":scope > .mg-strain-warning-badge")?.remove();
+      const itemId = event.currentTarget.dataset.itemId;
+      const parent = event.currentTarget.closest(".gambit-card");
+      const source = parent?.dataset.source;
 
-          const attrKey = column.dataset.attr;
-          const effect = mgGetStrainEffectBadge(
-            mgGetStrainRollEffects(this.actor, attrKey),
-            { includeGlobalLock: false }
-          );
-          if (!effect) return;
+      if (!itemId || !source) return;
 
-          const badge = document.createElement("span");
-          badge.className = `mg-strain-warning-badge ${effect.tree}`;
-          badge.dataset.tooltip = effect.title;
+      const drawn = this.actor.system.gambits[source] ?? [];
+      const discard = this.actor.system.gambits.discard ?? [];
 
-          const icon = document.createElement("i");
-          icon.className = "fa-solid fa-exclamation";
-          badge.appendChild(icon);
+      const updatedSource = drawn.filter(id => id !== itemId);
+      const updatedDiscard = [...discard, itemId];
 
-          column.prepend(badge);
+      await this.actor.update({
+        [`system.gambits.${source}`]: updatedSource,
+        "system.gambits.discard": updatedDiscard
+      });
+    });
+
+    //Remove Card from Hand
+    html.find(".remove-from-hand").on("click", async (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+
+      const itemId = event.currentTarget.dataset.itemId;
+      const parent = event.currentTarget.closest(".gambit-card");
+      const source = parent?.dataset.source;
+      if (!itemId || !source) return;
+
+      const update = {};
+      const list = this.actor.system.gambits[source] ?? [];
+      update[`system.gambits.${source}`] = list.filter(id => id !== itemId);
+
+      await this.actor.update(update, { render: false });
+      this.render(false);
+    });
+
+    const mgEscapeChatHtml = (s) => String(s ?? "").replace(/[&<>"'`=\/]/g, c =>
+      ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;",
+        "`": "&#96;",
+        "=": "&#61;",
+        "/": "&#47;"
+      }[c])
+    );
+
+    const mgMoveTagIdsFromCard = (sourceEl, item) => {
+      const itemTags = Array.isArray(item?.system?.tags) ? item.system.tags : [];
+      const card = sourceEl.closest(".move-block, .signature-perk");
+      const domTags = Array.from(card?.querySelectorAll?.(".item-tag[data-tag-id]") ?? [])
+        .map(el => el.dataset.tagId)
+        .filter(Boolean);
+      return Array.from(new Set([...itemTags, ...domTags].map(String)));
+    };
+
+    const mgRenderMoveChatTags = (tagIds, item) => {
+      if (!Array.isArray(tagIds) || !tagIds.length) return "";
+
+      const defs = [
+        ...(CONFIG.MidnightGambit?.ITEM_TAGS ?? []),
+        ...(CONFIG.MidnightGambit?.WEAPON_TAGS ?? []),
+        ...(CONFIG.MidnightGambit?.ARMOR_TAGS ?? []),
+        ...(CONFIG.MidnightGambit?.MISC_TAGS ?? [])
+      ];
+      const customTags = item?.system?.customTags ?? {};
+
+      const tagHtml = tagIds
+        .map(tagId => {
+          const def = defs.find(t => String(t.id) === String(tagId));
+          const label = def?.label || String(tagId);
+          const desc = def?.description || customTags[tagId] || "";
+          return `<span class="item-tag tag" data-tag-id="${mgEscapeChatHtml(tagId)}" title="${mgEscapeChatHtml(desc)}">${mgEscapeChatHtml(label)}</span>`;
+        })
+        .join(" ");
+
+      return tagHtml ? `<strong>Tags:</strong><div class="chat-tags">${tagHtml}</div>` : "";
+    };
+
+    const mgEnrichMoveDescriptionForChat = async (text) => {
+      const raw = String(text ?? "").trim();
+      if (!raw) return "";
+      return TextEditor.enrichHTML(raw, {
+        async: true,
+        secrets: this.actor.isOwner,
+        documents: true,
+        links: true,
+        rolls: true
+      });
+    };
+
+    //Making it so if you click moves in the Character sheet they post to chat!
+    html.find(".post-move").off("click.mgPostMove").on("click.mgPostMove", async event => {
+      event.preventDefault();
+      event.stopPropagation();
+
+      const card = event.currentTarget.closest("[data-item-id]");
+      const item = this.actor.items.get(card?.dataset?.itemId);
+      const name = item?.name || event.currentTarget.dataset.moveName || "Unknown Move";
+      const description = item?.system?.description ?? event.currentTarget.dataset.moveDescription ?? "";
+      const descHtml = await mgEnrichMoveDescriptionForChat(description);
+      const tagsHtml = mgRenderMoveChatTags(mgMoveTagIdsFromCard(event.currentTarget, item), item);
+
+      const chatContent = `
+        <div class="chat-move">
+          <h2><i class="fa-solid fa-hand-fist"></i> ${mgEscapeChatHtml(name)}</h2>
+          ${descHtml ? `<div class="chat-move-desc">${descHtml}</div>` : ""}
+          ${tagsHtml}
+        </div>
+      `;
+
+      ChatMessage.create({
+        user: game.user.id,
+        speaker: ChatMessage.getSpeaker({ actor: this.actor }),
+        content: chatContent
+      });
+    });
+
+    //Doing the same chat posting for Signature Perks
+    html.find(".signature-perk h3").off("click.mgPostSignature").on("click.mgPostSignature", async (event) => {
+      const source = event.currentTarget.querySelector(".post-signature");
+      if (!source) return;
+
+      const card = source.closest("[data-item-id]");
+      const item = this.actor.items.get(card?.dataset?.itemId);
+      const name = item?.system?.signaturePerk || item?.name || source.dataset.perkName || "Signature";
+      const description = item?.system?.signatureDescription ?? item?.system?.description ?? source.dataset.perkDescription ?? "";
+      const descHtml = await mgEnrichMoveDescriptionForChat(description);
+      const tagsHtml = mgRenderMoveChatTags(mgMoveTagIdsFromCard(source, item), item);
+
+      const chatContent = `
+        <div class="chat-move">
+          <h2><i class="fa-solid fa-diamond"></i> Signature Perk: ${mgEscapeChatHtml(name)}</h2>
+          ${descHtml ? `<div class="chat-move-desc">${descHtml}</div>` : ""}
+          ${tagsHtml}
+        </div>
+      `;
+
+      ChatMessage.create({
+        user: game.user.id,
+        speaker: ChatMessage.getSpeaker({ actor: this.actor }),
+        content: chatContent
+      });
+    });
+
+    // Returning Gambits to Deck when removed
+    html.find('.return-to-deck').on('click', async (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+
+      const itemId = event.currentTarget.dataset.itemId;
+      if (!itemId) return;
+
+      const { deck = [], drawn = [] } = this.actor.system.gambits;
+      const updatedDeck = [...deck, itemId];
+      const updatedDrawn = drawn.filter(id => id !== itemId);
+
+      await this.actor.update({
+        "system.gambits.deck": updatedDeck,
+        "system.gambits.drawn": updatedDrawn,
+        "system.gambits.handHidden": (this.actor.system.gambits.handHidden ?? []).filter(id => id !== itemId)
+      }, { render: false });
+
+      this.render(false);
+    });
+
+    // Handle dragstart
+    html.find(".gambit-card").on("dragstart", event => {
+      const itemId = event.currentTarget.dataset.itemId;
+      const source = event.currentTarget.dataset.source;
+      if (!itemId || !source) return;
+
+      event.originalEvent.dataTransfer.setData(
+        "text/plain",
+        JSON.stringify({ itemId, source })
+      );
+    });
+
+    // --- MG internal gambit drag/drop uses custom MIME to avoid clobbering Foundry drops ---
+    const MG_GAMBIT_MIME = "application/x-midnightgambit-gambit";
+
+    // When dragging a gambit card within the sheet, store MG-only payload
+    html.find(".gambit-card[draggable='true']").off("dragstart.mgGambit").on("dragstart.mgGambit", function (event) {
+      const $card = $(this);
+      const itemId = $card.data("itemId");
+      const source = $card.data("source"); // "deck" or "drawn"
+
+      const payload = { itemId, source };
+      event.originalEvent.dataTransfer.setData(MG_GAMBIT_MIME, JSON.stringify(payload));
+
+      // Optional: also set a tiny plain-text fallback for browser UX (NOT used by logic)
+      event.originalEvent.dataTransfer.setData("text/plain", "MG_GAMBIT");
+    });
+
+    // Helper: is this an internal MG gambit drag?
+    const isMgGambitDrag = (event) => {
+      const dt = event?.originalEvent?.dataTransfer;
+      if (!dt) return false;
+      // Some browsers expose types as DOMStringList
+      const types = Array.from(dt.types ?? []);
+      return types.includes(MG_GAMBIT_MIME);
+    };
+
+    // Handle drop on deck or drawn (ONLY for MG gambit drags)
+    const handleDrop = (targetArea) => {
+      return async (event) => {
+        // If this isn't our internal gambit drag, do NOT intercept (let Foundry handle)
+        if (!isMgGambitDrag(event)) return;
+
+        event.preventDefault();
+        event.stopPropagation();
+
+        const raw = event.originalEvent.dataTransfer.getData(MG_GAMBIT_MIME);
+        const data = raw ? JSON.parse(raw) : null;
+        const { itemId, source } = data ?? {};
+
+        if (!itemId || !source) return;
+        if (source === targetArea) return;
+
+        const deck = this.actor.system.gambits.deck ?? [];
+        const drawn = this.actor.system.gambits.drawn ?? [];
+
+        let from = source === "deck" ? deck : drawn;
+        let to   = source === "deck" ? drawn : deck;
+
+        const index = from.indexOf(itemId);
+        if (index === -1) return;
+
+        from = [...from];
+        to   = [...to, itemId];
+        from.splice(index, 1);
+
+        await this.actor.update({
+          "system.gambits.deck":  source === "deck" ? from : to,
+          "system.gambits.drawn": source === "deck" ? to   : from,
+          ...(source === "drawn"
+            ? { "system.gambits.handHidden": (this.actor.system.gambits.handHidden ?? []).filter(id => id !== itemId) }
+            : {})
         });
       };
+    };
 
-      // This updates the strain amount on click; we suppress full re-render to avoid UI jump
-      html.find(".strain-dot").on("click", async (event) => {
-        event.preventDefault();
-        event.stopPropagation();
+    // Set hover class ONLY for MG gambit drags
+    const setupDragHover = (containerSelector) => {
+      const container = html.find(containerSelector);
 
-        // Kill any active input focus
-        if (document.activeElement) {
-          try { document.activeElement.blur(); } catch (_) {}
-        }
+      container.off(".mgGambitHover");
 
-        const el = event.currentTarget;
-        const strainType   = el.dataset.type;           // "mortal" | "soul" (your dots use data-type)
-        const clickedValue = Number(el.dataset.value);  // 1..N
+      container.on("dragenter.mgGambitHover", (e) => {
+        if (!isMgGambitDrag(e)) return;
+        e.preventDefault();
+        e.stopPropagation();
+        container.addClass("drag-hover");
+      });
 
-        const actor = this.actor;
-        if (!actor) return;
+      container.on("dragover.mgGambitHover", (e) => {
+        if (!isMgGambitDrag(e)) return;
+        e.preventDefault();
+        e.stopPropagation();
+      });
 
-        const currentValue = getProperty(actor.system.strain, strainType);
-        const newValue = Math.max(
-          0,
-          clickedValue === currentValue ? clickedValue - 1 : clickedValue
-        );
+      container.on("dragleave.mgGambitHover", (e) => {
+        if (!container[0].contains(e.relatedTarget)) container.removeClass("drag-hover");
+      });
 
-        // 1) Update the document WITHOUT triggering a render (important for multiplayer UI consistency)
-        await actor.update({ [`system.strain.${strainType}`]: newValue }, { render: false });
+      container.on("drop.mgGambitHover", (e) => {
+        if (!isMgGambitDrag(e)) return;
+        container.removeClass("drag-hover");
+      });
+    };
 
-        // 2) Manually reflect the change in the currently open sheet:
-        // 2a) dots
-        const $track = html.find(`.strain-track[data-strain="${strainType}"]`);
-        $track.find(".strain-dot").each((_, node) => {
-          const v = Number(node.dataset.value);
-          node.classList.toggle("filled", v <= newValue);
+    // Add drag-hover support to both deck and hand
+    setupDragHover(".gambit-deck");
+    setupDragHover(".gambit-hand");
+
+    // Register drop zones (only intercept MG gambit drags; Foundry drops pass through)
+    html.find(".gambit-deck").off(".mgGambitDrop");
+    html.find(".gambit-hand").off(".mgGambitDrop");
+
+    html.find(".gambit-deck").on("dragover.mgGambitDrop", (e) => {
+      if (!isMgGambitDrag(e)) return;
+      e.preventDefault();
+    });
+    html.find(".gambit-hand").on("dragover.mgGambitDrop", (e) => {
+      if (!isMgGambitDrag(e)) return;
+      e.preventDefault();
+    });
+
+    html.find(".gambit-deck").on("drop.mgGambitDrop", handleDrop("deck"));
+    html.find(".gambit-hand").on("drop.mgGambitDrop", handleDrop("drawn"));
+
+
+    // Register drop zones
+    html.find('.gambit-deck').on('dragover', e => e.preventDefault());
+    html.find('.gambit-hand').on('dragover', e => e.preventDefault());
+    html.find('.gambit-deck').on('drop', handleDrop("deck"));
+    html.find('.gambit-hand').on('drop', handleDrop("drawn"));
+
+    this._mgBindHandOrderList(html, {
+      listSelector: '[data-mg-order-list="gambit-hand"]',
+      cardSelector: ".mg-hand-order-card",
+      idAttr: "itemId",
+      orderPath: "system.gambits.drawn",
+      hiddenPath: "system.gambits.handHidden",
+      hiddenLabel: "Hand"
+    });
+
+    this._mgBindHandOrderList(html, {
+      listSelector: '[data-mg-order-list="move-hand"]',
+      cardSelector: ".mg-hand-order-card",
+      idAttr: "moveHandId",
+      orderPath: "system.gambits.moveOrder",
+      hiddenPath: "system.gambits.moveHidden",
+      hiddenLabel: "Moves Hand",
+      filterToCurrentOrder: false
+    });
+
+    // Spark slot click logic
+    html.find(".spark-dot").on("click", async (event) => {
+      const el = event.currentTarget;
+      const clicked = parseInt(el.dataset.value);
+      const total = this.actor.system.sparkSlots ?? 0;
+      const used = this.actor.system.sparkUsed ?? 0;
+      const remaining = total - used;
+
+      let newUsed;
+      if (clicked > remaining) {
+        // Fill up to clicked (refund/restore behavior)
+        newUsed = total - clicked;
+      } else {
+        // Unfill clicked and right (spend behavior)
+        newUsed = total - (clicked - 1);
+      }
+
+      // Safety clamp
+      newUsed = Math.max(0, Math.min(total, newUsed));
+
+      const spent = newUsed > used; // only true when you click a FILLED spark to spend it
+
+      await this.actor.update({ "system.sparkUsed": newUsed });
+
+      // Post chat message ONLY when spending Spark
+      if (spent) {
+        const chatContent = `
+          <div class="chat-move">
+            <h2><i class="fa-kit fa-spark"></i> Spark has been used!</h2>
+          </div>
+        `;
+
+        ChatMessage.create({
+          user: game.user.id,
+          speaker: ChatMessage.getSpeaker({ actor: this.actor }),
+          content: chatContent
         });
+      }
 
-        // 2b) ticker number inside the shield (covers common patterns)
-        // Try input first
-        const $tickerInput = html.find(
-          `input[name="system.strain.${strainType}"], input[data-strain="${strainType}"].strain-ticker`
-        );
-        if ($tickerInput.length) {
-          $tickerInput.val(newValue);
-        }
+      this.render(false);
+    });
 
-        // Try plain text spans/divs (e.g., the number inside the shield)
-        const $tickerText = html.find(
-          `[data-strain-current="${strainType}"], .strain-current[data-strain="${strainType}"], .strain-ticker-value[data-strain="${strainType}"]`
-        );
-        if ($tickerText.length) {
-          $tickerText.text(newValue);
-        }
+    /**
+     * Recalculate STRAIN CAPACITY from:
+     * - Guise/Base capacity (system.baseStrainCapacity)
+     * - Equipped gear buffer (item.system.remainingCapacity)
+     * - Temp bonus buffer (system.strain.tempBonus)  -> shielding / corrections
+     *
+     * - Capacity is a buffer that counts DOWN first.
+     * - The strain TRACK (dots) only fills once capacity hits 0.
+     *
+     * So:
+     * - system.strain["mortal capacity"] / ["soul capacity"] = CURRENT remaining capacity (buffer)
+     * - system.strain.mortal / .soul = TRACK damage (dots)
+     * - system.strain.maxCapacity = derived max (for clamping + UI)
+     */
+    const recalcStrainFromGear = async ({ resetToMax = false } = {}) => {
+      const actor = this.actor;
+      if (!actor) return;
 
-        refreshStrainEffectBadges();
-      });
+      // Ensure tempBonus exists (older actors won't have it)
+      const tempBonus = actor.system?.strain?.tempBonus ?? { mortal: 0, soul: 0 };
+      const tempM = Number(tempBonus.mortal ?? 0);
+      const tempS = Number(tempBonus.soul ?? 0);
 
+      const baseM = Number(actor.system.baseStrainCapacity?.mortal ?? 0);
+      const baseS = Number(actor.system.baseStrainCapacity?.soul ?? 0);
 
-      /** This looks for risk dice amount and applies similar click logic */
-      html.find(".risk-dot").on("click", async (event) => {
-        const el = event.currentTarget;
-        const clicked = parseInt(el.dataset.value);
-        const riskDice = this.actor.system.riskDice ?? 5;
-        const currentUsed = this.actor.system.riskUsed ?? 0;
-        const currentlyFilled = riskDice - currentUsed;
-
-        let newUsed;
-
-        if (clicked > currentlyFilled) {
-          // Clicked an unfilled dot → fill up to it
-          newUsed = riskDice - clicked;
-        } else {
-          // Clicked a filled dot → unfill it and all to the right
-          newUsed = riskDice - (clicked - 1);
-        }
-
-        /**This tracks how much Risk you have used, and calculates it with your current*/
-        console.log(`Risk click: ${clicked} → riskUsed: ${newUsed} (was ${currentUsed})`);
-
-        await this.actor.update({ "system.riskUsed": newUsed });
-
-        this.render(false);
-      });
-
-      /** STO (Stacking the Odds) tracker — click to add or spend */
-      html.find(".sto-dot")
-        .off("click.mgSTO")
-        .on("click.mgSTO", async (event) => {
-          event.preventDefault();
-          event.stopPropagation();
-
-          const el = event.currentTarget;
-          const clicked = Number(el.dataset.value);
-          if (!Number.isFinite(clicked)) return;
-
-          const actor = this.actor;
-          if (!actor) return;
-
-          const current = Number(actor.system?.sto?.value ?? 0);
-
-          // Core rule:
-          // - click empty → set to clicked
-          // - click filled → drop to clicked - 1
-          let next = (clicked <= current)
-            ? clicked - 1
-            : clicked;
-
-          next = Math.max(0, next);
-
-          await actor.update(
-            { "system.sto.value": next },
-            { render: false }
-          );
-
-          // Patch UI immediately (no full render)
-          const $track = this.element.find(`.sto-track[data-track="sto"]`);
-          $track.find(".sto-dot").each((_, node) => {
-            const v = Number(node.dataset.value);
-            node.classList.toggle("filled", v <= next);
-          });
-        });
-
-
-
-
-      /**This is the listener for clicking the Flashback Resource */
-      html.find(".flashback-dot").on("click", async (event) => {
-        const current = this.actor.system.flashbackUsed ?? false;
-        await this.actor.update({ "system.flashbackUsed": !current });
-        this.render(false);
-      });
-
-      html.find(".load-icon").on("click", async (event) => {
-        const selected = event.currentTarget.dataset.load;
-        await this.actor.update({ "system.load": selected });
-
-        // Remove all selected immediately
-        html.find(".load-icon").removeClass("selected");
-
-        const $clicked = $(event.currentTarget);
-
-        // Step 1: Force reflow to commit the style
-        void $clicked[0].offsetWidth;
-
-        // Step 2: Add animating class
-        $clicked.addClass("selected");
-      });
-
-      /** This adds a tab section for the character sheet and sets the selectors for said tabs. Also sets the tabs to stay on the active tab after a render */
-      // It also makes the data stored locally not on the system
-      const groupEl = html.find("nav.sheet-tabs")[0];
-      const group = groupEl?.getAttribute("data-group") || "main";
-
-      // Unique key per actor + viewer (and per tab group if you add more later)
-      const TAB_KEY = `mg.tab.${this.actor.id}.${game.user.id}.${group}`;
-      const initialTab = localStorage.getItem(TAB_KEY) || "general";
-
-      // Keep the active tab per-actor/per-user
-      const tabs = new Tabs({
-        navSelector: groupEl ? `nav.sheet-tabs[data-group="${group}"]` : `nav.sheet-tabs`,
-        // Use the standard container that holds your <section class="tab" ...> panes
-        contentSelector: `.sheet-body`,
-        initial: initialTab,
-        // Foundry v11 will call this; make sure it's a function
-        callback: (_tabs, _html, _event) => { /* no-op, but prevents v11 crash */ }
-      });
-      tabs.bind(html[0]);
-
-
-      // Save selection locally (no actor flags = no sync to other users)
-      html.find(groupEl ? `nav.sheet-tabs[data-group="${group}"]` : `nav.sheet-tabs`)
-        .on("click", "[data-tab]", (ev) => {
-          const tab = ev.currentTarget.dataset.tab;
-          if (tab) localStorage.setItem(TAB_KEY, tab);
-
-          // After the tab becomes visible, re-measure tag stacks so .short/toggles are correct
-          setTimeout(() => {
-            html[0]?._mgRefreshTagsOverflow?.();
-          }, 0);
-        });
-
-        // Move floating tab nav outside .window-content so it's not clipped
-        const nav = html.find(".sheet-tabs.floating");
-        const app = html.closest(".window-app");
-        if (nav.length && app.length) {
-          app.append(nav);
-
-          // --- Settings tab glow + count badge (nav lives in .window-app now) ---
-          const appRoot = app; // jQuery of .window-app
-
-          const refreshSettingsGlow = async () => {
-            const state = (await this.actor.getFlag("midnight-gambit", "state")) ?? {};
-            const p = state.pending ?? {};
-            const total = Object.values(p).reduce((a, n) => a + (Number(n) || 0), 0);
-            const hasPending = total > 0;
-
-            const navBtn = appRoot.find('nav.sheet-tabs [data-tab="settings"]');
-            if (!navBtn.length) return;
-
-            navBtn.toggleClass("mg-pending-glow", hasPending);
-            navBtn.find(".mg-pending-badge").remove();
-            if (hasPending) {
-              navBtn.append(`<p class="mg-pending-badge" aria-hidden="true">${total}</p>`);
-            }
-          };
-
-          // Run once when the sheet renders (no await here)
-          refreshSettingsGlow().catch(err => console.warn("MG glow init failed:", err));
-
-          // Re-run when this actor's flags change (pending updates)
-          this._onActorUpdatePending = async (doc, changes) => {
-            if (doc.id !== this.actor.id) return;
-
-            // Be lenient: if any midnight-gambit flags changed, refresh
-            const mgFlagsChanged =
-              foundry.utils.getProperty(changes, "flags.midnight-gambit") !== undefined ||
-              foundry.utils.getProperty(changes, "flags['midnight-gambit']") !== undefined ||
-              foundry.utils.getProperty(changes, "flags") !== undefined;
-
-            if (mgFlagsChanged) await refreshSettingsGlow();
-          };
-
-          Hooks.on("updateActor", this._onActorUpdatePending);
-        }
-
-      // Drawing button for Gambits
-      html.find(".draw-gambit").on("click", async () => {
-        event.preventDefault();
-        event.stopPropagation();
-        const { deck = [], drawn = [], maxDrawSize = 3, locked = false } = this.actor.system.gambits;
-
-        if (locked || drawn.length >= maxDrawSize || deck.length === 0) {
-          ui.notifications.warn("Cannot draw more cards.");
-          return;
-        }
-
-        const drawCount = Math.min(maxDrawSize - drawn.length, deck.length);
-        const shuffled = shuffleArray(deck);
-
-        const drawnNow = shuffled.slice(0, drawCount);
-        const newDrawn = [...drawn, ...drawnNow];
-        const newDeck  = deck.filter(id => !drawnNow.includes(id));
-
-        await this.actor.update({
-          "system.gambits.deck": newDeck,
-          "system.gambits.drawn": newDrawn,
-          "system.gambits.locked": true
-        });
-      });
-
-      //Discard Gambit
-      html.find(".discard-card").on("click", async (event) => {
-        event.preventDefault();
-        event.stopPropagation();
-
-        const itemId = event.currentTarget.dataset.itemId;
-        const parent = event.currentTarget.closest(".gambit-card");
-        const source = parent?.dataset.source;
-
-        if (!itemId || !source) return;
-
-        const drawn = this.actor.system.gambits[source] ?? [];
-        const discard = this.actor.system.gambits.discard ?? [];
-
-        const updatedSource = drawn.filter(id => id !== itemId);
-        const updatedDiscard = [...discard, itemId];
-
-        await this.actor.update({
-          [`system.gambits.${source}`]: updatedSource,
-          "system.gambits.discard": updatedDiscard
-        });
-      });
-
-      //Remove Card from Hand
-      html.find(".remove-from-hand").on("click", async (event) => {
-        event.preventDefault();
-        event.stopPropagation();
-
-        const itemId = event.currentTarget.dataset.itemId;
-        const parent = event.currentTarget.closest(".gambit-card");
-        const source = parent?.dataset.source;
-        if (!itemId || !source) return;
-
-        const update = {};
-        const list = this.actor.system.gambits[source] ?? [];
-        update[`system.gambits.${source}`] = list.filter(id => id !== itemId);
-
-        await this.actor.update(update, { render: false });
-        this.render(false);
-      });
-
-      const mgEscapeChatHtml = (s) => String(s ?? "").replace(/[&<>"'`=\/]/g, c =>
-        ({
-          "&": "&amp;",
-          "<": "&lt;",
-          ">": "&gt;",
-          '"': "&quot;",
-          "'": "&#39;",
-          "`": "&#96;",
-          "=": "&#61;",
-          "/": "&#47;"
-        }[c])
+      const gear = actor.items.filter(i =>
+        ["armor", "misc"].includes(i.type) &&
+        i.system.equipped &&
+        i.system.capacityApplied
       );
 
-      const mgMoveTagIdsFromCard = (sourceEl, item) => {
-        const itemTags = Array.isArray(item?.system?.tags) ? item.system.tags : [];
-        const card = sourceEl.closest(".move-block, .signature-perk");
-        const domTags = Array.from(card?.querySelectorAll?.(".item-tag[data-tag-id]") ?? [])
-          .map(el => el.dataset.tagId)
-          .filter(Boolean);
-        return Array.from(new Set([...itemTags, ...domTags].map(String)));
+      // Equipped buffer is literally what’s left on the items.
+      const gearM = gear.reduce((sum, i) => sum + Number(i.system.remainingCapacity?.mortal ?? 0), 0);
+      const gearS = gear.reduce((sum, i) => sum + Number(i.system.remainingCapacity?.soul ?? 0), 0);
+
+      const maxM = Math.max(0, baseM + gearM + tempM);
+      const maxS = Math.max(0, baseS + gearS + tempS);
+
+      const curCapM = Number(actor.system?.strain?.["mortal capacity"] ?? 0);
+      const curCapS = Number(actor.system?.strain?.["soul capacity"] ?? 0);
+
+      const nextCapM = resetToMax ? maxM : Math.min(curCapM, maxM);
+      const nextCapS = resetToMax ? maxS : Math.min(curCapS, maxS);
+
+      // Track doesn't get touched here (it represents real strain once capacity is gone)
+      // But we DO clamp negative/silly values for safety.
+      const nextTrackM = Math.max(0, Number(actor.system?.strain?.mortal ?? 0));
+      const nextTrackS = Math.max(0, Number(actor.system?.strain?.soul ?? 0));
+
+      await actor.update({
+        // Remaining buffer
+        "system.strain.mortal capacity": nextCapM,
+        "system.strain.soul capacity": nextCapS,
+
+        // Derived max (used by UI + clamps)
+        "system.strain.maxCapacity.mortal": maxM,
+        "system.strain.maxCapacity.soul": maxS,
+
+        // Track (unchanged, but sanitized)
+        "system.strain.mortal": nextTrackM,
+        "system.strain.soul": nextTrackS,
+
+        // Protect from prepareData overwrite
+        "system.strain.manualOverride.mortal capacity": true,
+        "system.strain.manualOverride.soul capacity": true
+      }, { render: false });
+    };
+
+
+    html.find(".long-rest-button").click(async () => {
+      const actor = this.actor;
+
+      const updates = {
+        "system.sparkUsed": 0,
+        "system.strain.mortal": 0,
+        "system.strain.soul": 0,
+
+        // Long Rest clears temporary shielding/corrections
+        "system.strain.tempBonus.mortal": 0,
+        "system.strain.tempBonus.soul": 0,
+
+        "system.riskUsed": 0,
+        "system.sto.value": 0,
+        "system.flashbackUsed": false
       };
 
-      const mgRenderMoveChatTags = (tagIds, item) => {
-        if (!Array.isArray(tagIds) || !tagIds.length) return "";
+      await actor.update(updates);
 
-        const defs = [
-          ...(CONFIG.MidnightGambit?.ITEM_TAGS ?? []),
-          ...(CONFIG.MidnightGambit?.WEAPON_TAGS ?? []),
-          ...(CONFIG.MidnightGambit?.ARMOR_TAGS ?? []),
-          ...(CONFIG.MidnightGambit?.MISC_TAGS ?? [])
-        ];
-        const customTags = item?.system?.customTags ?? {};
+      // NOTE: Long Rest does *not* repair armor durability.
+      // Armor/Misc remainingCapacity only recovers via the item's Repair button in Inventory.
 
-        const tagHtml = tagIds
-          .map(tagId => {
-            const def = defs.find(t => String(t.id) === String(tagId));
-            const label = def?.label || String(tagId);
-            const desc = def?.description || customTags[tagId] || "";
-            return `<span class="item-tag tag" data-tag-id="${mgEscapeChatHtml(tagId)}" title="${mgEscapeChatHtml(desc)}">${mgEscapeChatHtml(label)}</span>`;
-          })
-          .join(" ");
+      // Reset actor capacity buffer to Base + CURRENT equipped remainingCapacity (post-damage) + temp (now cleared)
+      await recalcStrainFromGear({ resetToMax: true });
 
-        return tagHtml ? `<strong>Tags:</strong><div class="chat-tags">${tagHtml}</div>` : "";
-      };
+      await actor.prepareData();
+      this.render(true);
+      ui.notifications.info(`${actor.name} has completed a Long Rest.`);
+    });
 
-      const mgEnrichMoveDescriptionForChat = async (text) => {
-        const raw = String(text ?? "").trim();
-        if (!raw) return "";
-        return TextEditor.enrichHTML(raw, {
-          async: true,
-          secrets: this.actor.isOwner,
-          documents: true,
-          links: true,
-          rolls: true
-        });
-      };
+    //Checking if armor is damaged, if so it lowers on inventory
+    const checkArmorDamage = async (actor, oldValue, newValue, type) => {
+      if (newValue >= oldValue) return; // Only track damage
+      console.log(`[ArmorCheck] ${type} damage taken: ${oldValue} → ${newValue}`);
 
-      //Making it so if you click moves in the Character sheet they post to chat!
-      html.find(".post-move").off("click.mgPostMove").on("click.mgPostMove", async event => {
-        event.preventDefault();
-        event.stopPropagation();
+      const capacityItems = actor.items.filter(item =>
+        ["armor", "misc"].includes(item.type) &&
+        item.system.equipped &&
+        item.system.capacityApplied &&
+        item.system.remainingCapacity?.[type] > 0
+      );
 
-        const card = event.currentTarget.closest("[data-item-id]");
-        const item = this.actor.items.get(card?.dataset?.itemId);
-        const name = item?.name || event.currentTarget.dataset.moveName || "Unknown Move";
-        const description = item?.system?.description ?? event.currentTarget.dataset.moveDescription ?? "";
-        const descHtml = await mgEnrichMoveDescriptionForChat(description);
-        const tagsHtml = mgRenderMoveChatTags(mgMoveTagIdsFromCard(event.currentTarget, item), item);
-
-        const chatContent = `
-          <div class="chat-move">
-            <h2><i class="fa-solid fa-hand-fist"></i> ${mgEscapeChatHtml(name)}</h2>
-            ${descHtml ? `<div class="chat-move-desc">${descHtml}</div>` : ""}
-            ${tagsHtml}
-          </div>
-        `;
-
-        ChatMessage.create({
-          user: game.user.id,
-          speaker: ChatMessage.getSpeaker({ actor: this.actor }),
-          content: chatContent
-        });
-      });
-
-      //Doing the same chat posting for Signature Perks
-      html.find(".signature-perk h3").off("click.mgPostSignature").on("click.mgPostSignature", async (event) => {
-        const source = event.currentTarget.querySelector(".post-signature");
-        if (!source) return;
-
-        const card = source.closest("[data-item-id]");
-        const item = this.actor.items.get(card?.dataset?.itemId);
-        const name = item?.system?.signaturePerk || item?.name || source.dataset.perkName || "Signature";
-        const description = item?.system?.signatureDescription ?? item?.system?.description ?? source.dataset.perkDescription ?? "";
-        const descHtml = await mgEnrichMoveDescriptionForChat(description);
-        const tagsHtml = mgRenderMoveChatTags(mgMoveTagIdsFromCard(source, item), item);
-
-        const chatContent = `
-          <div class="chat-move">
-            <h2><i class="fa-solid fa-diamond"></i> Signature Perk: ${mgEscapeChatHtml(name)}</h2>
-            ${descHtml ? `<div class="chat-move-desc">${descHtml}</div>` : ""}
-            ${tagsHtml}
-          </div>
-        `;
-
-        ChatMessage.create({
-          user: game.user.id,
-          speaker: ChatMessage.getSpeaker({ actor: this.actor }),
-          content: chatContent
-        });
-      });
-
-      // Returning Gambits to Deck when removed
-      html.find('.return-to-deck').on('click', async (event) => {
-        event.preventDefault();
-        event.stopPropagation();
-
-        const itemId = event.currentTarget.dataset.itemId;
-        if (!itemId) return;
-
-        const { deck = [], drawn = [] } = this.actor.system.gambits;
-        const updatedDeck = [...deck, itemId];
-        const updatedDrawn = drawn.filter(id => id !== itemId);
-
-        await this.actor.update({
-          "system.gambits.deck": updatedDeck,
-          "system.gambits.drawn": updatedDrawn,
-          "system.gambits.handHidden": (this.actor.system.gambits.handHidden ?? []).filter(id => id !== itemId)
-        }, { render: false });
-
-        this.render(false);
-      });
-
-      // Handle dragstart
-      html.find(".gambit-card").on("dragstart", event => {
-        const itemId = event.currentTarget.dataset.itemId;
-        const source = event.currentTarget.dataset.source;
-        if (!itemId || !source) return;
-
-        event.originalEvent.dataTransfer.setData(
-          "text/plain",
-          JSON.stringify({ itemId, source })
-        );
-      });
-
-      // --- MG internal gambit drag/drop uses custom MIME to avoid clobbering Foundry drops ---
-      const MG_GAMBIT_MIME = "application/x-midnightgambit-gambit";
-
-      // When dragging a gambit card within the sheet, store MG-only payload
-      html.find(".gambit-card[draggable='true']").off("dragstart.mgGambit").on("dragstart.mgGambit", function (event) {
-        const $card = $(this);
-        const itemId = $card.data("itemId");
-        const source = $card.data("source"); // "deck" or "drawn"
-
-        const payload = { itemId, source };
-        event.originalEvent.dataTransfer.setData(MG_GAMBIT_MIME, JSON.stringify(payload));
-
-        // Optional: also set a tiny plain-text fallback for browser UX (NOT used by logic)
-        event.originalEvent.dataTransfer.setData("text/plain", "MG_GAMBIT");
-      });
-
-      // Helper: is this an internal MG gambit drag?
-      const isMgGambitDrag = (event) => {
-        const dt = event?.originalEvent?.dataTransfer;
-        if (!dt) return false;
-        // Some browsers expose types as DOMStringList
-        const types = Array.from(dt.types ?? []);
-        return types.includes(MG_GAMBIT_MIME);
-      };
-
-      // Handle drop on deck or drawn (ONLY for MG gambit drags)
-      const handleDrop = (targetArea) => {
-        return async (event) => {
-          // If this isn't our internal gambit drag, do NOT intercept (let Foundry handle)
-          if (!isMgGambitDrag(event)) return;
-
-          event.preventDefault();
-          event.stopPropagation();
-
-          const raw = event.originalEvent.dataTransfer.getData(MG_GAMBIT_MIME);
-          const data = raw ? JSON.parse(raw) : null;
-          const { itemId, source } = data ?? {};
-
-          if (!itemId || !source) return;
-          if (source === targetArea) return;
-
-          const deck = this.actor.system.gambits.deck ?? [];
-          const drawn = this.actor.system.gambits.drawn ?? [];
-
-          let from = source === "deck" ? deck : drawn;
-          let to   = source === "deck" ? drawn : deck;
-
-          const index = from.indexOf(itemId);
-          if (index === -1) return;
-
-          from = [...from];
-          to   = [...to, itemId];
-          from.splice(index, 1);
-
-          await this.actor.update({
-            "system.gambits.deck":  source === "deck" ? from : to,
-            "system.gambits.drawn": source === "deck" ? to   : from,
-            ...(source === "drawn"
-              ? { "system.gambits.handHidden": (this.actor.system.gambits.handHidden ?? []).filter(id => id !== itemId) }
-              : {})
+      for (const item of capacityItems) {
+        const remaining = item.system.remainingCapacity[type];
+        if (remaining > 0) {
+          await item.update({
+            [`system.remainingCapacity.${type}`]: remaining - 1
           });
-        };
-      };
 
-      // Set hover class ONLY for MG gambit drags
-      const setupDragHover = (containerSelector) => {
-        const container = html.find(containerSelector);
-
-        container.off(".mgGambitHover");
-
-        container.on("dragenter.mgGambitHover", (e) => {
-          if (!isMgGambitDrag(e)) return;
-          e.preventDefault();
-          e.stopPropagation();
-          container.addClass("drag-hover");
-        });
-
-        container.on("dragover.mgGambitHover", (e) => {
-          if (!isMgGambitDrag(e)) return;
-          e.preventDefault();
-          e.stopPropagation();
-        });
-
-        container.on("dragleave.mgGambitHover", (e) => {
-          if (!container[0].contains(e.relatedTarget)) container.removeClass("drag-hover");
-        });
-
-        container.on("drop.mgGambitHover", (e) => {
-          if (!isMgGambitDrag(e)) return;
-          container.removeClass("drag-hover");
-        });
-      };
-
-      // Add drag-hover support to both deck and hand
-      setupDragHover(".gambit-deck");
-      setupDragHover(".gambit-hand");
-
-      // Register drop zones (only intercept MG gambit drags; Foundry drops pass through)
-      html.find(".gambit-deck").off(".mgGambitDrop");
-      html.find(".gambit-hand").off(".mgGambitDrop");
-
-      html.find(".gambit-deck").on("dragover.mgGambitDrop", (e) => {
-        if (!isMgGambitDrag(e)) return;
-        e.preventDefault();
-      });
-      html.find(".gambit-hand").on("dragover.mgGambitDrop", (e) => {
-        if (!isMgGambitDrag(e)) return;
-        e.preventDefault();
-      });
-
-      html.find(".gambit-deck").on("drop.mgGambitDrop", handleDrop("deck"));
-      html.find(".gambit-hand").on("drop.mgGambitDrop", handleDrop("drawn"));
-
-
-      // Register drop zones
-      html.find('.gambit-deck').on('dragover', e => e.preventDefault());
-      html.find('.gambit-hand').on('dragover', e => e.preventDefault());
-      html.find('.gambit-deck').on('drop', handleDrop("deck"));
-      html.find('.gambit-hand').on('drop', handleDrop("drawn"));
-
-      this._mgBindHandOrderList(html, {
-        listSelector: '[data-mg-order-list="gambit-hand"]',
-        cardSelector: ".mg-hand-order-card",
-        idAttr: "itemId",
-        orderPath: "system.gambits.drawn",
-        hiddenPath: "system.gambits.handHidden",
-        hiddenLabel: "Hand"
-      });
-
-      this._mgBindHandOrderList(html, {
-        listSelector: '[data-mg-order-list="move-hand"]',
-        cardSelector: ".mg-hand-order-card",
-        idAttr: "moveHandId",
-        orderPath: "system.gambits.moveOrder",
-        hiddenPath: "system.gambits.moveHidden",
-        hiddenLabel: "Moves Hand",
-        filterToCurrentOrder: false
-      });
-
-      // Spark slot click logic
-      html.find(".spark-dot").on("click", async (event) => {
-        const el = event.currentTarget;
-        const clicked = parseInt(el.dataset.value);
-        const total = this.actor.system.sparkSlots ?? 0;
-        const used = this.actor.system.sparkUsed ?? 0;
-        const remaining = total - used;
-
-        let newUsed;
-        if (clicked > remaining) {
-          // Fill up to clicked (refund/restore behavior)
-          newUsed = total - clicked;
-        } else {
-          // Unfill clicked and right (spend behavior)
-          newUsed = total - (clicked - 1);
+          console.log(`🛡️ ${item.name} absorbed 1 ${type} damage (now ${remaining - 1})`);
+          break; // Only damage the first item that can take it
         }
+      }
+    };
 
-        // Safety clamp
-        newUsed = Math.max(0, Math.min(total, newUsed));
+    // Capacity tickers:
+    // - Normal click: "-" spends capacity first, then fills the TRACK once capacity is 0
+    // - Normal click: "+" heals the TRACK first, then restores capacity (up to max)
+    // - Shift+click: adjusts TEMP MAX capacity (shielding / corrections)
+    html.find(".capacity-controls .cap-tick").on("click", async (event) => {
+      event.preventDefault();
+      event.stopPropagation();
 
-        const spent = newUsed > used; // only true when you click a FILLED spark to spend it
+      const btn = event.currentTarget;
+      const controls = btn.closest(".capacity-controls");
+      const type = controls?.dataset?.type; // "mortal" | "soul"
+      if (!type) return;
 
-        await this.actor.update({ "system.sparkUsed": newUsed });
+      const dir = Number(btn.dataset.dir || 0); // -1 or +1
+      if (!dir) return;
 
-        // Post chat message ONLY when spending Spark
-        if (spent) {
-          const chatContent = `
-            <div class="chat-move">
-              <h2><i class="fa-kit fa-spark"></i> Spark has been used!</h2>
-            </div>
-          `;
+      const actor = this.actor;
+      if (!actor) return;
 
-          ChatMessage.create({
-            user: game.user.id,
-            speaker: ChatMessage.getSpeaker({ actor: this.actor }),
-            content: chatContent
-          });
-        }
+      const capKey = `${type} capacity`; // remaining buffer
 
-        this.render(false);
-      });
+      const getMax = () => {
+        // Prefer cached derived value (set by recalcStrainFromGear)
+        const cached = Number(actor.system?.strain?.maxCapacity?.[type] ?? NaN);
+        if (Number.isFinite(cached)) return cached;
 
-      /**
-       * Recalculate STRAIN CAPACITY from:
-       * - Guise/Base capacity (system.baseStrainCapacity)
-       * - Equipped gear buffer (item.system.remainingCapacity)
-       * - Temp bonus buffer (system.strain.tempBonus)  -> shielding / corrections
-       *
-       * - Capacity is a buffer that counts DOWN first.
-       * - The strain TRACK (dots) only fills once capacity hits 0.
-       *
-       * So:
-       * - system.strain["mortal capacity"] / ["soul capacity"] = CURRENT remaining capacity (buffer)
-       * - system.strain.mortal / .soul = TRACK damage (dots)
-       * - system.strain.maxCapacity = derived max (for clamping + UI)
-       */
-      const recalcStrainFromGear = async ({ resetToMax = false } = {}) => {
-        const actor = this.actor;
-        if (!actor) return;
-
-        // Ensure tempBonus exists (older actors won't have it)
-        const tempBonus = actor.system?.strain?.tempBonus ?? { mortal: 0, soul: 0 };
-        const tempM = Number(tempBonus.mortal ?? 0);
-        const tempS = Number(tempBonus.soul ?? 0);
-
-        const baseM = Number(actor.system.baseStrainCapacity?.mortal ?? 0);
-        const baseS = Number(actor.system.baseStrainCapacity?.soul ?? 0);
-
+        // Fallback: derive on the fly
+        const base = Number(actor.system?.baseStrainCapacity?.[type] ?? 0);
+        const temp = Number(actor.system?.strain?.tempBonus?.[type] ?? 0);
         const gear = actor.items.filter(i =>
           ["armor", "misc"].includes(i.type) &&
           i.system.equipped &&
           i.system.capacityApplied
         );
-
-        // Equipped buffer is literally what’s left on the items.
-        const gearM = gear.reduce((sum, i) => sum + Number(i.system.remainingCapacity?.mortal ?? 0), 0);
-        const gearS = gear.reduce((sum, i) => sum + Number(i.system.remainingCapacity?.soul ?? 0), 0);
-
-        const maxM = Math.max(0, baseM + gearM + tempM);
-        const maxS = Math.max(0, baseS + gearS + tempS);
-
-        const curCapM = Number(actor.system?.strain?.["mortal capacity"] ?? 0);
-        const curCapS = Number(actor.system?.strain?.["soul capacity"] ?? 0);
-
-        const nextCapM = resetToMax ? maxM : Math.min(curCapM, maxM);
-        const nextCapS = resetToMax ? maxS : Math.min(curCapS, maxS);
-
-        // Track doesn't get touched here (it represents real strain once capacity is gone)
-        // But we DO clamp negative/silly values for safety.
-        const nextTrackM = Math.max(0, Number(actor.system?.strain?.mortal ?? 0));
-        const nextTrackS = Math.max(0, Number(actor.system?.strain?.soul ?? 0));
-
-        await actor.update({
-          // Remaining buffer
-          "system.strain.mortal capacity": nextCapM,
-          "system.strain.soul capacity": nextCapS,
-
-          // Derived max (used by UI + clamps)
-          "system.strain.maxCapacity.mortal": maxM,
-          "system.strain.maxCapacity.soul": maxS,
-
-          // Track (unchanged, but sanitized)
-          "system.strain.mortal": nextTrackM,
-          "system.strain.soul": nextTrackS,
-
-          // Protect from prepareData overwrite
-          "system.strain.manualOverride.mortal capacity": true,
-          "system.strain.manualOverride.soul capacity": true
-        }, { render: false });
+        const gearSum = gear.reduce((sum, i) => sum + Number(i.system.remainingCapacity?.[type] ?? 0), 0);
+        return Math.max(0, base + temp + gearSum);
       };
 
+      const getCap = () => Number(actor.system?.strain?.[capKey] ?? 0);
+      const getTrack = () => Number(actor.system?.strain?.[type] ?? 0);
 
-      html.find(".long-rest-button").click(async () => {
-        const actor = this.actor;
+      const patchUI = () => {
+        const cap = getCap();
+        const track = getTrack();
 
-        const updates = {
-          "system.sparkUsed": 0,
-          "system.strain.mortal": 0,
-          "system.strain.soul": 0,
+        const $track = html.find(`.strain-track[data-strain="${type}"]`);
+        $track.find(".strain-dot").each((_, node) => {
+          const v = Number(node.dataset.value);
+          node.classList.toggle("filled", v <= track);
+        });
 
-          // Long Rest clears temporary shielding/corrections
-          "system.strain.tempBonus.mortal": 0,
-          "system.strain.tempBonus.soul": 0,
+        const valEl = html.find(`.capacity-value[data-type="${type}"]`)[0];
+        if (valEl) valEl.textContent = String(Math.max(0, cap));
 
-          "system.riskUsed": 0,
-          "system.sto.value": 0,
-          "system.flashbackUsed": false
-        };
+        // Optional max labels if you have them
+        const maxEl = html[0]?.querySelector(`.capacity-max[data-type='${type}']`);
+        if (maxEl) maxEl.textContent = String(getMax());
 
-        await actor.update(updates);
+        refreshStrainEffectBadges();
+      };
 
-        // NOTE: Long Rest does *not* repair armor durability.
-        // Armor/Misc remainingCapacity only recovers via the item's Repair button in Inventory.
+      // SHIFT+CLICK = TEMP MAX capacity adjust
+      if (event.shiftKey) {
+        const path = `system.strain.tempBonus.${type}`;
+        const curTemp = Number(actor.system?.strain?.tempBonus?.[type] ?? 0);
+        const nextTemp = dir > 0 ? (curTemp + 1) : Math.max(0, curTemp - 1);
 
-        // Reset actor capacity buffer to Base + CURRENT equipped remainingCapacity (post-damage) + temp (now cleared)
-        await recalcStrainFromGear({ resetToMax: true });
+        await actor.update({ [path]: nextTemp }, { render: false });
+        await recalcStrainFromGear({ resetToMax: false });
 
-        await actor.prepareData();
-        this.render(true);
-        ui.notifications.info(`${actor.name} has completed a Long Rest.`);
-      });
-
-      //Checking if armor is damaged, if so it lowers on inventory
-      const checkArmorDamage = async (actor, oldValue, newValue, type) => {
-        if (newValue >= oldValue) return; // Only track damage
-        console.log(`[ArmorCheck] ${type} damage taken: ${oldValue} → ${newValue}`);
-
-        const capacityItems = actor.items.filter(item =>
-          ["armor", "misc"].includes(item.type) &&
-          item.system.equipped &&
-          item.system.capacityApplied &&
-          item.system.remainingCapacity?.[type] > 0
-        );
-
-        for (const item of capacityItems) {
-          const remaining = item.system.remainingCapacity[type];
-          if (remaining > 0) {
-            await item.update({
-              [`system.remainingCapacity.${type}`]: remaining - 1
-            });
-
-            console.log(`🛡️ ${item.name} absorbed 1 ${type} damage (now ${remaining - 1})`);
-            break; // Only damage the first item that can take it
-          }
+        // When temp bonus goes UP, it should immediately grant 1 capacity.
+        if (dir > 0) {
+          const max = getMax();
+          const nextCap = Math.min(max, getCap() + 1);
+          await actor.update({ [`system.strain.${capKey}`]: nextCap }, { render: false });
         }
-      };
 
-      // Capacity tickers:
-      // - Normal click: "-" spends capacity first, then fills the TRACK once capacity is 0
-      // - Normal click: "+" heals the TRACK first, then restores capacity (up to max)
-      // - Shift+click: adjusts TEMP MAX capacity (shielding / corrections)
-      html.find(".capacity-controls .cap-tick").on("click", async (event) => {
-        event.preventDefault();
-        event.stopPropagation();
+        patchUI();
+        return;
+      }
 
-        const btn = event.currentTarget;
-        const controls = btn.closest(".capacity-controls");
-        const type = controls?.dataset?.type; // "mortal" | "soul"
-        if (!type) return;
+      // NORMAL CLICK behavior
+      const max = getMax();
+      let cap = getCap();
+      let track = getTrack();
 
-        const dir = Number(btn.dataset.dir || 0); // -1 or +1
-        if (!dir) return;
+      // DAMAGE
+      if (dir < 0) {
+        if (cap > 0) {
+          const nextCap = Math.max(0, cap - 1);
 
-        const actor = this.actor;
-        if (!actor) return;
+          // If an equipped armor/misc item is providing capacity, tick its remainingCapacity down
+          await checkArmorDamage(actor, cap, nextCap, type);
 
-        const capKey = `${type} capacity`; // remaining buffer
-
-        const getMax = () => {
-          // Prefer cached derived value (set by recalcStrainFromGear)
-          const cached = Number(actor.system?.strain?.maxCapacity?.[type] ?? NaN);
-          if (Number.isFinite(cached)) return cached;
-
-          // Fallback: derive on the fly
-          const base = Number(actor.system?.baseStrainCapacity?.[type] ?? 0);
-          const temp = Number(actor.system?.strain?.tempBonus?.[type] ?? 0);
-          const gear = actor.items.filter(i =>
-            ["armor", "misc"].includes(i.type) &&
-            i.system.equipped &&
-            i.system.capacityApplied
-          );
-          const gearSum = gear.reduce((sum, i) => sum + Number(i.system.remainingCapacity?.[type] ?? 0), 0);
-          return Math.max(0, base + temp + gearSum);
-        };
-
-        const getCap = () => Number(actor.system?.strain?.[capKey] ?? 0);
-        const getTrack = () => Number(actor.system?.strain?.[type] ?? 0);
-
-        const patchUI = () => {
-          const cap = getCap();
-          const track = getTrack();
-
-          const $track = html.find(`.strain-track[data-strain="${type}"]`);
-          $track.find(".strain-dot").each((_, node) => {
-            const v = Number(node.dataset.value);
-            node.classList.toggle("filled", v <= track);
-          });
-
-          const valEl = html.find(`.capacity-value[data-type="${type}"]`)[0];
-          if (valEl) valEl.textContent = String(Math.max(0, cap));
-
-          // Optional max labels if you have them
-          const maxEl = html[0]?.querySelector(`.capacity-max[data-type='${type}']`);
-          if (maxEl) maxEl.textContent = String(getMax());
-
-          refreshStrainEffectBadges();
-        };
-
-        // SHIFT+CLICK = TEMP MAX capacity adjust
-        if (event.shiftKey) {
-          const path = `system.strain.tempBonus.${type}`;
-          const curTemp = Number(actor.system?.strain?.tempBonus?.[type] ?? 0);
-          const nextTemp = dir > 0 ? (curTemp + 1) : Math.max(0, curTemp - 1);
-
-          await actor.update({ [path]: nextTemp }, { render: false });
+          // Recompute max from gear AFTER item durability changes (keeps max labels + math correct)
           await recalcStrainFromGear({ resetToMax: false });
 
-          // When temp bonus goes UP, it should immediately grant 1 capacity.
-          if (dir > 0) {
-            const max = getMax();
-            const nextCap = Math.min(max, getCap() + 1);
-            await actor.update({ [`system.strain.${capKey}`]: nextCap }, { render: false });
-          }
+          // Now spend the actor’s remaining capacity buffer
+          await actor.update({ [`system.strain.${capKey}`]: nextCap }, { render: false });
 
           patchUI();
           return;
         }
 
-        // NORMAL CLICK behavior
-        const max = getMax();
-        let cap = getCap();
-        let track = getTrack();
+        // Capacity is 0: now we fill the TRACK.
+        const dotCount = html.find(`.strain-track[data-strain="${type}"] .strain-dot`).length;
+        const trackMax = Math.max(0, dotCount);
+        const nextTrack = Math.min(trackMax, track + 1);
+        await actor.update({ [`system.strain.${type}`]: nextTrack }, { render: false });
+        patchUI();
+        return;
+      }
 
-        // DAMAGE
-        if (dir < 0) {
-          if (cap > 0) {
-            const nextCap = Math.max(0, cap - 1);
+      // HEAL / RESTORE BUFFER
+      // Plus only restores/adds Capacity. It never heals the strain track.
+      // Track healing should happen through strain dots, rests, or specific healing effects.
+      if (dir > 0) {
+        // Capacity should never be "hard capped" for play:
+        // shielding, buffs, and correction clicks can push it higher.
+        // If we're already at the current derived max, auto-increase tempBonus so max grows too.
+        if (cap >= max) {
+          const curTemp = Number(actor.system?.strain?.tempBonus?.[type] ?? 0);
 
-            // If an equipped armor/misc item is providing capacity, tick its remainingCapacity down
-            await checkArmorDamage(actor, cap, nextCap, type);
+          await actor.update({
+            [`system.strain.tempBonus.${type}`]: curTemp + 1
+          }, { render: false });
 
-            // Recompute max from gear AFTER item durability changes (keeps max labels + math correct)
-            await recalcStrainFromGear({ resetToMax: false });
+          await recalcStrainFromGear({ resetToMax: false });
 
-            // Now spend the actor’s remaining capacity buffer
-            await actor.update({ [`system.strain.${capKey}`]: nextCap }, { render: false });
-
-            patchUI();
-            return;
-          }
-
-          // Capacity is 0: now we fill the TRACK.
-          const dotCount = html.find(`.strain-track[data-strain="${type}"] .strain-dot`).length;
-          const trackMax = Math.max(0, dotCount);
-          const nextTrack = Math.min(trackMax, track + 1);
-          await actor.update({ [`system.strain.${type}`]: nextTrack }, { render: false });
-          patchUI();
-          return;
-        }
-
-        // HEAL / RESTORE BUFFER
-        // Plus only restores/adds Capacity. It never heals the strain track.
-        // Track healing should happen through strain dots, rests, or specific healing effects.
-        if (dir > 0) {
-          // Capacity should never be "hard capped" for play:
-          // shielding, buffs, and correction clicks can push it higher.
-          // If we're already at the current derived max, auto-increase tempBonus so max grows too.
-          if (cap >= max) {
-            const curTemp = Number(actor.system?.strain?.tempBonus?.[type] ?? 0);
-
-            await actor.update({
-              [`system.strain.tempBonus.${type}`]: curTemp + 1
-            }, { render: false });
-
-            await recalcStrainFromGear({ resetToMax: false });
-
-            const maxAfter = getMax();
-            const capAfter = getCap();
-            const nextCap = Math.min(maxAfter, capAfter + 1);
-
-            await actor.update({
-              [`system.strain.${capKey}`]: nextCap
-            }, { render: false });
-
-            patchUI();
-            return;
-          }
-
-          // Otherwise, restore buffer up to current max.
-          const nextCap = Math.min(max, cap + 1);
+          const maxAfter = getMax();
+          const capAfter = getCap();
+          const nextCap = Math.min(maxAfter, capAfter + 1);
 
           await actor.update({
             [`system.strain.${capKey}`]: nextCap
@@ -2418,539 +2561,710 @@ _mgOpenSidebarCropper() {
           patchUI();
           return;
         }
-      });
 
-      // Capacity ticker: right-click the current number/control area to set exact capacity
-      html
-        .off("contextmenu.mgCapacityExact")
-        .on("contextmenu.mgCapacityExact", ".capacity-controls, .capacity-value, .label-box, .label-box *", async (event) => {
-        event.preventDefault();
-        event.stopPropagation();
-
-        const actor = this.actor;
-        if (!actor) return;
-
-        const clicked =
-          event.target.closest(".label-box") ||
-          event.target.closest(".capacity-controls") ||
-          event.target.closest(".capacity-value") ||
-          event.currentTarget;
-
-        // First try normal data attributes.
-        let type =
-          clicked.dataset?.type ||
-          clicked.closest("[data-type]")?.dataset?.type;
-
-        // If right-clicking the label badge, infer from visible label text.
-        // This catches badges like "MC 3" / "SC 3" even when they are not inside .capacity-controls.
-        if (!type && clicked.classList.contains("label-box")) {
-          const txt = String(clicked.textContent ?? "").toLowerCase();
-
-          if (txt.includes("mc") || txt.includes("mortal")) {
-            type = "mortal";
-          }
-
-          if (txt.includes("sc") || txt.includes("soul")) {
-            type = "soul";
-          }
-        }
-
-        // Final fallback: look nearby for a capacity-control/value with data-type.
-        if (!type) {
-          const parent =
-            clicked.closest(".capacity-ticker") ||
-            clicked.parentElement ||
-            clicked.closest(".strain-card") ||
-            clicked.closest(".strain-block");
-
-          type =
-            parent?.querySelector?.(".capacity-controls[data-type], .capacity-value[data-type]")?.dataset?.type ||
-            null;
-        }
-
-        if (!type) {
-          console.warn("MG | Could not determine capacity type from right-click target:", clicked);
-          return;
-        }
-
-        const capKey = `${type} capacity`;
-        const currentCap = Number(actor.system?.strain?.[capKey] ?? 0);
-        const currentMax = Number(actor.system?.strain?.maxCapacity?.[type] ?? currentCap);
-
-        const label = type === "mortal" ? "Mortal Capacity" : "Soul Capacity";
-
-        const val = await this._mgPrompt({
-          title: `Set ${label}`,
-          bodyHtml: `
-            <div class="form-group">
-              <label>${label}</label>
-              <input type="number" name="value" value="${currentCap}" min="0" step="1" />
-            </div>
-            <p class="notes">
-              Current max: <strong>${currentMax}</strong>. Entering a higher number will add temporary capacity.
-            </p>
-          `,
-          okText: "Save",
-          okIcon: "fa-floppy-disk",
-          cancelText: "Cancel",
-          cancelIcon: "fa-circle-xmark",
-          getValue: (html) => html.find('input[name="value"]').val()
-        });
-
-        if (val === null) return;
-
-        const nextCap = Math.max(0, Math.floor(Number(val)));
-
-        if (!Number.isFinite(nextCap)) {
-          ui.notifications.warn("Please enter a valid capacity number.");
-          return;
-        }
-
-        const updates = {
-          [`system.strain.${capKey}`]: nextCap,
-          [`system.strain.manualOverride.${capKey}`]: true
-        };
-
-        // If we set capacity above the current derived max, store the overflow as tempBonus.
-        // This keeps the max label honest and prevents later recalcs from shaving the number back down.
-        if (nextCap > currentMax) {
-          const currentTemp = Number(actor.system?.strain?.tempBonus?.[type] ?? 0);
-          const extraNeeded = nextCap - currentMax;
-
-          updates[`system.strain.tempBonus.${type}`] = currentTemp + extraNeeded;
-          updates[`system.strain.maxCapacity.${type}`] = nextCap;
-        }
-
-        await actor.update(updates, { render: false });
-
-        // Patch the visible ticker immediately
-        const valEl = html.find(`.capacity-value[data-type="${type}"]`)[0];
-        if (valEl) valEl.textContent = String(nextCap);
-
-        const maxEl = html[0]?.querySelector(`.capacity-max[data-type='${type}']`);
-        if (maxEl) maxEl.textContent = String(Math.max(nextCap, currentMax));
-
-        // Soft render so anything else derived catches up without doing weird click flicker
-        this.render(false);
-      });
-
-      // Update the capacity ticker numbers without re-rendering the sheet
-      const updateCapacityTickerUI = (html, actor) => {
-        const strain = actor.system?.strain ?? {};
-
-        const capM = Number(strain["mortal capacity"] ?? 0);
-        const capS = Number(strain["soul capacity"] ?? 0);
-
-        const maxM = Number(strain?.maxCapacity?.mortal ?? 0);
-        const maxS = Number(strain?.maxCapacity?.soul ?? 0);
-
-        const mcEl =
-          html[0].querySelector(".capacity-ticker[data-type='mortal'] .capacity-value") ||
-          html[0].querySelector("[data-capacity='mortal'] .capacity-value") ||
-          html[0].querySelector(".capacity-value[data-type='mortal']");
-
-        const scEl =
-          html[0].querySelector(".capacity-ticker[data-type='soul'] .capacity-value") ||
-          html[0].querySelector("[data-capacity='soul'] .capacity-value") ||
-          html[0].querySelector(".capacity-value[data-type='soul']");
-
-        if (mcEl) mcEl.textContent = String(Math.max(0, capM));
-        if (scEl) scEl.textContent = String(Math.max(0, capS));
-
-        const mcMaxEl = html[0].querySelector(".capacity-max[data-type='mortal']");
-        const scMaxEl = html[0].querySelector(".capacity-max[data-type='soul']");
-        if (mcMaxEl) mcMaxEl.textContent = String(Math.max(0, maxM));
-        if (scMaxEl) scMaxEl.textContent = String(Math.max(0, maxS));
-      };
-
-      // Remove guise button (supports multiple guises + cleans up injected moves/perks)
-      html.find(".remove-guise").on("click", async (event) => {
-        event.preventDefault();
-
-        const actor = this.actor;
-
-        // All embedded Guise items on this actor
-        const guises = actor.items.filter(i => i.type === "guise");
-        if (!guises.length) {
-          ui.notifications?.warn("No Guises found on this actor.");
-          return;
-        }
-
-        // Primary refs (you’ve had multiple shapes historically)
-        const primaryRef = actor.system?.guiseId || actor.system?.guise || null;
-
-        const primaryGuise =
-          guises.find(g => g.id === primaryRef) ||
-          guises.find(g => g.uuid === primaryRef) ||
-          null;
-
-        const options = guises.map(g => {
-          const isPrimary = primaryGuise && g.id === primaryGuise.id;
-          const label = isPrimary ? `${g.name} (Primary)` : g.name;
-          return `<option value="${g.id}">${label}</option>`;
-        }).join("");
-
-        const pickerHtml = (guises.length > 1)
-          ? `
-            <p>Select which Guise to remove:</p>
-            <div class="form-group">
-              <label>Guise</label>
-              <select name="mgGuiseToRemove">${options}</select>
-            </div>
-          `
-          : `<p>Remove Guise: <strong>${guises[0].name}</strong> ?</p>`;
-
-        let removeId = guises[0].id;
-
-        const confirmed = await Dialog.wait({
-          title: "Remove Guise?",
-          content: `
-            ${pickerHtml}
-            <p>This will remove the selected Guise item and also delete any Signature Perk / Moves that were added from it.</p>
-          `,
-          buttons: {
-            yes: {
-              label: "Remove",
-              callback: (html) => {
-                // IMPORTANT: read from the dialog HTML, not the sheet
-                const sel = html?.find?.('select[name="mgGuiseToRemove"]')?.val?.();
-                if (sel) removeId = sel;
-                return true;
-              }
-            },
-            no: { label: "Cancel", callback: () => false }
-          },
-          default: "no"
-        });
-
-        if (!confirmed) return;
-
-        const targetGuise = guises.find(g => g.id === removeId);
-        if (!targetGuise) {
-          ui.notifications?.error("Could not resolve the selected Guise.");
-          return;
-        }
-
-        const targetIsPrimary = primaryGuise && (targetGuise.id === primaryGuise.id);
-
-        // Helper: delete any injected moves/perks that came from a given Guise ID
-        const deleteInjectedFromGuiseId = async (guiseId) => {
-          const injected = actor.items.filter(i =>
-            i.type === "move" &&
-            (
-              // your secondary-injection pattern
-              i.system?.fromSecondaryGuise === true &&
-              i.system?.guiseSource === guiseId
-            )
-          );
-
-          if (injected.length) {
-            await actor.deleteEmbeddedDocuments("Item", injected.map(i => i.id));
-          }
-        };
-
-        // 1) Delete injected moves/perks from the target guise
-        await deleteInjectedFromGuiseId(targetGuise.id);
-
-        // 2) Delete the guise itself
-        await actor.deleteEmbeddedDocuments("Item", [targetGuise.id]);
-
-        // Current system lists
-        const secondary = Array.isArray(actor.system?.secondaryGuises)
-          ? [...actor.system.secondaryGuises]
-          : [];
-
-        const movesGuiseId = actor.system?.movesGuiseId ?? null;
-
-        // 3) Update system state depending on what got removed
-        if (!targetIsPrimary) {
-          // Removing SECONDARY
-          const nextSecondary = secondary.filter(id => id !== targetGuise.id);
-
-          // If we were rendering moves from the removed secondary, fall back to primary
-          const nextMovesGuiseId =
-            (movesGuiseId === targetGuise.id)
-              ? (primaryGuise?.id ?? null)
-              : movesGuiseId;
-
-          await actor.update({
-            "system.secondaryGuises": nextSecondary,
-            "system.movesGuiseId": nextMovesGuiseId
-          });
-
-          ui.notifications?.info(`Removed secondary Guise: ${targetGuise.name}`);
-          this.render(true);
-          return;
-        }
-
-        // Removing PRIMARY
-        // Recompute remaining guises after deletion
-        const remainingGuises = actor.items.filter(i => i.type === "guise");
-        if (!remainingGuises.length) {
-          // No guises left
-          await actor.update({
-            "system.guiseId": null,
-            "system.guise": null,
-            "system.movesGuiseId": null,
-            "system.secondaryGuises": []
-          });
-
-          ui.notifications?.info(`Removed primary Guise: ${targetGuise.name}`);
-          this.render(true);
-          return;
-        }
-
-        // Choose a remaining guise to become new primary
-        // Prefer one that used to be in secondaryGuises, otherwise first remaining
-        const preferred =
-          remainingGuises.find(g => secondary.includes(g.id)) ||
-          remainingGuises[0];
-
-        // IMPORTANT: if that preferred guise had injected “secondary” moves,
-        // delete them now so we don’t render them twice after promotion.
-        await deleteInjectedFromGuiseId(preferred.id);
-
-        // Remove promoted guise from secondary list (it’s primary now)
-        const nextSecondary = secondary.filter(id => id !== preferred.id);
+        // Otherwise, restore buffer up to current max.
+        const nextCap = Math.min(max, cap + 1);
 
         await actor.update({
-          // keep primary refs canonical: embedded item ids only
-          "system.guiseId": preferred.id,
-          "system.guise": preferred.id,
-          "system.movesGuiseId": preferred.id,
-          "system.secondaryGuises": nextSecondary
-        });
+          [`system.strain.${capKey}`]: nextCap
+        }, { render: false });
 
-        ui.notifications?.info(`Removed primary Guise: ${targetGuise.name}. Promoted: ${preferred.name}`);
-        this.render(true);
-      });
+        patchUI();
+        return;
+      }
+    });
 
-      // -------------------------
-      // Settings tab: Final Resource inputs (Risk for now)
-      // -------------------------
-      const commitFinalResource = async (inputEl) => {
-        const res = inputEl.dataset.resource;
-        const derived = Number(inputEl.dataset.derived);
-        const next = Number(inputEl.value);
+    // Capacity ticker: right-click the current number/control area to set exact capacity
+    html
+      .off("contextmenu.mgCapacityExact")
+      .on("contextmenu.mgCapacityExact", ".capacity-controls, .capacity-value, .label-box, .label-box *", async (event) => {
+      event.preventDefault();
+      event.stopPropagation();
 
-        if (!Number.isFinite(next) || next < 0) {
-          if (res === "riskDice") {
-            inputEl.value = String(this.actor.system?.riskDice ?? derived ?? 5);
-          } else if (res === "sparkSlots") {
-            inputEl.value = String(this.actor.system?.sparkSlots ?? derived ?? 0);
-          } else if (res === "stoValue") {
-            inputEl.value = String(this.actor.system?.sto?.value ?? 0);
-          }
-          return;
+      const actor = this.actor;
+      if (!actor) return;
+
+      const clicked =
+        event.target.closest(".label-box") ||
+        event.target.closest(".capacity-controls") ||
+        event.target.closest(".capacity-value") ||
+        event.currentTarget;
+
+      // First try normal data attributes.
+      let type =
+        clicked.dataset?.type ||
+        clicked.closest("[data-type]")?.dataset?.type;
+
+      // If right-clicking the label badge, infer from visible label text.
+      // This catches badges like "MC 3" / "SC 3" even when they are not inside .capacity-controls.
+      if (!type && clicked.classList.contains("label-box")) {
+        const txt = String(clicked.textContent ?? "").toLowerCase();
+
+        if (txt.includes("mc") || txt.includes("mortal")) {
+          type = "mortal";
         }
 
+        if (txt.includes("sc") || txt.includes("soul")) {
+          type = "soul";
+        }
+      }
+
+      // Final fallback: look nearby for a capacity-control/value with data-type.
+      if (!type) {
+        const parent =
+          clicked.closest(".capacity-ticker") ||
+          clicked.parentElement ||
+          clicked.closest(".strain-card") ||
+          clicked.closest(".strain-block");
+
+        type =
+          parent?.querySelector?.(".capacity-controls[data-type], .capacity-value[data-type]")?.dataset?.type ||
+          null;
+      }
+
+      if (!type) {
+        console.warn("MG | Could not determine capacity type from right-click target:", clicked);
+        return;
+      }
+
+      const capKey = `${type} capacity`;
+      const currentCap = Number(actor.system?.strain?.[capKey] ?? 0);
+      const currentMax = Number(actor.system?.strain?.maxCapacity?.[type] ?? currentCap);
+
+      const label = type === "mortal" ? "Mortal Capacity" : "Soul Capacity";
+
+      const val = await this._mgPrompt({
+        title: `Set ${label}`,
+        bodyHtml: `
+          <div class="form-group">
+            <label>${label}</label>
+            <input type="number" name="value" value="${currentCap}" min="0" step="1" />
+          </div>
+          <p class="notes">
+            Current max: <strong>${currentMax}</strong>. Entering a higher number will add temporary capacity.
+          </p>
+        `,
+        okText: "Save",
+        okIcon: "fa-floppy-disk",
+        cancelText: "Cancel",
+        cancelIcon: "fa-circle-xmark",
+        getValue: (html) => html.find('input[name="value"]').val()
+      });
+
+      if (val === null) return;
+
+      const nextCap = Math.max(0, Math.floor(Number(val)));
+
+      if (!Number.isFinite(nextCap)) {
+        ui.notifications.warn("Please enter a valid capacity number.");
+        return;
+      }
+
+      const updates = {
+        [`system.strain.${capKey}`]: nextCap,
+        [`system.strain.manualOverride.${capKey}`]: true
+      };
+
+      // If we set capacity above the current derived max, store the overflow as tempBonus.
+      // This keeps the max label honest and prevents later recalcs from shaving the number back down.
+      if (nextCap > currentMax) {
+        const currentTemp = Number(actor.system?.strain?.tempBonus?.[type] ?? 0);
+        const extraNeeded = nextCap - currentMax;
+
+        updates[`system.strain.tempBonus.${type}`] = currentTemp + extraNeeded;
+        updates[`system.strain.maxCapacity.${type}`] = nextCap;
+      }
+
+      await actor.update(updates, { render: false });
+
+      // Patch the visible ticker immediately
+      const valEl = html.find(`.capacity-value[data-type="${type}"]`)[0];
+      if (valEl) valEl.textContent = String(nextCap);
+
+      const maxEl = html[0]?.querySelector(`.capacity-max[data-type='${type}']`);
+      if (maxEl) maxEl.textContent = String(Math.max(nextCap, currentMax));
+
+      // Soft render so anything else derived catches up without doing weird click flicker
+      this.render(false);
+    });
+
+    // Update the capacity ticker numbers without re-rendering the sheet
+    const updateCapacityTickerUI = (html, actor) => {
+      const strain = actor.system?.strain ?? {};
+
+      const capM = Number(strain["mortal capacity"] ?? 0);
+      const capS = Number(strain["soul capacity"] ?? 0);
+
+      const maxM = Number(strain?.maxCapacity?.mortal ?? 0);
+      const maxS = Number(strain?.maxCapacity?.soul ?? 0);
+
+      const mcEl =
+        html[0].querySelector(".capacity-ticker[data-type='mortal'] .capacity-value") ||
+        html[0].querySelector("[data-capacity='mortal'] .capacity-value") ||
+        html[0].querySelector(".capacity-value[data-type='mortal']");
+
+      const scEl =
+        html[0].querySelector(".capacity-ticker[data-type='soul'] .capacity-value") ||
+        html[0].querySelector("[data-capacity='soul'] .capacity-value") ||
+        html[0].querySelector(".capacity-value[data-type='soul']");
+
+      if (mcEl) mcEl.textContent = String(Math.max(0, capM));
+      if (scEl) scEl.textContent = String(Math.max(0, capS));
+
+      const mcMaxEl = html[0].querySelector(".capacity-max[data-type='mortal']");
+      const scMaxEl = html[0].querySelector(".capacity-max[data-type='soul']");
+      if (mcMaxEl) mcMaxEl.textContent = String(Math.max(0, maxM));
+      if (scMaxEl) scMaxEl.textContent = String(Math.max(0, maxS));
+    };
+
+    // Remove guise button (supports multiple guises + cleans up injected moves/perks)
+    html.find(".remove-guise").on("click", async (event) => {
+      event.preventDefault();
+
+      const actor = this.actor;
+
+      // All embedded Guise items on this actor
+      const guises = actor.items.filter(i => i.type === "guise");
+      if (!guises.length) {
+        ui.notifications?.warn("No Guises found on this actor.");
+        return;
+      }
+
+      // Primary refs (you’ve had multiple shapes historically)
+      const primaryRef = actor.system?.guiseId || actor.system?.guise || null;
+
+      const primaryGuise =
+        guises.find(g => g.id === primaryRef) ||
+        guises.find(g => g.uuid === primaryRef) ||
+        null;
+
+      const options = guises.map(g => {
+        const isPrimary = primaryGuise && g.id === primaryGuise.id;
+        const label = isPrimary ? `${g.name} (Primary)` : g.name;
+        return `<option value="${g.id}">${label}</option>`;
+      }).join("");
+
+      const pickerHtml = (guises.length > 1)
+        ? `
+          <p>Select which Guise to remove:</p>
+          <div class="form-group">
+            <label>Guise</label>
+            <select name="mgGuiseToRemove">${options}</select>
+          </div>
+        `
+        : `<p>Remove Guise: <strong>${guises[0].name}</strong> ?</p>`;
+
+      let removeId = guises[0].id;
+
+      const confirmed = await Dialog.wait({
+        title: "Remove Guise?",
+        content: `
+          ${pickerHtml}
+          <p>This will remove the selected Guise item and also delete any Signature Perk / Moves that were added from it.</p>
+        `,
+        buttons: {
+          yes: {
+            label: "Remove",
+            callback: (html) => {
+              // IMPORTANT: read from the dialog HTML, not the sheet
+              const sel = html?.find?.('select[name="mgGuiseToRemove"]')?.val?.();
+              if (sel) removeId = sel;
+              return true;
+            }
+          },
+          no: { label: "Cancel", callback: () => false }
+        },
+        default: "no"
+      });
+
+      if (!confirmed) return;
+
+      const targetGuise = guises.find(g => g.id === removeId);
+      if (!targetGuise) {
+        ui.notifications?.error("Could not resolve the selected Guise.");
+        return;
+      }
+
+      const targetIsPrimary = primaryGuise && (targetGuise.id === primaryGuise.id);
+
+      // Helper: delete any injected moves/perks that came from a given Guise ID
+      const deleteInjectedFromGuiseId = async (guiseId) => {
+        const injected = actor.items.filter(i =>
+          i.type === "move" &&
+          (
+            // your secondary-injection pattern
+            i.system?.fromSecondaryGuise === true &&
+            i.system?.guiseSource === guiseId
+          )
+        );
+
+        if (injected.length) {
+          await actor.deleteEmbeddedDocuments("Item", injected.map(i => i.id));
+        }
+      };
+
+      // 1) Delete injected moves/perks from the target guise
+      await deleteInjectedFromGuiseId(targetGuise.id);
+
+      // 2) Delete the guise itself
+      await actor.deleteEmbeddedDocuments("Item", [targetGuise.id]);
+
+      // Current system lists
+      const secondary = Array.isArray(actor.system?.secondaryGuises)
+        ? [...actor.system.secondaryGuises]
+        : [];
+
+      const movesGuiseId = actor.system?.movesGuiseId ?? null;
+
+      // 3) Update system state depending on what got removed
+      if (!targetIsPrimary) {
+        // Removing SECONDARY
+        const nextSecondary = secondary.filter(id => id !== targetGuise.id);
+
+        // If we were rendering moves from the removed secondary, fall back to primary
+        const nextMovesGuiseId =
+          (movesGuiseId === targetGuise.id)
+            ? (primaryGuise?.id ?? null)
+            : movesGuiseId;
+
+        await actor.update({
+          "system.secondaryGuises": nextSecondary,
+          "system.movesGuiseId": nextMovesGuiseId
+        });
+
+        ui.notifications?.info(`Removed secondary Guise: ${targetGuise.name}`);
+        this.render(true);
+        return;
+      }
+
+      // Removing PRIMARY
+      // Recompute remaining guises after deletion
+      const remainingGuises = actor.items.filter(i => i.type === "guise");
+      if (!remainingGuises.length) {
+        // No guises left
+        await actor.update({
+          "system.guiseId": null,
+          "system.guise": null,
+          "system.movesGuiseId": null,
+          "system.secondaryGuises": []
+        });
+
+        ui.notifications?.info(`Removed primary Guise: ${targetGuise.name}`);
+        this.render(true);
+        return;
+      }
+
+      // Choose a remaining guise to become new primary
+      // Prefer one that used to be in secondaryGuises, otherwise first remaining
+      const preferred =
+        remainingGuises.find(g => secondary.includes(g.id)) ||
+        remainingGuises[0];
+
+      // IMPORTANT: if that preferred guise had injected “secondary” moves,
+      // delete them now so we don’t render them twice after promotion.
+      await deleteInjectedFromGuiseId(preferred.id);
+
+      // Remove promoted guise from secondary list (it’s primary now)
+      const nextSecondary = secondary.filter(id => id !== preferred.id);
+
+      await actor.update({
+        // keep primary refs canonical: embedded item ids only
+        "system.guiseId": preferred.id,
+        "system.guise": preferred.id,
+        "system.movesGuiseId": preferred.id,
+        "system.secondaryGuises": nextSecondary
+      });
+
+      ui.notifications?.info(`Removed primary Guise: ${targetGuise.name}. Promoted: ${preferred.name}`);
+      this.render(true);
+    });
+
+    // -------------------------
+    // Settings tab: Final Resource inputs (Risk for now)
+    // -------------------------
+    const commitFinalResource = async (inputEl) => {
+      const res = inputEl.dataset.resource;
+      const derived = Number(inputEl.dataset.derived);
+      const next = Number(inputEl.value);
+
+      if (!Number.isFinite(next) || next < 0) {
         if (res === "riskDice") {
-          const bonus = next - derived;
-          await this.actor.update({
-            "system.actorSettings.riskDiceBonus": bonus
-          });
+          inputEl.value = String(this.actor.system?.riskDice ?? derived ?? 5);
+        } else if (res === "sparkSlots") {
+          inputEl.value = String(this.actor.system?.sparkSlots ?? derived ?? 0);
+        } else if (res === "stoValue") {
+          inputEl.value = String(this.actor.system?.sto?.value ?? 0);
+        }
+        return;
+      }
+
+      if (res === "riskDice") {
+        const bonus = next - derived;
+        await this.actor.update({
+          "system.actorSettings.riskDiceBonus": bonus
+        });
+      }
+
+      if (res === "sparkSlots") {
+        const bonus = next - derived;
+        await this.actor.update({
+          "system.actorSettings.sparkSlotsBonus": bonus
+        });
+      }
+
+      if (res === "stoValue") {
+        const safe = Math.max(0, next);
+        await this.actor.update({
+          "system.sto.value": safe
+        });
+      }
+
+      this.render(false);
+    };
+
+    html.find(".mg-final-resource")
+      .off("change.mgFinalResource")
+      .on("change.mgFinalResource", async (ev) => {
+        ev.preventDefault();
+        await commitFinalResource(ev.currentTarget);
+      })
+      .off("keydown.mgFinalResource")
+      .on("keydown.mgFinalResource", async (ev) => {
+        if (ev.key !== "Enter") return;
+        ev.preventDefault();
+        await commitFinalResource(ev.currentTarget);
+    });
+
+    html.find(".mg-reset-resource")
+      .off("click.mgResetResource")
+      .on("click.mgResetResource", async (ev) => {
+        ev.preventDefault();
+        const btn = ev.currentTarget;
+        const res = btn.dataset.resource;
+
+        if (res === "riskDice") {
+          await this.actor.update({ "system.actorSettings.riskDiceBonus": 0 });
         }
 
         if (res === "sparkSlots") {
-          const bonus = next - derived;
-          await this.actor.update({
-            "system.actorSettings.sparkSlotsBonus": bonus
-          });
+          await this.actor.update({ "system.actorSettings.sparkSlotsBonus": 0 });
         }
 
         if (res === "stoValue") {
-          const safe = Math.max(0, next);
-          await this.actor.update({
-            "system.sto.value": safe
-          });
+          await this.actor.update({ "system.sto.value": 0 });
         }
 
         this.render(false);
-      };
+    });
 
-      html.find(".mg-final-resource")
-        .off("change.mgFinalResource")
-        .on("change.mgFinalResource", async (ev) => {
-          ev.preventDefault();
-          await commitFinalResource(ev.currentTarget);
-        })
-        .off("keydown.mgFinalResource")
-        .on("keydown.mgFinalResource", async (ev) => {
-          if (ev.key !== "Enter") return;
-          ev.preventDefault();
-          await commitFinalResource(ev.currentTarget);
+    // -------------------------
+    // Settings tab: swap primary guise (toggle UI)
+    // -------------------------
+    html.find(".mg-primary-toggle")
+      .off("click.mgPrimaryGuise")
+      .on("click.mgPrimaryGuise", async (ev) => {
+        ev.preventDefault();
+
+        const clicked = ev.currentTarget;
+        const newPrimaryId = clicked.dataset.guiseId;
+        if (!newPrimaryId) return;
+
+        const normalizeGuiseRefToId = (ref) => {
+          if (!ref) return null;
+
+          const byId = this.actor.items.get(ref);
+          if (byId?.type === "guise") return byId.id;
+
+          const byUuid = this.actor.items.find(i => i.type === "guise" && i.uuid === ref);
+          if (byUuid) return byUuid.id;
+
+          return null;
+        };
+
+        const currentPrimaryId = normalizeGuiseRefToId(this.actor.system?.guiseId || this.actor.system?.guise);
+        const currentSecondary = (Array.isArray(this.actor.system?.secondaryGuises) ? this.actor.system.secondaryGuises : [])
+          .map(normalizeGuiseRefToId)
+          .filter(Boolean);
+
+        // Already primary → do nothing
+        if (newPrimaryId === currentPrimaryId) return;
+
+        // Safety: only allow owned guise ids
+        const allGuiseIds = this.actor.items
+          .filter(i => i.type === "guise")
+          .map(i => i.id);
+
+        if (!allGuiseIds.includes(newPrimaryId)) {
+          ui.notifications?.warn("That Guise is not owned by this actor.");
+          return;
+        }
+
+        // Build next secondary list
+        let nextSecondary = currentSecondary.filter(id => id !== newPrimaryId);
+
+        if (currentPrimaryId && currentPrimaryId !== newPrimaryId && !nextSecondary.includes(currentPrimaryId)) {
+          nextSecondary.unshift(currentPrimaryId);
+        }
+
+        // Max 2 guises total: keep one secondary
+        nextSecondary = nextSecondary.slice(0, 1);
+
+        // Prevent spam-clicking during transition
+        const wrap = clicked.closest(".mg-guise-toggle-list");
+        const toggles = wrap ? Array.from(wrap.querySelectorAll(".mg-primary-toggle")) : [];
+        toggles.forEach(btn => btn.disabled = true);
+
+        // --- Optimistic UI update first so CSS transition can actually run ---
+        toggles.forEach(btn => {
+          btn.classList.remove("is-on");
+          btn.classList.add("is-off");
+          btn.setAttribute("aria-pressed", "false");
+        });
+
+        clicked.classList.remove("is-off");
+        clicked.classList.add("is-on");
+        clicked.setAttribute("aria-pressed", "true");
+
+        // Let the browser paint the class change, then give the transition a moment
+        await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+        await new Promise(resolve => setTimeout(resolve, 160));
+
+        try {
+          await this.actor.update({
+            "system.guise": newPrimaryId,
+            "system.guiseId": newPrimaryId,
+            "system.secondaryGuises": nextSecondary
+          });
+          // Do NOT manually call this.render(true) here.
+          // The actor update will refresh the sheet state.
+        } finally {
+          toggles.forEach(btn => btn.disabled = false);
+        }
       });
 
-      html.find(".mg-reset-resource")
-        .off("click.mgResetResource")
-        .on("click.mgResetResource", async (ev) => {
-          ev.preventDefault();
-          const btn = ev.currentTarget;
-          const res = btn.dataset.resource;
+    html.find(".mg-gambit-design-toggle")
+      .off("click.mgGambitDesign")
+      .on("click.mgGambitDesign", async (ev) => {
+        ev.preventDefault();
 
-          if (res === "riskDice") {
-            await this.actor.update({ "system.actorSettings.riskDiceBonus": 0 });
-          }
+        const clicked = ev.currentTarget;
+        const design = clicked.dataset.gambitDesign;
+        const allowed = ["pearl", "cobalt", "midnight", "noir"];
+        if (!allowed.includes(design)) return;
 
-          if (res === "sparkSlots") {
-            await this.actor.update({ "system.actorSettings.sparkSlotsBonus": 0 });
-          }
+        const wrap = clicked.closest(".gambit-design-toggles");
+        const toggles = wrap ? Array.from(wrap.querySelectorAll(".mg-gambit-design-toggle")) : [];
 
-          if (res === "stoValue") {
-            await this.actor.update({ "system.sto.value": 0 });
-          }
+        toggles.forEach(btn => {
+          btn.classList.toggle("is-on", btn === clicked);
+          btn.classList.toggle("is-off", btn !== clicked);
+          btn.setAttribute("aria-pressed", btn === clicked ? "true" : "false");
+        });
 
-          this.render(false);
+        await this.actor.update({ "system.gambits.cardDesign": design });
       });
 
-      // -------------------------
-      // Settings tab: swap primary guise (toggle UI)
-      // -------------------------
-      html.find(".mg-primary-toggle")
-        .off("click.mgPrimaryGuise")
-        .on("click.mgPrimaryGuise", async (ev) => {
-          ev.preventDefault();
+    html.find(".mg-gambit-hand-ui-toggle")
+      .off("click.mgGambitHandUi")
+      .on("click.mgGambitHandUi", async (ev) => {
+        ev.preventDefault();
 
-          const clicked = ev.currentTarget;
-          const newPrimaryId = clicked.dataset.guiseId;
-          if (!newPrimaryId) return;
+        const clicked = ev.currentTarget;
+        const enabled = clicked.getAttribute("aria-pressed") !== "true";
 
-          const normalizeGuiseRefToId = (ref) => {
-            if (!ref) return null;
+        clicked.classList.toggle("is-on", enabled);
+        clicked.classList.toggle("is-off", !enabled);
+        clicked.setAttribute("aria-pressed", enabled ? "true" : "false");
+        clicked.title = enabled ? "Hide Gambit hand UI" : "Show Gambit hand UI";
 
-            const byId = this.actor.items.get(ref);
-            if (byId?.type === "guise") return byId.id;
+        await this.actor.update({ "system.gambits.handUiEnabled": enabled });
+      });
 
-            const byUuid = this.actor.items.find(i => i.type === "guise" && i.uuid === ref);
-            if (byUuid) return byUuid.id;
+    // Attribute base edit: fixed -3 to +3 picker
+    html.find(".attribute-modifier").on("contextmenu", async (event) => {
+      event.preventDefault();
 
-            return null;
-          };
+      const el = event.currentTarget;
+      const key = el.dataset.key;
+      const current = this._mgClampStatValue(el.getAttribute("data-base"));
 
-          const currentPrimaryId = normalizeGuiseRefToId(this.actor.system?.guiseId || this.actor.system?.guise);
-          const currentSecondary = (Array.isArray(this.actor.system?.secondaryGuises) ? this.actor.system.secondaryGuises : [])
-            .map(normalizeGuiseRefToId)
-            .filter(Boolean);
+      const val = await this._mgOpenStatPicker({
+        title: `Edit ${key}`,
+        current
+      });
 
-          // Already primary → do nothing
-          if (newPrimaryId === currentPrimaryId) return;
+      if (val === null) return;
 
-          // Safety: only allow owned guise ids
-          const allGuiseIds = this.actor.items
-            .filter(i => i.type === "guise")
-            .map(i => i.id);
+      const next = this._mgClampStatValue(val);
 
-          if (!allGuiseIds.includes(newPrimaryId)) {
-            ui.notifications?.warn("That Guise is not owned by this actor.");
-            return;
+      await this.actor.update({ [`system.baseAttributes.${key}`]: next }, { render: false });
+
+      el.setAttribute("data-base", String(next));
+      el.textContent = this._mgFormatSigned(next);
+    });
+
+    html.find(".attribute-modifier").on("click", async (event) => {
+      const attrKey = event.currentTarget.dataset.key;
+
+      const baseAttrMod = Number(this.actor.system.attributes?.[attrKey] ?? 0);
+      const tempAttrMod = Number(this.actor.system.tempAttributeBonuses?.[attrKey] ?? 0);
+
+      const aura = this._getActiveAuraPenalty(attrKey);
+      const auraAttrMod = Number(aura.value ?? 0);
+      const difficultyMod = mgGetDifficultyModifier();
+
+      // Aura should NOT change the dice pool anymore
+      const finalAttrMod = baseAttrMod + tempAttrMod;
+
+      const strainEffects = mgGetStrainRollEffects(this.actor, attrKey);
+      if (strainEffects.out) {
+        ui.notifications?.warn(`${attrKey.charAt(0).toUpperCase() + attrKey.slice(1)} is unavailable at ${strainEffects.track} ${strainEffects.tree} track.`);
+        return;
+      }
+
+      const strainedAttrMod = mgApplyStrainAttributePenalty(finalAttrMod, strainEffects);
+      const pool = 2 + Math.abs(strainedAttrMod);
+      const rollType = strainedAttrMod >= 0 ? "kh2" : "kl2";
+      const formula = `${pool}d6${rollType}`;
+
+      const edge = !!this.actor.system.edgeNext;
+
+      await evaluateRoll({
+        formula,
+        skillMod: auraAttrMod + difficultyMod,
+        modifierParts: [auraAttrMod, difficultyMod],
+        modifierBreakdown: [
+          {
+            key: "aura",
+            label: aura.label || "Aura Modifier",
+            icon: "fa-eye-evil",
+            value: auraAttrMod
+          },
+          {
+            key: "difficulty",
+            label: "Difficulty",
+            icon: "fa-camera-movie",
+            value: difficultyMod
           }
+        ],
+        label: `Attr Roll: ${attrKey.charAt(0).toUpperCase() + attrKey.slice(1)}`,
+        actor: this.actor,
+        edge,
+        auraLabel: aura.label,
+        auraAttrMod,
+        auraSourceActorId: aura.sourceActorId,
+        auraSourceTokenId: aura.sourceTokenId,
+        auraIconClass: "fa-eye-evil",
+        strainEffects
+      });
 
-          // Build next secondary list
-          let nextSecondary = currentSecondary.filter(id => id !== newPrimaryId);
+      if (edge) {
+        await this.actor.update({ "system.edgeNext": false }, { render: false });
+        const btn = html.find(".mg-edge-toggle")[0];
+        if (btn) btn.classList.remove("is-active");
+      }
+    });
 
-          if (currentPrimaryId && currentPrimaryId !== newPrimaryId && !nextSecondary.includes(currentPrimaryId)) {
-            nextSecondary.unshift(currentPrimaryId);
-          }
+    // Handle disabling duplicate spark school selections
+    const select1 = html.find("#spark-school-1");
+    const select2 = html.find("#spark-school-2");
 
-          // Max 2 guises total: keep one secondary
-          nextSecondary = nextSecondary.slice(0, 1);
+    // Update options to prevent duplicate selection
+    function updateSparkOptions() {
+      const val1 = select1.val();
+      const val2 = select2.val();
 
-          // Prevent spam-clicking during transition
-          const wrap = clicked.closest(".mg-guise-toggle-list");
-          const toggles = wrap ? Array.from(wrap.querySelectorAll(".mg-primary-toggle")) : [];
-          toggles.forEach(btn => btn.disabled = true);
+      // Reset all options to enabled
+      select1.find("option").prop("disabled", false);
+      select2.find("option").prop("disabled", false);
 
-          // --- Optimistic UI update first so CSS transition can actually run ---
-          toggles.forEach(btn => {
-            btn.classList.remove("is-on");
-            btn.classList.add("is-off");
-            btn.setAttribute("aria-pressed", "false");
-          });
+      // Disable selected option in the opposite select
+      if (val2) {
+        select1.find(`option[value="${val2}"]`).prop("disabled", true);
+      }
+      if (val1) {
+        select2.find(`option[value="${val1}"]`).prop("disabled", true);
+      }
+    }
 
-          clicked.classList.remove("is-off");
-          clicked.classList.add("is-on");
-          clicked.setAttribute("aria-pressed", "true");
+    // Attach listeners
+    select1.on("change", updateSparkOptions);
+    select2.on("change", updateSparkOptions);
 
-          // Let the browser paint the class change, then give the transition a moment
-          await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-          await new Promise(resolve => setTimeout(resolve, 160));
+    // Run it once on render to sync state
+    updateSparkOptions();
 
-          try {
-            await this.actor.update({
-              "system.guise": newPrimaryId,
-              "system.guiseId": newPrimaryId,
-              "system.secondaryGuises": nextSecondary
-            });
-            // Do NOT manually call this.render(true) here.
-            // The actor update will refresh the sheet state.
-          } finally {
-            toggles.forEach(btn => btn.disabled = false);
-          }
-        });
+    //Adding Skill rolling logic based off Attributes + and adding Skill +
+    const skillAttributeMap = {
+      brawl: "tenacity", endure: "tenacity", athletics: "tenacity",
+      aim: "finesse", stealth: "finesse", sleight: "finesse",
+      will: "resolve", grit: "resolve", composure: "resolve",
+      lore: "guile", investigate: "guile", deceive: "guile",
+      survey: "instinct", hunt: "instinct", nature: "instinct",
+      command: "presence", charm: "presence", perform: "presence",
 
-      html.find(".mg-gambit-design-toggle")
-        .off("click.mgGambitDesign")
-        .on("click.mgGambitDesign", async (ev) => {
-          ev.preventDefault();
+      // Spark: still mapped for now until we implement Guise casting attribute
+      spark: "guile"
+    };
 
-          const clicked = ev.currentTarget;
-          const design = clicked.dataset.gambitDesign;
-          const allowed = ["pearl", "cobalt", "midnight", "noir"];
-          if (!allowed.includes(design)) return;
 
-          const wrap = clicked.closest(".gambit-design-toggles");
-          const toggles = wrap ? Array.from(wrap.querySelectorAll(".mg-gambit-design-toggle")) : [];
+    const skillAttributeDisplay = {
+      brawl: "Ten", endure: "Ten", athletics: "Ten",
+      aim: "Fin", stealth: "Fin", sleight: "Fin",
+      will: "Res", grit: "Res",
+      lore: "Gui", investigate: "Gui", deceive: "Gui", spark: "Gui",
+      survey: "Ins", hunt: "Ins", nature: "Ins",
+      command: "Pre", charm: "Pre", perform: "Pre"
+    };
 
-          toggles.forEach(btn => {
-            btn.classList.toggle("is-on", btn === clicked);
-            btn.classList.toggle("is-off", btn !== clicked);
-            btn.setAttribute("aria-pressed", btn === clicked ? "true" : "false");
-          });
+    const skillLabels = {
+      brawl: "Brawl",
+      endure: "Endure",
+      athletics: "Athletics",
+      aim: "Aim",
+      stealth: "Stealth",
+      sleight: "Sleight",
+      will: "Will",
+      grit: "Grit",
+      composure: "Composure",
+      lore: "Lore",
+      investigate: "Investigate",
+      deceive: "Deceive",
+      survey: "Survey",
+      hunt: "Hunt",
+      nature: "Nature",
+      command: "Command",
+      charm: "Charm",
+      perform: "Perform",
+      spark: "Spark"
+    };
 
-          await this.actor.update({ "system.gambits.cardDesign": design });
-        });
-
-      html.find(".mg-gambit-hand-ui-toggle")
-        .off("click.mgGambitHandUi")
-        .on("click.mgGambitHandUi", async (ev) => {
-          ev.preventDefault();
-
-          const clicked = ev.currentTarget;
-          const enabled = clicked.getAttribute("aria-pressed") !== "true";
-
-          clicked.classList.toggle("is-on", enabled);
-          clicked.classList.toggle("is-off", !enabled);
-          clicked.setAttribute("aria-pressed", enabled ? "true" : "false");
-          clicked.title = enabled ? "Hide Gambit hand UI" : "Show Gambit hand UI";
-
-          await this.actor.update({ "system.gambits.handUiEnabled": enabled });
-        });
-
-      // Attribute base edit: fixed -3 to +3 picker
-      html.find(".attribute-modifier").on("contextmenu", async (event) => {
+    html.find(".mg-temp-skill-bonuses")
+      .off("click.mgTempSkillBonuses")
+      .on("click.mgTempSkillBonuses", async (event) => {
         event.preventDefault();
-
-        const el = event.currentTarget;
-        const key = el.dataset.key;
-        const current = this._mgClampStatValue(el.getAttribute("data-base"));
-
-        const val = await this._mgOpenStatPicker({
-          title: `Edit ${key}`,
-          current
-        });
-
-        if (val === null) return;
-
-        const next = this._mgClampStatValue(val);
-
-        await this.actor.update({ [`system.baseAttributes.${key}`]: next }, { render: false });
-
-        el.setAttribute("data-base", String(next));
-        el.textContent = this._mgFormatSigned(next);
+        event.stopPropagation();
+        await this._mgOpenTempSkillBonusesDialog();
       });
 
-      html.find(".attribute-modifier").on("click", async (event) => {
-        const attrKey = event.currentTarget.dataset.key;
+    html.find(".skill-name, .skill-value")
+      .off("click.mgSkillRoll")
+      .on("click.mgSkillRoll", async (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+
+        const skillKey = event.currentTarget.dataset.key;
+        if (!skillKey) return;
+
+        const baseSkillMod = Number(this.actor.system.skills?.[skillKey] ?? 0);
+        const tempSkillMod = Number(this.actor.system.tempSkillBonuses?.[skillKey] ?? 0);
+
+        let attrKey = skillAttributeMap[skillKey];
+
+        // Spark is Guise-dependent
+        if (skillKey === "spark") {
+          attrKey = this.actor.system.sparkAttribute ?? "guile";
+        }
 
         const baseAttrMod = Number(this.actor.system.attributes?.[attrKey] ?? 0);
         const tempAttrMod = Number(this.actor.system.tempAttributeBonuses?.[attrKey] ?? 0);
@@ -2959,12 +3273,14 @@ _mgOpenSidebarCropper() {
         const auraAttrMod = Number(aura.value ?? 0);
         const difficultyMod = mgGetDifficultyModifier();
 
-        // Aura should NOT change the dice pool anymore
+        // Aura is now a flat final modifier, not dice-pool pressure
         const finalAttrMod = baseAttrMod + tempAttrMod;
+        const finalSkillMod = baseSkillMod + tempSkillMod + auraAttrMod + difficultyMod;
+        const skillLabel = skillLabels[skillKey] ?? skillKey;
 
         const strainEffects = mgGetStrainRollEffects(this.actor, attrKey);
         if (strainEffects.out) {
-          ui.notifications?.warn(`${attrKey.charAt(0).toUpperCase() + attrKey.slice(1)} is unavailable at ${strainEffects.track} ${strainEffects.tree} track.`);
+          ui.notifications?.warn(`${skillLabel} is unavailable at ${strainEffects.track} ${strainEffects.tree} track.`);
           return;
         }
 
@@ -2975,11 +3291,28 @@ _mgOpenSidebarCropper() {
 
         const edge = !!this.actor.system.edgeNext;
 
+        const bonusText =
+          (tempSkillMod !== 0 || auraAttrMod !== 0)
+            ? ` (${baseSkillMod >= 0 ? "+" : ""}${baseSkillMod} base, ${tempSkillMod >= 0 ? "+" : ""}${tempSkillMod} temp${auraAttrMod !== 0 ? `, ${auraAttrMod >= 0 ? "+" : ""}${auraAttrMod} aura` : ""})`
+            : "";
+
         await evaluateRoll({
           formula,
-          skillMod: auraAttrMod + difficultyMod,
-          modifierParts: [auraAttrMod, difficultyMod],
+          skillMod: finalSkillMod,
+          modifierParts: [baseSkillMod, tempSkillMod, auraAttrMod, difficultyMod],
           modifierBreakdown: [
+            {
+              key: "skill",
+              label: "Skill Bonus",
+              icon: "fa-user-plus",
+              value: baseSkillMod
+            },
+            {
+              key: "temp",
+              label: "Temporary Bonus",
+              icon: "fa-handshake-angle",
+              value: tempSkillMod
+            },
             {
               key: "aura",
               label: aura.label || "Aura Modifier",
@@ -2993,14 +3326,13 @@ _mgOpenSidebarCropper() {
               value: difficultyMod
             }
           ],
-          label: `Attr Roll: ${attrKey.charAt(0).toUpperCase() + attrKey.slice(1)}`,
+          label: `Skill Roll: ${skillLabel}`,
           actor: this.actor,
           edge,
           auraLabel: aura.label,
           auraAttrMod,
           auraSourceActorId: aura.sourceActorId,
           auraSourceTokenId: aura.sourceTokenId,
-          auraIconClass: "fa-eye-evil",
           strainEffects
         });
 
@@ -3009,2563 +3341,2385 @@ _mgOpenSidebarCropper() {
           const btn = html.find(".mg-edge-toggle")[0];
           if (btn) btn.classList.remove("is-active");
         }
+    });
+
+    // Skill base edit: fixed -3 to +3 picker
+    html.find(".skill-value").on("contextmenu", async (event) => {
+      event.preventDefault();
+
+      const el = event.currentTarget;
+      const key = el.dataset.key;
+      const current = this._mgClampStatValue(el.getAttribute("data-base"));
+
+      const val = await this._mgOpenStatPicker({
+        title: `Edit Skill: ${key}`,
+        current
       });
 
-      // Handle disabling duplicate spark school selections
-      const select1 = html.find("#spark-school-1");
-      const select2 = html.find("#spark-school-2");
+      if (val === null) return;
 
-      // Update options to prevent duplicate selection
-      function updateSparkOptions() {
-        const val1 = select1.val();
-        const val2 = select2.val();
+      const next = this._mgClampStatValue(val);
 
-        // Reset all options to enabled
-        select1.find("option").prop("disabled", false);
-        select2.find("option").prop("disabled", false);
+      await this.actor.update({ [`system.skills.${key}`]: next }, { render: false });
 
-        // Disable selected option in the opposite select
-        if (val2) {
-          select1.find(`option[value="${val2}"]`).prop("disabled", true);
+      el.setAttribute("data-base", String(next));
+      el.textContent = String(next);
+    });
+
+    // Setting values before Foundry Sheet refresh - Fixes Mortal and Soul Capacity
+    html.find("input").on("keydown", async (event) => {
+      if (event.key !== "Enter") return;
+
+      const input = event.currentTarget;
+
+      if (input.classList.contains("item-search")) return;
+
+      const name  = input.name ?? "";
+      const value = parseInt(input.value, 10);
+
+      const updates = {};
+
+      if (name === "system.strain.mortal capacity") {
+        updates["system.strain.manualOverride.mortal capacity"] = true;
+        updates["system.strain.mortal capacity"] = value;
+      } else if (name === "system.strain.soul capacity") {
+        updates["system.strain.manualOverride.soul capacity"] = true;
+        updates["system.strain.soul capacity"] = value;
+      }
+
+      // If this input doesn't map to a known override, don't do anything
+      if (Object.keys(updates).length === 0) return;
+
+      event.preventDefault();
+
+      await this.actor.update(updates, { render: false });
+      this.render(false);
+      input.blur();
+    });
+
+    // Create a new Inventory item directly on this actor
+    html.find(".mg-create-item").on("click", async (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+
+      const result = await Dialog.wait({
+        title: "Create Inventory Item",
+        content: `
+          <form class="mg-create-item-dialog">
+            <div class="form-group">
+              <label>Item Name</label>
+              <input type="text" name="itemName" value="New Item" autofocus />
+            </div>
+
+            <div class="form-group">
+              <label>Item Type</label>
+              <select name="itemType">
+                <option value="misc">Misc</option>
+                <option value="weapon">Weapon</option>
+                <option value="armor">Armor</option>
+              </select>
+            </div>
+          </form>
+        `,
+        buttons: {
+          create: {
+            label: this._mgBtn ? this._mgBtn("Create", "fa-plus") : "Create",
+            callback: (html) => {
+              const name = html.find('[name="itemName"]').val()?.trim();
+              const type = html.find('[name="itemType"]').val();
+
+              if (!name) return null;
+
+              return {
+                name,
+                type
+              };
+            }
+          },
+          cancel: {
+            label: this._mgBtn ? this._mgBtn("Cancel", "fa-circle-xmark") : "Cancel",
+            callback: () => null
+          }
+        },
+        default: "create"
+      });
+
+      if (!result) return;
+
+      const baseSystem = {
+        description: "",
+        tags: [],
+        quantity: 1,
+        equipped: false
+      };
+
+      if (result.type === "weapon") {
+        baseSystem.mortalStrainDamage = 0;
+        baseSystem.soulStrainDamage = 0;
+        baseSystem.strainDamage = 0;
+      }
+
+      if (result.type === "armor") {
+        baseSystem.mortalCapacity = 0;
+        baseSystem.soulCapacity = 0;
+        baseSystem.remainingCapacity = {
+          mortal: 0,
+          soul: 0
+        };
+      }
+
+      if (result.type === "misc") {
+        baseSystem.mortalStrainDamage = 0;
+        baseSystem.soulStrainDamage = 0;
+        baseSystem.strainDamage = 0;
+
+        baseSystem.mortalCapacity = 0;
+        baseSystem.soulCapacity = 0;
+        baseSystem.remainingCapacity = {
+          mortal: 0,
+          soul: 0
+        };
+      }
+
+      const created = await this.actor.createEmbeddedDocuments("Item", [{
+        name: result.name,
+        type: result.type,
+        system: baseSystem,
+        flags: {
+          "midnight-gambit": {
+            inventoryCreated: true
+          }
         }
-        if (val1) {
-          select2.find(`option[value="${val1}"]`).prop("disabled", true);
+      }]);
+
+      const item = created?.[0];
+
+      this.render(false);
+
+      if (item?.sheet) {
+        item.sheet.render(true);
+      }
+    });
+
+    html.find(".item-quantity").on("change", async (event) => {
+      const itemId = event.currentTarget
+        .closest(".inventory-card, .inventory-item")
+        ?.dataset?.itemId;
+
+      if (!itemId) return;
+
+      const quantity = parseInt(event.currentTarget.value);
+      const item = this.actor.items.get(itemId);
+      if (item) await item.update({ "system.quantity": quantity });
+    });
+
+    // --- Equip toggle (inventory-card) ---
+    const handleEquipToggle = async (event) => {
+      const card = event.currentTarget.closest(".inventory-card");
+      if (!card) return;
+
+      const itemId =
+        card.dataset.itemId ||
+        event.currentTarget.dataset.itemId; // fallback if you ever put data-item-id on the checkbox
+
+      if (!itemId) return;
+
+      const item = this.actor.items.get(itemId);
+      if (!item) return;
+
+      const cb = card.querySelector("input.item-equipped[type='checkbox']");
+      const equipped = cb ? cb.checked : !Boolean(item.system.equipped);
+
+      await item.update({ "system.equipped": equipped }, { render: false });
+
+      // keep UI synced
+      if (cb) cb.checked = equipped;
+
+      const grantsCapacity =
+        ["armor", "misc"].includes(item.type) &&
+        ((item.system.mortalCapacity ?? 0) > 0 || (item.system.soulCapacity ?? 0) > 0);
+
+      if (grantsCapacity) {
+        if (equipped) {
+          await item.update({
+            "system.capacityApplied": true,
+            "system.remainingCapacity.mortal": item.system.mortalCapacity ?? 0,
+            "system.remainingCapacity.soul": item.system.soulCapacity ?? 0
+          }, { render: false });
+        } else {
+          await item.update({ "system.capacityApplied": false }, { render: false });
+        }
+
+        // this is what should make your ticker number change
+        await recalcStrainFromGear({ resetToMax: equipped });
+      }
+
+      // Update the UI in-place (no full sheet rerender)
+      updateCapacityTickerUI(html, this.actor);
+    };
+
+    // Only listen in ONE place.
+    // Checkbox changes:
+    html.on("change", "input.item-equipped[type='checkbox']", handleEquipToggle);
+
+    // Fancy equip UI clicks (add/remove selectors as needed):
+    html.on("click", ".item-equip, .item-equip-toggle, .equip-toggle, .item-equipped-label", handleEquipToggle);
+
+    // Favorite changes (no sheet rerender)
+    html.on("change", ".item-favorite", async (event) => {
+      const card = event.currentTarget.closest(".inventory-card");
+      if (!card) return;
+
+      const itemId = card.dataset.itemId;
+      const item = this.actor.items.get(itemId);
+      if (!item) return;
+
+      const isFav = !!event.currentTarget.checked;
+
+      // Save without rerender
+      await item.update({ "system.favorite": isFav }, { render: false });
+
+      // Live DOM move (only works if you have these containers)
+      const $tab = html.find(".tab-inventory");
+
+      const favBody = $tab.find('.inventory-bucket-body[data-bucket="favorites"]')[0];
+      const bucket =
+        item.type === "weapon" ? "weapons" :
+        item.type === "armor"  ? "armor"   :
+        "misc";
+
+      const targetBody = isFav
+        ? favBody
+        : $tab.find(`.inventory-bucket-body[data-bucket="${bucket}"]`)[0];
+
+      // If we can’t find your bucket bodies, just stop here (state still saves)
+      if (!targetBody) return;
+
+      targetBody.appendChild(card);
+    });
+
+    // Favorite toggle (moves card between buckets, no sheet rerender)
+    html.find(".item-favorite").on("change", async (event) => {
+      const card = event.currentTarget.closest(".inventory-card, .inventory-item");
+      const itemId = card?.dataset?.itemId;
+      if (!itemId) return;
+
+      const item = this.actor.items.get(itemId);
+      if (!item) return;
+
+      const isFav = !!event.currentTarget.checked;
+
+      // Save data without rerender
+      await item.update({ "system.favorite": isFav }, { render: false });
+
+      // ---- DOM MOVE (no rerender) ----
+      const root = html.find(".tab-inventory")[0];
+      if (!root) return;
+
+      const normalizeKey = (s) =>
+        String(s || "").replace(/\s+/g, " ").trim().toLowerCase();
+
+      // Your title keys are usually "Favorites", "Weapons", "Armor", "Misc"
+      const typeToBucketKey = (t) => {
+        const tt = normalizeKey(t);
+        if (tt === "weapon") return "weapons";
+        if (tt === "weapons") return "weapons";
+        if (tt === "armor") return "armor";
+        if (tt === "misc") return "misc";
+        return tt;
+      };
+
+      const getBucketTitleByKey = (key) => {
+        const titles = Array.from(root.querySelectorAll(".inventory-bucket-title"));
+        const want = normalizeKey(key);
+
+        return titles.find((el) => {
+          const explicit = normalizeKey(el.dataset?.bucketKey || el.getAttribute?.("data-bucket-key"));
+          const text = normalizeKey(el.textContent);
+          return explicit === want || text === want;
+        });
+      };
+
+      // Your bucket-toggle code wraps cards into .inventory-bucket-body.
+      // This makes sure the wrapper exists, even if something changed.
+      const ensureBucketBody = (titleEl) => {
+        if (!titleEl) return null;
+
+        let next = titleEl.nextElementSibling;
+        if (next && next.classList?.contains("inventory-bucket-body")) return next;
+
+        const body = document.createElement("div");
+        body.classList.add("inventory-bucket-body", "inventory-grid");
+        body.style.width = "100%";
+        body.style.overflow = "hidden";
+        titleEl.insertAdjacentElement("afterend", body);
+
+        // Move everything until next title into body
+        next = body.nextElementSibling;
+        while (next && !next.classList.contains("inventory-bucket-title")) {
+          const move = next;
+          next = next.nextElementSibling;
+          body.appendChild(move);
+        }
+        return body;
+      };
+
+      const destKey = isFav ? "favorites" : typeToBucketKey(item.type);
+      const destTitle = getBucketTitleByKey(destKey);
+      const destBody = ensureBucketBody(destTitle);
+
+      if (!destBody) return;
+
+      // Move the existing card node (no duplication)
+      destBody.appendChild(card);
+
+      // Optional: keep search behavior consistent if you're currently searching
+      // (doesn't rerender; just re-applies existing hidden classes if you use them)
+      const q = (root.querySelector(".item-search")?.value || "").trim();
+      if (q.length) {
+        // If your search function relies on classes, it’s already applied.
+        // Leaving this blank on purpose to avoid re-triggering your animation pipeline.
+      }
+    });
+
+    // Open item sheet from an inventory card
+    html.find(".item-edit").on("click", async (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+
+      const itemId =
+        event.currentTarget.dataset.itemId ||
+        event.currentTarget.closest(".inventory-item")?.dataset?.itemId;
+
+      if (!itemId) return;
+
+      const item = this.actor.items.get(itemId);
+      if (!item) {
+        ui.notifications?.warn("Item not found.");
+        return;
+      }
+
+      item.sheet?.render(true);
+    });
+
+    //Repair Armor
+    html.find(".repair-armor").on("click", async (event) => {
+      const itemId = event.currentTarget.dataset.itemId;
+      const item = this.actor.items.get(itemId);
+
+      const isRepairable =
+        item &&
+        ["armor", "misc"].includes(item.type) &&
+        (Number(item.system.mortalCapacity) > 0 || Number(item.system.soulCapacity) > 0);
+
+      // Only equipped gear contributes to capacity and can be repaired for the live sheet effect
+      if (!isRepairable || !item.system.equipped) return;
+
+      const mortalCapacity = Number(item.system.mortalCapacity ?? 0);
+      const soulCapacity = Number(item.system.soulCapacity ?? 0);
+
+      const remainingMC = Number(item.system.remainingCapacity?.mortal ?? 0);
+      const remainingSC = Number(item.system.remainingCapacity?.soul ?? 0);
+
+      const deltaMC = Math.max(0, mortalCapacity - remainingMC);
+      const deltaSC = Math.max(0, soulCapacity - remainingSC);
+
+      const isDamaged = deltaMC > 0 || deltaSC > 0;
+      if (!isDamaged) {
+        ui.notifications.info(`${item.name} is already fully repaired.`);
+        return;
+      }
+
+      // 1) Restore the item's own durability
+      await item.update(
+        {
+          "system.remainingCapacity.mortal": mortalCapacity,
+          "system.remainingCapacity.soul": soulCapacity,
+          "system.capacityApplied": true
+        },
+        { render: false }
+      );
+
+      ui.notifications.info(`${item.name} repaired. Durability restored.`);
+
+      // 2) Recalculate derived capacity (base + CURRENT equipped remainingCapacity)
+      // NOTE: This should NOT heal track; it only updates maxCapacity bookkeeping.
+      await recalcStrainFromGear({ resetToMax: false });
+
+      // 3) Live update the actor's *current* capacity buffer by the amount repaired.
+      // This is why the player shouldn't need to Rest to see the armor capacity come back.
+      const updates = {};
+      if (deltaMC > 0) {
+        const capKey = "mortal capacity";
+        const cur = Number(this.actor.system?.strain?.[capKey] ?? 0);
+        const max = Number(this.actor.system?.strain?.maxCapacity?.mortal ?? (cur + deltaMC));
+        updates[`system.strain.${capKey}`] = Math.min(max, cur + deltaMC);
+      }
+      if (deltaSC > 0) {
+        const capKey = "soul capacity";
+        const cur = Number(this.actor.system?.strain?.[capKey] ?? 0);
+        const max = Number(this.actor.system?.strain?.maxCapacity?.soul ?? (cur + deltaSC));
+        updates[`system.strain.${capKey}`] = Math.min(max, cur + deltaSC);
+      }
+
+      if (Object.keys(updates).length) {
+        await this.actor.update(updates, { render: false });
+      }
+
+      this.render(false);
+    });
+
+    //Remove item from Inventory
+    html.find(".item-delete").on("click", async (event) => {
+      const itemId = event.currentTarget.dataset.itemId;
+      const item = this.actor.items.get(itemId);
+      if (!item) return;
+
+      const confirmed = await Dialog.wait({
+        title: `Delete ${item.name}?`,
+        content: `
+          <h2>Delete ${item.name}?</h2>
+          <p>Are you sure you want to permanently delete <strong>${item.name}</strong> from your inventory?</p>
+        `,
+        buttons: {
+          yes: { label: this._mgBtn("Delete", "fa-trash"), callback: () => true },
+          no:  { label: this._mgBtn("Cancel", "fa-circle-xmark"), callback: () => false }
+        },
+        default: "no"
+      });
+
+      if (confirmed) {
+        await item.delete();
+        this.render(false);
+      }
+    });
+
+    // Posting Inventory Items to Chat (Weapons / Armor / Misc) via header click
+    html.find(".tab-inventory .post-item").on("click", async (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+
+      // Resolve item from the header or parent card
+      const header   = event.currentTarget;
+      const itemId   = header.dataset.itemId
+        || header.closest(".inventory-item")?.dataset?.itemId;
+      const item     = this.actor.items.get(itemId);
+      if (!item) return;
+
+      const { name, system, type } = item;
+
+      // Safe HTML escape for labels/ids
+      const safe = (s) => String(s ?? "").replace(/[&<>"'`=\/]/g, c =>
+        ({
+          "&": "&amp;",
+          "<": "&lt;",
+          ">": "&gt;",
+          '"': "&quot;",
+          "'": "&#39;",
+          "`": "&#96;",
+          "=": "&#61;",
+          "/": "&#47;"
+        }[c])
+      );
+
+      // Merge all known tag definitions so we get labels + descriptions
+      const allDefs = [
+        ...(CONFIG.MidnightGambit?.ITEM_TAGS   ?? []),
+        ...(CONFIG.MidnightGambit?.WEAPON_TAGS ?? []),
+        ...(CONFIG.MidnightGambit?.ARMOR_TAGS  ?? []),
+        ...(CONFIG.MidnightGambit?.MISC_TAGS   ?? [])
+      ];
+
+      const tagData = (system.tags || [])
+        .map(tagId => {
+          const def   = allDefs.find(t => t.id === tagId);
+          const label = def?.label || tagId;
+          const desc  = def?.description || "";
+          return `<span class="item-tag tag" data-tag-id="${safe(tagId)}" title="${safe(desc)}">${safe(label)}</span>`;
+        })
+        .join(" ");
+
+      let extraInfo = "";
+
+      // Weapon: Strain Damage (Mortal/Soul, with legacy fallback)
+      if (type === "weapon") {
+        const mortal = Number(system.mortalStrainDamage ?? system.strainDamage ?? 0);
+        const soul   = Number(system.soulStrainDamage ?? 0);
+
+        if (mortal || soul) {
+          extraInfo += `
+            <label>Strain Damage</label>
+            <div class="bubble-wrapper">
+              ${mortal ? `
+                <p class="strain-bubble">
+                  <i class="fa-kit fa-mortal-strain"></i>
+                  <span class="remaining-number">${mortal}</span>
+                </p>` : ""
+              }
+              ${soul ? `
+                <p class="strain-bubble">
+                  <i class="fa-kit fa-soul-strain"></i>
+                  <span class="remaining-number">${soul}</span>
+                </p>` : ""
+              }
+            </div>`;
         }
       }
 
-      // Attach listeners
-      select1.on("change", updateSparkOptions);
-      select2.on("change", updateSparkOptions);
 
-      // Run it once on render to sync state
-      updateSparkOptions();
+      // Armor: MC / SC
+      if (type === "armor") {
+        const mc = system.mortalCapacity ?? 0;
+        const sc = system.soulCapacity ?? 0;
+        if (mc || sc) {
+          extraInfo += `
+            <label>Capacity</label>
+            <div class="bubble-wrapper">
+              <p class="strain-bubble">
+                <i class="fa-kit fa-mortal-strain"></i>
+                <span class="remaining-number">${mc}</span>
+              </p>
+              <p class="strain-bubble">
+                <i class="fa-kit fa-soul-strain"></i>
+                <span class="remaining-number">${sc}</span>
+              </p>
+            </div>`;
+        }
+      }
 
-      //Adding Skill rolling logic based off Attributes + and adding Skill +
-      const skillAttributeMap = {
-        brawl: "tenacity", endure: "tenacity", athletics: "tenacity",
-        aim: "finesse", stealth: "finesse", sleight: "finesse",
-        will: "resolve", grit: "resolve", composure: "resolve",
-        lore: "guile", investigate: "guile", deceive: "guile",
-        survey: "instinct", hunt: "instinct", nature: "instinct",
-        command: "presence", charm: "presence", perform: "presence",
+      // Misc: Strain Damage + Capacity
+      if (type === "misc") {
+        const mortalSD = Number(system.mortalStrainDamage ?? system.strainDamage ?? 0);
+        const soulSD   = Number(system.soulStrainDamage ?? 0);
 
-        // Spark: still mapped for now until we implement Guise casting attribute
-        spark: "guile"
-      };
-
-
-      const skillAttributeDisplay = {
-        brawl: "Ten", endure: "Ten", athletics: "Ten",
-        aim: "Fin", stealth: "Fin", sleight: "Fin",
-        will: "Res", grit: "Res",
-        lore: "Gui", investigate: "Gui", deceive: "Gui", spark: "Gui",
-        survey: "Ins", hunt: "Ins", nature: "Ins",
-        command: "Pre", charm: "Pre", perform: "Pre"
-      };
-
-      const skillLabels = {
-        brawl: "Brawl",
-        endure: "Endure",
-        athletics: "Athletics",
-        aim: "Aim",
-        stealth: "Stealth",
-        sleight: "Sleight",
-        will: "Will",
-        grit: "Grit",
-        composure: "Composure",
-        lore: "Lore",
-        investigate: "Investigate",
-        deceive: "Deceive",
-        survey: "Survey",
-        hunt: "Hunt",
-        nature: "Nature",
-        command: "Command",
-        charm: "Charm",
-        perform: "Perform",
-        spark: "Spark"
-      };
-
-      html.find(".mg-temp-skill-bonuses")
-        .off("click.mgTempSkillBonuses")
-        .on("click.mgTempSkillBonuses", async (event) => {
-          event.preventDefault();
-          event.stopPropagation();
-          await this._mgOpenTempSkillBonusesDialog();
-        });
-
-      html.find(".skill-name, .skill-value")
-        .off("click.mgSkillRoll")
-        .on("click.mgSkillRoll", async (event) => {
-          event.preventDefault();
-          event.stopPropagation();
-
-          const skillKey = event.currentTarget.dataset.key;
-          if (!skillKey) return;
-
-          const baseSkillMod = Number(this.actor.system.skills?.[skillKey] ?? 0);
-          const tempSkillMod = Number(this.actor.system.tempSkillBonuses?.[skillKey] ?? 0);
-
-          let attrKey = skillAttributeMap[skillKey];
-
-          // Spark is Guise-dependent
-          if (skillKey === "spark") {
-            attrKey = this.actor.system.sparkAttribute ?? "guile";
-          }
-
-          const baseAttrMod = Number(this.actor.system.attributes?.[attrKey] ?? 0);
-          const tempAttrMod = Number(this.actor.system.tempAttributeBonuses?.[attrKey] ?? 0);
-
-          const aura = this._getActiveAuraPenalty(attrKey);
-          const auraAttrMod = Number(aura.value ?? 0);
-          const difficultyMod = mgGetDifficultyModifier();
-
-          // Aura is now a flat final modifier, not dice-pool pressure
-          const finalAttrMod = baseAttrMod + tempAttrMod;
-          const finalSkillMod = baseSkillMod + tempSkillMod + auraAttrMod + difficultyMod;
-          const skillLabel = skillLabels[skillKey] ?? skillKey;
-
-          const strainEffects = mgGetStrainRollEffects(this.actor, attrKey);
-          if (strainEffects.out) {
-            ui.notifications?.warn(`${skillLabel} is unavailable at ${strainEffects.track} ${strainEffects.tree} track.`);
-            return;
-          }
-
-          const strainedAttrMod = mgApplyStrainAttributePenalty(finalAttrMod, strainEffects);
-          const pool = 2 + Math.abs(strainedAttrMod);
-          const rollType = strainedAttrMod >= 0 ? "kh2" : "kl2";
-          const formula = `${pool}d6${rollType}`;
-
-          const edge = !!this.actor.system.edgeNext;
-
-          const bonusText =
-            (tempSkillMod !== 0 || auraAttrMod !== 0)
-              ? ` (${baseSkillMod >= 0 ? "+" : ""}${baseSkillMod} base, ${tempSkillMod >= 0 ? "+" : ""}${tempSkillMod} temp${auraAttrMod !== 0 ? `, ${auraAttrMod >= 0 ? "+" : ""}${auraAttrMod} aura` : ""})`
-              : "";
-
-          await evaluateRoll({
-            formula,
-            skillMod: finalSkillMod,
-            modifierParts: [baseSkillMod, tempSkillMod, auraAttrMod, difficultyMod],
-            modifierBreakdown: [
-              {
-                key: "skill",
-                label: "Skill Bonus",
-                icon: "fa-user-plus",
-                value: baseSkillMod
-              },
-              {
-                key: "temp",
-                label: "Temporary Bonus",
-                icon: "fa-handshake-angle",
-                value: tempSkillMod
-              },
-              {
-                key: "aura",
-                label: aura.label || "Aura Modifier",
-                icon: "fa-eye-evil",
-                value: auraAttrMod
-              },
-              {
-                key: "difficulty",
-                label: "Difficulty",
-                icon: "fa-camera-movie",
-                value: difficultyMod
+        if (mortalSD || soulSD) {
+          extraInfo += `
+            <label>Strain Damage</label>
+            <div class="bubble-wrapper">
+              ${mortalSD ? `
+                <p class="strain-bubble">
+                  <i class="fa-kit fa-mortal-strain"></i>
+                  <span class="remaining-number">${mortalSD}</span>
+                </p>` : ""
               }
-            ],
-            label: `Skill Roll: ${skillLabel}`,
-            actor: this.actor,
-            edge,
-            auraLabel: aura.label,
-            auraAttrMod,
-            auraSourceActorId: aura.sourceActorId,
-            auraSourceTokenId: aura.sourceTokenId,
-            strainEffects
-          });
-
-          if (edge) {
-            await this.actor.update({ "system.edgeNext": false }, { render: false });
-            const btn = html.find(".mg-edge-toggle")[0];
-            if (btn) btn.classList.remove("is-active");
-          }
-      });
-
-      // Skill base edit: fixed -3 to +3 picker
-      html.find(".skill-value").on("contextmenu", async (event) => {
-        event.preventDefault();
-
-        const el = event.currentTarget;
-        const key = el.dataset.key;
-        const current = this._mgClampStatValue(el.getAttribute("data-base"));
-
-        const val = await this._mgOpenStatPicker({
-          title: `Edit Skill: ${key}`,
-          current
-        });
-
-        if (val === null) return;
-
-        const next = this._mgClampStatValue(val);
-
-        await this.actor.update({ [`system.skills.${key}`]: next }, { render: false });
-
-        el.setAttribute("data-base", String(next));
-        el.textContent = String(next);
-      });
-
-      // Setting values before Foundry Sheet refresh - Fixes Mortal and Soul Capacity
-      html.find("input").on("keydown", async (event) => {
-        if (event.key !== "Enter") return;
-
-        const input = event.currentTarget;
-
-        if (input.classList.contains("item-search")) return;
-
-        const name  = input.name ?? "";
-        const value = parseInt(input.value, 10);
-
-        const updates = {};
-
-        if (name === "system.strain.mortal capacity") {
-          updates["system.strain.manualOverride.mortal capacity"] = true;
-          updates["system.strain.mortal capacity"] = value;
-        } else if (name === "system.strain.soul capacity") {
-          updates["system.strain.manualOverride.soul capacity"] = true;
-          updates["system.strain.soul capacity"] = value;
-        }
-
-        // If this input doesn't map to a known override, don't do anything
-        if (Object.keys(updates).length === 0) return;
-
-        event.preventDefault();
-
-        await this.actor.update(updates, { render: false });
-        this.render(false);
-        input.blur();
-      });
-
-      // Create a new Inventory item directly on this actor
-      html.find(".mg-create-item").on("click", async (event) => {
-        event.preventDefault();
-        event.stopPropagation();
-
-        const result = await Dialog.wait({
-          title: "Create Inventory Item",
-          content: `
-            <form class="mg-create-item-dialog">
-              <div class="form-group">
-                <label>Item Name</label>
-                <input type="text" name="itemName" value="New Item" autofocus />
-              </div>
-
-              <div class="form-group">
-                <label>Item Type</label>
-                <select name="itemType">
-                  <option value="misc">Misc</option>
-                  <option value="weapon">Weapon</option>
-                  <option value="armor">Armor</option>
-                </select>
-              </div>
-            </form>
-          `,
-          buttons: {
-            create: {
-              label: this._mgBtn ? this._mgBtn("Create", "fa-plus") : "Create",
-              callback: (html) => {
-                const name = html.find('[name="itemName"]').val()?.trim();
-                const type = html.find('[name="itemType"]').val();
-
-                if (!name) return null;
-
-                return {
-                  name,
-                  type
-                };
+              ${soulSD ? `
+                <p class="strain-bubble">
+                  <i class="fa-kit fa-soul-strain"></i>
+                  <span class="remaining-number">${soulSD}</span>
+                </p>` : ""
               }
-            },
-            cancel: {
-              label: this._mgBtn ? this._mgBtn("Cancel", "fa-circle-xmark") : "Cancel",
-              callback: () => null
-            }
-          },
-          default: "create"
-        });
-
-        if (!result) return;
-
-        const baseSystem = {
-          description: "",
-          tags: [],
-          quantity: 1,
-          equipped: false
-        };
-
-        if (result.type === "weapon") {
-          baseSystem.mortalStrainDamage = 0;
-          baseSystem.soulStrainDamage = 0;
-          baseSystem.strainDamage = 0;
+            </div>`;
         }
 
-        if (result.type === "armor") {
-          baseSystem.mortalCapacity = 0;
-          baseSystem.soulCapacity = 0;
-          baseSystem.remainingCapacity = {
-            mortal: 0,
-            soul: 0
-          };
-        }
-
-        if (result.type === "misc") {
-          baseSystem.mortalStrainDamage = 0;
-          baseSystem.soulStrainDamage = 0;
-          baseSystem.strainDamage = 0;
-
-          baseSystem.mortalCapacity = 0;
-          baseSystem.soulCapacity = 0;
-          baseSystem.remainingCapacity = {
-            mortal: 0,
-            soul: 0
-          };
-        }
-
-        const created = await this.actor.createEmbeddedDocuments("Item", [{
-          name: result.name,
-          type: result.type,
-          system: baseSystem,
-          flags: {
-            "midnight-gambit": {
-              inventoryCreated: true
-            }
-          }
-        }]);
-
-        const item = created?.[0];
-
-        this.render(false);
-
-        if (item?.sheet) {
-          item.sheet.render(true);
-        }
-      });
-
-      html.find(".item-quantity").on("change", async (event) => {
-        const itemId = event.currentTarget
-          .closest(".inventory-card, .inventory-item")
-          ?.dataset?.itemId;
-
-        if (!itemId) return;
-
-        const quantity = parseInt(event.currentTarget.value);
-        const item = this.actor.items.get(itemId);
-        if (item) await item.update({ "system.quantity": quantity });
-      });
-
-      // --- Equip toggle (inventory-card) ---
-      const handleEquipToggle = async (event) => {
-        const card = event.currentTarget.closest(".inventory-card");
-        if (!card) return;
-
-        const itemId =
-          card.dataset.itemId ||
-          event.currentTarget.dataset.itemId; // fallback if you ever put data-item-id on the checkbox
-
-        if (!itemId) return;
-
-        const item = this.actor.items.get(itemId);
-        if (!item) return;
-
-        const cb = card.querySelector("input.item-equipped[type='checkbox']");
-        const equipped = cb ? cb.checked : !Boolean(item.system.equipped);
-
-        await item.update({ "system.equipped": equipped }, { render: false });
-
-        // keep UI synced
-        if (cb) cb.checked = equipped;
-
-        const grantsCapacity =
-          ["armor", "misc"].includes(item.type) &&
-          ((item.system.mortalCapacity ?? 0) > 0 || (item.system.soulCapacity ?? 0) > 0);
-
-        if (grantsCapacity) {
-          if (equipped) {
-            await item.update({
-              "system.capacityApplied": true,
-              "system.remainingCapacity.mortal": item.system.mortalCapacity ?? 0,
-              "system.remainingCapacity.soul": item.system.soulCapacity ?? 0
-            }, { render: false });
-          } else {
-            await item.update({ "system.capacityApplied": false }, { render: false });
-          }
-
-          // this is what should make your ticker number change
-          await recalcStrainFromGear({ resetToMax: equipped });
-        }
-
-        // Update the UI in-place (no full sheet rerender)
-        updateCapacityTickerUI(html, this.actor);
-      };
-
-      // Only listen in ONE place.
-      // Checkbox changes:
-      html.on("change", "input.item-equipped[type='checkbox']", handleEquipToggle);
-
-      // Fancy equip UI clicks (add/remove selectors as needed):
-      html.on("click", ".item-equip, .item-equip-toggle, .equip-toggle, .item-equipped-label", handleEquipToggle);
-
-      // Favorite changes (no sheet rerender)
-      html.on("change", ".item-favorite", async (event) => {
-        const card = event.currentTarget.closest(".inventory-card");
-        if (!card) return;
-
-        const itemId = card.dataset.itemId;
-        const item = this.actor.items.get(itemId);
-        if (!item) return;
-
-        const isFav = !!event.currentTarget.checked;
-
-        // Save without rerender
-        await item.update({ "system.favorite": isFav }, { render: false });
-
-        // Live DOM move (only works if you have these containers)
-        const $tab = html.find(".tab-inventory");
-
-        const favBody = $tab.find('.inventory-bucket-body[data-bucket="favorites"]')[0];
-        const bucket =
-          item.type === "weapon" ? "weapons" :
-          item.type === "armor"  ? "armor"   :
-          "misc";
-
-        const targetBody = isFav
-          ? favBody
-          : $tab.find(`.inventory-bucket-body[data-bucket="${bucket}"]`)[0];
-
-        // If we can’t find your bucket bodies, just stop here (state still saves)
-        if (!targetBody) return;
-
-        targetBody.appendChild(card);
-      });
-
-      // Favorite toggle (moves card between buckets, no sheet rerender)
-      html.find(".item-favorite").on("change", async (event) => {
-        const card = event.currentTarget.closest(".inventory-card, .inventory-item");
-        const itemId = card?.dataset?.itemId;
-        if (!itemId) return;
-
-        const item = this.actor.items.get(itemId);
-        if (!item) return;
-
-        const isFav = !!event.currentTarget.checked;
-
-        // Save data without rerender
-        await item.update({ "system.favorite": isFav }, { render: false });
-
-        // ---- DOM MOVE (no rerender) ----
-        const root = html.find(".tab-inventory")[0];
-        if (!root) return;
-
-        const normalizeKey = (s) =>
-          String(s || "").replace(/\s+/g, " ").trim().toLowerCase();
-
-        // Your title keys are usually "Favorites", "Weapons", "Armor", "Misc"
-        const typeToBucketKey = (t) => {
-          const tt = normalizeKey(t);
-          if (tt === "weapon") return "weapons";
-          if (tt === "weapons") return "weapons";
-          if (tt === "armor") return "armor";
-          if (tt === "misc") return "misc";
-          return tt;
-        };
-
-        const getBucketTitleByKey = (key) => {
-          const titles = Array.from(root.querySelectorAll(".inventory-bucket-title"));
-          const want = normalizeKey(key);
-
-          return titles.find((el) => {
-            const explicit = normalizeKey(el.dataset?.bucketKey || el.getAttribute?.("data-bucket-key"));
-            const text = normalizeKey(el.textContent);
-            return explicit === want || text === want;
-          });
-        };
-
-        // Your bucket-toggle code wraps cards into .inventory-bucket-body.
-        // This makes sure the wrapper exists, even if something changed.
-        const ensureBucketBody = (titleEl) => {
-          if (!titleEl) return null;
-
-          let next = titleEl.nextElementSibling;
-          if (next && next.classList?.contains("inventory-bucket-body")) return next;
-
-          const body = document.createElement("div");
-          body.classList.add("inventory-bucket-body", "inventory-grid");
-          body.style.width = "100%";
-          body.style.overflow = "hidden";
-          titleEl.insertAdjacentElement("afterend", body);
-
-          // Move everything until next title into body
-          next = body.nextElementSibling;
-          while (next && !next.classList.contains("inventory-bucket-title")) {
-            const move = next;
-            next = next.nextElementSibling;
-            body.appendChild(move);
-          }
-          return body;
-        };
-
-        const destKey = isFav ? "favorites" : typeToBucketKey(item.type);
-        const destTitle = getBucketTitleByKey(destKey);
-        const destBody = ensureBucketBody(destTitle);
-
-        if (!destBody) return;
-
-        // Move the existing card node (no duplication)
-        destBody.appendChild(card);
-
-        // Optional: keep search behavior consistent if you're currently searching
-        // (doesn't rerender; just re-applies existing hidden classes if you use them)
-        const q = (root.querySelector(".item-search")?.value || "").trim();
-        if (q.length) {
-          // If your search function relies on classes, it’s already applied.
-          // Leaving this blank on purpose to avoid re-triggering your animation pipeline.
-        }
-      });
-
-      // Open item sheet from an inventory card
-      html.find(".item-edit").on("click", async (event) => {
-        event.preventDefault();
-        event.stopPropagation();
-
-        const itemId =
-          event.currentTarget.dataset.itemId ||
-          event.currentTarget.closest(".inventory-item")?.dataset?.itemId;
-
-        if (!itemId) return;
-
-        const item = this.actor.items.get(itemId);
-        if (!item) {
-          ui.notifications?.warn("Item not found.");
-          return;
-        }
-
-        item.sheet?.render(true);
-      });
-
-      //Repair Armor
-      html.find(".repair-armor").on("click", async (event) => {
-        const itemId = event.currentTarget.dataset.itemId;
-        const item = this.actor.items.get(itemId);
-
-        const isRepairable =
-          item &&
-          ["armor", "misc"].includes(item.type) &&
-          (Number(item.system.mortalCapacity) > 0 || Number(item.system.soulCapacity) > 0);
-
-        // Only equipped gear contributes to capacity and can be repaired for the live sheet effect
-        if (!isRepairable || !item.system.equipped) return;
-
-        const mortalCapacity = Number(item.system.mortalCapacity ?? 0);
-        const soulCapacity = Number(item.system.soulCapacity ?? 0);
-
-        const remainingMC = Number(item.system.remainingCapacity?.mortal ?? 0);
-        const remainingSC = Number(item.system.remainingCapacity?.soul ?? 0);
-
-        const deltaMC = Math.max(0, mortalCapacity - remainingMC);
-        const deltaSC = Math.max(0, soulCapacity - remainingSC);
-
-        const isDamaged = deltaMC > 0 || deltaSC > 0;
-        if (!isDamaged) {
-          ui.notifications.info(`${item.name} is already fully repaired.`);
-          return;
-        }
-
-        // 1) Restore the item's own durability
-        await item.update(
-          {
-            "system.remainingCapacity.mortal": mortalCapacity,
-            "system.remainingCapacity.soul": soulCapacity,
-            "system.capacityApplied": true
-          },
-          { render: false }
-        );
-
-        ui.notifications.info(`${item.name} repaired. Durability restored.`);
-
-        // 2) Recalculate derived capacity (base + CURRENT equipped remainingCapacity)
-        // NOTE: This should NOT heal track; it only updates maxCapacity bookkeeping.
-        await recalcStrainFromGear({ resetToMax: false });
-
-        // 3) Live update the actor's *current* capacity buffer by the amount repaired.
-        // This is why the player shouldn't need to Rest to see the armor capacity come back.
-        const updates = {};
-        if (deltaMC > 0) {
-          const capKey = "mortal capacity";
-          const cur = Number(this.actor.system?.strain?.[capKey] ?? 0);
-          const max = Number(this.actor.system?.strain?.maxCapacity?.mortal ?? (cur + deltaMC));
-          updates[`system.strain.${capKey}`] = Math.min(max, cur + deltaMC);
-        }
-        if (deltaSC > 0) {
-          const capKey = "soul capacity";
-          const cur = Number(this.actor.system?.strain?.[capKey] ?? 0);
-          const max = Number(this.actor.system?.strain?.maxCapacity?.soul ?? (cur + deltaSC));
-          updates[`system.strain.${capKey}`] = Math.min(max, cur + deltaSC);
-        }
-
-        if (Object.keys(updates).length) {
-          await this.actor.update(updates, { render: false });
-        }
-
-        this.render(false);
-      });
-
-      //Remove item from Inventory
-      html.find(".item-delete").on("click", async (event) => {
-        const itemId = event.currentTarget.dataset.itemId;
-        const item = this.actor.items.get(itemId);
-        if (!item) return;
-
-        const confirmed = await Dialog.wait({
-          title: `Delete ${item.name}?`,
-          content: `
-            <h2>Delete ${item.name}?</h2>
-            <p>Are you sure you want to permanently delete <strong>${item.name}</strong> from your inventory?</p>
-          `,
-          buttons: {
-            yes: { label: this._mgBtn("Delete", "fa-trash"), callback: () => true },
-            no:  { label: this._mgBtn("Cancel", "fa-circle-xmark"), callback: () => false }
-          },
-          default: "no"
-        });
-
-        if (confirmed) {
-          await item.delete();
-          this.render(false);
-        }
-      });
-
-      // Posting Inventory Items to Chat (Weapons / Armor / Misc) via header click
-      html.find(".tab-inventory .post-item").on("click", async (event) => {
-        event.preventDefault();
-        event.stopPropagation();
-
-        // Resolve item from the header or parent card
-        const header   = event.currentTarget;
-        const itemId   = header.dataset.itemId
-          || header.closest(".inventory-item")?.dataset?.itemId;
-        const item     = this.actor.items.get(itemId);
-        if (!item) return;
-
-        const { name, system, type } = item;
-
-        // Safe HTML escape for labels/ids
-        const safe = (s) => String(s ?? "").replace(/[&<>"'`=\/]/g, c =>
-          ({
-            "&": "&amp;",
-            "<": "&lt;",
-            ">": "&gt;",
-            '"': "&quot;",
-            "'": "&#39;",
-            "`": "&#96;",
-            "=": "&#61;",
-            "/": "&#47;"
-          }[c])
-        );
-
-        // Merge all known tag definitions so we get labels + descriptions
-        const allDefs = [
-          ...(CONFIG.MidnightGambit?.ITEM_TAGS   ?? []),
-          ...(CONFIG.MidnightGambit?.WEAPON_TAGS ?? []),
-          ...(CONFIG.MidnightGambit?.ARMOR_TAGS  ?? []),
-          ...(CONFIG.MidnightGambit?.MISC_TAGS   ?? [])
-        ];
-
-        const tagData = (system.tags || [])
-          .map(tagId => {
-            const def   = allDefs.find(t => t.id === tagId);
-            const label = def?.label || tagId;
-            const desc  = def?.description || "";
-            return `<span class="item-tag tag" data-tag-id="${safe(tagId)}" title="${safe(desc)}">${safe(label)}</span>`;
-          })
-          .join(" ");
-
-        let extraInfo = "";
-
-        // Weapon: Strain Damage (Mortal/Soul, with legacy fallback)
-        if (type === "weapon") {
-          const mortal = Number(system.mortalStrainDamage ?? system.strainDamage ?? 0);
-          const soul   = Number(system.soulStrainDamage ?? 0);
-
-          if (mortal || soul) {
-            extraInfo += `
-              <label>Strain Damage</label>
-              <div class="bubble-wrapper">
-                ${mortal ? `
-                  <p class="strain-bubble">
-                    <i class="fa-kit fa-mortal-strain"></i>
-                    <span class="remaining-number">${mortal}</span>
-                  </p>` : ""
-                }
-                ${soul ? `
-                  <p class="strain-bubble">
-                    <i class="fa-kit fa-soul-strain"></i>
-                    <span class="remaining-number">${soul}</span>
-                  </p>` : ""
-                }
-              </div>`;
-          }
-        }
-
-
-        // Armor: MC / SC
-        if (type === "armor") {
-          const mc = system.mortalCapacity ?? 0;
-          const sc = system.soulCapacity ?? 0;
-          if (mc || sc) {
-            extraInfo += `
-              <label>Capacity</label>
-              <div class="bubble-wrapper">
+        const mc = Number(system.mortalCapacity ?? 0);
+        const sc = Number(system.soulCapacity ?? 0);
+        if (mc || sc) {
+          extraInfo += `
+            <label>Capacity</label>
+            <div class="bubble-wrapper">
+              ${mc ? `
                 <p class="strain-bubble">
                   <i class="fa-kit fa-mortal-strain"></i>
                   <span class="remaining-number">${mc}</span>
-                </p>
+                </p>` : ""
+              }
+              ${sc ? `
                 <p class="strain-bubble">
                   <i class="fa-kit fa-soul-strain"></i>
                   <span class="remaining-number">${sc}</span>
-                </p>
-              </div>`;
-          }
+                </p>` : ""
+              }
+            </div>`;
         }
-
-        // Misc: Strain Damage + Capacity
-        if (type === "misc") {
-          const mortalSD = Number(system.mortalStrainDamage ?? system.strainDamage ?? 0);
-          const soulSD   = Number(system.soulStrainDamage ?? 0);
-
-          if (mortalSD || soulSD) {
-            extraInfo += `
-              <label>Strain Damage</label>
-              <div class="bubble-wrapper">
-                ${mortalSD ? `
-                  <p class="strain-bubble">
-                    <i class="fa-kit fa-mortal-strain"></i>
-                    <span class="remaining-number">${mortalSD}</span>
-                  </p>` : ""
-                }
-                ${soulSD ? `
-                  <p class="strain-bubble">
-                    <i class="fa-kit fa-soul-strain"></i>
-                    <span class="remaining-number">${soulSD}</span>
-                  </p>` : ""
-                }
-              </div>`;
-          }
-
-          const mc = Number(system.mortalCapacity ?? 0);
-          const sc = Number(system.soulCapacity ?? 0);
-          if (mc || sc) {
-            extraInfo += `
-              <label>Capacity</label>
-              <div class="bubble-wrapper">
-                ${mc ? `
-                  <p class="strain-bubble">
-                    <i class="fa-kit fa-mortal-strain"></i>
-                    <span class="remaining-number">${mc}</span>
-                  </p>` : ""
-                }
-                ${sc ? `
-                  <p class="strain-bubble">
-                    <i class="fa-kit fa-soul-strain"></i>
-                    <span class="remaining-number">${sc}</span>
-                  </p>` : ""
-                }
-              </div>`;
-          }
-        }
+      }
 
 
-        // Enrich the TinyMCE HTML for chat so formatting (lists, bold, etc.) is preserved
-        const descHtml = system.description
-          ? await TextEditor.enrichHTML(String(system.description ?? ""), { async: true, secrets: false })
-          : "";
+      // Enrich the TinyMCE HTML for chat so formatting (lists, bold, etc.) is preserved
+      const descHtml = system.description
+        ? await TextEditor.enrichHTML(String(system.description ?? ""), { async: true, secrets: false })
+        : "";
 
-        const content = `
-          <div class="chat-item">
-            <h2><i class="fa-solid fa-shield"></i> ${safe(name)}</h2>
-            ${descHtml ? `<div class="chat-item-desc">${descHtml}</div>` : ""}
-            ${extraInfo}
-            ${tagData ? `<strong>Tags:</strong><div class="chat-tags">${tagData}</div>` : ""}
-          </div>
-        `;
+      const content = `
+        <div class="chat-item">
+          <h2><i class="fa-solid fa-shield"></i> ${safe(name)}</h2>
+          ${descHtml ? `<div class="chat-item-desc">${descHtml}</div>` : ""}
+          ${extraInfo}
+          ${tagData ? `<strong>Tags:</strong><div class="chat-tags">${tagData}</div>` : ""}
+        </div>
+      `;
 
-        await ChatMessage.create({
-          user: game.user.id,
-          speaker: ChatMessage.getSpeaker({ actor: this.actor }),
-          content
-        });
-
-        // Re-apply tooltips as a safety net
-        html.find(".item-tag").each(function () {
-          const tooltip = this.dataset.tooltip;
-          if (tooltip) this.setAttribute("title", tooltip);
-        });
+      await ChatMessage.create({
+        user: game.user.id,
+        speaker: ChatMessage.getSpeaker({ actor: this.actor }),
+        content
       });
 
-      // Inventory Search (character sheet)
-      {
-        const $root = html instanceof jQuery ? html : $(html);
-        const $tab  = $root.find(".tab-inventory");
+      // Re-apply tooltips as a safety net
+      html.find(".item-tag").each(function () {
+        const tooltip = this.dataset.tooltip;
+        if (tooltip) this.setAttribute("title", tooltip);
+      });
+    });
 
-        if (!$tab.length) return;
+    // Inventory Search (character sheet)
+    {
+      const $root = html instanceof jQuery ? html : $(html);
+      const $tab  = $root.find(".tab-inventory");
 
-        const STAGGER_STEP_MS = 80;   // delay between each card's enter
-        const STAGGER_COUNT   = 3;    // how many cards get staggered
-        const DEBOUNCE_MS     = 220;
-        const LEAVE_MS        = 500;  // must match your CSS transition time
+      if (!$tab.length) return;
 
-        const debounce = (fn, wait = DEBOUNCE_MS) => {
-          let t;
-          return (...args) => {
-            clearTimeout(t);
-            t = setTimeout(() => fn(...args), wait);
-          };
+      const STAGGER_STEP_MS = 80;   // delay between each card's enter
+      const STAGGER_COUNT   = 3;    // how many cards get staggered
+      const DEBOUNCE_MS     = 220;
+      const LEAVE_MS        = 500;  // must match your CSS transition time
+
+      const debounce = (fn, wait = DEBOUNCE_MS) => {
+        let t;
+        return (...args) => {
+          clearTimeout(t);
+          t = setTimeout(() => fn(...args), wait);
         };
+      };
 
-        // Decide if a given inventory card matches the query
-        const cardMatches = (el, q) => {
-          const norm = (s) => String(s ?? "").toLowerCase();
+      // Decide if a given inventory card matches the query
+      const cardMatches = (el, q) => {
+        const norm = (s) => String(s ?? "").toLowerCase();
 
-          // Title text (your cards style plain h3, so include it as fallback)
-          const nameEl =
-            el.querySelector(".name") ||
-            el.querySelector(".clickable-item") ||
-            el.querySelector("h3");
-          const name = norm(nameEl?.textContent || "");
+        // Title text (your cards style plain h3, so include it as fallback)
+        const nameEl =
+          el.querySelector(".name") ||
+          el.querySelector(".clickable-item") ||
+          el.querySelector("h3");
+        const name = norm(nameEl?.textContent || "");
 
-          // Tags text (support multiple possible structures)
-          const tagsEl =
-            el.querySelector(".item-tags") ||
-            el.querySelector(".tags") ||
-            el.querySelector("[data-tags]");
-          const tags = norm(tagsEl?.textContent || "");
+        // Tags text (support multiple possible structures)
+        const tagsEl =
+          el.querySelector(".item-tags") ||
+          el.querySelector(".tags") ||
+          el.querySelector("[data-tags]");
+        const tags = norm(tagsEl?.textContent || "");
 
-          // Notes/description fallbacks (your SCSS uses .desc)
-          const notesEl =
-            el.querySelector(".notes") ||
-            el.querySelector(".desc") ||
-            el.querySelector(".item-description");
-          const notes = norm(notesEl?.textContent || "");
+        // Notes/description fallbacks (your SCSS uses .desc)
+        const notesEl =
+          el.querySelector(".notes") ||
+          el.querySelector(".desc") ||
+          el.querySelector(".item-description");
+        const notes = norm(notesEl?.textContent || "");
 
-          return !q || name.includes(q) || tags.includes(q) || notes.includes(q);
-        };
+        return !q || name.includes(q) || tags.includes(q) || notes.includes(q);
+      };
 
-        // Animate a card entering (visible)
-        const enterCard = (el, idx = 0) => {
-          el.classList.remove("is-entering", "is-leaving", "pre-enter");
+      // Animate a card entering (visible)
+      const enterCard = (el, idx = 0) => {
+        el.classList.remove("is-entering", "is-leaving", "pre-enter");
 
-          // If it's currently visible, briefly hide to restart animation
-          if (!el.classList.contains("is-hidden")) {
-            el.classList.add("is-hidden");
-            // force reflow so the browser sees the class change
-            // eslint-disable-next-line no-unused-expressions
-            el.offsetHeight;
-          }
-
-          el.classList.remove("is-hidden");
-          el.classList.add("pre-enter");
-          // another reflow to lock in starting state
+        // If it's currently visible, briefly hide to restart animation
+        if (!el.classList.contains("is-hidden")) {
+          el.classList.add("is-hidden");
+          // force reflow so the browser sees the class change
           // eslint-disable-next-line no-unused-expressions
           el.offsetHeight;
+        }
 
-          const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
-          const slot   = Math.min(idx, STAGGER_COUNT - 1);
-          const delay  = reduce ? 0 : slot * STAGGER_STEP_MS;
-          el.style.transitionDelay = `${delay}ms`;
+        el.classList.remove("is-hidden");
+        el.classList.add("pre-enter");
+        // another reflow to lock in starting state
+        // eslint-disable-next-line no-unused-expressions
+        el.offsetHeight;
 
-          requestAnimationFrame(() => {
-            el.classList.add("is-entering");
-            const onEnd = (e) => {
-              if (e && e.target !== el) return;
-              el.classList.remove("is-entering", "pre-enter");
-              el.style.transitionDelay = "";
-              el.removeEventListener("transitionend", onEnd);
-            };
-            el.addEventListener("transitionend", onEnd, { once: true });
-          });
-        };
+        const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+        const slot   = Math.min(idx, STAGGER_COUNT - 1);
+        const delay  = reduce ? 0 : slot * STAGGER_STEP_MS;
+        el.style.transitionDelay = `${delay}ms`;
 
-        // Animate a card leaving (fading out + sliding down)
-        const leaveCard = (el) => {
-          el.classList.remove("is-entering", "pre-enter");
-          el.style.transitionDelay = "";
-          if (el.classList.contains("is-hidden")) return;
-          el.classList.add("is-leaving");
-        };
-
-        // Animate an inventory bucket title entering (visible)
-        const enterTitle = (el) => {
-          el.classList.remove("is-entering", "is-leaving", "pre-enter");
-          el.style.transitionDelay = "";
-
-          // lock in start state
-          el.classList.add("pre-enter");
-          // eslint-disable-next-line no-unused-expressions
-          el.offsetHeight;
-
-          requestAnimationFrame(() => {
-            el.classList.add("is-entering");
-
-            const onEnd = (e) => {
-              if (e && e.target !== el) return;
-              el.classList.remove("is-entering", "pre-enter");
-              el.removeEventListener("transitionend", onEnd);
-            };
-
-            el.addEventListener("transitionend", onEnd, { once: true });
-          });
-        };
-
-        // Animate an inventory bucket title leaving (fade/slide out)
-        const leaveTitle = (el) => {
-          el.classList.remove("is-entering", "pre-enter");
-          el.style.transitionDelay = "";
-          el.classList.add("is-leaving");
-        };
-
-        // Show / hide the "no results" message
-        const showEmpty = (show) => {
-          const empty =
-            $tab.find(".inventory-search-empty")[0] ||
-            $tab.find(".inventory-empty")[0];
-          if (!empty) return;
-          empty.style.display = show ? "block" : "none";
-        };
-
-        // Temp bucket state while searching (so collapsed buckets don't hide matches)
-        let mgBucketPreSearchState = null;
-
-        let mgInvSearchToken = 0;
-        let mgInvSearchTimer = null;
-
-        // --- Search: unified grid across buckets ---
-        let mgInvSearchGrid = null;        // the temporary grid we render matches into
-        let mgInvCardHomes = null;         // Map(cardEl -> { parent, next })
-        let mgInvBucketEls = null;         // cached bucket wrapper nodes (optional)
-
-        const ensureSearchGrid = () => {
-          const tabEl = $tab?.[0];
-          if (!tabEl) return null;
-
-          // IMPORTANT: your SCSS is nested under .inventory-tab
-          const invRoot = tabEl.querySelector(".inventory-tab") || tabEl;
-
-          // Reuse if it exists + connected
-          if (mgInvSearchGrid && mgInvSearchGrid.isConnected) return mgInvSearchGrid;
-
-          // Reuse if it already exists in DOM
-          mgInvSearchGrid = invRoot.querySelector(".inventory-search-grid");
-          if (mgInvSearchGrid) return mgInvSearchGrid;
-
-          // Create it with the SAME class your styling expects
-          mgInvSearchGrid = document.createElement("div");
-          mgInvSearchGrid.className = "inventory-grid inventory-search-grid";
-          mgInvSearchGrid.style.display = "none"; // only show while searching
-
-          // Anchor: first bucket title (wherever it actually lives)
-          const firstTitle = invRoot.querySelector(".inventory-bucket-title");
-
-          if (firstTitle?.parentNode) {
-            // Insert into the SAME parent as the title so insertBefore is valid
-            firstTitle.parentNode.insertBefore(mgInvSearchGrid, firstTitle);
-          } else {
-            // Fallback: put it at top of inventory section if possible
-            const section = invRoot.querySelector(".inventory-section") || invRoot;
-            section.prepend(mgInvSearchGrid);
-          }
-
-          return mgInvSearchGrid;
-        };
-
-        // Snapshot original home positions once (so we can restore after search)
-        const snapshotCardHomes = (cards) => {
-          if (mgInvCardHomes) return;
-          mgInvCardHomes = new Map();
-          for (const card of cards) {
-            mgInvCardHomes.set(card, { parent: card.parentNode, next: card.nextSibling });
-          }
-        };
-
-        // Hide/show bucket *parts* during search so they stop affecting layout.
-        const setBucketsVisible = (visible) => {
-          const tabEl = $tab[0];
-          if (!tabEl) return;
-
-          const bodies = Array.from(tabEl.querySelectorAll(".inventory-bucket-body"));
-          const titles = Array.from(tabEl.querySelectorAll(".inventory-bucket-title"));
-
-          // Cache original inline display so restore is accurate
-          const stashDisplay = (el) => {
-            if (!el) return;
-            if (el.dataset.mgOrigDisplay === undefined) {
-              el.dataset.mgOrigDisplay = el.style.display ?? "";
-            }
-          };
-
-          for (const b of bodies) {
-            stashDisplay(b);
-            b.style.display = visible ? (b.dataset.mgOrigDisplay || "") : "none";
-          }
-
-          // Titles are also managed elsewhere (animation), but this makes restore resilient
-          for (const t of titles) {
-            stashDisplay(t);
-            t.style.display = visible ? (t.dataset.mgOrigDisplay || "") : "none";
-          }
-        };
-
-        // Move only matching cards into the unified grid (keeps original DOM order)
-        const renderMatchesIntoSearchGrid = (cards, matchSet) => {
-          const grid = ensureSearchGrid();
-          if (!grid) return;
-
-          grid.innerHTML = "";
-          grid.style.display = "flex";
-
-          // Append matches in the original DOM order
-          for (const card of cards) {
-            if (matchSet.has(card)) grid.appendChild(card);
-          }
-        };
-
-        // Restore all cards back to their original parent + position
-        const restoreCardsToHomes = () => {
-          const grid = ensureSearchGrid();
-          if (grid) {
-            grid.style.display = "none";
-            grid.innerHTML = "";
-          }
-
-          if (!mgInvCardHomes) return;
-
-          for (const [card, home] of mgInvCardHomes.entries()) {
-            const parent = home?.parent;
-            if (!parent) continue;
-
-            const next = home.next;
-            if (next && next.parentNode === parent) parent.insertBefore(card, next);
-            else parent.appendChild(card);
-          }
-        };
-
-        const runSearchNow = () => {
-          const input = $tab.find(".item-search")[0];
-          const q = (input?.value || "").toLowerCase().trim();
-          const searching = q.length > 0;
-
-          // If searching, temporarily force bucket bodies open so matches can appear
-          const bucketTitles = $tab.find(".inventory-bucket-title").toArray();
-          const bucketBodies = $tab.find(".inventory-bucket-body").toArray();
-
-          if (searching && !mgBucketPreSearchState) {
-            mgBucketPreSearchState = bucketBodies.map((body) => {
-              const title = body.previousElementSibling?.classList?.contains("inventory-bucket-title")
-                ? body.previousElementSibling
-                : null;
-
-              return {
-                body,
-                hidden: !!body.hidden,
-                maxHeight: body.style.maxHeight,
-                title,
-                titleCollapsed: !!title?.classList?.contains("is-collapsed"),
-                titleDisplay: title?.style?.display ?? ""
-              };
-            });
-          }
-
-          if (searching) {
-            for (const body of bucketBodies) {
-              body.hidden = false;
-              body.style.maxHeight = ""; // let it size naturally for search
-            }
-            for (const t of bucketTitles) t.classList.remove("is-collapsed");
-          }
-
-          const titles = $tab.find(".inventory-bucket-title").toArray();
-          const cards  = $tab.find(".inventory-card, .inventory-item").toArray();
-
-          // Cancel any in-flight finalize from a previous search
-          mgInvSearchToken += 1;
-          const token = mgInvSearchToken;
-
-          if (mgInvSearchTimer) {
-            clearTimeout(mgInvSearchTimer);
-            mgInvSearchTimer = null;
-          }
-
-          // Hard reset transition classes so the next search ALWAYS animates
-          for (const el of cards) {
-            el.classList.remove("is-entering", "pre-enter", "is-leaving");
+        requestAnimationFrame(() => {
+          el.classList.add("is-entering");
+          const onEnd = (e) => {
+            if (e && e.target !== el) return;
+            el.classList.remove("is-entering", "pre-enter");
             el.style.transitionDelay = "";
-            // if it was hidden from the previous query, keep it hidden for now — we’ll decide after LEAVE_MS
+            el.removeEventListener("transitionend", onEnd);
+          };
+          el.addEventListener("transitionend", onEnd, { once: true });
+        });
+      };
+
+      // Animate a card leaving (fading out + sliding down)
+      const leaveCard = (el) => {
+        el.classList.remove("is-entering", "pre-enter");
+        el.style.transitionDelay = "";
+        if (el.classList.contains("is-hidden")) return;
+        el.classList.add("is-leaving");
+      };
+
+      // Animate an inventory bucket title entering (visible)
+      const enterTitle = (el) => {
+        el.classList.remove("is-entering", "is-leaving", "pre-enter");
+        el.style.transitionDelay = "";
+
+        // lock in start state
+        el.classList.add("pre-enter");
+        // eslint-disable-next-line no-unused-expressions
+        el.offsetHeight;
+
+        requestAnimationFrame(() => {
+          el.classList.add("is-entering");
+
+          const onEnd = (e) => {
+            if (e && e.target !== el) return;
+            el.classList.remove("is-entering", "pre-enter");
+            el.removeEventListener("transitionend", onEnd);
+          };
+
+          el.addEventListener("transitionend", onEnd, { once: true });
+        });
+      };
+
+      // Animate an inventory bucket title leaving (fade/slide out)
+      const leaveTitle = (el) => {
+        el.classList.remove("is-entering", "pre-enter");
+        el.style.transitionDelay = "";
+        el.classList.add("is-leaving");
+      };
+
+      // Show / hide the "no results" message
+      const showEmpty = (show) => {
+        const empty =
+          $tab.find(".inventory-search-empty")[0] ||
+          $tab.find(".inventory-empty")[0];
+        if (!empty) return;
+        empty.style.display = show ? "block" : "none";
+      };
+
+      // Temp bucket state while searching (so collapsed buckets don't hide matches)
+      let mgBucketPreSearchState = null;
+
+      let mgInvSearchToken = 0;
+      let mgInvSearchTimer = null;
+
+      // --- Search: unified grid across buckets ---
+      let mgInvSearchGrid = null;        // the temporary grid we render matches into
+      let mgInvCardHomes = null;         // Map(cardEl -> { parent, next })
+      let mgInvBucketEls = null;         // cached bucket wrapper nodes (optional)
+
+      const ensureSearchGrid = () => {
+        const tabEl = $tab?.[0];
+        if (!tabEl) return null;
+
+        // IMPORTANT: your SCSS is nested under .inventory-tab
+        const invRoot = tabEl.querySelector(".inventory-tab") || tabEl;
+
+        // Reuse if it exists + connected
+        if (mgInvSearchGrid && mgInvSearchGrid.isConnected) return mgInvSearchGrid;
+
+        // Reuse if it already exists in DOM
+        mgInvSearchGrid = invRoot.querySelector(".inventory-search-grid");
+        if (mgInvSearchGrid) return mgInvSearchGrid;
+
+        // Create it with the SAME class your styling expects
+        mgInvSearchGrid = document.createElement("div");
+        mgInvSearchGrid.className = "inventory-grid inventory-search-grid";
+        mgInvSearchGrid.style.display = "none"; // only show while searching
+
+        // Anchor: first bucket title (wherever it actually lives)
+        const firstTitle = invRoot.querySelector(".inventory-bucket-title");
+
+        if (firstTitle?.parentNode) {
+          // Insert into the SAME parent as the title so insertBefore is valid
+          firstTitle.parentNode.insertBefore(mgInvSearchGrid, firstTitle);
+        } else {
+          // Fallback: put it at top of inventory section if possible
+          const section = invRoot.querySelector(".inventory-section") || invRoot;
+          section.prepend(mgInvSearchGrid);
+        }
+
+        return mgInvSearchGrid;
+      };
+
+      // Snapshot original home positions once (so we can restore after search)
+      const snapshotCardHomes = (cards) => {
+        if (mgInvCardHomes) return;
+        mgInvCardHomes = new Map();
+        for (const card of cards) {
+          mgInvCardHomes.set(card, { parent: card.parentNode, next: card.nextSibling });
+        }
+      };
+
+      // Hide/show bucket *parts* during search so they stop affecting layout.
+      const setBucketsVisible = (visible) => {
+        const tabEl = $tab[0];
+        if (!tabEl) return;
+
+        const bodies = Array.from(tabEl.querySelectorAll(".inventory-bucket-body"));
+        const titles = Array.from(tabEl.querySelectorAll(".inventory-bucket-title"));
+
+        // Cache original inline display so restore is accurate
+        const stashDisplay = (el) => {
+          if (!el) return;
+          if (el.dataset.mgOrigDisplay === undefined) {
+            el.dataset.mgOrigDisplay = el.style.display ?? "";
           }
-          for (const t of titles) {
-            t.classList.remove("is-entering", "pre-enter", "is-leaving");
-            t.style.transitionDelay = "";
-          }
-
-          // Build match set
-          const matchSet = new Set(cards.filter((el) => cardMatches(el, q)));
-
-          // Snapshot card homes once so we can restore after search
-          snapshotCardHomes(cards);
-
-          // Start leave animation for ALL cards (even ones that will remain)
-          for (const el of cards) leaveCard(el);
-
-          // Start leave animation for titles ONLY when searching
-          if (searching) {
-            for (const t of titles) leaveTitle(t);
-          }
-
-
-          // After leave animation finishes, finalize DOM layout + re-enter matches
-          mgInvSearchTimer = setTimeout(() => {
-            if (token !== mgInvSearchToken) return; // stale finalize, ignore
-
-            // Toggle titles out of layout *after* fade so it feels seamless
-            if (searching) {
-              for (const t of titles) {
-                t.style.display = "none";
-                t.classList.remove("is-leaving");
-              }
-            } else {
-              for (const t of titles) {
-                t.style.display = "";
-                t.classList.remove("is-leaving");
-                enterTitle(t);
-              }
-            }
-
-            if (searching) {
-              // Remove buckets from layout and render matches into unified grid
-              setBucketsVisible(false);
-              renderMatchesIntoSearchGrid(cards, matchSet);
-            } else {
-              // Restore bucket layout and return cards to their original homes
-              setBucketsVisible(true);
-              restoreCardsToHomes();
-            }
-
-            let hits = 0;
-            let enterIndex = 0;
-
-            for (const el of cards) {
-              const isMatch = searching ? matchSet.has(el) : true;
-
-              // finalize leave
-              el.classList.remove("is-leaving");
-
-              if (isMatch) {
-                hits++;
-                // Make sure it’s not hidden before we animate in
-                el.classList.remove("is-hidden");
-
-                // Force a reflow so re-adding enter classes always triggers (prevents “flicker” on 2nd search)
-                // eslint-disable-next-line no-unused-expressions
-                el.offsetHeight;
-
-                enterCard(el, enterIndex++);
-              } else {
-                el.classList.add("is-hidden");
-              }
-            }
-
-            showEmpty(hits === 0 && searching);
-
-            // Bucket titles + restoring collapsed state after clearing search
-            if (searching) {
-              for (const t of bucketTitles) t.style.display = "none";
-            } else {
-              for (const t of bucketTitles) t.style.display = "";
-
-              if (mgBucketPreSearchState) {
-                for (const st of mgBucketPreSearchState) {
-                  if (!st?.body) continue;
-
-                  st.body.hidden = !!st.hidden;
-                  if (st.body.hidden) st.body.style.maxHeight = "0px";
-                  else st.body.style.maxHeight = st.maxHeight || "";
-
-                  if (st.title) {
-                    st.title.classList.toggle("is-collapsed", !!st.titleCollapsed);
-                    st.title.style.display = st.titleDisplay || "";
-                  }
-                }
-                mgBucketPreSearchState = null;
-              }
-            }
-
-          }, LEAVE_MS);
         };
 
+        for (const b of bodies) {
+          stashDisplay(b);
+          b.style.display = visible ? (b.dataset.mgOrigDisplay || "") : "none";
+        }
 
-        const runSearch = debounce(runSearchNow, DEBOUNCE_MS);
+        // Titles are also managed elsewhere (animation), but this makes restore resilient
+        for (const t of titles) {
+          stashDisplay(t);
+          t.style.display = visible ? (t.dataset.mgOrigDisplay || "") : "none";
+        }
+      };
 
-        // ----- Event wiring: Enter key + Search + Reset -----
+      // Move only matching cards into the unified grid (keeps original DOM order)
+      const renderMatchesIntoSearchGrid = (cards, matchSet) => {
+        const grid = ensureSearchGrid();
+        if (!grid) return;
 
-        // Enter in the search input
-        $root
-          .off("keydown.mgInvSearchEnter")
-          .on("keydown.mgInvSearchEnter", ".tab-inventory .item-search", (ev) => {
-            if (ev.key !== "Enter") return;
-            ev.preventDefault();
-            ev.stopPropagation();
-            ev.stopImmediatePropagation();
-            runSearch();
-          });
+        grid.innerHTML = "";
+        grid.style.display = "flex";
 
+        // Append matches in the original DOM order
+        for (const card of cards) {
+          if (matchSet.has(card)) grid.appendChild(card);
+        }
+      };
 
-        // Click the Search button
-        $root
-          .off("click.mgInvSearchBtn")
-          .on("click.mgInvSearchBtn", ".tab-inventory .item-search-btn", (ev) => {
-            ev.preventDefault();
-            ev.stopPropagation();
-            ev.stopImmediatePropagation();
-            runSearch();
-          });
+      // Restore all cards back to their original parent + position
+      const restoreCardsToHomes = () => {
+        const grid = ensureSearchGrid();
+        if (grid) {
+          grid.style.display = "none";
+          grid.innerHTML = "";
+        }
 
-        // Click the Reset button
-        $root
-          .off("click.mgInvSearchReset")
-          .on("click.mgInvSearchReset", ".tab-inventory .item-search-reset", (ev) => {
-            ev.preventDefault();
+        if (!mgInvCardHomes) return;
 
-            const input = $tab.find(".item-search")[0];
-            if (input) input.value = "";
+        for (const [card, home] of mgInvCardHomes.entries()) {
+          const parent = home?.parent;
+          if (!parent) continue;
 
-            // Run the same logic as “empty search”
-            runSearchNow();
-          });
+          const next = home.next;
+          if (next && next.parentNode === parent) parent.insertBefore(card, next);
+          else parent.appendChild(card);
+        }
+      };
 
-          // ------------------------------------------------------------
-          // Inventory bucket collapse / expand (smooth + persisted)
-          // Insert this block ABOVE:  // "See All / See Less" for inventory cards
-          // ------------------------------------------------------------
-          {
-            const $root = html instanceof jQuery ? html : $(html);
-            const $tab  = $root.find(".tab-inventory");
-            if (!$tab.length) return;
+      const runSearchNow = () => {
+        const input = $tab.find(".item-search")[0];
+        const q = (input?.value || "").toLowerCase().trim();
+        const searching = q.length > 0;
 
-            const BUCKET_MS = 500; // keep in sync with your other inventory transitions
+        // If searching, temporarily force bucket bodies open so matches can appear
+        const bucketTitles = $tab.find(".inventory-bucket-title").toArray();
+        const bucketBodies = $tab.find(".inventory-bucket-body").toArray();
 
-            // Persist bucket state per actor (store ONLY collapsed buckets)
-            const BUCKET_FLAG_SCOPE = "midnight-gambit";
-            const BUCKET_FLAG_KEY   = "inventoryBucketCollapsed";
+        if (searching && !mgBucketPreSearchState) {
+          mgBucketPreSearchState = bucketBodies.map((body) => {
+            const title = body.previousElementSibling?.classList?.contains("inventory-bucket-title")
+              ? body.previousElementSibling
+              : null;
 
-            const getBucketKey = (titleEl) => {
-              if (!titleEl) return null;
-
-              // 1) Prefer an explicit stable key if present
-              const explicit = titleEl.dataset?.bucketKey || titleEl.getAttribute?.("data-bucket-key");
-              if (explicit) {
-                const k = String(explicit).trim().toLowerCase();
-                titleEl.dataset.bucketKey = k; // lock it in for future calls
-                return k;
-              }
-
-              // 2) Derive a stable key from text, but strip dynamic junk like "(3)"
-              const rawText = String(titleEl.textContent || "");
-              const cleaned = rawText
-                .replace(/\(\s*\d+\s*\)/g, "")   // remove counts like "(3)"
-                .replace(/\s+/g, " ")
-                .trim()
-                .toLowerCase();
-
-              if (!cleaned) return null;
-
-              // Lock the derived key onto the element so it stays consistent during this session
-              titleEl.dataset.bucketKey = cleaned;
-              return cleaned;
+            return {
+              body,
+              hidden: !!body.hidden,
+              maxHeight: body.style.maxHeight,
+              title,
+              titleCollapsed: !!title?.classList?.contains("is-collapsed"),
+              titleDisplay: title?.style?.display ?? ""
             };
+          });
+        }
+
+        if (searching) {
+          for (const body of bucketBodies) {
+            body.hidden = false;
+            body.style.maxHeight = ""; // let it size naturally for search
+          }
+          for (const t of bucketTitles) t.classList.remove("is-collapsed");
+        }
+
+        const titles = $tab.find(".inventory-bucket-title").toArray();
+        const cards  = $tab.find(".inventory-card, .inventory-item").toArray();
+
+        // Cancel any in-flight finalize from a previous search
+        mgInvSearchToken += 1;
+        const token = mgInvSearchToken;
+
+        if (mgInvSearchTimer) {
+          clearTimeout(mgInvSearchTimer);
+          mgInvSearchTimer = null;
+        }
+
+        // Hard reset transition classes so the next search ALWAYS animates
+        for (const el of cards) {
+          el.classList.remove("is-entering", "pre-enter", "is-leaving");
+          el.style.transitionDelay = "";
+          // if it was hidden from the previous query, keep it hidden for now — we’ll decide after LEAVE_MS
+        }
+        for (const t of titles) {
+          t.classList.remove("is-entering", "pre-enter", "is-leaving");
+          t.style.transitionDelay = "";
+        }
+
+        // Build match set
+        const matchSet = new Set(cards.filter((el) => cardMatches(el, q)));
+
+        // Snapshot card homes once so we can restore after search
+        snapshotCardHomes(cards);
+
+        // Start leave animation for ALL cards (even ones that will remain)
+        for (const el of cards) leaveCard(el);
+
+        // Start leave animation for titles ONLY when searching
+        if (searching) {
+          for (const t of titles) leaveTitle(t);
+        }
 
 
-            const readState = () => {
-              try { return this.actor?.getFlag(BUCKET_FLAG_SCOPE, BUCKET_FLAG_KEY) || {}; }
-              catch (_e) { return {}; }
-            };
+        // After leave animation finishes, finalize DOM layout + re-enter matches
+        mgInvSearchTimer = setTimeout(() => {
+          if (token !== mgInvSearchToken) return; // stale finalize, ignore
 
-            const writeState = async (state) => {
-              try {
-                // Write flags without forcing a sheet rerender (keeps your animation intact)
-                const path = `flags.${BUCKET_FLAG_SCOPE}.${BUCKET_FLAG_KEY}`;
-                await this.actor.update({ [path]: state }, { render: false });
-              } catch (_e) {}
-            };
+          // Toggle titles out of layout *after* fade so it feels seamless
+          if (searching) {
+            for (const t of titles) {
+              t.style.display = "none";
+              t.classList.remove("is-leaving");
+            }
+          } else {
+            for (const t of titles) {
+              t.style.display = "";
+              t.classList.remove("is-leaving");
+              enterTitle(t);
+            }
+          }
 
-            // Turn: [Title][Cards...][Next Title] into [Title][Body{Cards...}][Next Title]
-            const ensureBucketBodies = () => {
-              const root = $tab[0];
-              if (!root) return;
+          if (searching) {
+            // Remove buckets from layout and render matches into unified grid
+            setBucketsVisible(false);
+            renderMatchesIntoSearchGrid(cards, matchSet);
+          } else {
+            // Restore bucket layout and return cards to their original homes
+            setBucketsVisible(true);
+            restoreCardsToHomes();
+          }
 
-              const titles = Array.from(root.querySelectorAll(".inventory-bucket-title"));
-              for (const title of titles) {
-                let next = title.nextElementSibling;
+          let hits = 0;
+          let enterIndex = 0;
 
-                // already normalized
-                if (next && next.classList?.contains("inventory-bucket-body")) continue;
+          for (const el of cards) {
+            const isMatch = searching ? matchSet.has(el) : true;
 
-                const body = document.createElement("div");
+            // finalize leave
+            el.classList.remove("is-leaving");
 
-                // IMPORTANT: keep your existing grid layout so cards don’t get weird
-                body.classList.add("inventory-bucket-body", "inventory-grid");
-                body.style.width = "100%";
-                body.style.overflow = "hidden";
+            if (isMatch) {
+              hits++;
+              // Make sure it’s not hidden before we animate in
+              el.classList.remove("is-hidden");
 
-                title.insertAdjacentElement("afterend", body);
+              // Force a reflow so re-adding enter classes always triggers (prevents “flicker” on 2nd search)
+              // eslint-disable-next-line no-unused-expressions
+              el.offsetHeight;
 
-                // Move everything until the next title into the body
-                while (next && !next.classList.contains("inventory-bucket-title")) {
-                  const move = next;
-                  next = next.nextElementSibling;
-                  body.appendChild(move);
+              enterCard(el, enterIndex++);
+            } else {
+              el.classList.add("is-hidden");
+            }
+          }
+
+          showEmpty(hits === 0 && searching);
+
+          // Bucket titles + restoring collapsed state after clearing search
+          if (searching) {
+            for (const t of bucketTitles) t.style.display = "none";
+          } else {
+            for (const t of bucketTitles) t.style.display = "";
+
+            if (mgBucketPreSearchState) {
+              for (const st of mgBucketPreSearchState) {
+                if (!st?.body) continue;
+
+                st.body.hidden = !!st.hidden;
+                if (st.body.hidden) st.body.style.maxHeight = "0px";
+                else st.body.style.maxHeight = st.maxHeight || "";
+
+                if (st.title) {
+                  st.title.classList.toggle("is-collapsed", !!st.titleCollapsed);
+                  st.title.style.display = st.titleDisplay || "";
                 }
               }
-            };
+              mgBucketPreSearchState = null;
+            }
+          }
 
-            const setChevronState = (titleEl, collapsed) => {
-              titleEl.classList.toggle("is-collapsed", collapsed);
-              const icon = titleEl.querySelector(".inventory-bucket-toggle i");
-              if (icon) icon.classList.toggle("rotated", !collapsed); // rotated = expanded
-            };
+        }, LEAVE_MS);
+      };
 
-            // Smooth max-height animation + stable end state (hidden=true when collapsed)
-            const animateBucket = (body, expand) => {
-              if (!body) return Promise.resolve();
 
-              return new Promise((resolve) => {
-                // prevent double clicks during animation
-                if (body.dataset.animating === "1") return resolve();
-                body.dataset.animating = "1";
+      const runSearch = debounce(runSearchNow, DEBOUNCE_MS);
 
-                const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
-                const ms = reduce ? 0 : BUCKET_MS;
+      // ----- Event wiring: Enter key + Search + Reset -----
 
-                body.style.overflow = "hidden";
-                body.style.transition = `max-height ${ms}ms ease`;
+      // Enter in the search input
+      $root
+        .off("keydown.mgInvSearchEnter")
+        .on("keydown.mgInvSearchEnter", ".tab-inventory .item-search", (ev) => {
+          if (ev.key !== "Enter") return;
+          ev.preventDefault();
+          ev.stopPropagation();
+          ev.stopImmediatePropagation();
+          runSearch();
+        });
 
-                const finish = () => {
-                  body.style.transition = "";
-                  body.style.overflow = "";
-                  body.dataset.animating = "0";
-                  resolve();
-                };
 
-                if (expand) {
-                  body.hidden = false;
+      // Click the Search button
+      $root
+        .off("click.mgInvSearchBtn")
+        .on("click.mgInvSearchBtn", ".tab-inventory .item-search-btn", (ev) => {
+          ev.preventDefault();
+          ev.stopPropagation();
+          ev.stopImmediatePropagation();
+          runSearch();
+        });
 
-                  body.style.maxHeight = "0px";
-                  // force reflow
-                  // eslint-disable-next-line no-unused-expressions
-                  body.offsetHeight;
+      // Click the Reset button
+      $root
+        .off("click.mgInvSearchReset")
+        .on("click.mgInvSearchReset", ".tab-inventory .item-search-reset", (ev) => {
+          ev.preventDefault();
 
-                  body.style.maxHeight = `${body.scrollHeight}px`;
+          const input = $tab.find(".item-search")[0];
+          if (input) input.value = "";
 
-                  const onEnd = (e) => {
-                    if (e && e.target !== body) return;
-                    body.removeEventListener("transitionend", onEnd);
+          // Run the same logic as “empty search”
+          runSearchNow();
+        });
 
-                    // let it size naturally after opening
-                    body.style.maxHeight = "";
-                    finish();
-                  };
+        // ------------------------------------------------------------
+        // Inventory bucket collapse / expand (smooth + persisted)
+        // Insert this block ABOVE:  // "See All / See Less" for inventory cards
+        // ------------------------------------------------------------
+        {
+          const $root = html instanceof jQuery ? html : $(html);
+          const $tab  = $root.find(".tab-inventory");
+          if (!$tab.length) return;
 
-                  if (ms === 0) return onEnd();
-                  body.addEventListener("transitionend", onEnd, { once: true });
-                  setTimeout(onEnd, ms + 120);
-                  return;
-                }
+          const BUCKET_MS = 500; // keep in sync with your other inventory transitions
 
-                // collapse
-                body.hidden = false; // ensure measurable
-                body.style.maxHeight = `${Math.ceil(body.getBoundingClientRect().height)}px`;
+          // Persist bucket state per actor (store ONLY collapsed buckets)
+          const BUCKET_FLAG_SCOPE = "midnight-gambit";
+          const BUCKET_FLAG_KEY   = "inventoryBucketCollapsed";
+
+          const getBucketKey = (titleEl) => {
+            if (!titleEl) return null;
+
+            // 1) Prefer an explicit stable key if present
+            const explicit = titleEl.dataset?.bucketKey || titleEl.getAttribute?.("data-bucket-key");
+            if (explicit) {
+              const k = String(explicit).trim().toLowerCase();
+              titleEl.dataset.bucketKey = k; // lock it in for future calls
+              return k;
+            }
+
+            // 2) Derive a stable key from text, but strip dynamic junk like "(3)"
+            const rawText = String(titleEl.textContent || "");
+            const cleaned = rawText
+              .replace(/\(\s*\d+\s*\)/g, "")   // remove counts like "(3)"
+              .replace(/\s+/g, " ")
+              .trim()
+              .toLowerCase();
+
+            if (!cleaned) return null;
+
+            // Lock the derived key onto the element so it stays consistent during this session
+            titleEl.dataset.bucketKey = cleaned;
+            return cleaned;
+          };
+
+
+          const readState = () => {
+            try { return this.actor?.getFlag(BUCKET_FLAG_SCOPE, BUCKET_FLAG_KEY) || {}; }
+            catch (_e) { return {}; }
+          };
+
+          const writeState = async (state) => {
+            try {
+              // Write flags without forcing a sheet rerender (keeps your animation intact)
+              const path = `flags.${BUCKET_FLAG_SCOPE}.${BUCKET_FLAG_KEY}`;
+              await this.actor.update({ [path]: state }, { render: false });
+            } catch (_e) {}
+          };
+
+          // Turn: [Title][Cards...][Next Title] into [Title][Body{Cards...}][Next Title]
+          const ensureBucketBodies = () => {
+            const root = $tab[0];
+            if (!root) return;
+
+            const titles = Array.from(root.querySelectorAll(".inventory-bucket-title"));
+            for (const title of titles) {
+              let next = title.nextElementSibling;
+
+              // already normalized
+              if (next && next.classList?.contains("inventory-bucket-body")) continue;
+
+              const body = document.createElement("div");
+
+              // IMPORTANT: keep your existing grid layout so cards don’t get weird
+              body.classList.add("inventory-bucket-body", "inventory-grid");
+              body.style.width = "100%";
+              body.style.overflow = "hidden";
+
+              title.insertAdjacentElement("afterend", body);
+
+              // Move everything until the next title into the body
+              while (next && !next.classList.contains("inventory-bucket-title")) {
+                const move = next;
+                next = next.nextElementSibling;
+                body.appendChild(move);
+              }
+            }
+          };
+
+          const setChevronState = (titleEl, collapsed) => {
+            titleEl.classList.toggle("is-collapsed", collapsed);
+            const icon = titleEl.querySelector(".inventory-bucket-toggle i");
+            if (icon) icon.classList.toggle("rotated", !collapsed); // rotated = expanded
+          };
+
+          // Smooth max-height animation + stable end state (hidden=true when collapsed)
+          const animateBucket = (body, expand) => {
+            if (!body) return Promise.resolve();
+
+            return new Promise((resolve) => {
+              // prevent double clicks during animation
+              if (body.dataset.animating === "1") return resolve();
+              body.dataset.animating = "1";
+
+              const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+              const ms = reduce ? 0 : BUCKET_MS;
+
+              body.style.overflow = "hidden";
+              body.style.transition = `max-height ${ms}ms ease`;
+
+              const finish = () => {
+                body.style.transition = "";
+                body.style.overflow = "";
+                body.dataset.animating = "0";
+                resolve();
+              };
+
+              if (expand) {
+                body.hidden = false;
+
+                body.style.maxHeight = "0px";
                 // force reflow
                 // eslint-disable-next-line no-unused-expressions
                 body.offsetHeight;
 
-                body.style.maxHeight = "0px";
+                body.style.maxHeight = `${body.scrollHeight}px`;
 
                 const onEnd = (e) => {
                   if (e && e.target !== body) return;
                   body.removeEventListener("transitionend", onEnd);
 
-                  // IMPORTANT: hide after collapse so nothing peeks through
-                  body.hidden = true;
-                  body.style.maxHeight = "0px";
+                  // let it size naturally after opening
+                  body.style.maxHeight = "";
                   finish();
                 };
 
                 if (ms === 0) return onEnd();
                 body.addEventListener("transitionend", onEnd, { once: true });
                 setTimeout(onEnd, ms + 120);
-              });
-            };
-
-            // Build wrappers and apply saved state on render
-            ensureBucketBodies();
-
-            {
-              const state = readState();
-              const titles = Array.from($tab[0].querySelectorAll(".inventory-bucket-title"));
-
-              for (const title of titles) {
-                const body = title.nextElementSibling;
-                if (!body || !body.classList.contains("inventory-bucket-body")) continue;
-
-                const key = getBucketKey(title);
-                if (!key) continue;
-
-                const collapsed = state[key] === true;
-                setChevronState(title, collapsed);
-
-                body.hidden = collapsed;
-                body.style.maxHeight = collapsed ? "0px" : "";
-                body.dataset.animating = "0";
+                return;
               }
+
+              // collapse
+              body.hidden = false; // ensure measurable
+              body.style.maxHeight = `${Math.ceil(body.getBoundingClientRect().height)}px`;
+              // force reflow
+              // eslint-disable-next-line no-unused-expressions
+              body.offsetHeight;
+
+              body.style.maxHeight = "0px";
+
+              const onEnd = (e) => {
+                if (e && e.target !== body) return;
+                body.removeEventListener("transitionend", onEnd);
+
+                // IMPORTANT: hide after collapse so nothing peeks through
+                body.hidden = true;
+                body.style.maxHeight = "0px";
+                finish();
+              };
+
+              if (ms === 0) return onEnd();
+              body.addEventListener("transitionend", onEnd, { once: true });
+              setTimeout(onEnd, ms + 120);
+            });
+          };
+
+          // Build wrappers and apply saved state on render
+          ensureBucketBodies();
+
+          {
+            const state = readState();
+            const titles = Array.from($tab[0].querySelectorAll(".inventory-bucket-title"));
+
+            for (const title of titles) {
+              const body = title.nextElementSibling;
+              if (!body || !body.classList.contains("inventory-bucket-body")) continue;
+
+              const key = getBucketKey(title);
+              if (!key) continue;
+
+              const collapsed = state[key] === true;
+              setChevronState(title, collapsed);
+
+              body.hidden = collapsed;
+              body.style.maxHeight = collapsed ? "0px" : "";
+              body.dataset.animating = "0";
             }
-
-            // Click handler
-            $root
-              .off("click.mgInvBucketToggle")
-              .on("click.mgInvBucketToggle", ".tab-inventory .inventory-bucket-toggle", async (ev) => {
-                ev.preventDefault();
-                ev.stopPropagation();
-
-                // Ignore toggles while searching (your search mode hides titles anyway)
-                const q = ($tab.find(".item-search")[0]?.value || "").trim();
-                if (q.length) return;
-
-                const title = ev.currentTarget.closest(".inventory-bucket-title");
-                if (!title) return;
-
-                const body = title.nextElementSibling;
-                if (!body || !body.classList.contains("inventory-bucket-body")) return;
-
-                const key = getBucketKey(title);
-                if (!key) return;
-
-                const state = readState();
-                const collapsed = title.classList.contains("is-collapsed");
-
-                if (!collapsed) {
-                  // COLLAPSE
-                  setChevronState(title, true);
-                  state[key] = true;
-
-                  // Animate first, then persist (so even if something rerenders later, it doesn't kill the transition)
-                  await animateBucket(body, false);
-                  writeState(state);
-                  return;
-                }
-
-                // EXPAND
-                setChevronState(title, false);
-
-                // IMPORTANT: persist open explicitly so it survives hard refresh
-                state[key] = false;
-
-                // Animate first, then persist
-                await animateBucket(body, true);
-                await writeState(state);
-
-              });
           }
 
+          // Click handler
+          $root
+            .off("click.mgInvBucketToggle")
+            .on("click.mgInvBucketToggle", ".tab-inventory .inventory-bucket-toggle", async (ev) => {
+              ev.preventDefault();
+              ev.stopPropagation();
 
+              // Ignore toggles while searching (your search mode hides titles anyway)
+              const q = ($tab.find(".item-search")[0]?.value || "").trim();
+              if (q.length) return;
 
-        // Initial state: everything visible, no animations, no empty message
-        const initialCards = $tab.find(".inventory-card, .inventory-item").toArray();
-        for (const el of initialCards) {
-          el.classList.remove("is-hidden", "is-entering", "is-leaving", "pre-enter");
-          el.style.transitionDelay = "";
+              const title = ev.currentTarget.closest(".inventory-bucket-title");
+              if (!title) return;
+
+              const body = title.nextElementSibling;
+              if (!body || !body.classList.contains("inventory-bucket-body")) return;
+
+              const key = getBucketKey(title);
+              if (!key) return;
+
+              const state = readState();
+              const collapsed = title.classList.contains("is-collapsed");
+
+              if (!collapsed) {
+                // COLLAPSE
+                setChevronState(title, true);
+                state[key] = true;
+
+                // Animate first, then persist (so even if something rerenders later, it doesn't kill the transition)
+                await animateBucket(body, false);
+                writeState(state);
+                return;
+              }
+
+              // EXPAND
+              setChevronState(title, false);
+
+              // IMPORTANT: persist open explicitly so it survives hard refresh
+              state[key] = false;
+
+              // Animate first, then persist
+              await animateBucket(body, true);
+              await writeState(state);
+
+            });
         }
-        showEmpty(false);
+
+
+
+      // Initial state: everything visible, no animations, no empty message
+      const initialCards = $tab.find(".inventory-card, .inventory-item").toArray();
+      for (const el of initialCards) {
+        el.classList.remove("is-hidden", "is-entering", "is-leaving", "pre-enter");
+        el.style.transitionDelay = "";
+      }
+      showEmpty(false);
+    }
+
+
+    // "See All / See Less" for inventory cards
+    // Uniform collapsed height + infinite expand/collapse using CSS transition on max-height
+    {
+      const $root = html instanceof jQuery ? html : $(html);
+
+      const DEFAULT_CAP   = 340; // px fallback if no data-seeall-cap
+      const TRANSITION_MS = 500; // match your CSS max-height transition (~.5s)
+
+      // Capture-phase listener to bump card height even if inner toggles stopPropagation()
+      {
+        const rootEl = $root[0];
+        if (rootEl) {
+          // Remove prior copy if this sheet re-renders
+          if (rootEl._mgInvCardBumpCapture) {
+            rootEl.removeEventListener("click", rootEl._mgInvCardBumpCapture, true);
+          }
+
+          rootEl._mgInvCardBumpCapture = (ev) => {
+            const btn = ev.target?.closest?.(
+              ".tab-inventory .mg-seeall-toggle, .tab-inventory .tags-toggle"
+            );
+            if (!btn) return;
+
+            const card = btn.closest(".inventory-item.mg-card-wrap, .inventory-card.mg-card-wrap");
+            if (!card) return;
+
+            // Let the inner toggle update its own max-height first, then measure
+            setTimeout(() => bumpExpandedCard(card), 0);
+          };
+
+          rootEl.addEventListener("click", rootEl._mgInvCardBumpCapture, true);
+        }
       }
 
+      // Initialize all inventory cards to the same collapsed height
+      const initCards = () => {
+        const cards =
+          $root[0]?.querySelectorAll(
+            ".tab-inventory .inventory-item.mg-card-wrap, .tab-inventory .inventory-card.mg-card-wrap"
+          ) || [];
 
-      // "See All / See Less" for inventory cards
-      // Uniform collapsed height + infinite expand/collapse using CSS transition on max-height
-      {
-        const $root = html instanceof jQuery ? html : $(html);
+        cards.forEach((card) => {
+          const capAttr = Number(card.dataset.seeallCap) || DEFAULT_CAP;
+          card.dataset.mgCollapsedPx = String(capAttr);
 
-        const DEFAULT_CAP   = 340; // px fallback if no data-seeall-cap
-        const TRANSITION_MS = 500; // match your CSS max-height transition (~.5s)
-
-        // Capture-phase listener to bump card height even if inner toggles stopPropagation()
-        {
-          const rootEl = $root[0];
-          if (rootEl) {
-            // Remove prior copy if this sheet re-renders
-            if (rootEl._mgInvCardBumpCapture) {
-              rootEl.removeEventListener("click", rootEl._mgInvCardBumpCapture, true);
-            }
-
-            rootEl._mgInvCardBumpCapture = (ev) => {
-              const btn = ev.target?.closest?.(
-                ".tab-inventory .mg-seeall-toggle, .tab-inventory .tags-toggle"
-              );
-              if (!btn) return;
-
-              const card = btn.closest(".inventory-item.mg-card-wrap, .inventory-card.mg-card-wrap");
-              if (!card) return;
-
-              // Let the inner toggle update its own max-height first, then measure
-              setTimeout(() => bumpExpandedCard(card), 0);
-            };
-
-            rootEl.addEventListener("click", rootEl._mgInvCardBumpCapture, true);
+          // If not expanded, force the collapsed height so they all match
+          if (!card.classList.contains("expanded")) {
+            card.style.overflow = "hidden";
+            card.style.maxHeight = `${capAttr}px`;
+          } else {
+            // If somehow already expanded on render, lock it to its real height
+            card.style.overflow = "visible";
+            card.style.maxHeight = `${card.scrollHeight}px`;
           }
-        }
 
-        // Initialize all inventory cards to the same collapsed height
-        const initCards = () => {
-          const cards =
-            $root[0]?.querySelectorAll(
-              ".tab-inventory .inventory-item.mg-card-wrap, .tab-inventory .inventory-card.mg-card-wrap"
-            ) || [];
+          const icon = card.querySelector(".card-seeall-toggle i");
+          if (icon) icon.classList.toggle("rotated", card.classList.contains("expanded"));
+        });
+      };
 
-          cards.forEach((card) => {
-            const capAttr = Number(card.dataset.seeallCap) || DEFAULT_CAP;
-            card.dataset.mgCollapsedPx = String(capAttr);
+      // While a card is expanded, its contents (Description/Notes toggles) can change height.
+      // This bumps the card's maxHeight to match so it "grows" instead of overflowing/clipping.
+      const bumpExpandedCard = (card) => {
+        if (!card?.classList?.contains("expanded")) return;
+        // lock current px, then animate to new scrollHeight
+        const start = Math.ceil(card.getBoundingClientRect().height);
+        const target = card.scrollHeight;
 
-            // If not expanded, force the collapsed height so they all match
-            if (!card.classList.contains("expanded")) {
-              card.style.overflow = "hidden";
-              card.style.maxHeight = `${capAttr}px`;
-            } else {
-              // If somehow already expanded on render, lock it to its real height
-              card.style.overflow = "visible";
-              card.style.maxHeight = `${card.scrollHeight}px`;
-            }
+        card.style.overflow = "hidden";
+        card.style.maxHeight = `${start}px`;
+        // force reflow
+        // eslint-disable-next-line no-unused-expressions
+        card.offsetHeight;
 
-            const icon = card.querySelector(".card-seeall-toggle i");
-            if (icon) icon.classList.toggle("rotated", card.classList.contains("expanded"));
-          });
-        };
+        card.style.maxHeight = `${target}px`;
 
-        // While a card is expanded, its contents (Description/Notes toggles) can change height.
-        // This bumps the card's maxHeight to match so it "grows" instead of overflowing/clipping.
-        const bumpExpandedCard = (card) => {
-          if (!card?.classList?.contains("expanded")) return;
-          // lock current px, then animate to new scrollHeight
-          const start = Math.ceil(card.getBoundingClientRect().height);
+        // once it settles, allow overflow visible again (but KEEP a px maxHeight!)
+        setTimeout(() => {
+          if (!card.classList.contains("expanded")) return;
+          card.style.overflow = "visible";
+          card.style.maxHeight = `${card.scrollHeight}px`;
+        }, TRANSITION_MS + 50);
+      };
+
+      const toggleCard = (btn) => {
+        const card = btn.closest(".inventory-item.mg-card-wrap, .inventory-card.mg-card-wrap");
+        if (!card) return;
+
+        const icon        = btn.querySelector("i");
+        const collapsedPx = Number(card.dataset.mgCollapsedPx) || DEFAULT_CAP;
+        const isExpanded  = card.classList.contains("expanded");
+
+        if (!isExpanded) {
+          // ===== EXPAND (collapsed px -> full px) =====
+          const start  = Math.ceil(card.getBoundingClientRect().height) || collapsedPx;
           const target = card.scrollHeight;
 
-          card.style.overflow = "hidden";
+          card.style.overflow  = "hidden";
           card.style.maxHeight = `${start}px`;
           // force reflow
           // eslint-disable-next-line no-unused-expressions
           card.offsetHeight;
 
           card.style.maxHeight = `${target}px`;
+          card.classList.add("expanded");
+          if (icon) icon.classList.add("rotated");
 
-          // once it settles, allow overflow visible again (but KEEP a px maxHeight!)
+          // After expand completes: allow overflow, but KEEP a pixel maxHeight so collapse can animate later
           setTimeout(() => {
             if (!card.classList.contains("expanded")) return;
             card.style.overflow = "visible";
             card.style.maxHeight = `${card.scrollHeight}px`;
           }, TRANSITION_MS + 50);
-        };
 
-        const toggleCard = (btn) => {
-          const card = btn.closest(".inventory-item.mg-card-wrap, .inventory-card.mg-card-wrap");
-          if (!card) return;
+          return;
+        }
 
-          const icon        = btn.querySelector("i");
-          const collapsedPx = Number(card.dataset.mgCollapsedPx) || DEFAULT_CAP;
-          const isExpanded  = card.classList.contains("expanded");
+        // ===== COLLAPSE (full px -> collapsed px) =====
+        // Critical: establish a *pixel* start height (NOT "auto") so CSS can animate.
+        const start = Math.ceil(card.getBoundingClientRect().height) || card.scrollHeight;
 
-          if (!isExpanded) {
-            // ===== EXPAND (collapsed px -> full px) =====
-            const start  = Math.ceil(card.getBoundingClientRect().height) || collapsedPx;
-            const target = card.scrollHeight;
+        card.style.overflow  = "hidden";
+        card.style.maxHeight = `${start}px`;
 
-            card.style.overflow  = "hidden";
-            card.style.maxHeight = `${start}px`;
-            // force reflow
-            // eslint-disable-next-line no-unused-expressions
-            card.offsetHeight;
+        // force reflow so the browser commits the start value
+        // eslint-disable-next-line no-unused-expressions
+        card.offsetHeight;
 
-            card.style.maxHeight = `${target}px`;
-            card.classList.add("expanded");
-            if (icon) icon.classList.add("rotated");
+        // animate down
+        card.style.maxHeight = `${collapsedPx}px`;
+        card.classList.remove("expanded");
+        if (icon) icon.classList.remove("rotated");
 
-            // After expand completes: allow overflow, but KEEP a pixel maxHeight so collapse can animate later
-            setTimeout(() => {
-              if (!card.classList.contains("expanded")) return;
-              card.style.overflow = "visible";
-              card.style.maxHeight = `${card.scrollHeight}px`;
-            }, TRANSITION_MS + 50);
-
-            return;
-          }
-
-          // ===== COLLAPSE (full px -> collapsed px) =====
-          // Critical: establish a *pixel* start height (NOT "auto") so CSS can animate.
-          const start = Math.ceil(card.getBoundingClientRect().height) || card.scrollHeight;
-
-          card.style.overflow  = "hidden";
-          card.style.maxHeight = `${start}px`;
-
-          // force reflow so the browser commits the start value
-          // eslint-disable-next-line no-unused-expressions
-          card.offsetHeight;
-
-          // animate down
+        // keep the clamp in collapsed state
+        setTimeout(() => {
+          if (card.classList.contains("expanded")) return;
+          card.style.overflow = "hidden";
           card.style.maxHeight = `${collapsedPx}px`;
-          card.classList.remove("expanded");
-          if (icon) icon.classList.remove("rotated");
+        }, TRANSITION_MS + 50);
+      };
 
-          // keep the clamp in collapsed state
+      $root
+        .off("click.mgInvCardToggle")
+        .on("click.mgInvCardToggle", ".tab-inventory .card-seeall-toggle", (ev) => {
+          ev.preventDefault();
+          ev.stopPropagation();
+
+          toggleCard(ev.currentTarget);
+
+          // After expand/collapse, re-measure inner Description/Notes so chevrons appear correctly
           setTimeout(() => {
-            if (card.classList.contains("expanded")) return;
-            card.style.overflow = "hidden";
-            card.style.maxHeight = `${collapsedPx}px`;
-          }, TRANSITION_MS + 50);
-        };
-
-        $root
-          .off("click.mgInvCardToggle")
-          .on("click.mgInvCardToggle", ".tab-inventory .card-seeall-toggle", (ev) => {
-            ev.preventDefault();
-            ev.stopPropagation();
-
-            toggleCard(ev.currentTarget);
-
-            // After expand/collapse, re-measure inner Description/Notes so chevrons appear correctly
-            setTimeout(() => {
-              $root[0]?._mgInvRefreshInnerSeeAll?.();
-            }, 0);
-          });
+            $root[0]?._mgInvRefreshInnerSeeAll?.();
+          }, 0);
+        });
 
 
-        // When Description/Notes expands/collapses inside a card, bump the card height if it’s expanded
-        $root
-          .off("click.mgInvCardInnerBump")
-          .on("click.mgInvCardInnerBump", ".tab-inventory .mg-seeall-toggle", (ev) => {
-            const card = ev.currentTarget.closest(".inventory-item.mg-card-wrap, .inventory-card.mg-card-wrap");
-            if (!card) return;
-            // let the inner seeall logic run first, then measure
-            setTimeout(() => bumpExpandedCard(card), 0);
-          });
+      // When Description/Notes expands/collapses inside a card, bump the card height if it’s expanded
+      $root
+        .off("click.mgInvCardInnerBump")
+        .on("click.mgInvCardInnerBump", ".tab-inventory .mg-seeall-toggle", (ev) => {
+          const card = ev.currentTarget.closest(".inventory-item.mg-card-wrap, .inventory-card.mg-card-wrap");
+          if (!card) return;
+          // let the inner seeall logic run first, then measure
+          setTimeout(() => bumpExpandedCard(card), 0);
+        });
 
-        initCards();
-      }
+      initCards();
+    }
 
-      // Tag Overflow (Inventory + Moves) — chevron + smooth reveal
-      {
-        const $root = html instanceof jQuery ? html : $(html);
+    // Tag Overflow (Inventory + Moves) — chevron + smooth reveal
+    {
+      const $root = html instanceof jQuery ? html : $(html);
 
-        const COLLAPSED_MAX = 44;   // px of tag-stack height before clamping
-        const TRANSITION_MS = 500;  // keep in sync with your CSS transition
+      const COLLAPSED_MAX = 44;   // px of tag-stack height before clamping
+      const TRANSITION_MS = 500;  // keep in sync with your CSS transition
 
-        // Helper: find the tags container inside a tags-wrap (works for both your layouts)
-        const getTagsEl = (wrap) =>
-          wrap?.querySelector(".item-tags") ||
-          wrap?.querySelector(".tags");
+      // Helper: find the tags container inside a tags-wrap (works for both your layouts)
+      const getTagsEl = (wrap) =>
+        wrap?.querySelector(".item-tags") ||
+        wrap?.querySelector(".tags");
 
-        const ensureTransition = (el) => {
-          if (!el) return;
-          // If your CSS already sets this, this is harmless.
-          if (!el.style.transition) el.style.transition = "max-height 0.5s ease";
-          if (!el.style.overflow) el.style.overflow = "hidden";
-        };
+      const ensureTransition = (el) => {
+        if (!el) return;
+        // If your CSS already sets this, this is harmless.
+        if (!el.style.transition) el.style.transition = "max-height 0.5s ease";
+        if (!el.style.overflow) el.style.overflow = "hidden";
+      };
 
-        const updateOne = (wrap) => {
-          if (!wrap || wrap.classList.contains("animating")) return;
+      const updateOne = (wrap) => {
+        if (!wrap || wrap.classList.contains("animating")) return;
 
+        const tagsEl = getTagsEl(wrap);
+        const toggle = wrap.querySelector(".tags-toggle");
+        if (!tagsEl || !toggle) return;
+
+        ensureTransition(tagsEl);
+
+        const overflows = tagsEl.scrollHeight > (COLLAPSED_MAX + 1);
+        const expanded  = wrap.classList.contains("expanded");
+
+        // If it doesn't overflow, mark short + hide toggle + remove clamp
+        wrap.classList.toggle("short", !overflows);
+        toggle.hidden = !overflows;
+
+        // Make sure we have an icon
+        let icon = toggle.querySelector("i");
+        if (!icon) {
+          toggle.innerHTML = '<i class="fa-solid fa-angle-down"></i>';
+          icon = toggle.querySelector("i");
+        }
+        icon?.classList.toggle("rotated", expanded);
+
+        // Clamp only when collapsed AND overflowing
+        if (!expanded && overflows) {
+          tagsEl.style.maxHeight = `${COLLAPSED_MAX}px`;
+        } else {
+          tagsEl.style.maxHeight = "";
+        }
+      };
+
+      const refreshAll = () => {
+        const wraps =
+          $root[0]?.querySelectorAll(
+            '.tab-inventory .tags-wrap, .tab-moves .tags-wrap'
+          ) || [];
+        wraps.forEach(updateOne);
+      };
+
+      // Expose for tab-click remeasure (your tab click handler already calls this)
+      $root[0]._mgRefreshTagsOverflow = refreshAll;
+
+      // Also re-measure once after layout settles (fonts, rich text, etc.)
+      setTimeout(refreshAll, 0);
+
+      // Click handler for BOTH tabs
+      $root
+        .off("click.mgTagsToggle")
+        .on("click.mgTagsToggle", ".tab-inventory .tags-toggle, .tab-moves .tags-toggle", (ev) => {
+          ev.preventDefault();
+          ev.stopPropagation();
+
+          const toggle = ev.currentTarget;
+          const wrap   = toggle.closest(".tags-wrap");
           const tagsEl = getTagsEl(wrap);
-          const toggle = wrap.querySelector(".tags-toggle");
-          if (!tagsEl || !toggle) return;
+          const icon   = toggle.querySelector("i");
+          if (!wrap || !tagsEl) return;
 
           ensureTransition(tagsEl);
 
-          const overflows = tagsEl.scrollHeight > (COLLAPSED_MAX + 1);
-          const expanded  = wrap.classList.contains("expanded");
+          const wasExpanded = wrap.classList.contains("expanded");
+          const startHeight = tagsEl.clientHeight;
 
-          // If it doesn't overflow, mark short + hide toggle + remove clamp
-          wrap.classList.toggle("short", !overflows);
-          toggle.hidden = !overflows;
+          // Expanding: go to scrollHeight
+          // Collapsing: go back to COLLAPSED_MAX
+          const targetHeight = wasExpanded
+            ? COLLAPSED_MAX
+            : Math.max(tagsEl.scrollHeight, startHeight);
 
-          // Make sure we have an icon
-          let icon = toggle.querySelector("i");
-          if (!icon) {
-            toggle.innerHTML = '<i class="fa-solid fa-angle-down"></i>';
-            icon = toggle.querySelector("i");
-          }
-          icon?.classList.toggle("rotated", expanded);
+          // Animate max-height start -> target
+          tagsEl.style.maxHeight = `${startHeight}px`;
+          // force reflow
+          // eslint-disable-next-line no-unused-expressions
+          tagsEl.offsetHeight;
+          tagsEl.style.maxHeight = `${targetHeight}px`;
 
-          // Clamp only when collapsed AND overflowing
-          if (!expanded && overflows) {
-            tagsEl.style.maxHeight = `${COLLAPSED_MAX}px`;
-          } else {
-            tagsEl.style.maxHeight = "";
-          }
-        };
+          wrap.classList.add("animating");
+          wrap.classList.toggle("expanded", !wasExpanded);
+          icon?.classList.toggle("rotated", !wasExpanded);
 
-        const refreshAll = () => {
-          const wraps =
-            $root[0]?.querySelectorAll(
-              '.tab-inventory .tags-wrap, .tab-moves .tags-wrap'
-            ) || [];
-          wraps.forEach(updateOne);
-        };
+          const onEnd = (e) => {
+            if (e && e.target !== tagsEl) return;
 
-        // Expose for tab-click remeasure (your tab click handler already calls this)
-        $root[0]._mgRefreshTagsOverflow = refreshAll;
+            tagsEl.removeEventListener("transitionend", onEnd);
+            wrap.classList.remove("animating");
 
-        // Also re-measure once after layout settles (fonts, rich text, etc.)
-        setTimeout(refreshAll, 0);
+            // Expanded = let it auto-size, Collapsed = keep clamp if it still overflows
+            if (wrap.classList.contains("expanded")) {
+              tagsEl.style.maxHeight = "";
+            } else if (tagsEl.scrollHeight > COLLAPSED_MAX + 1) {
+              tagsEl.style.maxHeight = `${COLLAPSED_MAX}px`;
+            } else {
+              tagsEl.style.maxHeight = "";
+            }
 
-        // Click handler for BOTH tabs
-        $root
-          .off("click.mgTagsToggle")
-          .on("click.mgTagsToggle", ".tab-inventory .tags-toggle, .tab-moves .tags-toggle", (ev) => {
-            ev.preventDefault();
-            ev.stopPropagation();
+            updateOne(wrap);
+          };
 
-            const toggle = ev.currentTarget;
-            const wrap   = toggle.closest(".tags-wrap");
-            const tagsEl = getTagsEl(wrap);
-            const icon   = toggle.querySelector("i");
-            if (!wrap || !tagsEl) return;
+          tagsEl.addEventListener("transitionend", onEnd, { once: true });
+          setTimeout(onEnd, TRANSITION_MS + 100); // failsafe
+        });
 
-            ensureTransition(tagsEl);
+      // Initial measurement when the sheet renders
+      refreshAll();
+    }
 
-            const wasExpanded = wrap.classList.contains("expanded");
-            const startHeight = tagsEl.clientHeight;
+    // Description / Notes inner "See All" (mg-seeall-wrap)
+    {
+      const $root = html instanceof jQuery ? html : $(html);
 
-            // Expanding: go to scrollHeight
-            // Collapsing: go back to COLLAPSED_MAX
-            const targetHeight = wasExpanded
-              ? COLLAPSED_MAX
-              : Math.max(tagsEl.scrollHeight, startHeight);
+      const DEFAULT_CAP   = 140;  // px fallback if data-seeall-cap is missing
+      const TRANSITION_MS = 500;  // keep in sync with CSS max-height transition
 
-            // Animate max-height start -> target
-            tagsEl.style.maxHeight = `${startHeight}px`;
-            // force reflow
-            // eslint-disable-next-line no-unused-expressions
-            tagsEl.offsetHeight;
-            tagsEl.style.maxHeight = `${targetHeight}px`;
+      const setupOne = (wrap) => {
+        if (!wrap) return;
 
-            wrap.classList.add("animating");
-            wrap.classList.toggle("expanded", !wasExpanded);
-            icon?.classList.toggle("rotated", !wasExpanded);
+        const capAttr  = Number(wrap.dataset.seeallCap) || DEFAULT_CAP;
+        const content  = wrap.querySelector(".mg-seeall-content");
+        const toggle   = wrap.querySelector(".mg-seeall-toggle");
+        if (!content || !toggle) return;
 
-            const onEnd = (e) => {
-              if (e && e.target !== tagsEl) return;
+        const overflows = content.scrollHeight > (capAttr + 1);
 
-              tagsEl.removeEventListener("transitionend", onEnd);
-              wrap.classList.remove("animating");
+        // Hide toggle if no overflow, remove clamp
+        wrap.classList.toggle("short", !overflows);
 
-              // Expanded = let it auto-size, Collapsed = keep clamp if it still overflows
-              if (wrap.classList.contains("expanded")) {
-                tagsEl.style.maxHeight = "";
-              } else if (tagsEl.scrollHeight > COLLAPSED_MAX + 1) {
-                tagsEl.style.maxHeight = `${COLLAPSED_MAX}px`;
+        if (!toggle.querySelector("i")) {
+          toggle.innerHTML = '<i class="fa-solid fa-angle-down"></i>';
+        }
+        const icon = toggle.querySelector("i");
+
+        const expanded = wrap.classList.contains("expanded");
+
+        if (!expanded && overflows) {
+          content.style.maxHeight = `${capAttr}px`;
+        } else {
+          content.style.maxHeight = "";
+        }
+
+        if (icon) icon.classList.toggle("rotated", expanded);
+      };
+
+      const refreshAll = () => {
+        const wraps =
+          $root[0]?.querySelectorAll('.tab[data-tab="inventory"] .mg-seeall-wrap, .tab.inventory .mg-seeall-wrap') || [];
+
+        wraps.forEach(setupOne);
+      };
+
+      // expose for other listeners (like card expand)
+      $root[0]._mgInvRefreshInnerSeeAll = refreshAll;
+
+      $root
+        .off("click.mgInnerSeeall")
+        .on("click.mgInnerSeeall", '.tab[data-tab="inventory"] .mg-seeall-toggle, .tab.inventory .mg-seeall-toggle', (ev) => {
+          ev.preventDefault();
+          ev.stopPropagation();
+
+          const wrap = ev.currentTarget.closest(".mg-seeall-wrap");
+          const content = wrap?.querySelector(".mg-seeall-content");
+          const icon = ev.currentTarget.querySelector("i");
+          if (!wrap || !content) return;
+
+          const capAttr    = Number(wrap.dataset.seeallCap) || DEFAULT_CAP;
+          const wasExpanded = wrap.classList.contains("expanded");
+
+          const startHeight = content.clientHeight;
+          const targetHeight = wasExpanded
+            ? capAttr
+            : Math.max(content.scrollHeight, startHeight);
+
+          // Start from current height
+          content.style.maxHeight = `${startHeight}px`;
+          // force reflow so browser commits it
+          // eslint-disable-next-line no-unused-expressions
+          content.offsetHeight;
+          content.style.maxHeight = `${targetHeight}px`;
+
+          wrap.classList.add("animating");
+          wrap.classList.toggle("expanded", !wasExpanded);
+          if (icon) icon.classList.toggle("rotated", !wasExpanded);
+
+          const onEnd = (e) => {
+            if (e && e.target !== content) return;
+
+            content.removeEventListener("transitionend", onEnd);
+            wrap.classList.remove("animating");
+
+            const nowExpanded = wrap.classList.contains("expanded");
+
+            if (nowExpanded) {
+              // Let it auto-size after the expand transition
+              content.style.maxHeight = "";
+            } else {
+              // Re-apply clamp if it still overflows
+              if (content.scrollHeight > capAttr + 1) {
+                content.style.maxHeight = `${capAttr}px`;
               } else {
-                tagsEl.style.maxHeight = "";
+                content.style.maxHeight = "";
               }
+            }
+          };
 
-              updateOne(wrap);
-            };
+          content.addEventListener("transitionend", onEnd, { once: true });
+          setTimeout(onEnd, TRANSITION_MS + 100); // failsafe
+        });
 
-            tagsEl.addEventListener("transitionend", onEnd, { once: true });
-            setTimeout(onEnd, TRANSITION_MS + 100); // failsafe
-          });
+      // Initial clamp / toggle visibility on render
+      refreshAll();
+    }
 
-        // Initial measurement when the sheet renders
-        refreshAll();
+    // Hide Sync Tags for inventory-created items that have no base/global source.
+    html.find(".sync-tags").each((_, button) => {
+      const itemId = button.dataset.itemId;
+      const ownedItem = this.actor.items.get(itemId);
+      if (!ownedItem) return;
+
+      const inventoryCreated = ownedItem.getFlag?.("midnight-gambit", "inventoryCreated");
+      const sourceId = ownedItem.flags?.core?.sourceId;
+
+      const hasWorldMatch = game.items.some(i =>
+        i.id !== ownedItem.id &&
+        i.name === ownedItem.name &&
+        i.type === ownedItem.type
+      );
+
+      const hasBaseItem = Boolean(sourceId || hasWorldMatch);
+
+      if (inventoryCreated && !hasBaseItem) {
+        button.remove();
+      }
+    });
+
+    // Enable tooltips manually after rendering the sheet
+    html.find(".sync-tags").on("click", async (event) => {
+      event.preventDefault();
+
+      const itemId = event.currentTarget.dataset.itemId;
+      const ownedItem = this.actor.items.get(itemId);
+      if (!ownedItem) return;
+
+      // Step 1: Try sourceId first
+      let sourceItem = null;
+      const sourceId = ownedItem.flags?.core?.sourceId;
+
+      if (sourceId) {
+        sourceItem = game.items.get(sourceId);
       }
 
-      // Description / Notes inner "See All" (mg-seeall-wrap)
+      // Step 2: Fallback — find item in world by name
+      if (!sourceItem) {
+        sourceItem = game.items.find(i => i.name === ownedItem.name && i.type === ownedItem.type);
+      }
+
+      if (!sourceItem) {
+        ui.notifications.info(`${ownedItem.name} is inventory-only, so there is no base item to sync from.`);
+        return;
+      }
+
+      // Merge tags
+      const ownedTags = ownedItem.system.tags ?? [];
+      const sourceTags = sourceItem.system.tags ?? [];
+
+      const allTags = [...new Set([...ownedTags, ...sourceTags])];
+
+      await ownedItem.update({ "system.tags": allTags });
+
+      ui.notifications.info(`${ownedItem.name} tags synced from base item.`);
+    });
+
+    //Right click to remove tag from character sheet
+    html.find(".item-tag").on("contextmenu", async (event) => {
+      event.preventDefault();
+
+      const $tag = $(event.currentTarget);
+      const itemId = $tag.data("item-id");
+      const tagId = $tag.data("tag-id");
+
+      const item = this.actor.items.get(itemId);
+      if (!item) return;
+
+      const currentTags = item.system.tags || [];
+      const updatedTags = currentTags.filter(t => t !== tagId);
+
+      await item.update({ "system.tags": updatedTags });
+
+      ui.notifications.info(`Removed tag '${tagId}' from ${item.name}`);
+    });
+
+    //Reset Gambit Button - like a long rest but for deck
+    html.find(".reset-gambit-deck").on("click", async (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+
+      // Avoid double-fires while dialog is open
+      const btn = ev.currentTarget;
+      btn.disabled = true;
+
+      try {
+        const ok = await Dialog.wait({
+          title: "Reset Gambit Deck?",
+          content: `
+            <p>This returns all drawn and discarded Gambits to your Deck and clears your hand.</p>
+          `,
+          buttons: {
+            yes: { label: this._mgBtn("Reset", "fa-arrows-rotate"), callback: () => true },
+            no:  { label: this._mgBtn("Cancel", "fa-circle-xmark"), callback: () => false }
+          },
+          default: "yes"
+        });
+
+        if (!ok) return; // user cancelled — do nothing
+
+        const g = this.actor.system.gambits ?? {};
+        const deck    = Array.isArray(g.deck)    ? g.deck    : [];
+        const drawn   = Array.isArray(g.drawn)   ? g.drawn   : [];
+        const discard = Array.isArray(g.discard) ? g.discard : [];
+
+        // Put everything back into deck (dedup), clear piles
+        const newDeck = Array.from(new Set([...deck, ...drawn, ...discard]));
+
+        await this.actor.update({
+          "system.gambits.deck": newDeck,
+          "system.gambits.drawn": [],
+          "system.gambits.discard": [],
+          "system.gambits.handHidden": [],
+          "system.gambits.locked": false
+        });
+
+        // Optional: notify and soft re-render
+        ui.notifications.info("Gambit deck reset.");
+        this.render(false);
+      } finally {
+        btn.disabled = false;
+      }
+    });
+
+    // Post Gambit into Game chat
+    html.find(".post-gambit").on("click", async (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+
+      const itemId = event.currentTarget.dataset.itemId;
+      const item = this.actor.items.get(itemId);
+      if (!item) return;
+
+      await this._mgPostGambitToChat(item);
+    });
+
+    // Play Gambit (post + discard)
+    html.find(".play-gambit").on("click", async (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+
+      const itemId = event.currentTarget.dataset.itemId;
+      const item = this.actor.items.get(itemId);
+      if (!item) return;
+
+      await this._mgPostGambitToChat(item);
+
+      // Discard after playing
+      const { drawn = [], discard = [], handHidden = [] } = this.actor.system.gambits;
+      const updatedDrawn = drawn.filter(id => id !== itemId);
+      const updatedDiscard = [...discard, itemId];
+
+      await this.actor.update({
+        "system.gambits.drawn": updatedDrawn,
+        "system.gambits.discard": updatedDiscard,
+        "system.gambits.handHidden": handHidden.filter(id => id !== itemId)
+      });
+    });
+
+    /** Utility: render a clean chat card for a Gambit item */
+    async function postGambitToChat(actor, itemId) {
+      const item = actor.items.get(itemId);
+      if (!item) throw new Error(`No item ${itemId} on actor ${actor.name}`);
+
+      // Local HTML escaper (Foundry-safe across versions)
+      const escapeHtml = (str) =>
+        String(str)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#039;");
+
+      const content = `
+        <div class="mg-chat-card gambit-card">
+          <header class="mg-card-header">
+            <h3 class="mg-card-title"><i class="fa-solid fa-cards"></i> ${escapeHtml(item.name)}</h3>
+          </header>
+          <section class="mg-card-body">
+            ${item.system?.description ?? ""}
+          </section>
+        </div>
+      `;
+
+      return ChatMessage.create({
+        speaker: ChatMessage.getSpeaker({ actor }),
+        content,
+        type: CONST.CHAT_MESSAGE_TYPES.OTHER
+      });
+    }
+
+    /** Fallback discard helper (only used if no .discard-card button found) */
+    async function discardGambitById(actor, itemId) {
+      // Many systems keep piles in flags or system data. If you already have a
+      // dedicated discard function, use that instead of this placeholder.
+
+      // Example approach if you store drawn/deck/discard arrays on actor.system.gambits:
+      const sys = actor.system;
+      const drawn = Array.isArray(sys.gambits?.drawn) ? [...sys.gambits.drawn] : [];
+      const discard = Array.isArray(sys.gambits?.discard) ? [...sys.gambits.discard] : [];
+
+      const idx = drawn.findIndex(g => g._id === itemId || g.id === itemId || g === itemId);
+      if (idx !== -1) {
+        const card = drawn.splice(idx, 1)[0];
+        discard.push(card);
+        await actor.update({
+          "system.gambits.drawn": drawn,
+          "system.gambits.discard": discard
+        });
+      } else {
+        // If your hand stores just IDs and not full objects, adjust accordingly:
+        // 1) remove the id from drawn
+        // 2) push the id into discard
+        console.warn(`[MG] discardGambitById: card not found in drawn for ${itemId}`);
+      }
+    }
+
+
+    //Gambit hand at bottom of the screen styling
+    html.find(".gambit-hand-card").on("click", async (event) => {
+      const itemId = event.currentTarget.dataset.itemId;
+      const item = this.actor.items.get(itemId);
+      if (!item) return;
+
+      // 1. Post to chat
+      await ChatMessage.create({
+        user: game.user.id,
+        speaker: ChatMessage.getSpeaker({ actor: this.actor }),
+        content: `<h2><i class="fa-solid fa-cards"></i> ${item.name}</h2><p>${item.system.description}</p>`
+      });
+
+      // 2. Remove from drawn, add to discard
+      const { drawn = [], discard = [] } = this.actor.system.gambits;
+
+      const updatedDrawn = drawn.filter(id => id !== itemId);
+      const updatedDiscard = [...discard, itemId];
+
+      await this.actor.update({
+        "system.gambits.drawn": updatedDrawn,
+        "system.gambits.discard": updatedDiscard
+      });
+    });
+
+    /* SETTINGS TAB: Level Up / Undo
+    ----------------------------------------------------------------------*/
+    {
+      const actor = this.actor;
+
+      // Guard: if methods are missing, don’t attach handlers (prevents cryptic errors)
+      const hasLevelUp = typeof actor?.mgLevelUp === "function";
+      const hasUndo    = typeof actor?.mgUndoLastLevel === "function";
+      if (!hasLevelUp || !hasUndo) {
+        console.warn("MG | Level methods missing on actor. Did actor.js load?", { hasLevelUp, hasUndo });
+      }
+
+      // Ensure we don’t double-bind if the sheet re-renders
+      html.find(".mg-level-up").off("click.mg");
+      html.find(".mg-undo-level").off("click.mg");
+
+      html.find(".mg-level-up").on("click.mg", async (ev) => {
+        ev.preventDefault();
+        if (!hasLevelUp) return ui.notifications.warn("Level Up not available (actor missing mgLevelUp).");
+        try {
+          await actor.mgLevelUp({ guided: false });
+          this._openLevelWizard(); // pop the stepper after the level-up
+        } catch (err) {
+          console.error("MG | Level Up error:", err);
+          ui.notifications.error("Level Up failed. See console for details.");
+        }
+      });
+
+      html.find(".mg-undo-level").on("click.mg", async (ev) => {
+        ev.preventDefault();
+        if (!hasUndo) return ui.notifications.warn("Undo not available (actor missing mgUndoLastLevel).");
+        try {
+          await actor.mgUndoLastLevel();
+        } catch (err) {
+          console.error("MG | Undo Level error:", err);
+          ui.notifications.error("Undo failed. See console for details.");
+        }
+      });
+    }
+
+    /* Reading if the level is minimum or maximum and disabling buttons if so
+    ----------------------------------------------------------------------*/
+    (async () => {
+      try {
+        const lvl = Number(this.actor.system?.level) || 1;
+        const levels = CONFIG.MidnightGambit?.LEVELS ?? {};
+        const maxLvl = Math.max(...Object.keys(levels).map(n => Number(n) || 0), 1);
+
+        const state = await this.actor.getFlag("midnight-gambit", "state");
+        const hasHistory = Array.isArray(state?.levelHistory) && state.levelHistory.length > 0;
+
+        const $up   = html.find(".mg-level-up");
+        const $undo = html.find(".mg-undo-level");
+
+        const upDisabled = lvl >= maxLvl;
+        const undoDisabled = false; // set to !hasHistory if you want hard-disable
+
+        $up
+          .prop("disabled", upDisabled)
+          .toggleClass("disabled", upDisabled)
+          .attr("title", upDisabled ? "Already at max level" : "Level Up");
+
+        // If you prefer Undo to look disabled when nothing to undo, uncomment:
+        // $undo
+        //   .prop("disabled", undoDisabled)
+        //   .toggleClass("disabled", undoDisabled)
+        //   .attr("title", undoDisabled ? "Nothing to undo" : "Undo Last Level");
+      } catch (e) {
+        console.warn("MG | Could not update Level Up / Undo button state:", e);
+      }
+
+      /* Show "Unspent Level Rewards" banner in Settings tab
+      ----------------------------------------------------------------------*/
+      {
+        const state = await this.actor.getFlag("midnight-gambit", "state");
+        const p = state?.pending || {};
+        const hasPending = Object.values(p).some(n => Number(n) > 0);
+
+        // 1) Glow + tiny badge on the Settings tab button (always update)
+        const navBtn = html.find('nav.sheet-tabs [data-tab="settings"]');
+        if (navBtn.length) {
+          // Remove any previous badge
+          navBtn.find(".mg-pending-badge").remove();
+
+          // Toggle the glow
+          navBtn.toggleClass("mg-pending-glow", hasPending);
+
+          // Add a small badge with the total pending, if any
+          if (hasPending) {
+            const totalPending = Object.values(p).reduce((a, n) => a + (Number(n) || 0), 0);
+            navBtn.append(`<span class="mg-pending-badge" aria-hidden="true">${totalPending}</span>`);
+          }
+        }
+
+        // 2) Banner inside the Settings tab content (create or remove)
+        const settingsTab = html.find('.tab.settings-tab[data-tab="settings"]');
+        if (settingsTab.length) {
+          // Always clear any old banner
+          settingsTab.find(".mg-pending-banner").remove();
+
+          // Only show if there are pending rewards AND a guise is attached
+          const hasGuise = !!this.actor.system.guise;
+          if (hasPending && hasGuise) {
+            settingsTab.append(`
+              <div class="mg-pending-banner mg-pending-glow">
+                <h2><i class="fa-solid fa-wand-magic-sparkles"></i> Unspent Level Rewards</h2>
+                <button type="button" class="mg-open-level-wizard">Review & Spend <i class="fa-solid fa-arrow-right"></i></button>
+              </div>
+            `);
+          }
+        }
+
+        // 3) Wire up the button if present
+        html.find(".mg-open-level-wizard").off("click.mg").on("click.mg", (e) => {
+          e.preventDefault();
+          this._openLevelWizard();
+        });
+      }
+    })();
+
+    // Post move to chat on header click
+    html.find(".move-card .move-name").click(ev => {
+      const li = $(ev.currentTarget).closest(".move-card");
+      const item = this.actor.items.get(li.data("itemId"));
+      item?.toChat();
+    });
+
+
+    /* Learned Moves drop zone hover
+    ----------------------------------------------------------------------*/
+    {
+      const $zone = html.find(".moves-section");
+      if ($zone.length) {
+        $zone.on("dragenter dragover", (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          $zone.addClass("drag-hover");
+        });
+        $zone.on("dragleave", (e) => {
+          if (!$zone[0].contains(e.relatedTarget)) {
+            $zone.removeClass("drag-hover");
+          }
+        });
+        $zone.on("drop", async (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          $zone.removeClass("drag-hover");
+          // Forward to Foundry’s drop handling → calls our _onDropItemCreate above
+          return this._onDrop(e.originalEvent);
+        });
+      }
+    }
+
+    this._mgBindMoveGrid(html);
+
+    // Change Profile Image (works for trusted + basic owners)
+    html.off("click.mgProfileImg").on("click.mgProfileImg", ".mg-change-profile-image", async (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+
+      if (!this.isEditable) {
+        ui.notifications?.warn("You do not have permission to edit this character.");
+        return;
+      }
+
+      const current = mgGetActorSheetImage(this.actor);
+
+      // Foundry permission gates: basic players often cannot open FilePicker (especially on Forge)
+      const canBrowse = game.user?.can?.("FILES_BROWSE") ?? game.user?.isTrusted ?? false;
+
+      // Helper: apply update + live preview
+      const applyImg = async (path) => {
+        try {
+          await this.actor.update({ img: path });
+
+          // Optional instant preview (safe no-op if selector doesn't exist)
+          const routed = foundry.utils.getRoute(path);
+          this.element.find(".profile-banner img, .profile-image").attr("src", routed);
+
+          ui.notifications?.info("Profile image updated.");
+        } catch (err) {
+          console.error("MG | Failed to update actor profile image:", err);
+          ui.notifications?.error("Failed to update profile image.");
+        }
+      };
+
+      // If user can browse, open FilePicker normally
+      if (canBrowse) {
+        const fp = new FilePicker({
+          type: "image",
+          current,
+          callback: applyImg
+        });
+        fp.render(true);
+        return;
+      }
+
+      // Fallback: basic players still get a dialog to paste an image URL/path
+      new Dialog({
+        title: "Set Profile Image",
+        content: `
+          <p>You don't have file browsing permissions, but you can still set an image by URL/path.</p>
+          <div class="form-group">
+            <label>Image URL or Path</label>
+            <input type="text" name="mgImgPath" value="${current}" style="width:100%;" />
+          </div>
+        `,
+        buttons: {
+          save: {
+            icon: '<i class="fa-solid fa-check"></i>',
+            label: "Save",
+            callback: (html) => {
+              const path = html.find('input[name="mgImgPath"]').val()?.trim();
+              if (path) applyImg(path);
+            }
+          },
+          cancel: {
+            icon: '<i class="fa-solid fa-xmark"></i>',
+            label: "Cancel"
+          }
+        },
+        default: "save"
+      }).render(true);
+    });
+
+    // Defensive: hide Level controls if no Guise (in case template guard is missing)
+    {
+      const guiseId   = this.actor?.system?.guise;
+      const hasGuise  = !!(guiseId && game.items.get(guiseId));
+      // Prefer a single wrapper if you have it:
+      const $block = this.element.find(".mg-level-controls");
+      if ($block.length) $block.toggle(hasGuise);
+
+      // And hide any lone level buttons if they exist outside the wrapper
+      this.element.find(".mg-open-level-wizard, .mg-leveler, .mg-level-btn").toggle(hasGuise);
+    }
+
+    this._mgRefreshGuiseVisibility(html);
+
+    // === Bottom Hand: right-click to zoom a Gambit card ===
+    $(document)
+      .off("contextmenu.mgHandZoom")
+      .on("contextmenu.mgHandZoom", ".gambit-hand-ui .gambit-hand-card", async (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+
+        const el = event.currentTarget;
+
+        // Resolve the clicked card
+        const itemId = el.dataset.itemId || el.getAttribute("data-id");
+        const source = el.dataset.source || "drawn";
+        let item = null;
+        if (itemId) item = this.actor?.items?.get(itemId) || game.items?.get(itemId) || null;
+
+        const name = item?.name ?? el.dataset.name ?? "Gambit";
+        const description = item?.system?.description ?? el.dataset.description ?? "";
+
+        // 1) Dim the actual hand card (smooth transition)
+        this._mgMarkHandCardActive?.(el, true);
+
+        // 2) Pull animation to center — wait for it to finish
+        try { await this._mgPullFromHand?.(el); } catch (_) {}
+
+        // 3) Open zoom; when closed, restore the real card's opacity
+        this._mgOpenGambitZoom(
+          { id: itemId, source, name, description },
+          {
+            sourceEl: el,
+            onClose: () => this._mgMarkHandCardActive?.(el, false)
+          }
+        );
+      });
+
+      // Header pencil → open modal to edit top-of-card fields (currently: Name)
       {
         const $root = html instanceof jQuery ? html : $(html);
 
-        const DEFAULT_CAP   = 140;  // px fallback if data-seeall-cap is missing
-        const TRANSITION_MS = 500;  // keep in sync with CSS max-height transition
+        $root.off("click.mgEditHeader").on("click.mgEditHeader", ".mg-edit-name", async (ev) => {
+          ev.preventDefault();
 
-        const setupOne = (wrap) => {
-          if (!wrap) return;
+          // --- Safe HTML escaper compatible with v11 ---
+          const esc = (s) => {
+            const str = String(s ?? "");
+            if (window?.Handlebars?.escapeExpression) return Handlebars.escapeExpression(str);
+            return str
+              .replace(/&/g, "&amp;")
+              .replace(/</g, "&lt;")
+              .replace(/>/g, "&gt;")
+              .replace(/"/g, "&quot;")
+              .replace(/'/g, "&#39;");
+          };
 
-          const capAttr  = Number(wrap.dataset.seeallCap) || DEFAULT_CAP;
-          const content  = wrap.querySelector(".mg-seeall-content");
-          const toggle   = wrap.querySelector(".mg-seeall-toggle");
-          if (!content || !toggle) return;
+          // Current values (expand later if you add more header fields)
+          const currentName = this.actor.name ?? "";
 
-          const overflows = content.scrollHeight > (capAttr + 1);
+          const content = `
+            <form class="mg-form">
+              <div class="form-group">
+                <label>Name</label>
+                <input type="text" name="name" value="${esc(currentName)}" />
+              </div>
+            </form>
+          `;
 
-          // Hide toggle if no overflow, remove clamp
-          wrap.classList.toggle("short", !overflows);
-
-          if (!toggle.querySelector("i")) {
-            toggle.innerHTML = '<i class="fa-solid fa-angle-down"></i>';
-          }
-          const icon = toggle.querySelector("i");
-
-          const expanded = wrap.classList.contains("expanded");
-
-          if (!expanded && overflows) {
-            content.style.maxHeight = `${capAttr}px`;
-          } else {
-            content.style.maxHeight = "";
-          }
-
-          if (icon) icon.classList.toggle("rotated", expanded);
-        };
-
-        const refreshAll = () => {
-          const wraps =
-            $root[0]?.querySelectorAll('.tab[data-tab="inventory"] .mg-seeall-wrap, .tab.inventory .mg-seeall-wrap') || [];
-
-          wraps.forEach(setupOne);
-        };
-
-        // expose for other listeners (like card expand)
-        $root[0]._mgInvRefreshInnerSeeAll = refreshAll;
-
-        $root
-          .off("click.mgInnerSeeall")
-          .on("click.mgInnerSeeall", '.tab[data-tab="inventory"] .mg-seeall-toggle, .tab.inventory .mg-seeall-toggle', (ev) => {
-            ev.preventDefault();
-            ev.stopPropagation();
-
-            const wrap = ev.currentTarget.closest(".mg-seeall-wrap");
-            const content = wrap?.querySelector(".mg-seeall-content");
-            const icon = ev.currentTarget.querySelector("i");
-            if (!wrap || !content) return;
-
-            const capAttr    = Number(wrap.dataset.seeallCap) || DEFAULT_CAP;
-            const wasExpanded = wrap.classList.contains("expanded");
-
-            const startHeight = content.clientHeight;
-            const targetHeight = wasExpanded
-              ? capAttr
-              : Math.max(content.scrollHeight, startHeight);
-
-            // Start from current height
-            content.style.maxHeight = `${startHeight}px`;
-            // force reflow so browser commits it
-            // eslint-disable-next-line no-unused-expressions
-            content.offsetHeight;
-            content.style.maxHeight = `${targetHeight}px`;
-
-            wrap.classList.add("animating");
-            wrap.classList.toggle("expanded", !wasExpanded);
-            if (icon) icon.classList.toggle("rotated", !wasExpanded);
-
-            const onEnd = (e) => {
-              if (e && e.target !== content) return;
-
-              content.removeEventListener("transitionend", onEnd);
-              wrap.classList.remove("animating");
-
-              const nowExpanded = wrap.classList.contains("expanded");
-
-              if (nowExpanded) {
-                // Let it auto-size after the expand transition
-                content.style.maxHeight = "";
-              } else {
-                // Re-apply clamp if it still overflows
-                if (content.scrollHeight > capAttr + 1) {
-                  content.style.maxHeight = `${capAttr}px`;
-                } else {
-                  content.style.maxHeight = "";
-                }
-              }
-            };
-
-            content.addEventListener("transitionend", onEnd, { once: true });
-            setTimeout(onEnd, TRANSITION_MS + 100); // failsafe
-          });
-
-        // Initial clamp / toggle visibility on render
-        refreshAll();
-      }
-
-      // Hide Sync Tags for inventory-created items that have no base/global source.
-      html.find(".sync-tags").each((_, button) => {
-        const itemId = button.dataset.itemId;
-        const ownedItem = this.actor.items.get(itemId);
-        if (!ownedItem) return;
-
-        const inventoryCreated = ownedItem.getFlag?.("midnight-gambit", "inventoryCreated");
-        const sourceId = ownedItem.flags?.core?.sourceId;
-
-        const hasWorldMatch = game.items.some(i =>
-          i.id !== ownedItem.id &&
-          i.name === ownedItem.name &&
-          i.type === ownedItem.type
-        );
-
-        const hasBaseItem = Boolean(sourceId || hasWorldMatch);
-
-        if (inventoryCreated && !hasBaseItem) {
-          button.remove();
-        }
-      });
-
-      // Enable tooltips manually after rendering the sheet
-      html.find(".sync-tags").on("click", async (event) => {
-        event.preventDefault();
-
-        const itemId = event.currentTarget.dataset.itemId;
-        const ownedItem = this.actor.items.get(itemId);
-        if (!ownedItem) return;
-
-        // Step 1: Try sourceId first
-        let sourceItem = null;
-        const sourceId = ownedItem.flags?.core?.sourceId;
-
-        if (sourceId) {
-          sourceItem = game.items.get(sourceId);
-        }
-
-        // Step 2: Fallback — find item in world by name
-        if (!sourceItem) {
-          sourceItem = game.items.find(i => i.name === ownedItem.name && i.type === ownedItem.type);
-        }
-
-        if (!sourceItem) {
-          ui.notifications.info(`${ownedItem.name} is inventory-only, so there is no base item to sync from.`);
-          return;
-        }
-
-        // Merge tags
-        const ownedTags = ownedItem.system.tags ?? [];
-        const sourceTags = sourceItem.system.tags ?? [];
-
-        const allTags = [...new Set([...ownedTags, ...sourceTags])];
-
-        await ownedItem.update({ "system.tags": allTags });
-
-        ui.notifications.info(`${ownedItem.name} tags synced from base item.`);
-      });
-
-      //Right click to remove tag from character sheet
-      html.find(".item-tag").on("contextmenu", async (event) => {
-        event.preventDefault();
-
-        const $tag = $(event.currentTarget);
-        const itemId = $tag.data("item-id");
-        const tagId = $tag.data("tag-id");
-
-        const item = this.actor.items.get(itemId);
-        if (!item) return;
-
-        const currentTags = item.system.tags || [];
-        const updatedTags = currentTags.filter(t => t !== tagId);
-
-        await item.update({ "system.tags": updatedTags });
-
-        ui.notifications.info(`Removed tag '${tagId}' from ${item.name}`);
-      });
-
-      //Reset Gambit Button - like a long rest but for deck
-      html.find(".reset-gambit-deck").on("click", async (ev) => {
-        ev.preventDefault();
-        ev.stopPropagation();
-
-        // Avoid double-fires while dialog is open
-        const btn = ev.currentTarget;
-        btn.disabled = true;
-
-        try {
-          const ok = await Dialog.wait({
-            title: "Reset Gambit Deck?",
-            content: `
-              <p>This returns all drawn and discarded Gambits to your Deck and clears your hand.</p>
-            `,
+          const result = await Dialog.wait({
+            title: "Edit Character Header",
+            content,
             buttons: {
-              yes: { label: this._mgBtn("Reset", "fa-arrows-rotate"), callback: () => true },
-              no:  { label: this._mgBtn("Cancel", "fa-circle-xmark"), callback: () => false }
+              ok: {
+                label: this._mgBtn("Save", "fa-floppy-disk"),
+                callback: (dlgHtml) => {
+                  const $dlg = $(dlgHtml);
+                  return {
+                    name: String($dlg.find('input[name="name"]').val() ?? "").trim()
+                  };
+                }
+              },
+              cancel: { label: this._mgBtn("Cancel", "fa-circle-xmark"), callback: () => null }
             },
-            default: "yes"
+            default: "ok"
           });
 
-          if (!ok) return; // user cancelled — do nothing
+          if (!result) return;
 
-          const g = this.actor.system.gambits ?? {};
-          const deck    = Array.isArray(g.deck)    ? g.deck    : [];
-          const drawn   = Array.isArray(g.drawn)   ? g.drawn   : [];
-          const discard = Array.isArray(g.discard) ? g.discard : [];
+          const updates = {};
+          if (result.name && result.name !== this.actor.name) updates["name"] = result.name;
 
-          // Put everything back into deck (dedup), clear piles
-          const newDeck = Array.from(new Set([...deck, ...drawn, ...discard]));
-
-          await this.actor.update({
-            "system.gambits.deck": newDeck,
-            "system.gambits.drawn": [],
-            "system.gambits.discard": [],
-            "system.gambits.handHidden": [],
-            "system.gambits.locked": false
-          });
-
-          // Optional: notify and soft re-render
-          ui.notifications.info("Gambit deck reset.");
-          this.render(false);
-        } finally {
-          btn.disabled = false;
-        }
-      });
-
-      // Post Gambit into Game chat
-      html.find(".post-gambit").on("click", async (event) => {
-        event.preventDefault();
-        event.stopPropagation();
-
-        const itemId = event.currentTarget.dataset.itemId;
-        const item = this.actor.items.get(itemId);
-        if (!item) return;
-
-        await this._mgPostGambitToChat(item);
-      });
-
-      // Play Gambit (post + discard)
-      html.find(".play-gambit").on("click", async (event) => {
-        event.preventDefault();
-        event.stopPropagation();
-
-        const itemId = event.currentTarget.dataset.itemId;
-        const item = this.actor.items.get(itemId);
-        if (!item) return;
-
-        await this._mgPostGambitToChat(item);
-
-        // Discard after playing
-        const { drawn = [], discard = [], handHidden = [] } = this.actor.system.gambits;
-        const updatedDrawn = drawn.filter(id => id !== itemId);
-        const updatedDiscard = [...discard, itemId];
-
-        await this.actor.update({
-          "system.gambits.drawn": updatedDrawn,
-          "system.gambits.discard": updatedDiscard,
-          "system.gambits.handHidden": handHidden.filter(id => id !== itemId)
-        });
-      });
-
-      /** Utility: render a clean chat card for a Gambit item */
-      async function postGambitToChat(actor, itemId) {
-        const item = actor.items.get(itemId);
-        if (!item) throw new Error(`No item ${itemId} on actor ${actor.name}`);
-
-        // Local HTML escaper (Foundry-safe across versions)
-        const escapeHtml = (str) =>
-          String(str)
-            .replace(/&/g, "&amp;")
-            .replace(/</g, "&lt;")
-            .replace(/>/g, "&gt;")
-            .replace(/"/g, "&quot;")
-            .replace(/'/g, "&#039;");
-
-        const content = `
-          <div class="mg-chat-card gambit-card">
-            <header class="mg-card-header">
-              <h3 class="mg-card-title"><i class="fa-solid fa-cards"></i> ${escapeHtml(item.name)}</h3>
-            </header>
-            <section class="mg-card-body">
-              ${item.system?.description ?? ""}
-            </section>
-          </div>
-        `;
-
-        return ChatMessage.create({
-          speaker: ChatMessage.getSpeaker({ actor }),
-          content,
-          type: CONST.CHAT_MESSAGE_TYPES.OTHER
+          if (Object.keys(updates).length) {
+            await this.actor.update(updates);
+            // Soft refresh headline text without full re-render
+            const wrap = this.element.find("[data-mg-nameblock] .mg-name-view");
+            if (wrap.length) wrap.text(this.actor.name);
+          }
         });
       }
 
-      /** Fallback discard helper (only used if no .discard-card button found) */
-      async function discardGambitById(actor, itemId) {
-        // Many systems keep piles in flags or system data. If you already have a
-        // dedicated discard function, use that instead of this placeholder.
+      // Keep crew affiliation label in sync with data updates (v11-safe)
+      if (this._mgCrewNameHook) Hooks.off("updateActor", this._mgCrewNameHook);
+      this._mgCrewNameHook = (doc, diff) => {
+        if (!doc || doc.id !== this.actor.id) return;
 
-        // Example approach if you store drawn/deck/discard arrays on actor.system.gambits:
-        const sys = actor.system;
-        const drawn = Array.isArray(sys.gambits?.drawn) ? [...sys.gambits.drawn] : [];
-        const discard = Array.isArray(sys.gambits?.discard) ? [...sys.gambits.discard] : [];
+        // Only react if crewName changed
+        const changed = foundry.utils.getProperty(diff, "system.crewName");
+        if (changed === undefined) return;
 
-        const idx = drawn.findIndex(g => g._id === itemId || g.id === itemId || g === itemId);
-        if (idx !== -1) {
-          const card = drawn.splice(idx, 1)[0];
-          discard.push(card);
-          await actor.update({
-            "system.gambits.drawn": drawn,
-            "system.gambits.discard": discard
-          });
-        } else {
-          // If your hand stores just IDs and not full objects, adjust accordingly:
-          // 1) remove the id from drawn
-          // 2) push the id into discard
-          console.warn(`[MG] discardGambitById: card not found in drawn for ${itemId}`);
-        }
-      }
+        const $label = this.element.find(".mg-crew-affiliation .crew-name");
+        if ($label.length) $label.text(doc.system?.crewName || "No Crew");
+      };
+      Hooks.on("updateActor", this._mgCrewNameHook);
 
-
-      //Gambit hand at bottom of the screen styling
-      html.find(".gambit-hand-card").on("click", async (event) => {
-        const itemId = event.currentTarget.dataset.itemId;
-        const item = this.actor.items.get(itemId);
-        if (!item) return;
-
-        // 1. Post to chat
-        await ChatMessage.create({
-          user: game.user.id,
-          speaker: ChatMessage.getSpeaker({ actor: this.actor }),
-          content: `<h2><i class="fa-solid fa-cards"></i> ${item.name}</h2><p>${item.system.description}</p>`
-        });
-
-        // 2. Remove from drawn, add to discard
-        const { drawn = [], discard = [] } = this.actor.system.gambits;
-
-        const updatedDrawn = drawn.filter(id => id !== itemId);
-        const updatedDiscard = [...discard, itemId];
-
-        await this.actor.update({
-          "system.gambits.drawn": updatedDrawn,
-          "system.gambits.discard": updatedDiscard
-        });
-      });
-
-      /* SETTINGS TAB: Level Up / Undo
-      ----------------------------------------------------------------------*/
+      // --- Journal: mount TinyMCE on all .mg-rich fields ---
       {
-        const actor = this.actor;
+        const root = html[0];
+        const areas = root.querySelectorAll(".mg-journal textarea.mg-rich");
+        if (areas.length) {
+          for (const ta of areas) {
+            // Seed with existing value so first paint matches
+            const path = ta.name; // e.g., "system.journal.race"
+            const value = getProperty?.(this.actor, path) ?? "";
+            ta.value = String(value);
 
-        // Guard: if methods are missing, don’t attach handlers (prevents cryptic errors)
-        const hasLevelUp = typeof actor?.mgLevelUp === "function";
-        const hasUndo    = typeof actor?.mgUndoLastLevel === "function";
-        if (!hasLevelUp || !hasUndo) {
-          console.warn("MG | Level methods missing on actor. Did actor.js load?", { hasLevelUp, hasUndo });
-        }
-
-        // Ensure we don’t double-bind if the sheet re-renders
-        html.find(".mg-level-up").off("click.mg");
-        html.find(".mg-undo-level").off("click.mg");
-
-        html.find(".mg-level-up").on("click.mg", async (ev) => {
-          ev.preventDefault();
-          if (!hasLevelUp) return ui.notifications.warn("Level Up not available (actor missing mgLevelUp).");
-          try {
-            await actor.mgLevelUp({ guided: false });
-            this._openLevelWizard(); // pop the stepper after the level-up
-          } catch (err) {
-            console.error("MG | Level Up error:", err);
-            ui.notifications.error("Level Up failed. See console for details.");
-          }
-        });
-
-        html.find(".mg-undo-level").on("click.mg", async (ev) => {
-          ev.preventDefault();
-          if (!hasUndo) return ui.notifications.warn("Undo not available (actor missing mgUndoLastLevel).");
-          try {
-            await actor.mgUndoLastLevel();
-          } catch (err) {
-            console.error("MG | Undo Level error:", err);
-            ui.notifications.error("Undo failed. See console for details.");
-          }
-        });
-      }
-
-      /* Reading if the level is minimum or maximum and disabling buttons if so
-      ----------------------------------------------------------------------*/
-      (async () => {
-        try {
-          const lvl = Number(this.actor.system?.level) || 1;
-          const levels = CONFIG.MidnightGambit?.LEVELS ?? {};
-          const maxLvl = Math.max(...Object.keys(levels).map(n => Number(n) || 0), 1);
-
-          const state = await this.actor.getFlag("midnight-gambit", "state");
-          const hasHistory = Array.isArray(state?.levelHistory) && state.levelHistory.length > 0;
-
-          const $up   = html.find(".mg-level-up");
-          const $undo = html.find(".mg-undo-level");
-
-          const upDisabled = lvl >= maxLvl;
-          const undoDisabled = false; // set to !hasHistory if you want hard-disable
-
-          $up
-            .prop("disabled", upDisabled)
-            .toggleClass("disabled", upDisabled)
-            .attr("title", upDisabled ? "Already at max level" : "Level Up");
-
-          // If you prefer Undo to look disabled when nothing to undo, uncomment:
-          // $undo
-          //   .prop("disabled", undoDisabled)
-          //   .toggleClass("disabled", undoDisabled)
-          //   .attr("title", undoDisabled ? "Nothing to undo" : "Undo Last Level");
-        } catch (e) {
-          console.warn("MG | Could not update Level Up / Undo button state:", e);
-        }
-
-        /* Show "Unspent Level Rewards" banner in Settings tab
-        ----------------------------------------------------------------------*/
-        {
-          const state = await this.actor.getFlag("midnight-gambit", "state");
-          const p = state?.pending || {};
-          const hasPending = Object.values(p).some(n => Number(n) > 0);
-
-          // 1) Glow + tiny badge on the Settings tab button (always update)
-          const navBtn = html.find('nav.sheet-tabs [data-tab="settings"]');
-          if (navBtn.length) {
-            // Remove any previous badge
-            navBtn.find(".mg-pending-badge").remove();
-
-            // Toggle the glow
-            navBtn.toggleClass("mg-pending-glow", hasPending);
-
-            // Add a small badge with the total pending, if any
-            if (hasPending) {
-              const totalPending = Object.values(p).reduce((a, n) => a + (Number(n) || 0), 0);
-              navBtn.append(`<span class="mg-pending-badge" aria-hidden="true">${totalPending}</span>`);
-            }
-          }
-
-          // 2) Banner inside the Settings tab content (create or remove)
-          const settingsTab = html.find('.tab.settings-tab[data-tab="settings"]');
-          if (settingsTab.length) {
-            // Always clear any old banner
-            settingsTab.find(".mg-pending-banner").remove();
-
-            // Only show if there are pending rewards AND a guise is attached
-            const hasGuise = !!this.actor.system.guise;
-            if (hasPending && hasGuise) {
-              settingsTab.append(`
-                <div class="mg-pending-banner mg-pending-glow">
-                  <h2><i class="fa-solid fa-wand-magic-sparkles"></i> Unspent Level Rewards</h2>
-                  <button type="button" class="mg-open-level-wizard">Review & Spend <i class="fa-solid fa-arrow-right"></i></button>
-                </div>
-              `);
-            }
-          }
-
-          // 3) Wire up the button if present
-          html.find(".mg-open-level-wizard").off("click.mg").on("click.mg", (e) => {
-            e.preventDefault();
-            this._openLevelWizard();
-          });
-        }
-      })();
-
-      // Post move to chat on header click
-      html.find(".move-card .move-name").click(ev => {
-        const li = $(ev.currentTarget).closest(".move-card");
-        const item = this.actor.items.get(li.data("itemId"));
-        item?.toChat();
-      });
-
-
-      /* Learned Moves drop zone hover
-      ----------------------------------------------------------------------*/
-      {
-        const $zone = html.find(".moves-section");
-        if ($zone.length) {
-          $zone.on("dragenter dragover", (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            $zone.addClass("drag-hover");
-          });
-          $zone.on("dragleave", (e) => {
-            if (!$zone[0].contains(e.relatedTarget)) {
-              $zone.removeClass("drag-hover");
-            }
-          });
-          $zone.on("drop", async (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            $zone.removeClass("drag-hover");
-            // Forward to Foundry’s drop handling → calls our _onDropItemCreate above
-            return this._onDrop(e.originalEvent);
-          });
-        }
-      }
-
-      this._mgBindMoveGrid(html);
-
-      // Change Profile Image (works for trusted + basic owners)
-      html.off("click.mgProfileImg").on("click.mgProfileImg", ".mg-change-profile-image", async (ev) => {
-        ev.preventDefault();
-        ev.stopPropagation();
-
-        if (!this.isEditable) {
-          ui.notifications?.warn("You do not have permission to edit this character.");
-          return;
-        }
-
-        const current = mgGetActorSheetImage(this.actor);
-
-        // Foundry permission gates: basic players often cannot open FilePicker (especially on Forge)
-        const canBrowse = game.user?.can?.("FILES_BROWSE") ?? game.user?.isTrusted ?? false;
-
-        // Helper: apply update + live preview
-        const applyImg = async (path) => {
-          try {
-            await this.actor.update({ img: path });
-
-            // Optional instant preview (safe no-op if selector doesn't exist)
-            const routed = foundry.utils.getRoute(path);
-            this.element.find(".profile-banner img, .profile-image").attr("src", routed);
-
-            ui.notifications?.info("Profile image updated.");
-          } catch (err) {
-            console.error("MG | Failed to update actor profile image:", err);
-            ui.notifications?.error("Failed to update profile image.");
-          }
-        };
-
-        // If user can browse, open FilePicker normally
-        if (canBrowse) {
-          const fp = new FilePicker({
-            type: "image",
-            current,
-            callback: applyImg
-          });
-          fp.render(true);
-          return;
-        }
-
-        // Fallback: basic players still get a dialog to paste an image URL/path
-        new Dialog({
-          title: "Set Profile Image",
-          content: `
-            <p>You don't have file browsing permissions, but you can still set an image by URL/path.</p>
-            <div class="form-group">
-              <label>Image URL or Path</label>
-              <input type="text" name="mgImgPath" value="${current}" style="width:100%;" />
-            </div>
-          `,
-          buttons: {
-            save: {
-              icon: '<i class="fa-solid fa-check"></i>',
-              label: "Save",
-              callback: (html) => {
-                const path = html.find('input[name="mgImgPath"]').val()?.trim();
-                if (path) applyImg(path);
-              }
-            },
-            cancel: {
-              icon: '<i class="fa-solid fa-xmark"></i>',
-              label: "Cancel"
-            }
-          },
-          default: "save"
-        }).render(true);
-      });
-
-      // Defensive: hide Level controls if no Guise (in case template guard is missing)
-      {
-        const guiseId   = this.actor?.system?.guise;
-        const hasGuise  = !!(guiseId && game.items.get(guiseId));
-        // Prefer a single wrapper if you have it:
-        const $block = this.element.find(".mg-level-controls");
-        if ($block.length) $block.toggle(hasGuise);
-
-        // And hide any lone level buttons if they exist outside the wrapper
-        this.element.find(".mg-open-level-wizard, .mg-leveler, .mg-level-btn").toggle(hasGuise);
-      }
-
-      this._mgRefreshGuiseVisibility(html);
-
-      // === Bottom Hand: right-click to zoom a Gambit card ===
-      $(document)
-        .off("contextmenu.mgHandZoom")
-        .on("contextmenu.mgHandZoom", ".gambit-hand-ui .gambit-hand-card", async (event) => {
-          event.preventDefault();
-          event.stopPropagation();
-
-          const el = event.currentTarget;
-
-          // Resolve the clicked card
-          const itemId = el.dataset.itemId || el.getAttribute("data-id");
-          const source = el.dataset.source || "drawn";
-          let item = null;
-          if (itemId) item = this.actor?.items?.get(itemId) || game.items?.get(itemId) || null;
-
-          const name = item?.name ?? el.dataset.name ?? "Gambit";
-          const description = item?.system?.description ?? el.dataset.description ?? "";
-
-          // 1) Dim the actual hand card (smooth transition)
-          this._mgMarkHandCardActive?.(el, true);
-
-          // 2) Pull animation to center — wait for it to finish
-          try { await this._mgPullFromHand?.(el); } catch (_) {}
-
-          // 3) Open zoom; when closed, restore the real card's opacity
-          this._mgOpenGambitZoom(
-            { id: itemId, source, name, description },
-            {
-              sourceEl: el,
-              onClose: () => this._mgMarkHandCardActive?.(el, false)
-            }
-          );
-        });
-
-        // Header pencil → open modal to edit top-of-card fields (currently: Name)
-        {
-          const $root = html instanceof jQuery ? html : $(html);
-
-          $root.off("click.mgEditHeader").on("click.mgEditHeader", ".mg-edit-name", async (ev) => {
-            ev.preventDefault();
-
-            // --- Safe HTML escaper compatible with v11 ---
-            const esc = (s) => {
-              const str = String(s ?? "");
-              if (window?.Handlebars?.escapeExpression) return Handlebars.escapeExpression(str);
-              return str
-                .replace(/&/g, "&amp;")
-                .replace(/</g, "&lt;")
-                .replace(/>/g, "&gt;")
-                .replace(/"/g, "&quot;")
-                .replace(/'/g, "&#39;");
-            };
-
-            // Current values (expand later if you add more header fields)
-            const currentName = this.actor.name ?? "";
-
-            const content = `
-              <form class="mg-form">
-                <div class="form-group">
-                  <label>Name</label>
-                  <input type="text" name="name" value="${esc(currentName)}" />
-                </div>
-              </form>
+            // Clone global config; cap height and allow internal scroll
+            const cfg = foundry.utils.deepClone(CONFIG.TinyMCE);
+            cfg.max_height = 320;
+            cfg.min_height = cfg.min_height ?? 140;
+            cfg.content_style = (cfg.content_style ?? "") + `
+              body.mce-content-body { overflow-y:auto; overscroll-behavior:contain; }
             `;
 
-            const result = await Dialog.wait({
-              title: "Edit Character Header",
-              content,
-              buttons: {
-                ok: {
-                  label: this._mgBtn("Save", "fa-floppy-disk"),
-                  callback: (dlgHtml) => {
-                    const $dlg = $(dlgHtml);
-                    return {
-                      name: String($dlg.find('input[name="name"]').val() ?? "").trim()
-                    };
-                  }
-                },
-                cancel: { label: this._mgBtn("Cancel", "fa-circle-xmark"), callback: () => null }
-              },
-              default: "ok"
+            await TextEditor.create({
+              target: ta,
+              name: path,
+              content: value,
+              tinymce: cfg,
+              height: null
             });
-
-            if (!result) return;
-
-            const updates = {};
-            if (result.name && result.name !== this.actor.name) updates["name"] = result.name;
-
-            if (Object.keys(updates).length) {
-              await this.actor.update(updates);
-              // Soft refresh headline text without full re-render
-              const wrap = this.element.find("[data-mg-nameblock] .mg-name-view");
-              if (wrap.length) wrap.text(this.actor.name);
-            }
-          });
-        }
-
-        // Keep crew affiliation label in sync with data updates (v11-safe)
-        if (this._mgCrewNameHook) Hooks.off("updateActor", this._mgCrewNameHook);
-        this._mgCrewNameHook = (doc, diff) => {
-          if (!doc || doc.id !== this.actor.id) return;
-
-          // Only react if crewName changed
-          const changed = foundry.utils.getProperty(diff, "system.crewName");
-          if (changed === undefined) return;
-
-          const $label = this.element.find(".mg-crew-affiliation .crew-name");
-          if ($label.length) $label.text(doc.system?.crewName || "No Crew");
-        };
-        Hooks.on("updateActor", this._mgCrewNameHook);
-
-        // --- Journal: mount TinyMCE on all .mg-rich fields ---
-        {
-          const root = html[0];
-          const areas = root.querySelectorAll(".mg-journal textarea.mg-rich");
-          if (areas.length) {
-            for (const ta of areas) {
-              // Seed with existing value so first paint matches
-              const path = ta.name; // e.g., "system.journal.race"
-              const value = getProperty?.(this.actor, path) ?? "";
-              ta.value = String(value);
-
-              // Clone global config; cap height and allow internal scroll
-              const cfg = foundry.utils.deepClone(CONFIG.TinyMCE);
-              cfg.max_height = 320;
-              cfg.min_height = cfg.min_height ?? 140;
-              cfg.content_style = (cfg.content_style ?? "") + `
-                body.mce-content-body { overflow-y:auto; overscroll-behavior:contain; }
-              `;
-
-              await TextEditor.create({
-                target: ta,
-                name: path,
-                content: value,
-                tinymce: cfg,
-                height: null
-              });
-            }
           }
         }
+      }
 
-      // Live strain updates while sheet is open, without a full sheet render.
-      if (this._strainHookId) Hooks.off("updateActor", this._strainHookId);
-      this._strainHookId = Hooks.on("updateActor", (actor, changes) => {
-        if (actor.id !== this.actor.id) return;
+    // Live strain updates while sheet is open, without a full sheet render.
+    if (this._strainHookId) Hooks.off("updateActor", this._strainHookId);
+    this._strainHookId = Hooks.on("updateActor", (actor, changes) => {
+      if (actor.id !== this.actor.id) return;
 
-        const strainChanged =
-          foundry.utils.hasProperty(changes, "system.strain") ||
-          foundry.utils.hasProperty(changes, "system.strain.mortal") ||
-          foundry.utils.hasProperty(changes, "system.strain.soul") ||
-          foundry.utils.hasProperty(changes, "system.strain.mortal capacity") ||
-          foundry.utils.hasProperty(changes, "system.strain.soul capacity");
+      const strainChanged =
+        foundry.utils.hasProperty(changes, "system.strain") ||
+        foundry.utils.hasProperty(changes, "system.strain.mortal") ||
+        foundry.utils.hasProperty(changes, "system.strain.soul") ||
+        foundry.utils.hasProperty(changes, "system.strain.mortal capacity") ||
+        foundry.utils.hasProperty(changes, "system.strain.soul capacity");
 
-        if (!strainChanged) return;
+      if (!strainChanged) return;
 
-        for (const type of ["mortal", "soul"]) {
-          const trackValue = Number(actor.system?.strain?.[type] ?? 0);
-          const $track = this.element.find(`.strain-track[data-strain="${type}"]`);
-          $track.find(".strain-dot").each((_, node) => {
-            const v = Number(node.dataset.value);
-            node.classList.toggle("filled", v <= trackValue);
-          });
-
-          const capKey = `${type} capacity`;
-          const capValue = Number(actor.system?.strain?.[capKey] ?? 0);
-          const capEl = this.element[0]?.querySelector(`.capacity-value[data-type="${type}"]`);
-          if (capEl) capEl.textContent = String(Math.max(0, capValue));
-        }
-
-        refreshStrainEffectBadges();
-      });
-
-      // Live STO updates while sheet is open
-      if (this._stoHookId) Hooks.off("updateActor", this._stoHookId);
-      this._stoHookId = Hooks.on("updateActor", (actor, changes) => {
-        if (actor.id !== this.actor.id) return;
-
-        const stoPath = changes?.system?.sto?.value;
-        if (stoPath === undefined) return;
-
-        const stoValue = Number(actor.system?.sto?.value ?? 0);
-
-        const $track = this.element.find(`.sto-track[data-track="sto"]`);
-        if (!$track.length) return;
-
-        $track.find(".sto-dot").each((_, node) => {
+      for (const type of ["mortal", "soul"]) {
+        const trackValue = Number(actor.system?.strain?.[type] ?? 0);
+        const $track = this.element.find(`.strain-track[data-strain="${type}"]`);
+        $track.find(".strain-dot").each((_, node) => {
           const v = Number(node.dataset.value);
-          node.classList.toggle("filled", v <= stoValue);
+          node.classList.toggle("filled", v <= trackValue);
         });
-      });
 
-    }
+        const capKey = `${type} capacity`;
+        const capValue = Number(actor.system?.strain?.[capKey] ?? 0);
+        const capEl = this.element[0]?.querySelector(`.capacity-value[data-type="${type}"]`);
+        if (capEl) capEl.textContent = String(Math.max(0, capValue));
+      }
+
+      refreshStrainEffectBadges();
+    });
+
+    // Live STO updates while sheet is open
+    if (this._stoHookId) Hooks.off("updateActor", this._stoHookId);
+    this._stoHookId = Hooks.on("updateActor", (actor, changes) => {
+      if (actor.id !== this.actor.id) return;
+
+      const stoPath = changes?.system?.sto?.value;
+      if (stoPath === undefined) return;
+
+      const stoValue = Number(actor.system?.sto?.value ?? 0);
+
+      const $track = this.element.find(`.sto-track[data-track="sto"]`);
+      if (!$track.length) return;
+
+      $track.find(".sto-dot").each((_, node) => {
+        const v = Number(node.dataset.value);
+        node.classList.toggle("filled", v <= stoValue);
+      });
+    });
+
+  }
 
   /** Preserve scroll position across re-renders + fix header paint glitches. */
   async _render(force, options = {}) {

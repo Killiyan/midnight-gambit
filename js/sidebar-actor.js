@@ -36,6 +36,11 @@ function mgCssEscape(value) {
 }
 
 function mgGetActorSidebarImage(actor) {
+	const shared = mgShared();
+	if (typeof shared.getActorPlacementImage === "function") {
+		const override = shared.getActorPlacementImage(actor, "actorSidebar", "");
+		if (override) return override;
+	}
 	const img = String(actor?.img ?? "").trim();
 	if (!img || img === MG_ACTOR_DEFAULT_IMAGE || img.endsWith("/mystery-man.svg")) return MG_ACTOR_GUISE_IMAGE;
 	return img;

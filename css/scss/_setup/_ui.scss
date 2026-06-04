@@ -5124,8 +5124,8 @@ body:not(.mg-hud-enabled) #mg-ui-root {
 
 		&:hover,
 		&:focus {
-			background: $mg-blue-1;
-			color: $mg-blue-4;
+			background: rgba($black, .4);
+			color: $mg-green;
 			filter: drop-shadow(3px 5px 3px rgba(0,0,0,.5));
 		}
 	}

@@ -5,6 +5,8 @@
 // - Double-click a card to open actor sheet
 // - Initiative tab: full-card drag reorder, persisted to system.initiative.order
 
+import { MGInitiativeController } from "./initiative-controller.js";
+
 // v11-safe HTML escaper
 const ESC = (s) =>
   (window.Handlebars?.escapeExpression?.(String(s ?? ""))) ??
@@ -316,6 +318,8 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 				let img  = doc?.img  ?? cache?.[uuid]?.img  ?? "icons/svg/mystery-man.svg";
 				let type = doc?.type ?? cache?.[uuid]?.type ?? "character";
 				const crops = doc?.getFlag?.("midnight-gambit", "crops") || {};
+				const crewSheetImg = String(crops.crewSheet?.src ?? "").trim() || img;
+				const crewSheetInitiativeImg = String(crops.crewSheetInitiative?.src ?? "").trim() || img;
 				const crewSheetCrop = crops.crewSheet?.css || null;
 				const hasCrewSheetCrop = !!(crewSheetCrop && Object.keys(crewSheetCrop).length);
 				const cropX = Number.isFinite(crewSheetCrop?.x) ? crewSheetCrop.x : 50;
@@ -373,6 +377,8 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 			actorId: doc?.id ?? null,
 			name,
 			img,
+			crewSheetImg,
+			crewSheetInitiativeImg,
 			type,
 			hasCrewSheetCrop,
 			crewSheetCropStyle,
@@ -1296,11 +1302,10 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 
 				await this.actor.update({ "system.initiative.hidden": Array.from(set) }, { render: false });
 			} catch (err) {
-				// Revert UI if update failed (e.g., no ownership)
+				// Revert UI if update failed.
 				card.dataset.hidden = String(wasHidden);
 				card.classList.toggle("is-hidden", wasHidden);
 				if (icon) icon.className = `fa-solid ${wasHidden ? "fa-eye-slash" : "fa-eye"}`;
-				ui.notifications?.warn("You need owner permission to change initiative visibility.");
 				console.warn("MG | toggle hidden failed", err);
 			}
 		});
@@ -1456,8 +1461,6 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 		.on("click.mgUseIni", ".mg-use-initiative", async (ev) => {
 			ev.preventDefault();
 			await this._applyInitiativeFromDOM($root);            // persist order (UUIDs + Actor IDs)
-			await game.settings.set("midnight-gambit", "activeCrewUuid", this.actor.uuid); // backward-compat
-			await game.settings.set("midnight-gambit", "crewActorId", this.actor.id);      // used by the bar
 			ui.notifications?.info(`Initiative Bar linked to "${this.actor.name}".`);
 		});
 
@@ -2564,19 +2567,7 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 			return;
 		}
 
-		// 3) Persist both representations
-		//    a) Keep your sheet's canonical order by UUID (what you already use)
-		await this.actor.update({ "system.initiative.order": uuids });
-
-		//    b) Write the array of Actor IDs for the Initiative Bar overlay
-		await this.actor.setFlag("midnight-gambit", "initiativeOrder", actorIds);
-
-		//    c) Tell the overlay to HARD RESET to exactly these ids (no ghosts)
-		const syncId = `crew-${this.actor.id}-${Date.now()}`; // prevent dedupe on rapid clicks
-		await this.actor.setFlag("midnight-gambit", "initiativeReset", {
-		ids: actorIds,
-		syncId
-		});
+		await MGInitiativeController.instance.applyOrder(this.actor, uuids, actorIds);
 
 	}
 
@@ -2633,7 +2624,11 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 			.map(el => el.dataset.uuid)
 			.filter(Boolean);
 
-			await this.actor.update({ "system.initiative.order": newOrder });
+			try {
+				await this.actor.update({ "system.initiative.order": newOrder });
+			} catch (err) {
+				console.warn("MG | Crew initiative reorder failed", err);
+			}
 			dragUuid = null;
 			dragEl = null;
 		};

@@ -33,12 +33,32 @@ async function mgEnsureBasicUserDrawingPermission() {
   }
 }
 
+async function mgEnsureCrewInitiativePlayerOwnership() {
+  if (!game.user.isGM) return;
+
+  const crew = MGInitiativeController.instance.resolveCrewActor();
+  if (!crew) return;
+
+  const owner = CONST.DOCUMENT_OWNERSHIP_LEVELS?.OWNER ?? 3;
+  const current = Number(crew.ownership?.default ?? 0);
+  if (current >= owner) return;
+
+  try {
+    await crew.update({ "ownership.default": owner }, { render: false });
+    console.info("MG | Enabled player initiative advancement on Crew actor.");
+  } catch (err) {
+    console.warn("MG | Could not update Crew ownership for player initiative advancement.", err);
+  }
+}
+
 
 Hooks.once("ready", () => {
   // Singleton access for debugging in console: game.mgInitiative
   game.mgInitiative = MGInitiativeBar.instance;
+  MGInitiativeController.instance.activate();
 
   mgEnsureBasicUserDrawingPermission();
+  mgEnsureCrewInitiativePlayerOwnership();
   renderAssignedGambitHand();
 
   game.socket.on("system.midnight-gambit", async (data) => {
@@ -3316,7 +3336,9 @@ Hooks.on("renderChatMessage", async (message, html) => {
 
     // Resolve an image without touching your message content
     speaker = message.speaker ?? {};
-    let img = null;
+    const actorId = speaker.actor;
+    const speakerActor = actorId ? game.actors.get(actorId) : null;
+    let img = speakerActor?.getFlag?.("midnight-gambit", "crops")?.chat?.src || null;
 
     // Try token texture if requested/available
     if (!img && (source === "token" || source === "actor")) {
@@ -3329,9 +3351,7 @@ Hooks.on("renderChatMessage", async (message, html) => {
 
     // Try actor image
     if (!img && (source === "actor" || source === "token")) {
-      const actorId = speaker.actor;
-      const actor   = actorId ? game.actors.get(actorId) : null;
-      img = actor?.img ?? null;
+      img = speakerActor?.img ?? null;
     }
 
     // Fallback to user avatar
@@ -3356,7 +3376,7 @@ Hooks.on("renderChatMessage", async (message, html) => {
     if (actorIdForHud) {
       const actorForHud = game.actors.get(actorIdForHud);
 
-      if (actorForHud) {
+      if (actorForHud?.type === "character") {
         const sto = Number(actorForHud.system?.sto?.value ?? 0);
         const riskTotal = Number(actorForHud.system?.riskDice ?? 0);
         const riskUsed = Number(actorForHud.system?.riskUsed ?? 0);
@@ -3380,8 +3400,7 @@ Hooks.on("renderChatMessage", async (message, html) => {
     }
 
     // Apply per-actor chat framing (CSS vars) TO THE IMG (not the wrapper)
-    const actorId = speaker.actor;
-    const actor = actorId ? game.actors.get(actorId) : null;
+    const actor = speakerActor;
 
     if (actor) {
       const crop = actor.getFlag("midnight-gambit", "crops")?.chat?.css || null;
@@ -4805,6 +4824,70 @@ Hooks.on("renderActorSheet", mgClearTinyMceSheetFocus);
 // Item sheets: Weapon, Armor, Misc, Gambit, Asset, Move, Guise
 Hooks.on("renderItemSheet", mgClearTinyMceSheetFocus);
 
+/* MG: Use TinyMCE for core Journal text page editing
+----------------------------------------------------------------------*/
+function mgGetJournalTinyMceSheetId() {
+  const sheetClasses = globalThis.CONFIG?.JournalEntryPage?.sheetClasses;
+  const textSheets = sheetClasses?.text ?? sheetClasses?.base ?? {};
+
+  const entries = Object.entries(textSheets);
+  const match = entries.find(([id, config]) => {
+    const label = String(config?.label ?? "");
+    const clsName = String(config?.cls?.name ?? config?.sheetClass?.name ?? "");
+    return /tinymce/i.test(`${id} ${label} ${clsName}`);
+  });
+
+  return match?.[1]?.id ?? match?.[0] ?? null;
+}
+
+async function mgUseTinyMceForJournalTextPages() {
+  const tinyMceSheetId = mgGetJournalTinyMceSheetId();
+
+  if (!tinyMceSheetId) {
+    const sheetClasses = globalThis.CONFIG?.JournalEntryPage?.sheetClasses;
+    console.warn("MG | Could not find Foundry's registered TinyMCE journal page sheet.", {
+      sheetClasses
+    });
+    return;
+  }
+
+  let sheetSetting;
+  try {
+    sheetSetting = foundry.utils.deepClone(game.settings.get("core", "sheetClasses") ?? {});
+  } catch (err) {
+    console.warn("MG | Could not read core sheetClasses setting for Journal TinyMCE.", err);
+    return;
+  }
+
+  const current = foundry.utils.getProperty(sheetSetting, "JournalEntryPage.text");
+  if (current === tinyMceSheetId) return;
+
+  foundry.utils.setProperty(sheetSetting, "JournalEntryPage.text", tinyMceSheetId);
+
+  try {
+    await game.settings.set("core", "sheetClasses", sheetSetting);
+    globalThis.DocumentSheetConfig?.updateDefaultSheets?.(sheetSetting);
+    console.log(`MG | Journal text page editor set to ${tinyMceSheetId}.`);
+  } catch (err) {
+    console.warn("MG | Could not set Journal text page editor to TinyMCE.", err);
+  }
+}
+
+Hooks.once("ready", () => {
+  void mgUseTinyMceForJournalTextPages();
+});
+
+Hooks.on("renderJournalSheet", (app, html) => {
+  const root = html instanceof jQuery ? html[0] : html;
+  root?.querySelectorAll?.(".editor-edit").forEach(button => {
+    if (button.dataset.mgTinyMceRetry === "true") return;
+    button.dataset.mgTinyMceRetry = "true";
+    button.addEventListener("click", () => {
+      void mgUseTinyMceForJournalTextPages();
+    }, { capture: true });
+  });
+});
+
 /* Chat motion
 ----------------------------------------------------------------------*/
 const mgChatMotion = {
@@ -4855,17 +4938,27 @@ function mgScrollChatBottom({ smooth = true } = {}) {
 
 function mgChatEntryTargetHeight(el) {
   const styles = getComputedStyle(el);
-  return (
-    el.scrollHeight +
-    (parseFloat(styles.borderTopWidth) || 0) +
-    (parseFloat(styles.borderBottomWidth) || 0)
-  );
+  const elRect = el.getBoundingClientRect();
+  const borderBottom = parseFloat(styles.borderBottomWidth) || 0;
+  let flowBottom = 0;
+
+  for (const child of el.children) {
+    const childStyles = getComputedStyle(child);
+    if (childStyles.position === "absolute" || childStyles.position === "fixed") continue;
+
+    const childRect = child.getBoundingClientRect();
+    const marginBottom = parseFloat(childStyles.marginBottom) || 0;
+    flowBottom = Math.max(flowBottom, childRect.bottom - elRect.top + marginBottom);
+  }
+
+  return Math.ceil((flowBottom || el.scrollHeight) + borderBottom);
 }
 
 function mgPrepareChatEntry(el) {
   if (el.dataset.mgChatMotionPrepared === "true") return;
 
   el.dataset.mgChatMotionPrepared = "true";
+  el.style.boxSizing = "border-box";
   el.style.transition = "none";
   el.style.height = "0px";
   el.style.opacity = "0";
@@ -4888,6 +4981,7 @@ function mgAnimateChatEntry(newMessageEl) {
   const targetHeight = mgChatEntryTargetHeight(newMessageEl);
   const shouldStickToBottom = mgChatMotion.wasNearBottom || mgIsChatNearBottom(targetHeight + 140);
 
+  newMessageEl.style.boxSizing = "border-box";
   newMessageEl.style.height = "0px";
   newMessageEl.style.opacity = "0";
   newMessageEl.style.transform = "translate3d(14px, 0, 0)";
@@ -4909,6 +5003,7 @@ function mgAnimateChatEntry(newMessageEl) {
     newMessageEl.style.height = "";
     newMessageEl.style.opacity = "";
     newMessageEl.style.overflow = "";
+    newMessageEl.style.boxSizing = "";
     newMessageEl.style.transform = "";
     newMessageEl.style.willChange = "";
     delete newMessageEl.dataset.mgChatMotionPrepared;

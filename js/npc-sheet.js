@@ -10,6 +10,11 @@ function mgGetActorSheetImage(actor) {
   return img;
 }
 
+function mgGetActorPlacementImage(actor, key, fallback = mgGetActorSheetImage(actor)) {
+  const src = String(actor?.getFlag?.("midnight-gambit", "crops")?.[key]?.src ?? "").trim();
+  return src || fallback;
+}
+
 export class MidnightGambitNpcSheet extends ActorSheet {
   static get defaultOptions() {
     return foundry.utils.mergeObject(super.defaultOptions, {
@@ -25,7 +30,7 @@ export class MidnightGambitNpcSheet extends ActorSheet {
     const context = await super.getData(options);
     context.actor = this.actor;
     context.system = this.actor.system ?? {};
-    context.actorDisplayImg = mgGetActorSheetImage(this.actor);
+    context.actorDisplayImg = mgGetActorPlacementImage(this.actor, "profile");
 
     // Keep the same attribute ordering as the player sheet uses
     context.attributeKeys = ["tenacity", "finesse", "resolve", "guile", "instinct", "presence"];
@@ -1014,7 +1019,9 @@ export class MidnightGambitNpcSheet extends ActorSheet {
     }
 
     // Apply from flags
-    const crop = this.actor.getFlag("midnight-gambit", "crops")?.profile?.css || {};
+    const crops = this.actor.getFlag("midnight-gambit", "crops") || {};
+    const crop = crops.profile?.css || {};
+    $img.attr("src", mgGetActorPlacementImage(this.actor, "profile"));
     const x = Number.isFinite(crop.x) ? crop.x : 50;
     const y = Number.isFinite(crop.y) ? crop.y : 50;
     const s = Number.isFinite(crop.scale) ? crop.scale : 1;
@@ -1025,8 +1032,7 @@ export class MidnightGambitNpcSheet extends ActorSheet {
   }
 
   _mgGetImageCropPlacements(html) {
-    const $root = html instanceof jQuery ? html : $(html);
-    const sheetSrc = $root.find("img.mg-profile-img").first().attr("src") || this.actor?.img;
+    const sheetSrc = mgGetActorSheetImage(this.actor);
     const actorSrc = this.actor?.img || sheetSrc;
 
     return [
@@ -1072,7 +1078,11 @@ export class MidnightGambitNpcSheet extends ActorSheet {
     const placements = this._mgGetImageCropPlacements(html).filter(p => p.src);
     if (!placements.length) return;
 
+    const savedCrops = this.actor.getFlag("midnight-gambit", "crops") || {};
     const byKey = Object.fromEntries(placements.map(p => [p.key, p]));
+    const imageOverrides = Object.fromEntries(
+      placements.map(p => [p.key, typeof savedCrops[p.key]?.src === "string" ? savedCrops[p.key].src : ""])
+    );
     let active = byKey[startKey] ? startKey : placements[0].key;
     let dragging = false;
     let last = { cx: 0, cy: 0 };
@@ -1125,7 +1135,19 @@ export class MidnightGambitNpcSheet extends ActorSheet {
               </button>
             `).join("")}
           </nav>
-          <p class="mg-crop-description" data-mg-crop-description></p>
+          <div class="mg-crop-description-row">
+            <p class="mg-crop-description" data-mg-crop-description></p>
+            <div class="mg-crop-image-tools" data-mg-crop-image-tools>
+              <button type="button" class="ghost mg-crop-select-image">
+                <i class="fa-solid fa-image"></i>
+                Select Image
+              </button>
+              <button type="button" class="ghost mg-crop-use-default">
+                <i class="fa-solid fa-rotate-left"></i>
+                Use Default
+              </button>
+            </div>
+          </div>
           <div class="mg-crop-stage mg-crop-stage-single">
             <div class="mg-crop-img-plane">
               <img alt="preview" data-mg-crop-img="single">
@@ -1141,6 +1163,23 @@ export class MidnightGambitNpcSheet extends ActorSheet {
 
     const stage = $ui.find(".mg-crop-stage")[0];
     const imgEl = $ui.find(".mg-crop-stage img")[0];
+    const canBrowseFiles = () => game.user?.can?.("FILES_BROWSE") ?? game.user?.isTrusted ?? false;
+    const getPlacementSrc = placement => imageOverrides[placement.key] || placement.src;
+    const promoteAboveCropModal = app => {
+      for (const delay of [0, 50, 150]) {
+        setTimeout(() => {
+          const $picker = app?.element;
+          $picker?.css?.({
+            "z-index": 10050,
+            "max-height": "80vh"
+          });
+          $picker?.find?.(".window-content")?.css?.({
+            "max-height": "calc(80vh - 2rem)",
+            "overflow": "auto"
+          });
+        }, delay);
+      }
+    };
 
     const apply = () => {
       const current = values[active];
@@ -1175,10 +1214,12 @@ export class MidnightGambitNpcSheet extends ActorSheet {
       $ui.find(".mg-crop-title").text(placement.title);
       $ui.find(".mg-crop-hint").text(placement.hint);
       $ui.find("[data-mg-crop-description]").text(placement.description || "");
+      const canReset = !!imageOverrides[placement.key] || !!savedCrops[placement.key]?.css;
+      $ui.find(".mg-crop-use-default").prop("disabled", !canReset);
       $ui.find("[data-mg-crop-tab]").toggleClass("is-active", false).attr("aria-selected", "false");
       $ui.find(`[data-mg-crop-tab="${key}"]`).toggleClass("is-active", true).attr("aria-selected", "true");
 
-      imgEl.src = placement.src;
+      imgEl.src = getPlacementSrc(placement);
       applyPlacementSize(imgEl, placement, values[active]);
       apply();
     };
@@ -1226,6 +1267,95 @@ export class MidnightGambitNpcSheet extends ActorSheet {
       renderPlacement(ev.currentTarget.dataset.mgCropTab);
     });
 
+    $ui.on("click", ".mg-crop-select-image", ev => {
+      ev.preventDefault();
+      const placement = byKey[active];
+      if (!placement) return;
+
+      const applyImage = path => {
+        const next = String(path ?? "").trim();
+        if (!next) return;
+        imageOverrides[placement.key] = next;
+        renderPlacement(placement.key);
+      };
+
+      const current = imageOverrides[placement.key] || placement.src;
+      if (canBrowseFiles()) {
+        const fp = new FilePicker({
+          type: "image",
+          current,
+          callback: applyImage
+        });
+        fp.render(true);
+        promoteAboveCropModal(fp);
+        return;
+      }
+
+      new Dialog({
+        title: `Set ${placement.label} Image`,
+        content: `
+          <p>You don't have file browsing permissions, but you can still set an image by URL/path.</p>
+          <div class="form-group">
+            <label>Image URL or Path</label>
+            <input type="text" name="mgImgPath" value="${esc(current)}" style="width:100%;" />
+          </div>
+        `,
+        buttons: {
+          save: {
+            icon: '<i class="fa-solid fa-check"></i>',
+            label: "Use Image",
+            callback: dialogHtml => applyImage(dialogHtml.find('input[name="mgImgPath"]').val())
+          },
+          cancel: {
+            icon: '<i class="fa-solid fa-xmark"></i>',
+            label: "Cancel"
+          }
+        },
+        default: "save"
+      }).render(true);
+    });
+
+    $ui.on("click", ".mg-crop-use-default", async ev => {
+      ev.preventDefault();
+      const placement = byKey[active];
+      if (!placement) return;
+
+      imageOverrides[placement.key] = "";
+      values[active] = {
+        x: 50,
+        y: 50,
+        scale: 1,
+        width: placement?.fitAxis === "width" ? 100 : null,
+        height: placement?.fitAxis === "height" ? 100 : null
+      };
+
+      try {
+        const ns = "midnight-gambit";
+        const crops = (await this.actor.getFlag(ns, "crops")) || {};
+        const deleteUpdates = {
+          [`flags.${ns}.crops.${placement.key}.-=src`]: null,
+          [`flags.${ns}.crops.${placement.key}.-=css`]: null
+        };
+        crops[placement.key] = crops[placement.key] || {};
+        delete crops[placement.key].src;
+        delete crops[placement.key].css;
+        if (!Object.keys(crops[placement.key]).length) delete crops[placement.key];
+        if (savedCrops[placement.key]) {
+          delete savedCrops[placement.key].src;
+          delete savedCrops[placement.key].css;
+        }
+        await this.actor.setFlag(ns, "crops", crops);
+        await this.actor.update(deleteUpdates);
+        this._mgRefreshImagePlacement(placement.key, html);
+      } catch (err) {
+        console.error("MG | Failed to reset NPC placement image:", err);
+        ui.notifications?.error("Failed to reset NPC placement image. See console.");
+      }
+
+      applyPlacementSize(imgEl, placement, values[active]);
+      renderPlacement(placement.key);
+    });
+
     $ui.on("click", ".mg-reset", ev => {
       ev.preventDefault();
       const placement = byKey[active];
@@ -1257,14 +1387,16 @@ export class MidnightGambitNpcSheet extends ActorSheet {
           }
         }
         crops[active].css = css;
+        const overrideSrc = String(imageOverrides[active] || "").trim();
+        if (overrideSrc) crops[active].src = overrideSrc;
+        else delete crops[active].src;
+        if (!Object.keys(crops[active]).length) delete crops[active];
         await this.actor.setFlag(ns, "crops", crops);
-
-        if (active === "profile") this._mgInitProfileCrop(html);
-        if (active === "chat") ui.chat?.render?.(true);
-        if (active === "actorSidebar") {
-          globalThis.mgRefreshLeftSidebarContent?.();
-          globalThis.MGRefreshLeftSidebarContent?.();
+        if (!overrideSrc) {
+          await this.actor.update({ [`flags.${ns}.crops.${active}.-=src`]: null });
         }
+
+        this._mgRefreshImagePlacement(active, html);
 
         ui.notifications?.info(`${placement.title} saved.`);
       } catch (err) {
@@ -1284,6 +1416,15 @@ export class MidnightGambitNpcSheet extends ActorSheet {
 
     document.body.appendChild($ui[0]);
     renderPlacement(active);
+  }
+
+  _mgRefreshImagePlacement(key, html) {
+    if (key === "profile") this._mgInitProfileCrop(html);
+    if (key === "chat") ui.chat?.render?.(true);
+    if (key === "actorSidebar") {
+      globalThis.mgRefreshLeftSidebarContent?.();
+      globalThis.MGRefreshLeftSidebarContent?.();
+    }
   }
 
   /** Modal cropper: drag to pan, wheel to zoom; saves to flags on Save. */

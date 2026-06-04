@@ -56,7 +56,7 @@
 					{{#each partyMembers as |m|}}
 					<article class="mg-member-card" data-uuid="{{m.uuid}}" data-actor-id="{{m.actorId}}">
 						<div class="mg-member-portrait {{#if m.hasCrewSheetCrop}}is-cropped{{/if}}">
-							<img src="{{m.img}}" alt="{{m.name}}" style="{{m.crewSheetCropStyle}}" />
+							<img src="{{m.crewSheetImg}}" alt="{{m.name}}" style="{{m.crewSheetCropStyle}}" />
 						</div>
 						<div class="mg-member-info">
 							<div class="mg-member-name">{{m.name}}</div>
@@ -118,7 +118,6 @@
 		<div class="tab initiative-tab" data-tab="initiative">
 			<div class="tab-wrapper">
 				<div class="mg-initiative-note">
-					{{#if canEdit}}
 					<div class="mg-content">
 						<h2>Initiative Order</h2>
 						<p>Reorder party members by dragging a card by it's grip area, or hide a member by clicking the hide from order button. This order is used for turn flow.</p>
@@ -128,16 +127,13 @@
 							</button>
 						</div>
 					</div>
-					{{else}}
-					<h2>View-only initiative. Owners can reorder.</h2>
-					{{/if}}
 				</div>
 
 				<div class="mg-initiative-list">
 					{{#each initiativeMembers as |m|}}
 					<article class="mg-init-card {{#if m.hidden}}is-muted{{/if}}" data-uuid="{{m.uuid}}" data-hidden="{{m.hidden}}">
 						<div class="mg-init-portrait {{#if m.hasCrewSheetInitiativeCrop}}is-cropped{{/if}}">
-							<img src="{{m.img}}" alt="{{m.name}}" style="{{m.crewSheetInitiativeCropStyle}}" />
+							<img src="{{m.crewSheetInitiativeImg}}" alt="{{m.name}}" style="{{m.crewSheetInitiativeCropStyle}}" />
 						</div>
 
 						<div class="mg-init-main">

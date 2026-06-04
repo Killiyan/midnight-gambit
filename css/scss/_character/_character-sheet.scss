@@ -1786,11 +1786,11 @@ ol li {
           cursor: pointer;
 
           &:hover {
-            background: $mg-blue-1;
-            color: $mg-blue-4;
+            background: rgba($black, .4);
+            color: $mg-green;
 
             i {
-              color: $mg-blue-3;
+              color: $mg-blue-1;
             }
           }
 
@@ -1854,6 +1854,7 @@ ol li {
             left: 0;
             margin: 0;
             background: $mg-blue-4;
+            border-top: 2px solid $mg-blue-main-2;
 
             i {
               color: $mg-blue-2;
@@ -1861,10 +1862,10 @@ ol li {
 
             &:hover,
             &:focus {
-              background: $mg-blue-1;
+              background: rgba($black, .4);
 
               i {
-                color: $mg-blue-main-2;
+                color: $mg-green;
               }
             }
           }
@@ -3142,11 +3143,11 @@ ol li {
     .mg-hand-order-eye:focus,
     .mg-hand-order-grip:hover,
     .mg-hand-order-grip:focus {
-      background: $mg-blue-3;
-      border-color: $mg-blue-1;
+      background: rgba($black,.4);
+      border-color: $mg-green;
 
       i {
-        color: $mg-blue-4;
+        color: $mg-green;
       }
     }
   }
@@ -3298,17 +3299,17 @@ ol li {
   .mg-hand-order-eye:focus,
   .mg-hand-order-grip:hover,
   .mg-hand-order-grip:focus {
-    background: $mg-blue-3;
-    border-color: $mg-blue-1;
+    background: rgba($black,.4);
+    border-color: $mg-green;
 
     i {
-      color: $mg-blue-4;
+      color: $mg-green;
     }
   }
 
   .mg-hand-order-placeholder {
-    border: 2px dashed $mg-blue-1;
-    background: rgba($mg-blue-1, .08);
+    border: 2px dashed $mg-green;
+    background: $mg-blue-4;
   }
 }
 
@@ -4018,8 +4019,16 @@ ol li {
       }
     }
 
-    .mg-crop-description {
+    .mg-crop-description-row {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
       margin: 0 0 0.75rem;
+    }
+
+    .mg-crop-description {
+      flex: 1 1 auto;
+      margin: 0;
       padding: 0.75rem 1rem;
       border: 1px solid rgba($mg-blue-1, 0.22);
       border-radius: 0.5rem;
@@ -4028,6 +4037,48 @@ ol li {
       font-family: "Roboto", sans-serif;
       font-size: 0.78rem;
       line-height: 1.45;
+    }
+
+    .mg-crop-image-tools {
+      flex: 0 0 auto;
+      display: flex;
+      gap: 0.5rem;
+
+      &[hidden] {
+        display: none;
+      }
+
+      button {
+        min-width: 8.75rem;
+        margin: 0;
+        padding: 0.6rem 0.75rem;
+        @include mg-border();
+        border-radius: 0.5rem;
+        background: $mg-blue-main;
+        color: $mg-blue-1;
+        font-size: 0.75rem;
+        line-height: 1;
+        pointer-events: all;
+
+        i {
+          margin-right: 0.35rem;
+          color: $mg-blue-2;
+        }
+
+        &:hover,
+        &:focus {
+          background: $mg-blue-4;
+          color: $mg-green;
+
+          i {
+            color: $mg-blue-1;
+          }
+        }
+
+        &:disabled {
+          pointer-events: none;
+        }        
+      }
     }
   }
 
