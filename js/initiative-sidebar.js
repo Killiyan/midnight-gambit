@@ -143,9 +143,8 @@ export class MGInitiativeSidebar {
     root.style.bottom = "10px";
     root.style.right = `${w}px`;
     root.style.height = "auto";
-    root.style.width = "250px"; // tweak later
+    root.style.width = "250px";
     root.style.zIndex = "1";
-    root.style.pointerEvents = "auto";
   }
 
   // -----------------------------

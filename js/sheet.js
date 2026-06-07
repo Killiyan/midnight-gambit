@@ -52,15 +52,18 @@ export class MidnightGambitActorSheet extends ActorSheet {
       // --- Gambit counters for UI ---
       const handCount = drawnIds.length;
       const deckCount = deckIds.length;
-      const handMax   = Number(context.system.gambits?.maxDrawSize ?? 3);
-      const deckMax   = Number(context.system.gambits?.maxDeckSize ?? 3);
+      const discardCount = discardIds.length;
+      const poolCount = new Set([...deckIds, ...drawnIds, ...discardIds].map(String)).size;
+      const deckMax = Number(context.system.gambits?.maxDeckSize ?? context.system.gambits?.maxDrawSize ?? 3);
 
       context.gambitCounts = {
-        handCount, handMax,                      // e.g., "Hand Size: 2/4"
-        deckCount, deckMax,                      // e.g., "Deck Size: 3/5"
-        handAtCap: handCount >= handMax,
-        deckAtCap: deckCount >= deckMax,
-        deckRemaining: Math.max(0, deckMax - deckCount)
+        handCount,
+        deckCount,
+        discardCount,
+        poolCount,
+        deckMax,
+        deckAtCap: poolCount >= deckMax,
+        deckRemaining: Math.max(0, deckMax - poolCount)
       };
 
 
@@ -1906,26 +1909,21 @@ _mgOpenSidebarCropper() {
       }
 
     // Drawing button for Gambits
-    html.find(".draw-gambit").on("click", async () => {
+    html.find(".draw-gambit").on("click", async (event) => {
       event.preventDefault();
       event.stopPropagation();
-      const { deck = [], drawn = [], maxDrawSize = 3, locked = false } = this.actor.system.gambits;
+      const { deck = [], drawn = [], locked = false } = this.actor.system.gambits;
 
-      if (locked || drawn.length >= maxDrawSize || deck.length === 0) {
+      if (locked || deck.length === 0) {
         ui.notifications.warn("Cannot draw more cards.");
         return;
       }
 
-      const drawCount = Math.min(maxDrawSize - drawn.length, deck.length);
       const shuffled = shuffleArray(deck);
 
-      const drawnNow = shuffled.slice(0, drawCount);
-      const newDrawn = [...drawn, ...drawnNow];
-      const newDeck  = deck.filter(id => !drawnNow.includes(id));
-
       await this.actor.update({
-        "system.gambits.deck": newDeck,
-        "system.gambits.drawn": newDrawn,
+        "system.gambits.deck": [],
+        "system.gambits.drawn": Array.from(new Set([...drawn, ...shuffled])),
         "system.gambits.locked": true
       });
     });
@@ -5934,6 +5932,7 @@ _mgOpenSidebarCropper() {
 
     // Try common schema variants (support your past/future naming)
     const candidates = [
+      row.caps?.drawPool,
       row.gambits?.deckSize,
       row.gambits?.handSize,
       row.gambits?.slots,
@@ -7145,6 +7144,8 @@ async _mgOpenStatPicker({ title, current }) {
       console.warn("MG | Gambit tier guard failed (non-fatal):", e);
     }
 
+    let allowOverLimitGambit = false;
+
     // --- Deck capacity check for Player Gambits (pre-create) ---
     try {
       // Normalize payload
@@ -7155,20 +7156,25 @@ async _mgOpenStatPicker({ title, current }) {
         // Read current deck + max (fallbacks keep old characters safe)
         const g = this.actor.system?.gambits ?? {};
         const deck = Array.isArray(g.deck) ? g.deck : [];
+        const drawn = Array.isArray(g.drawn) ? g.drawn : [];
+        const discard = Array.isArray(g.discard) ? g.discard : [];
+        const poolCount = new Set([...deck, ...drawn, ...discard].map(String)).size;
         const deckMax = this._mgGetPlayerGambitMax();
 
-        if (deck.length >= deckMax) {
+        if (poolCount >= deckMax) {
           const ok = await Dialog.confirm({
-            title: "Over Deck Limit?",
+            title: "Over Gambit Limit?",
             content: `
-              <p>You're going over your max available Player Gambits for this level
-              (<strong>${deck.length}/${deckMax}</strong>).</p>
-              <p><em>Only add this if your Director approves!</em></p>
+              <p>You are adding a Gambit over your deck size
+              (<strong>${poolCount}/${deckMax}</strong>).</p>
+              <p><em>Only do this if your GM has approved!</em></p>
             `,
             defaultYes: false,
-            yes: () => true, no: () => false
+            yes: () => true,
+            no: () => false
           });
-          if (!ok) return []; // cancel the add
+          if (!ok) return [];
+          allowOverLimitGambit = true;
         }
       }
     } catch (e) {
@@ -7355,19 +7361,25 @@ async _mgOpenStatPicker({ title, current }) {
       // Use level-scaled deck capacity from actor data (not hard-coded 3)
       const g = this.actor.system.gambits ?? {};
       const deck = Array.isArray(g.deck) ? g.deck : [];
+      const drawn = Array.isArray(g.drawn) ? g.drawn : [];
+      const discard = Array.isArray(g.discard) ? g.discard : [];
       const maxDeck = this._mgGetPlayerGambitMax();
 
       // Don’t add duplicates; enforce capacity
       const nextDeck = deck.includes(gambitItem.id) ? deck : [...deck, gambitItem.id];
+      const nextPoolCount = new Set([...nextDeck, ...drawn, ...discard].map(String)).size;
 
-      if (nextDeck.length > maxDeck) {
+      if (nextPoolCount > maxDeck && !allowOverLimitGambit) {
         // Roll back the item we just created and warn
         await gambitItem.delete();
-        ui.notifications.warn(`Your deck can hold ${maxDeck} Gambits right now.`);
+        ui.notifications.warn(`Your draw pool can hold ${maxDeck} Gambits right now.`);
         return [];
       }
 
-      await this.actor.update({ "system.gambits.deck": nextDeck });
+      await this.actor.update({
+        "system.gambits.deck": nextDeck,
+        "system.gambits.handHidden": (g.handHidden ?? []).filter(id => id !== gambitItem.id)
+      });
       return [];
     }
 

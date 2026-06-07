@@ -3124,10 +3124,12 @@ ol li {
       border: 2px solid $mg-blue-main-2;
       border-radius: .5rem;
       background: rgba($black, .15);
+      transition: background .5s ease, border .5s ease;
 
       i {
         margin: 0;
         color: $mg-blue-1;
+        transition: color .5s ease;
       }
     }
 

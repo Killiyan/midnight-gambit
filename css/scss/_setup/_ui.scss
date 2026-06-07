@@ -544,6 +544,8 @@ body.mg-hud-enabled {
 			backdrop-filter: blur(2px);
 			box-shadow: 5px 5px 5px 0 rgba(0, 0, 0, 0.50);
 			overflow: visible;
+			position: absolute;
+			left: calc(24rem + 1rem);
 		}
 
 		.sidebar-tab {
@@ -788,9 +790,22 @@ body.mg-hud-enabled {
 			@include mg-border();
 			@include mg-shadow();
 
+			h2 {
+				@include tiller();
+				font-size: 20.5px;
+				letter-spacing: .02em;
+				margin-bottom: 0;
+				line-height: 1;
+				color: $mg-ivory;
+			}
+
+			p {
+				margin: 0;
+			}
+
 			i {
 				font-size: 1.75rem;
-				color: rgba($mg-blue-1, .7);
+				color: $mg-blue-3;
 			}
 		}
 
@@ -3300,6 +3315,16 @@ body.mg-hud-enabled {
 			}
 		}
 
+		&.is-settings-tab {
+			.sidebar-body {
+				margin: -1rem;
+			}
+
+			.mg-left-section {
+				gap: 0;
+			}
+		}
+
 	}
 
 	#players.mg-players-docked {
@@ -3500,7 +3525,7 @@ body.mg-hud-enabled {
 /* Left sidebar collapsed */
 body.left-sidebar-collapsed {
 	.mg-left-sidebar {
-		transform: translateX(calc(-100% - 2rem));
+		transform: translateX(calc(-100% - 6rem));
 		pointer-events: none;
 	}
 

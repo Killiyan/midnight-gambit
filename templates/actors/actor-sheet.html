@@ -604,8 +604,8 @@
 
           <div class="gambit-hand">
             
-            <span class="hand-size gambit-counter" title="Cards in hand / hand limit">
-              Hand Size: {{gambitCounts.handCount}}/{{gambitCounts.handMax}}
+            <span class="hand-size gambit-counter" title="Cards in hand">
+              Hand: {{gambitCounts.handCount}}
             </span>
 
             <h2 class="gambit-banner">Hand</h2>
@@ -673,8 +673,8 @@
           <div class="gambit-deck">
             <h2 class="gambit-banner">Deck</h2>
 
-            <span class="deck-size gambit-counter" title="Cards in deck / deck capacity">
-              Deck Size: {{gambitCounts.deckCount}}/{{gambitCounts.deckMax}}
+            <span class="deck-size gambit-counter" title="Gambits owned / draw pool">
+              Draw Pool: {{gambitCounts.poolCount}}/{{gambitCounts.deckMax}}
             </span>
 
             {{#each gambitDeck}}

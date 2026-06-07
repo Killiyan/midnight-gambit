@@ -167,8 +167,6 @@ function mgApplyHudMode(enabled, options = {}) {
 
 async function mgSetHudMode(enabled) {
 	await game.settings.set("midnight-gambit", "mgHudEnabled", !!enabled);
-
-	ui.notifications?.info(`Midnight Gambit HUD ${enabled ? "enabled" : "disabled"}.`);
 }
 
 async function mgToggleHudMode() {
@@ -254,7 +252,7 @@ Hooks.once("init", async () => {
     scope: "client",
     config: true,
     type: Boolean,
-    default: false,
+    default: true,
     onChange: value => mgApplyHudMode(value, { animate: true })
   });
 

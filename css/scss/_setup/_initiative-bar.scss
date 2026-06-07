@@ -29,6 +29,7 @@
   max-height: 90vh;
   position: relative;
   z-index: 6;
+  pointer-events: all;
 
   .mg-ini-side-wrap {
     position: relative;
@@ -52,11 +53,15 @@
     animation-duration: 6200ms;
   }
 
-  &.is-collapsed .mg-ini-side-wrap {
-    transform: translateX(calc(100% - 5px));
+  &.is-collapsed {
+    pointer-events: none;
 
-    .mg-ini-side-handle {
-      left: -2.25rem;
+    .mg-ini-side-wrap {
+      transform: translateX(calc(100% - 5px));
+
+      .mg-ini-side-handle {
+        left: -2.25rem;
+      }
     }
   }
 

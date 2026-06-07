@@ -1754,6 +1754,24 @@ function mgBindLeftSidebarContent(root, tabId) {
 		}
 	});
 
+	root.querySelector("[data-mg-settings-world]")?.addEventListener("click", () => {
+		try {
+			new WorldConfig().render(true);
+		} catch (err) {
+			ui.notifications?.warn("Could not open Edit World.");
+			console.warn("MG UI | Edit World failed.", err);
+		}
+	});
+
+	root.querySelector("[data-mg-settings-users]")?.addEventListener("click", () => {
+		try {
+			new UserManagement().render(true);
+		} catch (err) {
+			ui.notifications?.warn("Could not open User Management.");
+			console.warn("MG UI | User Management failed.", err);
+		}
+	});
+
 	root.querySelector("[data-mg-settings-invites]")?.addEventListener("click", () => {
 		try {
 			new InvitationLinks().render(true);
@@ -3105,8 +3123,8 @@ function mgRenderPlayerSidebarContent() {
 		return `
 			<div class="mg-left-empty character-empty">
 				<i class="fa-solid fa-user"></i>
-				<h2>No character assigned.</h2>
-				<p>Open Player Settings and assign a character to use this sidebar.</p>
+				<h2>No character selected</h2>
+				<p>Head to the Players tab, right click yourself, and select character to use this sidebar.</p>
 			</div>
 		`;
 	}
@@ -4640,37 +4658,67 @@ function mgRenderGmSidebarContent() {
 }
 
 function mgRenderSettingsSidebarContent() {
+	const gameSettings = `
+		<button type="button" class="mg-left-action" data-mg-settings-config>
+			<i class="fa-solid fa-gears"></i>
+			Configure Settings
+		</button>
+
+		<button type="button" class="mg-left-action" data-mg-settings-controls>
+			<i class="fa-solid fa-gamepad"></i>
+			Configure Controls
+		</button>
+
+		<button type="button" class="mg-left-action" data-mg-settings-modules>
+			<i class="fa-solid fa-cube"></i>
+			Manage Modules
+		</button>
+
+		<button type="button" class="mg-left-action" data-mg-settings-world>
+			<i class="fa-solid fa-globe"></i>
+			Edit World
+		</button>
+
+		<button type="button" class="mg-left-action" data-mg-settings-users>
+			<i class="fa-solid fa-users"></i>
+			User Management
+		</button>
+	`;
+
+	const accessLogout = `
+		<button type="button" class="mg-left-action" data-mg-settings-invites>
+			<i class="fa-solid fa-link"></i>
+			Invitation Links
+		</button>
+
+		<button type="button" class="mg-left-action" data-mg-settings-logout>
+			<i class="fa-solid fa-right-from-bracket"></i>
+			Log out
+		</button>
+
+		<button type="button" class="mg-left-action" data-mg-settings-setup>
+			<i class="fa-solid fa-door-open"></i>
+			Return to Setup
+		</button>
+	`;
+
 	return `
 		<section class="mg-left-section">
-			<button type="button" class="mg-left-action" data-mg-settings-config>
-				<i class="fa-solid fa-gears"></i>
-				Configure Settings
-			</button>
+			${mgRenderAccordion(null, {
+				id: "settings-game",
+				title: "Game Settings",
+				icon: "fa-solid fa-gear",
+				open: true,
+				body: gameSettings
+			})}
 
-			<button type="button" class="mg-left-action" data-mg-settings-controls>
-				<i class="fa-solid fa-gamepad"></i>
-				Configure Controls
-			</button>
-
-			<button type="button" class="mg-left-action" data-mg-settings-modules>
-				<i class="fa-solid fa-cube"></i>
-				Manage Modules
-			</button>
-
-			<button type="button" class="mg-left-action" data-mg-settings-invites>
-				<i class="fa-solid fa-link"></i>
-				Invitation Links
-			</button>
-
-			<button type="button" class="mg-left-action" data-mg-settings-logout>
-				<i class="fa-solid fa-right-from-bracket"></i>
-				Log out
-			</button>
-
-			<button type="button" class="mg-left-action" data-mg-settings-setup>
-				<i class="fa-solid fa-door-open"></i>
-				Return to Setup
-			</button>
+			${mgRenderAccordion(null, {
+				id: "settings-access",
+				title: "Access / Logout",
+				icon: "fa-solid fa-right-from-bracket",
+				open: true,
+				body: accessLogout
+			})}
 		</section>
 	`;
 }

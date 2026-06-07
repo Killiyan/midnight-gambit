@@ -244,9 +244,9 @@ export class MidnightGambitActor extends Actor {
 
     // Ensure structures
     data.gambits ??= {};
-    data.gambits.maxDrawSize ??= 3;   // existing field in your template
-    data.gambits.maxDeckSize ??= 3;   // keep as-is unless you want to scale deck size later
-    data.gambits.maxEquip ??= 3;      // NEW field for "Equipped Gambits" cap (UI can read it)
+    data.gambits.maxDrawSize ??= 3;
+    data.gambits.maxDeckSize ??= 3;
+    data.gambits.maxEquip ??= 3;
     data.gambits.cardDesign ??= "midnight";
     data.gambits.handUiEnabled ??= true;
     data.gambits.handHidden ??= [];
@@ -256,17 +256,18 @@ export class MidnightGambitActor extends Actor {
     data.unlocks ??= { trickDeck:false, aceInSleeve:false, signaturePerk:false, finalHand:false, allTiers:false, dualClass:false };
 
     if (L?.caps) {
-      // 1) Deck capacity: your table's "Gambit Draw Pool" = DECK SIZE
-      if (Number.isFinite(+L.caps.drawPool)) data.gambits.maxDeckSize = +L.caps.drawPool;
+      // Gambit Draw Pool is both the deck capacity and the draw size.
+      if (Number.isFinite(+L.caps.drawPool)) {
+        data.gambits.maxDeckSize = +L.caps.drawPool;
+        data.gambits.maxDrawSize = +L.caps.drawPool;
+        data.gambits.maxEquip = +L.caps.drawPool;
+      }
 
-      // 2) HAND SIZE (how many you can draw at once):
-      //    Levels 1–5: 3   |   6–9: 4   |   10–12: 5
-      data.gambits.maxDrawSize = (lvl >= 10) ? 5 : (lvl >= 6 ? 4 : 3);
+      
 
-      // 3) Equipped cap if you use it
-      if (Number.isFinite(+L.caps.equipMax)) data.gambits.maxEquip = +L.caps.equipMax;
+      
 
-      // 4) Tier label passthrough
+      // Tier label passthrough
       data.tier = L.caps.tier || "rookie";
     }
 

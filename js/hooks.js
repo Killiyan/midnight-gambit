@@ -880,22 +880,18 @@ async function mgMoveDescriptionHtml(move) {
 }
 
 async function mgDrawGambits(actor) {
-  const { deck = [], drawn = [], maxDrawSize = 3, locked = false } = actor.system.gambits ?? {};
+  const { deck = [], drawn = [], locked = false } = actor.system.gambits ?? {};
 
-  if (locked || drawn.length >= maxDrawSize || deck.length === 0) {
+  if (locked || deck.length === 0) {
     ui.notifications.warn("Cannot draw more cards.");
     return;
   }
 
-  const drawCount = Math.min(maxDrawSize - drawn.length, deck.length);
   const shuffled = mgShuffle(deck);
-  const drawnNow = shuffled.slice(0, drawCount);
-  const newDrawn = [...drawn, ...drawnNow];
-  const newDeck = deck.filter(id => !drawnNow.includes(id));
 
   await actor.update({
-    "system.gambits.deck": newDeck,
-    "system.gambits.drawn": newDrawn,
+    "system.gambits.deck": [],
+    "system.gambits.drawn": Array.from(new Set([...drawn, ...shuffled])),
     "system.gambits.locked": true
   });
 
