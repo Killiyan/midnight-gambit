@@ -95,7 +95,7 @@ ol li {
     }
 
     .header-button {
-      background: $mg-blue-main;
+      background: $mg-blue-4;
       border: 2px solid $mg-blue-main-2;
       color: $mg-ivory;
       padding: .5rem .75rem .5rem .5rem;
@@ -106,6 +106,7 @@ ol li {
       font-style: italic;
       text-transform: uppercase;
       display: flex;
+      gap: .5rem;
       align-items: center;
       align-self: flex-start;
       height: auto;
@@ -117,11 +118,11 @@ ol li {
       }
 
       &:hover {
-        background: $mg-blue-4;
-        color: $mg-blue-1;
+        background: $mg-blue-5;
+        color: $mg-green;
 
         i {
-          color: $mg-blue-3;
+          color: $mg-blue-1;
         }
       }
     }
@@ -477,6 +478,34 @@ ol li {
 
     .actor {
         color:$mg-ivory;
+
+        // Character sheet button tweak. Remove later if I don't like
+        button:not(.tox-tbtn):not(.inventory-bucket-toggle):not(.mg-card-toggle):not(.post-gambit):not(.status-buttons button):not(.delete-move):not(.mg-hand-order-eye):not(.mg-primary-toggle),
+        form button,
+        .dialog-button {
+          background: $mg-blue-4;
+          color: $mg-ivory;
+          border: 2px solid $mg-blue-main-2;
+          pointer-events: all;
+
+          i {
+            color: $mg-blue-2;
+          }
+
+          &:hover,
+          &:focus {
+            background: $mg-blue-5;
+            color: $mg-green;
+
+            i {
+              color: $mg-blue-1;
+            }
+          }
+
+          &:disabled {
+            pointer-events: none;
+          }
+        }
 
         .character-info {
           position: relative;
@@ -898,6 +927,7 @@ ol li {
                   color: $mg-blue-2;
                   text-transform: uppercase;
                   margin-bottom: 0;
+                  @include mg-shadow();
                 }
 
                 .capacity-controls {
@@ -946,6 +976,7 @@ ol li {
                     font-weight: 700;
                     font-size: 1rem;
                     color: $mg-ivory;
+                    @include mg-shadow();
                   }
                 }
 
@@ -968,7 +999,7 @@ ol li {
                 display: flex;
                 flex-direction: column;
                 gap: .625rem;
-                background: $mg-blue-4;
+                background: $mg-blue-5;
                 @include mg-border();
                 padding: 2rem .625rem .625rem .625rem;
                 margin-top: -1.5rem;
@@ -1734,10 +1765,6 @@ ol li {
           border: 2px solid rgba($mg-blue-3, .4);
           background: rgba($mg-blue-4, .5);
         }
-
-        .tag {
-          background: rgba($mg-blue-3, .35);
-        }
       }
     }
 
@@ -2201,8 +2228,17 @@ ol li {
 
       h2 {
         border: none;
+        display: flex;
+        gap: .5rem;
+        align-items: center;
         margin: 0;
         padding: 1.125rem 0;
+      }
+
+      .inventory-bucket-count {
+        color: $mg-blue-2;
+        font-size: .8em;
+        font-weight: 700;
       }
 
       .item-icon {
@@ -2432,6 +2468,10 @@ ol li {
 
       button {
         min-height: 3.4375rem;
+
+        i {
+          margin: 0;
+        }
       }
     }
 
@@ -2458,8 +2498,9 @@ ol li {
         height: 100%;
       }
 
-      button {
+      button.item-search-btn {
         width: 25%;
+        border-left: 0 !important;
         border-radius: 0 .5rem .5rem 0;
       }
     }
@@ -3282,10 +3323,12 @@ ol li {
     border: 2px solid $mg-blue-main-2;
     border-radius: .5rem;
     background: rgba($black, .15);
+    transition: color .5s ease, border .5s ease;
 
     i {
       margin: 0;
       color: $mg-blue-1;
+      transition: color .5s ease;
     }
   }
 

@@ -746,11 +746,11 @@
 						margin-bottom: 0;
 
 						&:hover {
-							background: $mg-blue-1;
-							color: $mg-blue-main-2;
+							background: $mg-blue-4;
+							color: $mg-green;
 
 							i {
-								color: $mg-blue-3;
+								color: $mg-blue-1;
 							}
 						}
 
@@ -1069,7 +1069,7 @@
 				}
 
 				.diricon-settings {
-					width: 50%;
+					width: 65%;
 					gap: 1rem;
 					display: flex;
 					flex-direction: column;
@@ -1083,7 +1083,7 @@
 
 					.mg-diricon-actions {
 						display: flex;
-						gap: 1rem;
+						gap: .25rem;
 
 						button {
 							margin: 0;

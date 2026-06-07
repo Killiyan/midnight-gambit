@@ -3563,6 +3563,61 @@ _mgOpenSidebarCropper() {
     // Fancy equip UI clicks (add/remove selectors as needed):
     html.on("click", ".item-equip, .item-equip-toggle, .equip-toggle, .item-equipped-label", handleEquipToggle);
 
+    const getInventoryItems = () => (
+      typeof this.actor.items?.filter === "function"
+        ? this.actor.items.filter(() => true)
+        : Array.from(this.actor.items ?? [])
+    );
+
+    const getInventoryBucketCounts = () => {
+      const items = getInventoryItems();
+
+      return {
+        favorites: items.filter(item => item?.system?.favorite).length,
+        weapons: items.filter(item => item?.type === "weapon" && !item?.system?.favorite).length,
+        armor: items.filter(item => item?.type === "armor" && !item?.system?.favorite).length,
+        misc: items.filter(item => item?.type === "misc" && !item?.system?.favorite).length
+      };
+    };
+
+    const setInventoryBucketHeaderCollapsed = (title, collapsed) => {
+      title?.classList?.toggle("is-collapsed", collapsed);
+      const icon = title?.querySelector?.(".inventory-bucket-toggle i");
+      if (icon) icon.classList.toggle("rotated", !collapsed);
+    };
+
+    const syncEmptyInventoryBuckets = () => {
+      const tab = html.find(".tab-inventory")[0];
+      if (!tab) return;
+
+      const counts = getInventoryBucketCounts();
+      for (const [bucket, count] of Object.entries(counts)) {
+        const title = tab.querySelector(`.inventory-bucket-title[data-bucket="${bucket}"]`);
+        const body = title?.nextElementSibling;
+        if (!body?.classList?.contains("inventory-bucket-body") || count > 0) continue;
+
+        setInventoryBucketHeaderCollapsed(title, true);
+        body.hidden = true;
+        body.style.maxHeight = "0px";
+        body.dataset.animating = "0";
+      }
+    };
+
+    const refreshInventoryBucketCounts = () => {
+      const tab = html.find(".tab-inventory")[0];
+      if (!tab) return;
+
+      const counts = getInventoryBucketCounts();
+
+      for (const [bucket, count] of Object.entries(counts)) {
+        const title = tab.querySelector(`.inventory-bucket-title[data-bucket="${bucket}"]`);
+        const countEl = title?.querySelector(".inventory-bucket-count");
+        if (countEl) countEl.textContent = `(${count})`;
+      }
+
+      syncEmptyInventoryBuckets();
+    };
+
     // Favorite changes (no sheet rerender)
     html.on("change", ".item-favorite", async (event) => {
       const card = event.currentTarget.closest(".inventory-card");
@@ -3591,9 +3646,13 @@ _mgOpenSidebarCropper() {
         : $tab.find(`.inventory-bucket-body[data-bucket="${bucket}"]`)[0];
 
       // If we can’t find your bucket bodies, just stop here (state still saves)
-      if (!targetBody) return;
+      if (!targetBody) {
+        refreshInventoryBucketCounts();
+        return;
+      }
 
       targetBody.appendChild(card);
+      refreshInventoryBucketCounts();
     });
 
     // Favorite toggle (moves card between buckets, no sheet rerender)
@@ -3670,6 +3729,7 @@ _mgOpenSidebarCropper() {
 
       // Move the existing card node (no duplication)
       destBody.appendChild(card);
+      refreshInventoryBucketCounts();
 
       // Optional: keep search behavior consistent if you're currently searching
       // (doesn't rerender; just re-applies existing hidden classes if you use them)
@@ -4488,6 +4548,9 @@ _mgOpenSidebarCropper() {
             if (icon) icon.classList.toggle("rotated", !collapsed); // rotated = expanded
           };
 
+          const bucketHasItems = (body) =>
+            !!body?.querySelector?.(".inventory-card, .inventory-item");
+
           // Smooth max-height animation + stable end state (hidden=true when collapsed)
           const animateBucket = (body, expand) => {
             if (!body) return Promise.resolve();
@@ -4575,10 +4638,11 @@ _mgOpenSidebarCropper() {
               if (!key) continue;
 
               const collapsed = state[key] === true;
-              setChevronState(title, collapsed);
+              const empty = !bucketHasItems(body);
+              setChevronState(title, collapsed || empty);
 
-              body.hidden = collapsed;
-              body.style.maxHeight = collapsed ? "0px" : "";
+              body.hidden = collapsed || empty;
+              body.style.maxHeight = (collapsed || empty) ? "0px" : "";
               body.dataset.animating = "0";
             }
           }
@@ -4602,6 +4666,17 @@ _mgOpenSidebarCropper() {
 
               const key = getBucketKey(title);
               if (!key) return;
+
+              if (!bucketHasItems(body)) {
+                const state = readState();
+                setChevronState(title, true);
+                body.hidden = true;
+                body.style.maxHeight = "0px";
+                body.dataset.animating = "0";
+                state[key] = true;
+                await writeState(state);
+                return;
+              }
 
               const state = readState();
               const collapsed = title.classList.contains("is-collapsed");

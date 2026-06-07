@@ -83,6 +83,31 @@
 				}
 			}
 		}
+
+		.action-buttons {
+			button {
+				border: 2px solid $mg-blue-main-2;
+				background: $mg-blue-5;
+
+				i {
+					color: $mg-blue-2;
+				}
+
+				&:hover,
+				&:focus {
+					background: $mg-blue-6;
+
+					i {
+						color: $mg-blue-1;
+					}
+				}
+
+				&:disabled {
+					background: transparent;
+					border: 2px solid $mg-blue-4;
+				}
+			}
+		}
 	}
 
 	.journal-entry-content {

@@ -46,6 +46,17 @@ Handlebars.registerHelper("filterItems", function(items, type) {
   return items.filter(item => item.type === type);
 });
 
+Handlebars.registerHelper("countInventoryBucket", function(items, bucket) {
+  const list = typeof items?.filter === "function" ? items.filter(() => true) : Array.from(items ?? []);
+
+  if (bucket === "favorites") {
+    return list.filter(item => item?.system?.favorite).length;
+  }
+
+  const type = bucket === "weapons" ? "weapon" : bucket;
+  return list.filter(item => item?.type === type && !item?.system?.favorite).length;
+});
+
 Handlebars.registerHelper("eq", function(a, b) {
   return a === b;
 });

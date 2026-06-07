@@ -1449,36 +1449,6 @@ h3 {
   }
 }
 
-#module-management {
-  color: $mg-blue-1 !important;
-
-  form {
-    @include mg-border();
-    background: $mg-blue-main;
-    padding: 1.125rem;
-    border-radius: .5rem;
-    box-shadow: 5px 5px 10px rgba(0,0,0,0.5);
-
-    #module-list {
-      margin-top: 2.125rem;
-      border-color: $mg-blue-3;
-
-      .title,
-      .package-title {
-        color: $mg-blue-1 !important;
-      }
-    }
-    
-    .package-list .package {
-      border-bottom: 1px solid $mg-blue-3;
-
-      &:last-of-type {
-        border: none;
-      }
-    }
-  }
-}
-
 p {
   @include roboto();
   line-height: 1.5;

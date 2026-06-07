@@ -762,7 +762,7 @@
               {{!-- Favorites --}}
               <div class="inventory-bucket-title mg-content" data-bucket-title="favorite"  data-bucket="favorites">
                 <span class="item-icon"><i class="fa-solid fa-star"></i></span>
-                <h2>Favorites</h2>
+                <h2>Favorites <span class="inventory-bucket-count">({{countInventoryBucket @root.actor.items "favorites"}})</span></h2>
                 <button type="button" class="inventory-bucket-toggle" aria-label="Collapse section">
                   <i class="fa-solid fa-angle-down"></i>
                 </button>                
@@ -939,7 +939,7 @@
 
               <div class="inventory-bucket-title mg-content" data-bucket-title="weapon"  data-bucket="weapons">
                 <span class="item-icon"><i class="fa-solid fa-sword"></i></span>
-                <h2>Weapons</h2>
+                <h2>Weapons <span class="inventory-bucket-count">({{countInventoryBucket @root.actor.items "weapons"}})</span></h2>
                 <button type="button" class="inventory-bucket-toggle" aria-label="Collapse section">
                   <i class="fa-solid fa-angle-down"></i>
                 </button>                
@@ -1065,7 +1065,7 @@
 
               <div class="inventory-bucket-title mg-content" data-bucket-title="armor"  data-bucket="armor">
                 <span class="item-icon"><i class="fa-solid fa-shield"></i></span>
-                <h2>Armor</h2>
+                <h2>Armor <span class="inventory-bucket-count">({{countInventoryBucket @root.actor.items "armor"}})</span></h2>
                 <button type="button" class="inventory-bucket-toggle" aria-label="Collapse section">
                   <i class="fa-solid fa-angle-down"></i>
                 </button>                
@@ -1195,7 +1195,7 @@
 
               <div class="inventory-bucket-title mg-content" data-bucket-title="misc"  data-bucket="misc">
                 <span class="item-icon"><i class="fa-solid fa-rectangles-mixed"></i></span>
-                <h2>Misc</h2>
+                <h2>Misc <span class="inventory-bucket-count">({{countInventoryBucket @root.actor.items "misc"}})</span></h2>
                 <button type="button" class="inventory-bucket-toggle" aria-label="Collapse section">
                   <i class="fa-solid fa-angle-down"></i>
                 </button>                
