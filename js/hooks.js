@@ -5410,6 +5410,20 @@ Hooks.on("renderChatMessage", (_message, html) => {
 // (prevents "scene token becomes a separate character instance")
 // ---------------------------------------------------------------------------
 
+function mgGetActorCharacterSheetImage(actor) {
+  const profileSrc = String(actor?.getFlag?.("midnight-gambit", "crops")?.profile?.src ?? "").trim();
+  return profileSrc || String(actor?.img ?? "").trim();
+}
+
+function mgResolveTokenActor(tokenDoc, data = {}) {
+  if (tokenDoc?.actor) return tokenDoc.actor;
+  const actorId = data.actorId ?? tokenDoc?.actorId;
+  if (actorId) return game.actors?.get(actorId) ?? null;
+  const actorUuid = data.actorUuid ?? tokenDoc?.actorUuid;
+  if (actorUuid) return globalThis.fromUuidSync?.(actorUuid) ?? null;
+  return null;
+}
+
 // Ensure newly-created Actors default to a linked Prototype Token
 Hooks.on("preCreateActor", (actor, data, options, userId) => {
   // Only set if not explicitly defined
@@ -5421,7 +5435,12 @@ Hooks.on("preCreateActor", (actor, data, options, userId) => {
 
 // Ensure newly-created Tokens default to linked actor data
 Hooks.on("preCreateToken", (tokenDoc, data, options, userId) => {
-  if (typeof data.actorLink === "undefined") {
-    tokenDoc.updateSource({ actorLink: true });
-  }
+  const updates = {};
+  if (typeof data.actorLink === "undefined") updates.actorLink = true;
+
+  const actor = mgResolveTokenActor(tokenDoc, data);
+  const sheetImg = mgGetActorCharacterSheetImage(actor);
+  if (sheetImg) updates["texture.src"] = sheetImg;
+
+  if (Object.keys(updates).length) tokenDoc.updateSource(updates);
 });

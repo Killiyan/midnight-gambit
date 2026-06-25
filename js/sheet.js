@@ -5534,11 +5534,22 @@ _mgOpenSidebarCropper() {
 
       // Helper: apply update + live preview
       const applyImg = async (path) => {
+        const cleanPath = String(path ?? "").trim();
+        if (!cleanPath) return;
+
         try {
-          await this.actor.update({ img: path });
+          const updates = { img: cleanPath };
+          const proto = this.actor.prototypeToken;
+          const protoSrc = proto?.texture?.src;
+
+          if (proto && (protoSrc === current || !protoSrc || protoSrc === this.actor.img)) {
+            updates["prototypeToken.texture.src"] = cleanPath;
+          }
+
+          await this.actor.update(updates);
 
           // Optional instant preview (safe no-op if selector doesn't exist)
-          const routed = foundry.utils.getRoute(path);
+          const routed = foundry.utils.getRoute(cleanPath);
           this.element.find(".profile-banner img, .profile-image").attr("src", routed);
 
           ui.notifications?.info("Profile image updated.");

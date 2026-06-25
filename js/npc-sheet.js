@@ -1038,7 +1038,7 @@ export class MidnightGambitNpcSheet extends ActorSheet {
     return [
       {
         key: "profile",
-        label: "Character Sheet",
+        label: "NPC Sheet",
         icon: "fa-solid fa-user",
         title: "Frame NPC Sheet",
         hint: "Drag to pan - Mouse wheel to zoom - Esc to cancel",
@@ -1057,6 +1057,19 @@ export class MidnightGambitNpcSheet extends ActorSheet {
         src: actorSrc,
         className: "chat-crop",
         defaultsFrom: []
+      },
+      {
+        key: "sidebar",
+        label: "NPC Sidebar",
+        icon: "fa-solid fa-crop-simple",
+        title: "Frame NPC Sidebar",
+        hint: "Drag to pan - Mouse wheel to zoom - Esc to cancel",
+        description: "This image is placed at the top of the NPC's left sidebar tab.",
+        src: actorSrc,
+        className: "sidebar-crop",
+        defaultsFrom: ["profile"],
+        saveSize: true,
+        fitAxis: "height"
       },
       {
         key: "actorSidebar",
@@ -1421,7 +1434,7 @@ export class MidnightGambitNpcSheet extends ActorSheet {
   _mgRefreshImagePlacement(key, html) {
     if (key === "profile") this._mgInitProfileCrop(html);
     if (key === "chat") ui.chat?.render?.(true);
-    if (key === "actorSidebar") {
+    if (["sidebar", "actorSidebar"].includes(key)) {
       globalThis.mgRefreshLeftSidebarContent?.();
       globalThis.MGRefreshLeftSidebarContent?.();
     }
