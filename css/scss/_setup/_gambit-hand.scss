@@ -707,6 +707,15 @@ body .gambit-hand-ui {
 		background-size: cover;
 		overflow: hidden;
 
+		&[role="button"] {
+			cursor: pointer;
+
+			&:hover,
+			&:focus {
+				transform: translateY(-1rem);
+			}
+		}
+
 		.gambit-hand-draw {
 			display: inline-flex;
 			align-items: center;
@@ -720,11 +729,20 @@ body .gambit-hand-ui {
 			z-index: 3;
 			margin: 0;
 			padding: 1rem;
+			width: 95%;
+			@include tiller();
 			text-align: center;
-			color: $mg-ivory;
+			font-weight: 800;
+			font-size: 14.5px;
+			letter-spacing: .02em;
+			line-height: 1;
+			position: relative;
 			text-transform: uppercase;
-			@include oswald();
-			@include mg-shadow();
+			color: $mg-ivory;
+			text-shadow: 5px 5px 10px $black;
+			filter: drop-shadow(0 0 0.75rem $black);
+			z-index: 3;
+			pointer-events: none;     
 		}
 	}
 }

@@ -3235,7 +3235,6 @@ ol li {
     border-radius: .625rem;
     box-shadow: 5px 5px 10px rgba(0,0,0,0.5);
   }
-
 }
 
 .tab-moves {
@@ -3617,11 +3616,12 @@ ol li {
 }
 
 /* Simple overlay editor */
-.mg-crop-editor { 
-  position: fixed; 
-  inset: 0; z-index: 10000; 
-  background: rgba($mg-blue-main-2,0.55); 
-  display: grid; 
+.mg-crop-editor {
+  position: fixed;
+  inset: 0; z-index: 10000;
+  background: rgba($mg-blue-5,0.8);
+  backdrop-filter: blur(4px);
+  display: grid;
   place-items: center;
 
   &.npc .mg-crop-stage {

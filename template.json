@@ -111,6 +111,8 @@
 			"system": {
 				"description": "",
 				"tier": "rookie",
+				"gambitType": "",
+				"gpCost": 1,
 				"tags": [],
 				"used": false
 			}
@@ -119,6 +121,8 @@
 		"system": {
 			"description": "",
 			"tags": [],
+			"moveType": "",
+			"moveSubtype": "",
 			"learned": false,
 			"npcMove": false,
 			"npcSignature": false,
@@ -211,12 +215,20 @@
 		"crew": "",
 		"gambits": {
 			"deck": [],
-			"drawn": [], 
+			"drawn": [],
 			"locked": false,
 			"maxDeckSize": 3,
 			"maxDrawSize": 3,
 			"cardDesign": "midnight",
 			"handUiEnabled": true
+		},
+		"gambitPoints": {
+			"max": 4
+		},
+		"gambitDecks": {
+			"slots": 1,
+			"equipped": "",
+			"decks": []
 		},
 		"class": "class placeholder",
 		"level": 1,

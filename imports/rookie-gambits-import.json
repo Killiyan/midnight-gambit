@@ -1,0 +1,522 @@
+[
+  {
+    "name": "You Dropped This",
+    "type": "gambit",
+    "img": "systems/midnight-gambit/assets/images/items.jpg",
+    "system": {
+      "description": "Plant evidence on someone unnoticed, or retrieve something unnoticed from their person or bag.",
+      "tier": "rookie",
+      "gambitType": "infiltration",
+      "gpCost": 1,
+      "tags": [],
+      "used": false
+    }
+  },
+  {
+    "name": "The Distraction",
+    "type": "gambit",
+    "img": "systems/midnight-gambit/assets/images/items.jpg",
+    "system": {
+      "description": "Create a scene-stealing moment (explosion, shouted accusation, dropped chandelier). Everyone in the area is distracted for a round.",
+      "tier": "rookie",
+      "gambitType": "infiltration",
+      "gpCost": 1,
+      "tags": [],
+      "used": false
+    }
+  },
+  {
+    "name": "Borrowed Badge",
+    "type": "gambit",
+    "img": "systems/midnight-gambit/assets/images/items.jpg",
+    "system": {
+      "description": "You reveal a forged credential or disguise you slipped on earlier. It won’t survive close scrutiny, but it buys you a few moments of trust or delay.",
+      "tier": "rookie",
+      "gambitType": "social",
+      "gpCost": 1,
+      "tags": [],
+      "used": false
+    }
+  },
+  {
+    "name": "I packed that",
+    "type": "gambit",
+    "img": "systems/midnight-gambit/assets/images/items.jpg",
+    "system": {
+      "description": "Reveal a mundane but useful item you “forgot” to declare earlier. It must be something small enough to carry and appropriate to your Guise. The GM may ask for a roll to determine its quality or effectiveness.",
+      "tier": "rookie",
+      "gambitType": "support",
+      "gpCost": 1,
+      "tags": [],
+      "used": false
+    }
+  },
+  {
+    "name": "Quick Feint",
+    "type": "gambit",
+    "img": "systems/midnight-gambit/assets/images/items.jpg",
+    "system": {
+      "description": "Play it cool — when you miss a melee or ranged attack, use this to force a reaction. Your target stumbles or exposes themselves, giving the next ally to attack Edge.",
+      "tier": "rookie",
+      "gambitType": "combat",
+      "gpCost": 1,
+      "tags": [],
+      "used": false
+    }
+  },
+  {
+    "name": "Soft Lock",
+    "type": "gambit",
+    "img": "systems/midnight-gambit/assets/images/items.jpg",
+    "system": {
+      "description": "Reveal that a lock, seal, checkpoint, ward, or security measure was improperly set, recently tampered with, or poorly maintained. Bypass it with a roll at Edge.",
+      "tier": "rookie",
+      "gambitType": "infiltration",
+      "gpCost": 1,
+      "tags": [],
+      "used": false
+    }
+  },
+  {
+    "name": "Catch Your Breath",
+    "type": "gambit",
+    "img": "systems/midnight-gambit/assets/images/items.jpg",
+    "system": {
+      "description": "Find a brief pocket of safety: a blind corner, fallen beam, locked door, smoke cloud, or sudden lull. Clear 2 Mortal Strain from yourself.",
+      "tier": "rookie",
+      "gambitType": "support",
+      "gpCost": 1,
+      "tags": [],
+      "used": false
+    }
+  },
+  {
+    "name": "Steady Hands",
+    "type": "gambit",
+    "img": "systems/midnight-gambit/assets/images/items.jpg",
+    "system": {
+      "description": "Focus on an anchor: a phrase, keepsake, or familiar voice. Clear 2 Soul Strain from yourself.",
+      "tier": "rookie",
+      "gambitType": "support",
+      "gpCost": 1,
+      "tags": [],
+      "used": false
+    }
+  },
+  {
+    "name": "One More Throw",
+    "type": "gambit",
+    "img": "systems/midnight-gambit/assets/images/items.jpg",
+    "system": {
+      "description": "Touch a lucky charm, ritual object, scar, phrase, or habit that steadies your nerve. Recover 3 Risk Dice.",
+      "tier": "rookie",
+      "gambitType": "support",
+      "gpCost": 1,
+      "tags": [],
+      "used": false
+    }
+  },
+  {
+    "name": "Ley Line",
+    "type": "gambit",
+    "img": "systems/midnight-gambit/assets/images/items.jpg",
+    "system": {
+      "description": "When Spark lashes out nearby, reaches for you, or leaves a trace in the scene, draw a piece of it into yourself. Recover 1 spent Spark Slot.",
+      "tier": "rookie",
+      "gambitType": "support",
+      "gpCost": 1,
+      "tags": [],
+      "used": false
+    }
+  },
+  {
+    "name": "Patch Job",
+    "type": "gambit",
+    "img": "systems/midnight-gambit/assets/images/items.jpg",
+    "system": {
+      "description": "Clear 1 Mortal Strain from yourself or an ally using whatever is nearby.",
+      "tier": "rookie",
+      "gambitType": "support",
+      "gpCost": 1,
+      "tags": [],
+      "used": false
+    }
+  },
+  {
+    "name": "Shake it Off",
+    "type": "gambit",
+    "img": "systems/midnight-gambit/assets/images/items.jpg",
+    "system": {
+      "description": "Something softens the worst of it: armor catches, footing shifts, furniture breaks, an ally shouts, or luck turns the blow. Reduce Strain by 1.",
+      "tier": "rookie",
+      "gambitType": "support",
+      "gpCost": 1,
+      "tags": [],
+      "used": false
+    }
+  },
+  {
+    "name": "Stay With Me",
+    "type": "gambit",
+    "img": "systems/midnight-gambit/assets/images/items.jpg",
+    "system": {
+      "description": "Say exactly what an ally needs to hear, or give them something familiar to hold onto. Clear 1 Soul Strain from yourself or an ally.",
+      "tier": "rookie",
+      "gambitType": "support",
+      "gpCost": 1,
+      "tags": [],
+      "used": false
+    }
+  },
+  {
+    "name": "That Doesn’t Fit…",
+    "type": "gambit",
+    "img": "systems/midnight-gambit/assets/images/items.jpg",
+    "system": {
+      "description": "Point out one detail that seems out of place. The GM tells you whether it suggests danger, opportunity, deception, or hidden value.",
+      "tier": "rookie",
+      "gambitType": "infiltration",
+      "gpCost": 1,
+      "tags": [],
+      "used": false
+    }
+  },
+  {
+    "name": "Last Known Place",
+    "type": "gambit",
+    "img": "systems/midnight-gambit/assets/images/items.jpg",
+    "system": {
+      "description": "When tracking someone or something, identify the last place it clearly passed through this scene.",
+      "tier": "rookie",
+      "gambitType": "infiltration",
+      "gpCost": 1,
+      "tags": [],
+      "used": false
+    }
+  },
+  {
+    "name": "Read the Room",
+    "type": "gambit",
+    "img": "systems/midnight-gambit/assets/images/items.jpg",
+    "system": {
+      "description": "Ask the GM who in the scene looks most nervous, eager, distracted, or out of place.",
+      "tier": "rookie",
+      "gambitType": "social",
+      "gpCost": 1,
+      "tags": [],
+      "used": false
+    }
+  },
+  {
+    "name": "I’ve Seen This Before",
+    "type": "gambit",
+    "img": "systems/midnight-gambit/assets/images/items.jpg",
+    "system": {
+      "description": "Reveal that you know a common method, trick, or pattern related to the current problem. Gain Edge on your next roll to act on it.",
+      "tier": "rookie",
+      "gambitType": "support",
+      "gpCost": 1,
+      "tags": [],
+      "used": false
+    }
+  },
+  {
+    "name": "Second Look",
+    "type": "gambit",
+    "img": "systems/midnight-gambit/assets/images/items.jpg",
+    "system": {
+      "description": "After you fail or complicate an Investigate or Survey roll, notice one minor clue anyway. It does not answer the question, but it points toward the next step.",
+      "tier": "rookie",
+      "gambitType": "infiltration",
+      "gpCost": 1,
+      "tags": [],
+      "used": false
+    }
+  },
+  {
+    "name": "Soft Spot",
+    "type": "gambit",
+    "img": "systems/midnight-gambit/assets/images/items.jpg",
+    "system": {
+      "description": "Notice one harmless preference, habit, or vulnerability in an NPC. Gain Edge on your next gentle or persuasive approach.",
+      "tier": "rookie",
+      "gambitType": "social",
+      "gpCost": 1,
+      "tags": [],
+      "used": false
+    }
+  },
+  {
+    "name": "Wrong Assumption",
+    "type": "gambit",
+    "img": "systems/midnight-gambit/assets/images/items.jpg",
+    "system": {
+      "description": "Someone underestimates you, mistakes your role, or reads the situation incorrectly for a moment. Gain Edge on your next action that exploits it.",
+      "tier": "rookie",
+      "gambitType": "social",
+      "gpCost": 1,
+      "tags": [],
+      "used": false
+    }
+  },
+  {
+    "name": "Hidden Pocket",
+    "type": "gambit",
+    "img": "systems/midnight-gambit/assets/images/items.jpg",
+    "system": {
+      "description": "Reveal a tiny concealed compartment, fold, sleeve, boot space, or hiding spot that can hold one small object.",
+      "tier": "rookie",
+      "gambitType": "infiltration",
+      "gpCost": 1,
+      "tags": [],
+      "used": false
+    }
+  },
+  {
+    "name": "Lucky Angle",
+    "type": "gambit",
+    "img": "systems/midnight-gambit/assets/images/items.jpg",
+    "system": {
+      "description": "Shift your position slightly to get line of sight, reach, or leverage on something nearby.",
+      "tier": "rookie",
+      "gambitType": "combat",
+      "gpCost": 1,
+      "tags": [],
+      "used": false
+    }
+  },
+  {
+    "name": "Real Lucky",
+    "type": "gambit",
+    "img": "systems/midnight-gambit/assets/images/items.jpg",
+    "system": {
+      "description": "When you fail and the odds turn mean, something breaks your way: a missed step, a lucky bounce, a loose grip, a bad angle, or a moment of hesitation. Gain 1 additional STO.",
+      "tier": "rookie",
+      "gambitType": "support",
+      "gpCost": 1,
+      "tags": [],
+      "used": false
+    }
+  },
+  {
+    "name": "Right Tool, Wrong Job",
+    "type": "gambit",
+    "img": "systems/midnight-gambit/assets/images/items.jpg",
+    "system": {
+      "description": "Use an object in a way it was absolutely not meant to be used. Gain Edge on one roll where improvisation, leverage, or quick thinking matters.",
+      "tier": "rookie",
+      "gambitType": "support",
+      "gpCost": 1,
+      "tags": [],
+      "used": false
+    }
+  },
+  {
+    "name": "On Your Mark",
+    "type": "gambit",
+    "img": "systems/midnight-gambit/assets/images/items.jpg",
+    "system": {
+      "description": "Give an ally a quick signal, opening, warning, or perfectly timed nod. Their next roll gains Edge if they act on it immediately.",
+      "tier": "rookie",
+      "gambitType": "support",
+      "gpCost": 1,
+      "tags": [],
+      "used": false
+    }
+  },
+  {
+    "name": "Just a distraction",
+    "type": "gambit",
+    "img": "systems/midnight-gambit/assets/images/items.jpg",
+    "system": {
+      "description": "Create a quick diversion—start a fire, knock over shelves, trigger a minor alarm—that gives you or an ally a chance to reposition, hide, or disengage. Roll 2d6 to determine how much chaos it causes (GM sets scale on success/failure).",
+      "tier": "rookie",
+      "gambitType": "infiltration",
+      "gpCost": 2,
+      "tags": [],
+      "used": false
+    }
+  },
+  {
+    "name": "We’ve Met Before",
+    "type": "gambit",
+    "img": "systems/midnight-gambit/assets/images/items.jpg",
+    "system": {
+      "description": "Reveal that you and an NPC in this scene have a shared past. You may ask the GM one question about the relationship or create one truth about them.",
+      "tier": "rookie",
+      "gambitType": "social",
+      "gpCost": 2,
+      "tags": [],
+      "used": false
+    }
+  },
+  {
+    "name": "Bend It",
+    "type": "gambit",
+    "img": "systems/midnight-gambit/assets/images/items.jpg",
+    "system": {
+      "description": "Your attack hits an enemy behind cover, around corners, or in a way they didn’t expect. Even without line of sight.",
+      "tier": "rookie",
+      "gambitType": "combat",
+      "gpCost": 2,
+      "tags": [],
+      "used": false
+    }
+  },
+  {
+    "name": "Sound the Crash",
+    "type": "gambit",
+    "img": "systems/midnight-gambit/assets/images/items.jpg",
+    "system": {
+      "description": "You detonate or cause a loud impact elsewhere in the scene — gunfire, an exploding light fixture, etc. All enemies not already engaged are distracted for one round.",
+      "tier": "rookie",
+      "gambitType": "combat",
+      "gpCost": 2,
+      "tags": [],
+      "used": false
+    }
+  },
+  {
+    "name": "Pre-Scouted",
+    "type": "gambit",
+    "img": "systems/midnight-gambit/assets/images/items.jpg",
+    "system": {
+      "description": "You declare that you’ve already scoped out a room or hallway during prep. You may ask the GM one question about its layout, traps, guards, or exits—and the GM must answer truthfully",
+      "tier": "rookie",
+      "gambitType": "infiltration",
+      "gpCost": 2,
+      "tags": [],
+      "used": false
+    }
+  },
+  {
+    "name": "Trail Sign",
+    "type": "gambit",
+    "img": "systems/midnight-gambit/assets/images/items.jpg",
+    "system": {
+      "description": "Mark the current path, room, or route so the crew can find their way back, avoiding the retreat penalty.",
+      "tier": "rookie",
+      "gambitType": "support",
+      "gpCost": 2,
+      "tags": [],
+      "used": false
+    }
+  },
+  {
+    "name": "Dry Kindling",
+    "type": "gambit",
+    "img": "systems/midnight-gambit/assets/images/items.jpg",
+    "system": {
+      "description": "Reveal that you kept a small useful travel supply dry, safe, or hidden. Firestarter, chalk, cord, needle, ration, charm, etc.",
+      "tier": "rookie",
+      "gambitType": "support",
+      "gpCost": 2,
+      "tags": [],
+      "used": false
+    }
+  },
+  {
+    "name": "Scout’s Pause",
+    "type": "gambit",
+    "img": "systems/midnight-gambit/assets/images/items.jpg",
+    "system": {
+      "description": "Before the crew commits to a visible path or point of interest, ask the GM one question about immediate danger signs.",
+      "tier": "rookie",
+      "gambitType": "infiltration",
+      "gpCost": 2,
+      "tags": [],
+      "used": false
+    }
+  },
+  {
+    "name": "Found Cover",
+    "type": "gambit",
+    "img": "systems/midnight-gambit/assets/images/items.jpg",
+    "system": {
+      "description": "Reveal nearby cover, shelter, shadow, brush, debris, or a defensible nook that one person can use briefly.",
+      "tier": "rookie",
+      "gambitType": "combat",
+      "gpCost": 2,
+      "tags": [],
+      "used": false
+    }
+  },
+  {
+    "name": "A Safer Way",
+    "type": "gambit",
+    "img": "systems/midnight-gambit/assets/images/items.jpg",
+    "system": {
+      "description": "When you would trigger a minor hazard while moving carefully, reduce or delay its effect long enough to warn the crew.",
+      "tier": "rookie",
+      "gambitType": "support",
+      "gpCost": 2,
+      "tags": [],
+      "used": false
+    }
+  },
+  {
+    "name": "Emergency Patch",
+    "type": "gambit",
+    "img": "systems/midnight-gambit/assets/images/items.jpg",
+    "system": {
+      "description": "You quickly rig together a fix or brace with what’s around — restoring 3 Mortal Strain to yourself or an ally.",
+      "tier": "rookie",
+      "gambitType": "support",
+      "gpCost": 2,
+      "tags": [],
+      "used": false
+    }
+  },
+  {
+    "name": "Left it Loose",
+    "type": "gambit",
+    "img": "systems/midnight-gambit/assets/images/items.jpg",
+    "system": {
+      "description": "Reveal that one mundane object nearby was left unsecured, unlatched, poorly tied, or easy to move.",
+      "tier": "rookie",
+      "gambitType": "infiltration",
+      "gpCost": 2,
+      "tags": [],
+      "used": false
+    }
+  },
+  {
+    "name": "Spare Hand",
+    "type": "gambit",
+    "img": "systems/midnight-gambit/assets/images/items.jpg",
+    "system": {
+      "description": "Reveal that you kept one hand, tool, pocket, or small item free despite the chaos. Ignore a setback from being restrained, burdened, or rushed.",
+      "tier": "rookie",
+      "gambitType": "support",
+      "gpCost": 2,
+      "tags": [],
+      "used": false
+    }
+  },
+  {
+    "name": "Let Me Explain",
+    "type": "gambit",
+    "img": "systems/midnight-gambit/assets/images/items.jpg",
+    "system": {
+      "description": "When someone is about to cut you off, accuse you, or throw you out, buy enough time to make one roll.",
+      "tier": "rookie",
+      "gambitType": "social",
+      "gpCost": 2,
+      "tags": [],
+      "used": false
+    }
+  },
+  {
+    "name": "Still Standing",
+    "type": "gambit",
+    "img": "systems/midnight-gambit/assets/images/items.jpg",
+    "system": {
+      "description": "When you would mark your final open Strain box, reveal what stopped the worst of it: a flask, charm, armor plate, lucky angle, stubborn grip, or impossible timing. Stay at 4 Strain instead.",
+      "tier": "rookie",
+      "gambitType": "combat",
+      "gpCost": 2,
+      "tags": [],
+      "used": false
+    }
+  }
+]

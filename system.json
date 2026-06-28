@@ -62,7 +62,7 @@
   "packs": [
     {
       "name": "guises",
-      "label": "Midnight Gambit Guises",
+      "label": "MG | Guises",
       "system": "midnight-gambit",
       "path": "packs/guises.db",
       "type": "Item",
@@ -70,7 +70,7 @@
     },
     {
       "name": "gambits",
-      "label": "Midnight Gambit Gambits",
+      "label": "MG | Gambits",
       "system": "midnight-gambit",
       "path": "packs/gambits.db",
       "type": "Item",
@@ -78,7 +78,7 @@
     },
     {
       "name": "moves",
-      "label": "Midnight Gambit Moves",
+      "label": "MG | Moves",
       "system": "midnight-gambit",
       "path": "packs/moves.db",
       "type": "Item",
@@ -86,7 +86,7 @@
     },
     {
       "name": "items",
-      "label": "Midnight Gambit Items",
+      "label": "MG | Items",
       "system": "midnight-gambit",
       "path": "packs/items.db",
       "type": "Item",

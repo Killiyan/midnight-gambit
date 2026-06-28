@@ -1,6 +1,51 @@
 const MG_UI_NS = "midnight-gambit";
 const MG_COMPENDIUM_USER_ORDER_FLAG = "compendiumSidebarOrder";
-const MG_COMPENDIUM_CARD_IMAGE = "systems/midnight-gambit/assets/images/items.jpg";
+const MG_COMPENDIUM_DEFAULT_IMAGE = "systems/midnight-gambit/assets/images/items.jpg";
+const MG_COMPENDIUM_HEADER_IMAGE = "systems/midnight-gambit/assets/images/items.jpg";
+
+const MG_COMPENDIUM_IMAGES = {
+  "midnight-gambit.guises": "systems/midnight-gambit/assets/images/compendium-guises.png",
+  "midnight-gambit.gambits": "systems/midnight-gambit/assets/images/compendium-gambits.png",
+  "midnight-gambit.moves": "systems/midnight-gambit/assets/images/compendium-moves.png",
+  "midnight-gambit.items": "systems/midnight-gambit/assets/images/compendium-items.png"
+};
+
+function mgGetCompendiumCardImage(pack) {
+	const metadata = pack?.metadata ?? {};
+	const ids = [
+		pack?.collection,
+		metadata.id,
+		metadata.package && metadata.name ? `${metadata.package}.${metadata.name}` : null
+	].map(id => String(id ?? ""));
+
+	return ids.map(id => MG_COMPENDIUM_IMAGES[id]).find(Boolean) || MG_COMPENDIUM_DEFAULT_IMAGE;
+}
+
+function mgGetCompendiumPackFromApp(app) {
+	const candidates = [
+		app?.collection,
+		app?.pack,
+		app?.document,
+		app?.options?.collection,
+		app?.options?.pack,
+		app?.id
+	];
+
+	for (const candidate of candidates) {
+		if (!candidate) continue;
+		if (typeof candidate === "string") {
+			const id = candidate.replace(/^Compendium\./, "");
+			const pack = game.packs?.get(id);
+			if (pack) return pack;
+			continue;
+		}
+
+		const id = mgGetPackId(candidate);
+		if (id) return game.packs?.get(id) ?? candidate;
+	}
+
+	return null;
+}
 
 const MG_COMPENDIUM_TYPES = [
 	["Actor", "Actors"],
@@ -159,6 +204,17 @@ function mgIsPackLocked(pack) {
 	return !!(pack?.locked ?? pack?.metadata?.locked);
 }
 
+function mgIsWorldCompendium(pack) {
+	const metadata = pack?.metadata ?? {};
+	const packageId = String(metadata.package ?? pack?.packageName ?? pack?.package ?? "").toLowerCase();
+	const collectionId = String(pack?.collection ?? metadata.id ?? "").toLowerCase();
+	const path = String(metadata.path ?? pack?.path ?? "").replace(/\\/g, "/").toLowerCase();
+
+	return packageId === "world"
+		|| collectionId.startsWith("world.")
+		|| (path.includes("/worlds/") && path.includes("/packs/"));
+}
+
 function mgIsDefaultCompendiumImage(src) {
 	const value = String(src ?? "").toLowerCase();
 	return !value
@@ -172,19 +228,21 @@ function mgApplyCompendiumPopupImages(app, html) {
 	const root = html?.jquery ? html[0] : html?.[0] ?? html ?? app?.element?.[0] ?? app?.element;
 	if (!root?.querySelectorAll) return;
 
+	const image = mgGetCompendiumCardImage(mgGetCompendiumPackFromApp(app));
+
 	root.querySelectorAll(".header-banner").forEach(banner => {
-		banner.style.setProperty("background-image", `url('${mgCssUrl(MG_COMPENDIUM_CARD_IMAGE)}')`, "important");
+		banner.style.setProperty("background-image", `url('${mgCssUrl(image)}')`, "important");
 		banner.classList.add("mg-compendium-default-banner");
 
 		banner.querySelectorAll("img").forEach(img => {
-			img.src = MG_COMPENDIUM_CARD_IMAGE;
+			img.src = image;
 			img.classList.add("mg-compendium-default-image");
 		});
 	});
 
 	root.querySelectorAll(".directory-item img, img.document-image, img.thumbnail").forEach(img => {
 		if (!mgIsDefaultCompendiumImage(img.getAttribute("src"))) return;
-		img.src = MG_COMPENDIUM_CARD_IMAGE;
+		img.src = image;
 		img.classList.add("mg-compendium-default-image");
 	});
 }
@@ -548,6 +606,20 @@ async function mgAppendCompendiumToUserOrder(folderId, packId) {
 	await game.user?.setFlag?.(MG_UI_NS, MG_COMPENDIUM_USER_ORDER_FLAG, order);
 }
 
+async function mgRemoveCompendiumFromUserOrder(packId) {
+	const token = mgCompendiumOrderToken("pack", packId);
+	const order = mgGetCompendiumUserOrder();
+	let dirty = false;
+
+	for (const [key, tokens] of Object.entries(order)) {
+		if (!Array.isArray(tokens) || !tokens.includes(token)) continue;
+		order[key] = tokens.filter(existing => existing !== token);
+		dirty = true;
+	}
+
+	if (dirty) await game.user?.setFlag?.(MG_UI_NS, MG_COMPENDIUM_USER_ORDER_FLAG, order);
+}
+
 /* Compendium creation
 ----------------------------------------------------------------------*/
 async function mgCreateCompendium(folderId = null) {
@@ -638,6 +710,7 @@ function mgOpenCompendiumContextMenu(packId, anchor, row, event = null) {
 
 	const canManage = game.user?.isGM;
 	const locked = mgIsPackLocked(pack);
+	const canDelete = canManage && mgIsWorldCompendium(pack);
 	const menu = document.createElement("nav");
 	menu.className = "mg-scene-context-menu mg-compendium-context-menu";
 	menu.dataset.mgCompendiumContextMenu = mgGetPackId(pack);
@@ -646,6 +719,7 @@ function mgOpenCompendiumContextMenu(packId, anchor, row, event = null) {
 		${canManage ? `<button type="button" data-mg-compendium-action="lock"><i class="fa-solid ${locked ? "fa-lock-open" : "fa-lock"}"></i> ${locked ? "Unlock Editing" : "Lock Editing"}</button>` : ""}
 		${canManage ? `<button type="button" data-mg-compendium-action="duplicate"><i class="fa-regular fa-copy"></i> Duplicate Compendium</button>` : ""}
 		${canManage ? `<button type="button" data-mg-compendium-action="import-all"><i class="fa-solid fa-file-import"></i> Import All Content</button>` : ""}
+		${canDelete ? `<button type="button" class="danger" data-mg-compendium-action="delete"><i class="fa-solid fa-trash"></i> Delete</button>` : ""}
 	`;
 
 	menu.addEventListener("click", async clickEvent => {
@@ -728,6 +802,9 @@ async function mgRunCompendiumAction(pack, action) {
 				break;
 			case "import-all":
 				await mgImportAllCompendiumContent(pack);
+				break;
+			case "delete":
+				await mgDeleteCompendium(pack);
 				break;
 		}
 	} catch (err) {
@@ -813,6 +890,36 @@ async function mgImportAllCompendiumContent(pack) {
 		return;
 	}
 	ui.notifications?.warn("Foundry does not expose import all for this compendium here.");
+}
+
+async function mgDeleteCompendium(pack) {
+	if (!mgIsWorldCompendium(pack)) {
+		ui.notifications?.warn("Only world compendiums can be deleted.");
+		return;
+	}
+
+	const label = mgGetPackLabel(pack);
+	const confirmed = await Dialog.confirm({
+		title: `Delete ${label}?`,
+		content: `<p>Delete <strong>${mgEsc(label)}</strong> and all documents inside it?</p>`,
+		yes: () => true,
+		no: () => false,
+		defaultYes: false
+	});
+
+	if (!confirmed) return;
+
+	const packId = mgGetPackId(pack);
+	if (typeof pack.deleteCompendium === "function") await pack.deleteCompendium();
+	else if (typeof mgGetCompendiumCollectionClass()?.deleteCompendium === "function") await mgGetCompendiumCollectionClass().deleteCompendium(packId);
+	else if (typeof game.packs?.deleteCompendium === "function") await game.packs.deleteCompendium(packId);
+	else {
+		ui.notifications?.warn("Foundry does not expose compendium deletion here.");
+		return;
+	}
+
+	await mgRemoveCompendiumFromUserOrder(packId);
+	globalThis.mgRefreshCompendiumSidebarContent?.();
 }
 
 async function mgRunCompendiumFolderAction(folder, action) {
@@ -910,15 +1017,15 @@ function mgRenderCompendiumSidebarContent() {
 }
 
 function mgRenderCompendiumsCard() {
-	return `
-		<section class="mg-active-scene mg-active-compendiums">
-			<div class="mg-active-scene-card mg-active-compendiums-card" style="background-image: url('${mgCssUrl(MG_COMPENDIUM_CARD_IMAGE)}');">
-				<span class="mg-active-scene-scrim"></span>
-				<span class="mg-active-scene-kicker"><i class="fa-solid fa-box-archive"></i> Directory</span>
-				<span class="mg-active-scene-title">Compendiums</span>
-			</div>
-		</section>
-	`;
+  return `
+    <section class="mg-active-scene mg-active-compendiums">
+      <div class="mg-active-scene-card mg-active-compendiums-card" style="background-image: url('${mgCssUrl(MG_COMPENDIUM_HEADER_IMAGE)}');">
+        <span class="mg-active-scene-scrim"></span>
+        <span class="mg-active-scene-kicker"><i class="fa-solid fa-box-archive"></i> Directory</span>
+        <span class="mg-active-scene-title">Compendiums</span>
+      </div>
+    </section>
+  `;
 }
 
 function mgBuildCompendiumFolderTree(packs, { showAllFolders = true } = {}) {
@@ -1072,6 +1179,7 @@ function mgRenderCompendiumRow(pack) {
 	const id = mgGetPackId(pack);
 	const label = mgGetPackLabel(pack);
 	const type = mgGetPackType(pack);
+	const image = mgGetCompendiumCardImage(pack);
 	const folderId = mgGetPackFolderId(pack) || "";
 	const locked = mgIsPackLocked(pack);
 	const inaccessible = !mgCanUserSeePack(pack);
@@ -1087,7 +1195,7 @@ function mgRenderCompendiumRow(pack) {
 		>
 			<button type="button" class="mg-scene-row-main mg-compendium-row-main" data-mg-open-pack="${mgAttr(id)}">
 				<span class="mg-actor-row-image mg-compendium-row-image" aria-hidden="true">
-					<img src="${mgEsc(MG_COMPENDIUM_CARD_IMAGE)}" alt="" />
+					<img src="${mgEsc(image)}" alt="" />
 				</span>
 				<span class="mg-scene-row-scrim"></span>
 				<span class="mg-scene-row-title mg-compendium-row-title">

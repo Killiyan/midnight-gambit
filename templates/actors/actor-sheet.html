@@ -184,8 +184,9 @@
                 <!-- Attribute Header -->
                 <div class="attribute">
                   <span class="attribute-modifier"
-                        data-tooltip="Click to roll | Right click to edit base Attribute"
+                        data-tooltip="Click to roll | Right click to edit Attribute"
                         data-key="{{key}}"
+                        data-current="{{lookup ../system.attributes key}}"
                         data-base="{{lookup ../system.baseAttributes key}}">
                     {{#if (gte (lookup ../system.attributes key) 0)}}
                       +{{lookup ../system.attributes key}}
@@ -598,10 +599,10 @@
         <div class="gambit-tab">
 
           <div class="gambit-settings">
-            <button type="button" class="draw-gambit"><i class="fa-solid fa-cards"></i> Draw Card</button>
             <button type="button" class="reset-gambit-deck"><i class="fa-solid fa-arrows-spin"></i> Reset Deck</button>
           </div>
 
+          <!--Gambit Hand-->
           <div class="gambit-hand">
             
             <span class="hand-size gambit-counter" title="Cards in hand">
@@ -627,9 +628,6 @@
                   <div class="status-buttons">
                     <button type="button" class="play-gambit" data-item-id="{{_id}}" title="Play Gambit">
                       <i class="fa-solid fa-play"></i>
-                    </button>
-                    <button type="button" class="return-to-deck" data-item-id="{{_id}}" title="Return to Deck">
-                      <i class="fa-solid fa-rotate-left"></i>
                     </button>
                   </div>
                 </div>
@@ -670,37 +668,44 @@
             {{/if}}
           </div>
 
-          <div class="gambit-deck">
+          <!--Gambit Deck-->
+          <section class="mg-deck-builder-panel mg-deck-design-{{gambitDeckDesign}}">
             <h2 class="gambit-banner">Deck</h2>
 
-            <span class="deck-size gambit-counter" title="Gambits owned / draw pool">
-              Draw Pool: {{gambitCounts.poolCount}}/{{gambitCounts.deckMax}}
+            <span class="mg-deck-slots-label">
+              Deck Slots: {{gambitCounts.deckBuildCount}}/{{gambitCounts.deckSlots}}
             </span>
 
-            {{#each gambitDeck}}
-              <div class="gambit-card" data-source="deck" draggable="true" data-item-id="{{_id}}">
+            <div class="mg-deck-slot-grid">
+              {{#each gambitDeckCards as |deck|}}
+                <article class="mg-deck-slot-card {{#if deck.isEmpty}}is-empty{{/if}} {{#if deck.isEquipped}}is-equipped{{/if}} {{#if deck.isOverBudget}}is-over-budget{{/if}}" data-deck-id="{{deck.id}}" data-deck-slot="{{deck.slot}}">
+                  <div class="mg-deck-card-name">{{deck.name}}</div>
 
-                <div class="gambit-title">
-                  <button type="button" class="post-gambit" data-item-id="{{_id}}" title="Post to Chat">
-                    <i class="fa-solid fa-message"></i>
-                    {{name}}
-                  </button>
-                </div>
+                  <span class="mg-deck-gp-badge"><i class="fa-kit fa-gambit-points"></i> {{deck.gpSpent}}/{{deck.gpMax}}</span>
 
+                  <div class="mg-deck-card-footer">
 
-                <div class="gambit-wrapper">
-                  <div class="gambit-description">
-                    {{{system.description}}}
+                    {{#if deck.isEmpty}}
+                      <button type="button" class="mg-create-gambit-deck" data-deck-slot="{{deck.slot}}" title="Create Deck">
+                        <i class="fa-solid fa-dice-d20"></i>
+                        <span>Create Deck</span>
+                      </button>
+                    {{else}}
+                      <button type="button" class="mg-equip-gambit-deck" data-deck-id="{{deck.id}}" data-deck-slot="{{deck.slot}}" title="Equip Deck">
+                        <i class="fa-solid fa-hand"></i>
+                        <span>{{#if deck.isEquipped}}Equipped{{else}}Equip{{/if}}</span>
+                      </button>
+
+                      <button type="button" class="mg-edit-gambit-deck" data-deck-id="{{deck.id}}" data-deck-slot="{{deck.slot}}" title="Edit Deck">
+                        <i class="fa-solid fa-dice-d20"></i>
+                        <span>Edit Deck</span>
+                      </button>
+                    {{/if}}
                   </div>
-
-                  <div class="status-buttons">
-                    <button type="button" class="discard-card" data-item-id="{{_id}}" title="Discard"><i class="fa-solid fa-recycle"></i></button>
-                    <button type="button" class="remove-from-hand" data-item-id="{{_id}}" title="Remove from Deck"><i class="fa-solid fa-delete-left"></i></button>
-                  </div>
-                </div>
-              </div>
-            {{/each}}
-          </div>
+                </article>
+              {{/each}}
+            </div>
+          </section>          
 
           <div class="gambit-discard">
             <h2 class="gambit-banner">Discard</h2>

@@ -3,6 +3,13 @@ import { MGInitiativeBar } from "./initiative-bar.js";
 import { MGInitiativeSidebar } from "./initiative-sidebar.js";
 import { MGInitiativeController } from "./initiative-controller.js";
 import { evaluateRoll, mgGetStrainRollEffects } from "./roll-utils.js";
+import {
+  getGambitCostForTier,
+  getGambitDeckSlotsForLevel,
+  getGambitPointsForLevel,
+  normalizeGambitTier,
+  normalizeGambitType
+} from "../config.js";
 
 
 async function mgEnsureBasicUserDrawingPermission() {
@@ -485,7 +492,7 @@ function renderGambitHandCards(actor, cardsWrap, handHtml, drawnItems, deckIds) 
         </button>
       `
       : `
-        <p class="gambit-hand-empty-message">Create a deck from the compendium before drawing.</p>
+        <p class="gambit-hand-empty-message">Create or select a deck on your Character Sheet</p>
       `;
 
     if (deckIds.length) {
@@ -493,6 +500,22 @@ function renderGambitHandCards(actor, cardsWrap, handHtml, drawnItems, deckIds) 
         ev.preventDefault();
         ev.stopPropagation();
         await mgDrawGambits(actor);
+      });
+    } else {
+      empty.setAttribute("role", "button");
+      empty.setAttribute("tabindex", "0");
+      empty.title = "Open Gambit Decks";
+
+      const openDecks = (ev) => {
+        ev.preventDefault();
+        ev.stopPropagation();
+        mgOpenActorGambitTab(actor);
+      };
+
+      empty.addEventListener("click", openDecks);
+      empty.addEventListener("keydown", ev => {
+        if (ev.key !== "Enter" && ev.key !== " ") return;
+        openDecks(ev);
       });
     }
 
@@ -528,6 +551,27 @@ function renderGambitHandCards(actor, cardsWrap, handHtml, drawnItems, deckIds) 
 
     cardsWrap.appendChild(div);
   });
+}
+
+function mgOpenActorGambitTab(actor) {
+  if (!actor) return;
+
+  try {
+    localStorage.setItem(`mg.tab.${actor.id}.${game.user.id}.main`, "gambits");
+  } catch (_) {
+    // Local storage can be unavailable in unusual browser privacy modes.
+  }
+
+  actor.sheet?.render?.(true);
+
+  window.setTimeout(() => {
+    const element = actor.sheet?.element;
+    const root = element?.[0] ?? element;
+    if (!root) return;
+
+    root.querySelector?.('nav.sheet-tabs [data-tab="gambits"]')?.click?.();
+    root.querySelector?.('.tab[data-tab="gambits"]')?.scrollIntoView?.({ block: "nearest" });
+  }, 120);
 }
 
 function renderMoveHandCards(actor, cardsWrap, handHtml, moveItems) {
@@ -4604,6 +4648,64 @@ Hooks.once("ready", () => {
 });
 
 Hooks.once("ready", async () => {
+  if (!game.user.isGM) return;
+
+  const getGambitSchemaUpdate = (item) => {
+    if (item?.type !== "gambit") return null;
+
+    const tier = normalizeGambitTier(item.system?.tier);
+    const gambitType = normalizeGambitType(item.system?.gambitType);
+    const gpCost = getGambitCostForTier(tier, item.system?.gpCost);
+    const up = {};
+
+    if (item.system?.tier !== tier) up["system.tier"] = tier;
+    if ((item.system?.gambitType ?? "") !== gambitType) up["system.gambitType"] = gambitType;
+    if (Number(item.system?.gpCost) !== gpCost) up["system.gpCost"] = gpCost;
+
+    return Object.keys(up).length ? up : null;
+  };
+
+  for (const item of game.items?.contents ?? []) {
+    const up = getGambitSchemaUpdate(item);
+    if (!up) continue;
+    try { await item.update(up, { render: false }); } catch (e) {
+      console.warn("MG world gambit schema migrate failed:", item, e);
+    }
+  }
+
+  for (const actor of game.actors?.contents ?? []) {
+    const updates = [];
+    for (const item of actor.items ?? []) {
+      const up = getGambitSchemaUpdate(item);
+      if (up) updates.push({ _id: item.id, ...up });
+    }
+
+    if (!updates.length) continue;
+    try { await actor.updateEmbeddedDocuments("Item", updates, { render: false }); } catch (e) {
+      console.warn("MG embedded gambit schema migrate failed:", actor, e);
+    }
+  }
+
+  const characters = game.actors?.filter?.(a => a.type === "character") ?? [];
+  for (const a of characters) {
+    const sys = a.system ?? {};
+    const lvl = Math.max(1, Math.min(12, Number(sys.level) || 1));
+    const gpMax = getGambitPointsForLevel(lvl);
+    const deckSlots = getGambitDeckSlotsForLevel(lvl);
+    const up = {};
+
+    if (Number(sys.gambitPoints?.max) !== gpMax) up["system.gambitPoints.max"] = gpMax;
+    if (Number(sys.gambitDecks?.slots) !== deckSlots) up["system.gambitDecks.slots"] = deckSlots;
+    if (typeof sys.gambitDecks?.equipped !== "string") up["system.gambitDecks.equipped"] = "";
+    if (!Array.isArray(sys.gambitDecks?.decks)) up["system.gambitDecks.decks"] = [];
+
+    if (Object.keys(up).length) {
+      try { await a.update(up, { render: false }); } catch (e) {
+        console.warn("MG character gambit schema migrate failed:", a, e);
+      }
+    }
+  }
+
   const crews = game.actors?.filter?.(a => a.type === "crew") ?? [];
   for (const a of crews) {
     const sys = a.system ?? {};

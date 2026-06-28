@@ -31,15 +31,43 @@
     {{#if (eq item.type "gambit")}}
       <div class="form-group mg-content">
         <label>Gambit Tier</label>
-        <select name="system.tier">
-          <option value="rookie" {{#if (eq system.tier "rookie")}}selected{{/if}}>Rookie</option>
-          <option value="trick" {{#if (eq system.tier "trick")}}selected{{/if}}>Trick Deck</option>
-          <option value="ace" {{#if (eq system.tier "ace")}}selected{{/if}}>Ace in the Sleeve</option>
-          <option value="final" {{#if (eq system.tier "final")}}selected{{/if}}>Final Hand</option>
-          <option value="crew" {{#if (eq system.tier "crew")}}selected{{/if}}>Crew</option>
+        <select name="system.tier" class="mg-gambit-tier-select">
+          {{#each gambitTiers}}
+            <option value="{{this.id}}" {{#if (eq ../system.tier this.id)}}selected{{/if}}>{{this.label}}</option>
+          {{/each}}
         </select>
       </div>
-    {{/if}}    
+
+      <div class="form-group mg-content">
+        <label>Gambit Type</label>
+        <select name="system.gambitType">
+          <option value="" {{#unless system.gambitType}}selected{{/unless}}>Unassigned</option>
+          {{#each gambitTypes}}
+            <option value="{{this.id}}" {{#if (eq ../system.gambitType this.id)}}selected{{/if}}>{{this.label}}</option>
+          {{/each}}
+        </select>
+      </div>
+
+      <div class="form-group mg-content">
+        <label>GP Cost</label>
+        {{#if isRookieGambit}}
+          <div class="form-fields">
+            <label class="checkbox">
+              <input type="radio" name="system.gpCost" value="1" {{#if (eq system.gpCost 1)}}checked{{/if}} />
+              1 GP
+            </label>
+            <label class="checkbox">
+              <input type="radio" name="system.gpCost" value="2" {{#if (eq system.gpCost 2)}}checked{{/if}} />
+              2 GP
+            </label>
+          </div>
+        {{else}}
+          <div class="form-fields">
+            <input type="number" name="system.gpCost" value="{{system.gpCost}}" readonly />
+          </div>
+        {{/if}}
+      </div>
+    {{/if}}
 
     {{#if (eq itemType "weapon")}}
       <div class="wrapper mg-content">
@@ -139,6 +167,26 @@
             <input type="checkbox" name="system.isSignature" {{#if system.isSignature}}checked{{/if}} />
             <p>If checked, this item will post and render as a Signature Perk instead of a Move.</p>
           </div>
+        </div>
+
+        <div class="form-group">
+          <label>Move Type</label>
+          <select name="system.moveType">
+            <option value="" {{#unless system.moveType}}selected{{/unless}}>Unassigned</option>
+            {{#each moveTypes}}
+              <option value="{{this.id}}" {{#if (eq ../system.moveType this.id)}}selected{{/if}}>{{this.label}}</option>
+            {{/each}}
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>Sub Type</label>
+          <select name="system.moveSubtype">
+            <option value="" {{#unless system.moveSubtype}}selected{{/unless}}>Unassigned</option>
+            {{#each moveSubtypes}}
+              <option value="{{this.id}}" {{#if (eq ../system.moveSubtype this.id)}}selected{{/if}}>{{this.label}}</option>
+            {{/each}}
+          </select>
         </div>
       </div>
     {{/if}}    

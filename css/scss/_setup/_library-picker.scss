@@ -1,0 +1,851 @@
+/* Moves, Gambits, and Items Picker
+----------------------------------------------------------------------*/
+
+.gambit-tab {
+  .mg-deck-builder-panel {
+    position: relative;
+    min-height: 21rem;
+    padding: 3.5rem 2.125rem 2.125rem 5.125rem;
+    overflow: hidden;
+    z-index: 2;
+    background: $mg-blue-4;
+    border-radius: .5rem;
+    box-shadow: 4px 4px 10px rgba($black, .5);
+    @include mg-border();
+
+    .gambit-banner {
+      left: 0;
+      top: 0;
+    }
+
+    .mg-deck-slots-label {
+      position: absolute;
+      top: .65rem;
+      left: 6.5rem;
+      @include roboto();
+      font-size: .9rem;
+      font-weight: 700;
+      font-style: italic;
+      color: $mg-blue-3;
+    }
+
+    .mg-deck-slot-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 2.125rem;
+      align-items: stretch;
+    }
+
+    .mg-deck-slot-card {
+      position: relative;
+      min-height: 17.5rem;
+      aspect-ratio: 3 / 4.15;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      overflow: hidden;
+      isolation: isolate;
+      background-color: $mg-blue-main;
+      background-position: center;
+      background-size: cover;
+      border-radius: .5rem;
+      @include mg-shadow();
+
+      &:before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        z-index: 0;
+        background: rgba($mg-blue-5, .18);
+      }
+
+      &.is-empty {
+        opacity: .82;
+        border-color: rgba($mg-blue-3, .8);
+        border-style: dashed;
+
+        &:before {
+          background: rgba($mg-blue-5, .62);
+        }
+
+        .mg-deck-card-name,
+        .mg-deck-gp-badge {
+          display: none;
+        }
+      }
+
+      &.is-over-budget {
+        border-color: $mg-alert-2;
+
+        .mg-deck-gp-badge {
+          color: $mg-alert-2;
+        }
+      }
+
+      &.is-equipped {
+        border-color: $mg-green;
+
+        .mg-equip-gambit-deck {
+          color: $mg-green;
+          border-color: $mg-green;
+        }
+      }
+    }
+
+    &.mg-deck-design-midnight .mg-deck-slot-card {
+      background-image: url("../assets/images/Gambits-Midnight.jpg");
+    }
+
+    &.mg-deck-design-pearl .mg-deck-slot-card {
+      background-image: url("../assets/images/Gambits-Pearl.jpg");
+    }
+
+    &.mg-deck-design-cobalt .mg-deck-slot-card {
+      background-image: url("../assets/images/Gambits-Cobalt.jpg");
+    }
+
+    &.mg-deck-design-noir .mg-deck-slot-card {
+      background-image: url("../assets/images/Gambits-Noir.jpg");
+    }
+
+    .mg-deck-card-name {
+      position: relative;
+      z-index: 1;
+      padding: 1.5rem;
+      @include oswald();
+      width: 95%;
+      @include tiller();
+      text-align: center;
+      font-weight: 800;
+      font-size: 18.5px;
+      overflow-wrap: break-word;
+      letter-spacing: .02em;
+      line-height: 1;
+      position: relative;
+      text-transform: uppercase;
+      color: $mg-ivory;
+      text-shadow: 5px 5px 10px $black;
+      filter: drop-shadow(0 0 0.75rem $black);
+      z-index: 3;
+      pointer-events: none;     
+    }
+
+    .mg-deck-gp-badge {
+      min-height: 2.75rem;
+      background: $mg-blue-main;
+      border: 2px solid $mg-blue-main-2;
+      border-radius: .5rem;
+      color: $mg-blue-2;
+      box-shadow: none;
+      width: auto;
+      @include tiller();
+      font-weight: 700;
+      font-size: 1rem;
+      color: $mg-blue-1;
+      position: absolute;
+      top: 5px;
+      right: 5px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: .5rem;
+      padding: 1rem;
+
+      i {
+        font-size: 1.25rem;
+        color: $mg-blue-2;
+      }
+    }    
+
+    .mg-deck-card-footer {
+      position: absolute;
+      z-index: 2;
+      left: 6px;
+      bottom: 6px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: .5rem;
+      width: calc(100% - 10px);
+
+      .mg-deck-gp-badge,
+      button {
+        min-height: 2.75rem;
+        background: $mg-blue-main;
+        border: 2px solid $mg-blue-main-2;
+        border-radius: .5rem;
+        color: $mg-blue-2;
+        box-shadow: none;
+      }
+
+      .mg-deck-gp-badge {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: .35rem;
+        @include oswald();
+        font-size: .9rem;
+        font-weight: 700;
+      }
+
+      button {
+        margin: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: .45rem;
+        padding: .35rem .5rem;
+        font-size: .78rem;
+        line-height: 1;
+        white-space: nowrap;
+
+        i {
+          color: $mg-blue-3;
+          font-size: .95rem;
+        }
+      }
+    }
+  }
+}
+
+.mg-gambit-library-app {
+	.window-header {
+		display: none;
+	}
+
+	&.window-app .window-content {
+		height: 100%;
+		padding: 0;
+		background: $mg-blue-6;
+	}
+
+	&.window-app {
+		border: none;
+	}
+}
+
+.mg-gambit-library-page-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 10050;
+  background: rgba($mg-blue-5, .8);
+  backdrop-filter: blur(4px);
+  pointer-events: auto;
+}
+
+.mg-gambit-deck-name-dialog {
+  z-index: 10070 !important;
+}
+
+@keyframes mgGambitLibraryCardEnter {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.mg-gambit-library {
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: $mg-blue-6;
+  border: 3px solid $mg-blue-main-2;
+  border-radius: .5rem;
+  color: $mg-blue-1;
+
+  h1,
+  h2,
+  h3 {
+    margin: 0;
+    color: $mg-ivory;
+    text-transform: uppercase;
+  }
+
+  &.is-focused {
+    .mg-gambit-library-stage {
+      overflow: hidden;
+    }
+  }
+
+  .mg-gambit-library-header {
+    min-height: 5.25rem;
+    padding: 1.25rem 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background:
+      /* subtle pearly sheen (top-center) */
+      radial-gradient(circle at 50% 0%,
+      rgba(197, 212, 236, 0.22) 0%,
+      rgba(197, 212, 236, 0.10) 35%,
+      rgba(18, 33, 55, 0.00) 70%
+      ),
+      /* texture */
+      url("../assets/images/filigree.jpg");
+    background-size: cover, cover;
+    background-position: center, center;
+    background-blend-mode: soft-light, multiply;
+    background-color: $mg-blue-4;
+    box-shadow: 0 .75rem 2rem rgba($black, .45);
+    overflow: hidden;
+    position: relative;
+    backdrop-filter: blur(2px);
+    border-bottom: $mg-blue-main-2 2px solid;
+
+    h1 {
+      font-size: 2rem;
+      @include tiller();
+      font-weight: 700;
+      margin: 0;
+      line-height: 1;
+      @include mg-shadow();
+    }
+
+    .mg-gambit-library-deck {
+      display: flex;
+      align-items: center;
+      align-self: flex-start;
+      gap: .75rem;
+      margin-top: .65rem;
+      padding: .45rem 2.5rem .45rem 5rem;
+      @include roboto();
+      color: $mg-blue-2;
+      font-size: .85rem;
+      font-weight: 700;
+      background: rgba($mg-blue-6, .72);
+      border: 2px solid $mg-blue-main-2;
+      border-radius: .45rem;
+      box-shadow: 0 .35rem 1rem rgba($black, .2);
+	    position: relative;
+      overflow: hidden;
+
+      .mg-gambit-library-deck-name {
+        max-width: 20rem;
+        color: $mg-blue-1;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        @include tiller();
+      }
+
+      .mg-gambit-library-deck-gp {
+        color: $mg-blue-2;
+        @include tiller();
+        white-space: nowrap;
+        padding: .5rem;
+        position: absolute;
+        left: -2px;
+        background: $mg-blue-main;
+        @include mg-border();
+        display: flex;
+        gap: .5rem;
+
+        i {
+          font-size: .875rem;
+          margin: 0;
+        }
+      }
+
+      .mg-gambit-library-edit-deck-name {
+        width: 2rem;
+        height: 2.125rem;
+        aspect-ratio: 1 / 1;
+        position: absolute;
+        right: -3px;
+        top: -1.25px;
+        padding: 0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: $mg-blue-main;
+        border: 2px solid $mg-blue-main-2;
+        border-radius: 0 .5rem .5rem 0;
+        transition: background .5s ease, border .5s ease;
+
+        i {
+          margin: 0;
+          color: $mg-blue-2;
+          transition: color .5s ease;
+        }
+
+        &:hover {
+          border-color: $mg-green;
+          background: $mg-blue-4;
+
+          i {
+            color: $mg-green;
+          }
+        }
+      }
+    }
+
+    .mg-gambit-library-window-close {
+      aspect-ratio: 1/1;
+	    width: auto;
+      margin: 0;
+      padding: .5rem 1rem;
+      display: inline-flex;
+      align-items: center;
+      gap: .65rem;
+      background: $mg-blue-main;
+      border: 2px solid $mg-blue-main-2;
+      transition: background .5s ease, border .5s ease;
+
+      i {
+        color: $mg-blue-1;
+		    margin: 0;
+        transition: color .5s ease;
+      }
+
+      &:hover {
+        border-color: $mg-green;
+        background: $mg-blue-4;
+
+        i {
+          color: $mg-green;
+        }
+      }      
+    }
+  }
+
+  .mg-gambit-library-main {
+    min-height: 0;
+    flex: 1;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 17.5rem;
+  }
+
+  .mg-gambit-library-stage {
+    position: relative;
+    min-height: 0;
+    padding: 1.5rem;
+    overflow: auto;
+    background: $mg-blue-6;
+
+    .mg-gambit-library-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(8.25rem, 1fr));
+      gap: 1.5rem;
+      align-items: start;
+      opacity: 1;
+      transform: translateY(0);
+      transition: opacity .5s ease, transform .5s ease;
+
+      &.is-filtering {
+        opacity: 0;
+        transform: translateY(.5rem);
+        pointer-events: none;
+      }
+    }
+
+    .mg-gambit-library-card {
+      width: 100%;
+      aspect-ratio: 3 / 4.15;
+      margin: 0;
+      padding: 0;
+      display: block;
+      background: transparent;
+      border: 0;
+      box-shadow: none;
+      opacity: 1;
+      transform: translateY(0);
+      transition: opacity .5s ease, transform .5s ease;
+      will-change: opacity, transform;
+
+      &.pre-enter {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+
+      &.is-entering {
+        animation: mgGambitLibraryCardEnter .5s ease both;
+        animation-delay: var(--mg-card-enter-delay, 0ms);
+      }
+
+      &:hover,
+      &:focus {
+        background: transparent;
+        transform: translateY(-.45rem);
+      }
+
+      &.is-in-deck {
+        .mg-gambit-library-card-art {
+          opacity: .4;
+        }
+      }
+
+      &.is-single-word {
+        .mg-gambit-library-card-name {
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+      }
+    }
+
+    .mg-gambit-library-card-art,
+    .mg-gambit-library-focus-card {
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background-position: center;
+      background-size: cover;
+      border: none;
+      border-radius: .35rem;
+      box-shadow: 5px 6px 0 rgba($black, .35);
+      transition: opacity .5s ease;
+
+      &:before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        z-index: 0;
+        background: rgba($mg-blue-5, .18);
+      }
+    }
+
+    .mg-gambit-library-card-art {
+      width: 100%;
+      height: 100%;
+      aspect-ratio: 3 / 4.15;
+
+      .mg-gambit-library-card-name {
+        position: relative;
+        z-index: 1;
+        padding: 1rem .5rem;
+				width: 95%;
+				@include tiller();
+        font-style: normal;
+				text-align: center;
+				font-weight: 800;
+				font-size: 18.5px;
+				letter-spacing: .02em;
+				line-height: 1;
+				position: relative;
+				text-transform: uppercase;
+				color: $mg-ivory;
+				text-shadow: 5px 5px 10px $black;
+				filter: drop-shadow(0 0 0.75rem $black);
+				z-index: 3;
+				pointer-events: none;
+      }
+
+      .mg-gambit-library-tier {
+        position: absolute;
+        z-index: 2;
+        top: -.5rem;
+        right: -.5rem;
+        width: 2.5rem;
+        height: 2.5rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        filter: drop-shadow(0 0 4px rgba($black,.8));
+
+        img {
+          width: 100%;
+          height: 100%;
+          display: block;
+          object-fit: contain;
+          background: transparent;
+          border: 0;
+          border-radius: 0;
+        }
+      }
+
+      .mg-gambit-library-cost,
+      .mg-gambit-library-selected {
+        position: absolute;
+        z-index: 2;
+        min-height: 1.7rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: $mg-blue-main;
+        border: 2px solid $mg-blue-main-2;
+        color: $mg-blue-2;
+        @include roboto();
+        font-size: .75rem;
+        font-weight: 700;
+      }
+
+      .mg-gambit-library-cost {
+        bottom: -2px;
+        padding: .25rem;
+        font-size: 1.25rem;
+        @include tiller();
+        color: $mg-blue-1;
+        display: flex;
+        gap: .5rem;
+        width: 100%;
+        border-radius: 0 0 .5rem .5rem;
+
+        i {
+          font-size: 1rem;
+          color: $mg-blue-2;
+        }
+      }
+
+      .mg-gambit-library-selected {
+        right: -.15rem;
+        bottom: -.15rem;
+        width: 1.8rem;
+        color: $mg-green;
+      }
+    }
+
+    .mg-gambit-library-empty {
+      padding: 2rem;
+      border: 2px dashed $mg-blue-main-2;
+      border-radius: .5rem;
+      text-align: center;
+      color: $mg-blue-2;
+    }
+
+    .mg-gambit-library-focus-backdrop {
+      position: absolute;
+      inset: 0;
+      z-index: 5;
+      background: rgba($mg-blue-6, .82);
+      backdrop-filter: blur(5px);
+    }
+
+    .mg-gambit-library-focus {
+      position: absolute;
+      inset: 0;
+      z-index: 6;
+      display: grid;
+      grid-template-columns: minmax(10rem, 14rem) minmax(0, 37rem);
+      gap: 2.25rem;
+      align-items: center;
+      padding: 3rem 4rem;
+
+      .mg-gambit-library-focus-close {
+        position: absolute;
+        top: 1rem;
+        right: 1rem;
+        width: 2.5rem;
+        height: 2.5rem;
+        margin: 0;
+        padding: 0;
+        background: $mg-blue-main;
+        @include mg-border();
+
+        i {
+          margin: 0;
+          color: $mg-blue-2;
+        }
+
+        &:hover {
+          background: $mg-blue-4;
+          border-color: $mg-green;
+
+          i {
+            color: $mg-green;
+          }
+        }
+      }
+
+      .mg-gambit-library-focus-card {
+        width: 100%;
+        aspect-ratio: 3 / 4.15;
+
+        span {
+          position: relative;
+          z-index: 1;
+          padding: 1rem;
+          @include tiller();
+          font-style: normal;
+          text-align: center;
+          font-weight: 800;
+          font-size: 18.5px;
+          letter-spacing: .02em;
+          line-height: 1;
+          position: relative;
+          text-transform: uppercase;
+          color: $mg-ivory;
+          text-shadow: 5px 5px 10px $black;
+          filter: drop-shadow(0 0 0.75rem $black);
+          z-index: 3;
+          pointer-events: none;
+        }
+      }
+
+      .mg-gambit-library-focus-copy {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 1rem;
+        @include mg-shadow();
+      }
+
+      .mg-gambit-library-focus-title {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0;
+
+        h2 {
+          @include tiller();
+          font-size: 1.85rem;
+          color: $mg-blue-1;
+          padding-right: 1rem;
+        }
+
+        span {
+          @include tiller();
+          font-size: .875rem;
+          font-weight: 800;
+          border-left: $mg-blue-main-2 solid 2px;
+          padding: 0 1rem;
+          width: auto;
+
+          i {
+            font-size: .875rem;
+          }
+
+          &:first-of-type() {
+            color: $mg-blue-1;
+          }
+
+          &:nth-of-type(2n) {
+            color: $mg-blue-2;
+          }
+
+          &:nth-of-type(3n) {
+            color: $mg-blue-2;
+            background: $mg-blue-4;
+            @include mg-border();
+            padding: .25rem 1rem;
+            border-radius: .5rem;
+            display: flex;
+            gap: .5rem;
+            align-items: center;
+          }
+        }
+      }
+
+      .mg-gambit-library-description {
+        @include roboto();
+        color: $mg-blue-2;
+        font-size: 1rem;
+        line-height: 1.35;
+      }
+
+      .mg-gambit-library-description {
+        p {
+          margin: 0 0 .75rem;
+        }
+      }
+
+      .mg-gambit-library-toggle-card {
+        min-height: 3rem;
+        padding: .5rem 1rem;
+        display: inline-flex;
+        align-items: center;
+        gap: .65rem;
+        background: $mg-blue-4;
+        border: 2px solid $mg-blue-main-2;
+        color: $mg-ivory;
+        width: auto;
+        pointer-events: all;
+
+        &:disabled {
+          pointer-events: none;
+        }
+
+        i {
+          color: $mg-blue-3;
+          font-size: 1rem;
+        }
+
+        &:hover {
+          background-color: $mg-blue-5;
+          color: $mg-green;
+          border-color: $mg-green;
+
+          i {
+            color: $mg-blue-1;
+          }
+        }
+
+        &:disabled {
+          cursor: not-allowed;
+          background: $mg-blue-5;
+          border-color: $mg-blue-main-2;
+          color: $mg-blue-3;
+          opacity: .75;
+
+          i {
+            color: $mg-blue-3;
+          }
+        }
+      }
+    }
+  }
+
+  .mg-gambit-library-filters {
+    padding: 1.75rem;
+    overflow: auto;
+    background: $mg-blue-4;
+    border-left: 3px solid $mg-blue-main-2;
+
+    .mg-gambit-library-search,
+    .mg-gambit-library-filter-group {
+      display: flex;
+      flex-direction: column;
+      gap: .5rem;
+      padding-bottom: 1.5rem;
+      margin-bottom: 1.5rem;
+      border-bottom: 2px solid $mg-blue-main-2;
+
+      h3 {
+        @include oswald();
+        color: $mg-ivory;
+        font-size: 1.1rem;
+        font-weight: 800;
+        text-transform: uppercase;
+      }
+
+	  span {
+		@include roboto();
+		color: $mg-blue-2;
+		text-transform: none;
+		font-size: 1rem;
+	  }
+
+      input[type="search"] {
+        height: 2.5rem;
+        padding: .5rem;
+        border-radius: .5rem;
+      }
+
+      label {
+        display: flex;
+        align-items: center;
+        gap: .5rem;
+        @include roboto();
+        color: $mg-blue-1;
+        font-size: .95rem;
+        font-weight: 700;
+		margin: 0;
+      }
+
+      input[type="checkbox"] {
+        width: 1.65rem;
+        height: 1.65rem;
+        flex: 0 0 1.65rem;
+        padding: 0;
+        border-radius: .35rem;
+        appearance: none;
+      }
+    }
+  }
+}

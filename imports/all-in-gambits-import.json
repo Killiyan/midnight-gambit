@@ -1,0 +1,184 @@
+[
+  {
+    "name": "Right Where I Want You",
+    "type": "gambit",
+    "img": "systems/midnight-gambit/assets/images/gambit-all-in.png",
+    "system": {
+      "description": "The primary threat stepped into your trap. They lose their next action or become fully exposed for one round.",
+      "tier": "all-in",
+      "gambitType": "combat",
+      "gpCost": 4,
+      "tags": [],
+      "used": false
+    }
+  },
+  {
+    "name": "Pile On",
+    "type": "gambit",
+    "img": "systems/midnight-gambit/assets/images/gambit-all-in.png",
+    "system": {
+      "description": "When one ally lands an Ace against a target, the crew joins the assault. Everyone who can act against that target may strike immediately.",
+      "tier": "all-in",
+      "gambitType": "combat",
+      "gpCost": 4,
+      "tags": [],
+      "used": false
+    }
+  },
+  {
+    "name": "Perfect Opening",
+    "type": "gambit",
+    "img": "systems/midnight-gambit/assets/images/gambit-all-in.png",
+    "system": {
+      "description": "Declare one target, obstacle, or defense fully exposed. The next successful action against it is treated as an Ace.",
+      "tier": "all-in",
+      "gambitType": "combat",
+      "gpCost": 4,
+      "tags": [],
+      "used": false
+    }
+  },
+  {
+    "name": "Not Today",
+    "type": "gambit",
+    "img": "systems/midnight-gambit/assets/images/gambit-all-in.png",
+    "system": {
+      "description": "When you or an ally would be removed from the scene, captured, killed, or completely overwhelmed, prevent it.",
+      "tier": "all-in",
+      "gambitType": "support",
+      "gpCost": 4,
+      "tags": [],
+      "used": false
+    }
+  },
+  {
+    "name": "No One Left Behind",
+    "type": "gambit",
+    "img": "systems/midnight-gambit/assets/images/gambit-all-in.png",
+    "system": {
+      "description": "When the crew would be split, trapped, or forced to abandon someone, reveal the move that keeps everyone together.",
+      "tier": "all-in",
+      "gambitType": "support",
+      "gpCost": 4,
+      "tags": [],
+      "used": false
+    }
+  },
+  {
+    "name": "Full House",
+    "type": "gambit",
+    "img": "systems/midnight-gambit/assets/images/gambit-all-in.png",
+    "system": {
+      "description": "Fill your STO to maximum.",
+      "tier": "all-in",
+      "gambitType": "support",
+      "gpCost": 4,
+      "tags": [],
+      "used": false
+    }
+  },
+  {
+    "name": "Overflow",
+    "type": "gambit",
+    "img": "systems/midnight-gambit/assets/images/gambit-all-in.png",
+    "system": {
+      "description": "Restore all spent Spark Slots.",
+      "tier": "all-in",
+      "gambitType": "support",
+      "gpCost": 4,
+      "tags": [],
+      "used": false
+    }
+  },
+  {
+    "name": "One Last Run",
+    "type": "gambit",
+    "img": "systems/midnight-gambit/assets/images/gambit-all-in.png",
+    "system": {
+      "description": "Recover all spent Risk Dice.",
+      "tier": "all-in",
+      "gambitType": "support",
+      "gpCost": 4,
+      "tags": [],
+      "used": false
+    }
+  },
+  {
+    "name": "Loaded Odds",
+    "type": "gambit",
+    "img": "systems/midnight-gambit/assets/images/gambit-all-in.png",
+    "system": {
+      "description": "Roll 5d6. Choose one die. Add it to your current roll as a bonus, or replace one die in the roll with it.",
+      "tier": "all-in",
+      "gambitType": "support",
+      "gpCost": 4,
+      "tags": [],
+      "used": false
+    }
+  },
+  {
+    "name": "Ghost the Trail",
+    "type": "gambit",
+    "img": "systems/midnight-gambit/assets/images/gambit-all-in.png",
+    "system": {
+      "description": "You and the crew vanish from the immediate scene, leaving behind confusion, decoys, false trails, or a perfect blind spot.",
+      "tier": "all-in",
+      "gambitType": "infiltration",
+      "gpCost": 4,
+      "tags": [],
+      "used": false
+    }
+  },
+  {
+    "name": "Hold your Breath",
+    "type": "gambit",
+    "img": "systems/midnight-gambit/assets/images/gambit-all-in.png",
+    "system": {
+      "description": "Before danger lands, every crew member may move, take cover, draw, hide, or reposition once.",
+      "tier": "all-in",
+      "gambitType": "support",
+      "gpCost": 4,
+      "tags": [],
+      "used": false
+    }
+  },
+  {
+    "name": "Cut the Signal",
+    "type": "gambit",
+    "img": "systems/midnight-gambit/assets/images/gambit-all-in.png",
+    "system": {
+      "description": "Choose one enemy. For the rest of the scene, they cannot command allies, call reinforcements, or coordinate a group.",
+      "tier": "all-in",
+      "gambitType": "combat",
+      "gpCost": 4,
+      "tags": [],
+      "used": false
+    }
+  },
+  {
+    "name": "Hard Pause",
+    "type": "gambit",
+    "img": "systems/midnight-gambit/assets/images/gambit-all-in.png",
+    "system": {
+      "description": "Stop one enemy, hazard, or hostile force from escalating for one round. They cannot attack, flee, trigger a prepared move, or worsen the scene until the pause breaks.",
+      "tier": "all-in",
+      "gambitType": "combat",
+      "gpCost": 4,
+      "tags": [],
+      "used": false
+    }
+  },
+  {
+    "name": "The Answer Was Here!",
+    "type": "gambit",
+    "img": "systems/midnight-gambit/assets/images/gambit-all-in.png",
+    "system": {
+      "description": "Ask the GM for the crucial clue, true cause, real target, hidden route, or next step tied to the current problem. The answer appears in the scene.",
+      "tier": "all-in",
+      "gambitType": "infiltration",
+      "gpCost": 4,
+      "tags": [],
+      "used": false
+    }
+  }
+]

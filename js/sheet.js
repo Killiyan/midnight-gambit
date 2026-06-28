@@ -1,4 +1,5 @@
 import { evaluateRoll, mgApplyStrainAttributePenalty, mgGetStrainEffectBadge, mgGetStrainRollEffects } from "./roll-utils.js";
+import { GambitDeckBuilderApplication } from "./gambit-deck-builder.js";
 
 const MG_ACTOR_GUISE_IMAGE = "systems/midnight-gambit/assets/images/guise.jpg";
 const MG_ACTOR_DEFAULT_IMAGE = "icons/svg/mystery-man.svg";
@@ -22,6 +23,74 @@ function mgGetDifficultyModifier() {
   } catch (_) {
     return 0;
   }
+}
+
+function mgResolvePrimaryGuise(actor) {
+  const ref = actor?.system?.guiseId || actor?.system?.guise;
+  if (!ref) return null;
+
+  let guise = actor?.items?.get(ref) ?? null;
+  if (!guise && typeof fromUuidSync === "function") {
+    try { guise = fromUuidSync(ref); } catch (_) {}
+  }
+
+  return guise?.type === "guise" ? guise : null;
+}
+
+function mgGetPrimaryGuiseAttributeModifier(actor, key) {
+  const guise = mgResolvePrimaryGuise(actor);
+  const mod = Number(guise?.system?.modifiers?.[key] ?? 0);
+  return Number.isFinite(mod) ? mod : 0;
+}
+
+function mgGetDeckGambitRefs(deck) {
+  const refs = deck?.gambits ?? deck?.cards ?? deck?.items ?? [];
+  return Array.isArray(refs) ? refs : [];
+}
+
+function mgResolveDeckGambit(actor, ref) {
+  if (!ref) return null;
+
+  if (typeof ref === "string") {
+    let doc = actor?.items?.get(ref) ?? null;
+    if (!doc && typeof fromUuidSync === "function") {
+      try { doc = fromUuidSync(ref); } catch (_) {}
+    }
+    return doc;
+  }
+
+  const id = ref.id ?? ref.itemId ?? ref._id ?? null;
+  const uuid = ref.uuid ?? ref.itemUuid ?? null;
+  let doc = actor?.items?.get(id) ?? null;
+  if (!doc && uuid && typeof fromUuidSync === "function") {
+    try { doc = fromUuidSync(uuid); } catch (_) {}
+  }
+  return doc;
+}
+
+function mgGetDeckGpSpent(actor, deck) {
+  return mgGetDeckGambitRefs(deck).reduce((total, ref) => {
+    const item = mgResolveDeckGambit(actor, ref);
+    const refCost = typeof ref === "object" ? Number(ref.cost ?? ref.gpCost) : NaN;
+    const itemCost = Number(item?.system?.gpCost);
+    const cost = Number.isFinite(itemCost) ? itemCost : (Number.isFinite(refCost) ? refCost : 0);
+    return total + Math.max(0, cost);
+  }, 0);
+}
+
+function mgGetDeckItemIds(actor, deck) {
+  const ids = [];
+  const seen = new Set();
+
+  for (const ref of mgGetDeckGambitRefs(deck)) {
+    const item = mgResolveDeckGambit(actor, ref);
+    const id = item?.id ?? (typeof ref === "string" ? ref : ref?.id ?? ref?.itemId ?? ref?._id);
+    if (!id || seen.has(String(id))) continue;
+    seen.add(String(id));
+    ids.push(String(id));
+  }
+
+  return ids;
 }
 
 export class MidnightGambitActorSheet extends ActorSheet {
@@ -62,9 +131,37 @@ export class MidnightGambitActorSheet extends ActorSheet {
         discardCount,
         poolCount,
         deckMax,
+        gpMax: Number(context.system.gambitPoints?.max ?? 4) || 4,
+        deckSlots: Number(context.system.gambitDecks?.slots ?? 1) || 1,
+        deckBuildCount: Array.isArray(context.system.gambitDecks?.decks) ? context.system.gambitDecks.decks.length : 0,
         deckAtCap: poolCount >= deckMax,
         deckRemaining: Math.max(0, deckMax - poolCount)
       };
+
+      const deckBuildSlots = context.gambitCounts.deckSlots;
+      const deckBuildGpMax = context.gambitCounts.gpMax;
+      const storedDecks = Array.isArray(context.system.gambitDecks?.decks)
+        ? context.system.gambitDecks.decks
+        : [];
+      const totalDeckCards = Math.max(deckBuildSlots, storedDecks.length);
+      const equippedDeckId = String(context.system.gambitDecks?.equipped ?? "");
+
+      context.gambitDeckDesign = String(context.system.gambits?.cardDesign ?? "midnight");
+      context.gambitDeckCards = Array.from({ length: totalDeckCards }, (_, index) => {
+        const deck = storedDecks[index] ?? null;
+        const id = String(deck?.id ?? "");
+        const gpSpent = deck ? mgGetDeckGpSpent(this.actor, deck) : 0;
+        return {
+          slot: index + 1,
+          id,
+          name: deck?.name || `Deck ${index + 1}`,
+          gpSpent,
+          gpMax: deckBuildGpMax,
+          isEmpty: !deck,
+          isEquipped: Boolean(id && id === equippedDeckId),
+          isOverBudget: gpSpent > deckBuildGpMax
+        };
+      });
 
 
       // === Guise presence drives Level UI ===
@@ -308,9 +405,9 @@ export class MidnightGambitActorSheet extends ActorSheet {
       const p = state?.pending || {};
       context.pending = {
         attributes: Number(p.attributes || 0),
-        skills: Number(p.skills || 0),
         moves: Number(p.moves || 0),
         sparkSlots: Number(p.sparkSlots || 0),
+        expertise: Number(p.expertise || 0),
         signaturePerk: Number(p.signaturePerk || 0),
         finalHandDiscoverable: Number(p.finalHandDiscoverable || 0)
       };
@@ -1618,6 +1715,70 @@ _mgOpenSidebarCropper() {
     }
 
     this._mgBindSheetWideDrop(html);
+
+    html.find(".mg-create-gambit-deck").off("click.mgDecks").on("click.mgDecks", async (ev) => {
+      ev.preventDefault();
+
+      const sys = this.actor.system ?? {};
+      const decks = Array.isArray(sys.gambitDecks?.decks)
+        ? foundry.utils.deepClone(sys.gambitDecks.decks)
+        : [];
+      const slots = Number(sys.gambitDecks?.slots ?? 1) || 1;
+
+      if (decks.length >= slots) {
+        ui.notifications?.warn("No empty deck slots available.");
+        return;
+      }
+
+      const nextNumber = decks.length + 1;
+      const id = foundry.utils.randomID?.(16) ?? `deck-${Date.now()}`;
+      decks.push({
+        id,
+        name: `Deck ${nextNumber}`,
+        gambits: []
+      });
+
+      await this.actor.update({ "system.gambitDecks.decks": decks });
+    });
+
+    html.find(".mg-edit-gambit-deck").off("click.mgDecks").on("click.mgDecks", (ev) => {
+      ev.preventDefault();
+      const deckId = String(ev.currentTarget.dataset.deckId ?? "");
+      if (!deckId) {
+        ui.notifications?.warn("Deck not found.");
+        return;
+      }
+
+      new GambitDeckBuilderApplication(this.actor, deckId).render(true);
+    });
+
+    html.find(".mg-equip-gambit-deck").off("click.mgDecks").on("click.mgDecks", async (ev) => {
+      ev.preventDefault();
+
+      const deckId = String(ev.currentTarget.dataset.deckId ?? "");
+      const decks = Array.isArray(this.actor.system?.gambitDecks?.decks)
+        ? this.actor.system.gambitDecks.decks
+        : [];
+      const deck = decks.find(d => String(d?.id ?? "") === deckId);
+
+      if (!deck) {
+        ui.notifications?.warn("Deck not found.");
+        return;
+      }
+
+      const handIds = mgGetDeckItemIds(this.actor, deck);
+
+      await this.actor.update({
+        "system.gambitDecks.equipped": deckId,
+        "system.gambits.deck": [],
+        "system.gambits.drawn": handIds,
+        "system.gambits.discard": [],
+        "system.gambits.handHidden": [],
+        "system.gambits.locked": true
+      });
+
+      ui.notifications?.info(`${deck.name ?? "Deck"} equipped.`);
+    });
 
     // Dynamically apply .narrow-mode based on sheet width
     const appWindow = html[0]?.closest(".window-app");
@@ -3078,13 +3239,18 @@ _mgOpenSidebarCropper() {
         await this.actor.update({ "system.gambits.handUiEnabled": enabled });
       });
 
-    // Attribute base edit: fixed -3 to +3 picker
+    // Attribute edit: pick the visible value, then store the base minus primary Guise modifier.
     html.find(".attribute-modifier").on("contextmenu", async (event) => {
       event.preventDefault();
 
       const el = event.currentTarget;
       const key = el.dataset.key;
-      const current = this._mgClampStatValue(el.getAttribute("data-base"));
+      const currentAttr = el.getAttribute("data-current");
+      const current = this._mgClampStatValue(
+        currentAttr !== null && currentAttr !== ""
+          ? currentAttr
+          : this.actor.system?.attributes?.[key] ?? el.getAttribute("data-base")
+      );
 
       const val = await this._mgOpenStatPicker({
         title: `Edit ${key}`,
@@ -3094,11 +3260,15 @@ _mgOpenSidebarCropper() {
       if (val === null) return;
 
       const next = this._mgClampStatValue(val);
+      const guiseMod = mgGetPrimaryGuiseAttributeModifier(this.actor, key);
+      const nextBase = this._mgClampStatValue(next - guiseMod);
+      const displayedNext = this._mgClampStatValue(nextBase + guiseMod);
 
-      await this.actor.update({ [`system.baseAttributes.${key}`]: next }, { render: false });
+      await this.actor.update({ [`system.baseAttributes.${key}`]: nextBase }, { render: false });
 
-      el.setAttribute("data-base", String(next));
-      el.textContent = this._mgFormatSigned(next);
+      el.setAttribute("data-base", String(nextBase));
+      el.setAttribute("data-current", String(displayedNext));
+      el.textContent = this._mgFormatSigned(displayedNext);
     });
 
     html.find(".attribute-modifier").on("click", async (event) => {
@@ -5195,7 +5365,7 @@ _mgOpenSidebarCropper() {
       ui.notifications.info(`Removed tag '${tagId}' from ${item.name}`);
     });
 
-    //Reset Gambit Button - like a long rest but for deck
+    // Reset Gambits to the neutral 2.0 state: no equipped deck, no hand, no discard.
     html.find(".reset-gambit-deck").on("click", async (ev) => {
       ev.preventDefault();
       ev.stopPropagation();
@@ -5206,9 +5376,9 @@ _mgOpenSidebarCropper() {
 
       try {
         const ok = await Dialog.wait({
-          title: "Reset Gambit Deck?",
+          title: "Reset Gambits?",
           content: `
-            <p>This returns all drawn and discarded Gambits to your Deck and clears your hand.</p>
+            <p>This unequips your current deck and clears your Hand and Discard.</p>
           `,
           buttons: {
             yes: { label: this._mgBtn("Reset", "fa-arrows-rotate"), callback: () => true },
@@ -5219,16 +5389,9 @@ _mgOpenSidebarCropper() {
 
         if (!ok) return; // user cancelled — do nothing
 
-        const g = this.actor.system.gambits ?? {};
-        const deck    = Array.isArray(g.deck)    ? g.deck    : [];
-        const drawn   = Array.isArray(g.drawn)   ? g.drawn   : [];
-        const discard = Array.isArray(g.discard) ? g.discard : [];
-
-        // Put everything back into deck (dedup), clear piles
-        const newDeck = Array.from(new Set([...deck, ...drawn, ...discard]));
-
         await this.actor.update({
-          "system.gambits.deck": newDeck,
+          "system.gambitDecks.equipped": "",
+          "system.gambits.deck": [],
           "system.gambits.drawn": [],
           "system.gambits.discard": [],
           "system.gambits.handHidden": [],
@@ -5236,7 +5399,7 @@ _mgOpenSidebarCropper() {
         });
 
         // Optional: notify and soft re-render
-        ui.notifications.info("Gambit deck reset.");
+        ui.notifications.info("Gambits reset.");
         this.render(false);
       } finally {
         btn.disabled = false;
@@ -6509,9 +6672,11 @@ async _mgOpenStatPicker({ title, current }) {
 
     const fmt = (p) => [
       p.attributes ? `${p.attributes} Attribute` : null,
-      p.skills ? `${p.skills} Skill` : null,
-      p.moves ? `${p.moves} Move` : null,
+      p.moves ? `${p.moves} Learned Move` : null,
       p.sparkSlots ? `${p.sparkSlots} Spark Slot` : null,
+      p.gambitPoints ? `${p.gambitPoints} Gambit Point` : null,
+      p.deckSlots ? `${p.deckSlots} Deck Slot` : null,
+      p.expertise ? `${p.expertise} Expertise` : null,
       p.signaturePerk ? `Signature Perk` : null,
       p.finalHandDiscoverable ? `Final Hands discoverable` : null
     ].filter(Boolean).join(", ");
@@ -6521,9 +6686,9 @@ async _mgOpenStatPicker({ title, current }) {
       const p = s?.pending || {};
       return {
         attributes: Number(p.attributes||0),
-        skills: Number(p.skills||0),
         moves: Number(p.moves||0),
         sparkSlots: Number(p.sparkSlots||0),
+        expertise: Number(p.expertise||0),
         signaturePerk: Number(p.signaturePerk||0),
         finalHandDiscoverable: Number(p.finalHandDiscoverable||0)
       };
@@ -6536,10 +6701,17 @@ async _mgOpenStatPicker({ title, current }) {
       return;
     }
 
+    const levelGrants = actor._computeGrantsForLevel?.(Number(actor.system?.level) || 1) ?? {};
+    const summaryRewards = {
+      ...pending,
+      gambitPoints: Number(levelGrants.gambitPoints || 0),
+      deckSlots: Number(levelGrants.deckSlots || 0)
+    };
+
     await Dialog.wait({
       title: "Level Up Rewards",   // plain string only
       content: `
-        <p>You have gained: <strong>${fmt(pending)}</strong>.</p>
+        <p>You have gained: <strong>${fmt(summaryRewards)}</strong>.</p>
         <p>Let’s apply them now. You can close any step to finish later.</p>
       `,
       buttons: {
@@ -6552,7 +6724,7 @@ async _mgOpenStatPicker({ title, current }) {
     // 2) Spend Attribute Points
     while ((pending = await readPending()).attributes > 0) {
       const keys = ["tenacity","finesse","resolve","guile","instinct","presence"]
-        .filter(k => Number(actor.system?.baseAttributes?.[k] ?? actor.system?.attributes?.[k] ?? 0) < 3);
+        .filter(k => Number(actor.system?.attributes?.[k] ?? actor.system?.baseAttributes?.[k] ?? 0) < 3);
 
       if (!keys.length) {
         ui.notifications.warn("All Attributes are already at the maximum of +3.");
@@ -6560,7 +6732,7 @@ async _mgOpenStatPicker({ title, current }) {
       }
 
       const options = keys
-        .map(k => `<option value="${k}">${k.toUpperCase()} (${this._mgFormatSigned(actor.system?.baseAttributes?.[k] ?? actor.system?.attributes?.[k] ?? 0)})</option>`)
+        .map(k => `<option value="${k}">${k.toUpperCase()} (${this._mgFormatSigned(actor.system?.attributes?.[k] ?? actor.system?.baseAttributes?.[k] ?? 0)})</option>`)
         .join("");
       const content = `
         <p>Spend 1 <strong>Attribute</strong> point:</p>
@@ -6582,40 +6754,6 @@ async _mgOpenStatPicker({ title, current }) {
       try { await actor.mgSpendPending("attribute", { key: chosen }); } catch (e) { ui.notifications.error(e.message); break; }
     }
 
-    // 3) Spend Skill Points
-    while ((pending = await readPending()).skills > 0) {
-    const skills = Object.keys(actor.system?.skills || {})
-      .filter(k => Number(actor.system?.skills?.[k] ?? 0) < 3)
-      .sort();
-
-    if (!skills.length) {
-      ui.notifications.warn("All Skills are already at the maximum of +3.");
-      break;
-    }
-
-    const options = skills
-      .map(k => `<option value="${k}">${k} (${this._mgFormatSigned(actor.system?.skills?.[k] ?? 0)})</option>`)
-      .join("");
-      const content = `
-        <p>Spend 1 <strong>Skill</strong> point:</p>
-        <select name="skillKey">${options}</select>
-      `;
-      const chosen = await this._mgPrompt({
-        title: "Spend Skill",
-        bodyHtml: `
-          <p>Spend 1 <strong>Skill</strong> point:</p>
-          <select name="skillKey">${options}</select>
-        `,
-        okText: "Apply",
-        okIcon: "fa-check",
-        cancelText: "Later",
-        cancelIcon: "fa-clock",
-        getValue: (html) => html.find('select[name="skillKey"]').val()
-      });
-      if (!chosen) break;
-      try { await actor.mgSpendPending("skill", { key: chosen }); } catch (e) { ui.notifications.error(e.message); break; }
-    }
-
     // 4) Apply Spark Slots (casters only — they’re the only ones who got these pending)
     while ((pending = await readPending()).sparkSlots > 0) {
       const ok = await Dialog.wait({
@@ -6634,6 +6772,22 @@ async _mgOpenStatPicker({ title, current }) {
     }
 
     // 5) Signature Perk / Final Hand acknowledgements (real pickers later)
+    if ((pending = await readPending()).expertise > 0) {
+      const ok = await Dialog.wait({
+        title: "Expertise",
+        content: `
+          <p>You gained <strong>+${pending.expertise} Expertise</strong>. Expertise selection is coming in a later pass.</p>
+        `,
+        buttons: {
+          yes: { label: this._mgBtn("Acknowledge", "fa-check-double"), callback: () => true },
+          no:  { label: this._mgBtn("Later", "fa-clock"), callback: () => false }
+        },
+        default: "yes"
+      });
+
+      if (ok) { try { await actor.mgSpendPending("ack-expertise"); } catch (e) {} }
+    }
+
     if ((pending = await readPending()).signaturePerk > 0) {
       const ok = await Dialog.wait({
         title: "Signature Perk",
@@ -6668,9 +6822,9 @@ async _mgOpenStatPicker({ title, current }) {
     // 6) Moves (we’ll do a picker later — for now just nudge them)
     if ((pending = await readPending()).moves > 0) {
       await Dialog.wait({
-        title: "Choose New Move",
+        title: "Choose Learned Move",
         content: `
-          <p>You have <strong>${pending.moves}</strong> unspent move(s). Head to your Moves area and add one; the pending counter will remain until you finalize.</p>
+          <p>You have <strong>${pending.moves}</strong> unspent Learned Move(s). Head to your Moves area and add one; the pending counter will remain until you finalize.</p>
         `,
         buttons: {
           ok: { label: this._mgBtn("Okay", "fa-thumbs-up") }

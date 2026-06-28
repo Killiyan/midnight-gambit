@@ -23,5 +23,21 @@
         "defaults"
     ],
     "editor.insertSpaces": false,
-    "workbench.editor.tabSizing": "fit"
+    "workbench.editor.tabSizing": "fit",
+    "files.watcherExclude": {
+        "**/packs/**": true,
+        "**/worlds/**": true,
+        "**/Data/worlds/**": true,
+        "**/Data/systems/**/packs/**": true
+    },
+    "search.exclude": {
+        "**/packs/**": true,
+        "**/worlds/**": true,
+        "**/Data/worlds/**": true,
+        "**/Data/systems/**/packs/**": true
+    },
+    "files.exclude": {
+        "**/packs/**": true,
+        "**/worlds/**": true
+    }
 }

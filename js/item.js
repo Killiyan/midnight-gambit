@@ -1,3 +1,11 @@
+import {
+  getGambitCostForTier,
+  normalizeGambitTier,
+  normalizeGambitType,
+  normalizeMoveSubtype,
+  normalizeMoveType
+} from "../config.js";
+
 export class MidnightGambitItem extends Item {
   prepareDerivedData() {
     super.prepareDerivedData();
@@ -27,6 +35,17 @@ export class MidnightGambitItem extends Item {
 
     // Future-proof logic per type if needed
     switch (this.type) {
+      case "gambit": {
+        sys.tier = normalizeGambitTier(sys.tier);
+        sys.gambitType = normalizeGambitType(sys.gambitType);
+        sys.gpCost = getGambitCostForTier(sys.tier, sys.gpCost);
+        break;
+      }
+      case "move": {
+        sys.moveType = normalizeMoveType(sys.moveType);
+        sys.moveSubtype = normalizeMoveSubtype(sys.moveSubtype);
+        break;
+      }
       case "weapon":
       case "armor":
       case "misc":

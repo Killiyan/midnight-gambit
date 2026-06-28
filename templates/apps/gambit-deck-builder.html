@@ -1,0 +1,133 @@
+<section class="mg-gambit-library {{#if hasFocus}}is-focused{{/if}}">
+  <header class="mg-gambit-library-header">
+    <div>
+      <h1>Gambit Library</h1>
+      <div class="mg-gambit-library-deck">
+        <span class="mg-gambit-library-deck-name">{{deckName}}</span>
+        <span class="mg-gambit-library-deck-gp"><i class="fa-kit fa-gambit-points"></i>{{gpSpent}}/{{gpMax}}</span>
+        <button type="button" class="mg-gambit-library-edit-deck-name" title="Edit Deck Name">
+          <i class="fa-solid fa-pen-to-square"></i>
+        </button>
+      </div>
+    </div>
+    <button type="button" class="mg-gambit-library-window-close" title="Close Gambit Library">
+      <i class="fa-solid fa-xmark"></i>
+    </button>
+  </header>
+
+  <main class="mg-gambit-library-main">
+    <section class="mg-gambit-library-stage">
+      <div class="mg-gambit-library-grid">
+        {{#each cards}}
+          <button type="button"
+                  class="mg-gambit-library-card {{#if selected}}is-in-deck{{/if}} {{#if focused}}is-focused{{/if}} {{#if singleWordName}}is-single-word{{/if}} {{#if animateEnter}}pre-enter{{/if}}"
+                  {{#if animateEnter}}style="--mg-card-enter-delay: {{enterDelay}};"{{/if}}
+                  data-uuid="{{uuid}}">
+            <span class="mg-gambit-library-card-art" style="background-image: url('{{cardImage}}')">
+              <span class="mg-gambit-library-tier">
+                <img src="{{tierIcon}}" alt="{{tierLabel}}" />
+              </span>
+              <span class="mg-gambit-library-card-name">{{name}}</span>
+              <span class="mg-gambit-library-cost"><i class="fa-kit fa-gambit-points"></i> {{gpCost}}</span>
+            </span>
+          </button>
+        {{/each}}
+      </div>
+
+      {{#unless cards.length}}
+        <div class="mg-gambit-library-empty">
+          No Gambits match those filters.
+        </div>
+      {{/unless}}
+
+      {{#if selected}}
+        <div class="mg-gambit-library-focus-backdrop"></div>
+        <article class="mg-gambit-library-focus">
+          <button type="button" class="mg-gambit-library-focus-close" title="Close Preview">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+
+          <div class="mg-gambit-library-focus-card" style="background-image: url('{{selected.cardImage}}')">
+            <span>{{selected.name}}</span>
+          </div>
+
+          <div class="mg-gambit-library-focus-copy">
+            <div class="mg-gambit-library-focus-title">
+              <h2>{{selected.name}}</h2>
+              <span>{{selected.tierLabel}}</span>
+              <span>{{selected.typeLabel}}</span>
+              <span><i class="fa-kit fa-gambit-points"></i>{{selected.gpCost}}</span>
+            </div>
+
+            <div class="mg-gambit-library-description">
+              {{{selected.descriptionHtml}}}
+            </div>
+
+            <button type="button"
+                    class="mg-gambit-library-toggle-card"
+                    data-uuid="{{selected.uuid}}"
+                    {{#unless selected.canAfford}}disabled{{/unless}}>
+              <i class="fa-solid fa-dice-d20"></i>
+              <span>
+                {{#if selected.selected}}
+                  Remove from Deck
+                {{else}}
+                  {{#if selected.canAfford}}
+                    Add to Deck
+                  {{else}}
+                    Not Enough GP
+                  {{/if}}
+                {{/if}}
+              </span>
+            </button>
+          </div>
+        </article>
+      {{/if}}
+    </section>
+
+    <aside class="mg-gambit-library-filters">
+      <label class="mg-gambit-library-search">
+        <span>Search</span>
+        <input type="search" name="search" value="{{search}}" />
+      </label>
+
+      <div class="mg-gambit-library-filter-group">
+        <h3>Deck</h3>
+        <label>
+          <input type="checkbox" data-filter-toggle="equipped" value="1" {{#if equippedOnly}}checked{{/if}} />
+          <span>Equipped</span>
+        </label>
+      </div>
+
+      <div class="mg-gambit-library-filter-group">
+        <h3>Tier</h3>
+        {{#each tierFilters}}
+          <label>
+            <input type="checkbox" data-filter="tiers" value="{{id}}" {{#if checked}}checked{{/if}} />
+            <span>{{label}}</span>
+          </label>
+        {{/each}}
+      </div>
+
+      <div class="mg-gambit-library-filter-group">
+        <h3>Type</h3>
+        {{#each typeFilters}}
+          <label>
+            <input type="checkbox" data-filter="types" value="{{id}}" {{#if checked}}checked{{/if}} />
+            <span>{{label}}</span>
+          </label>
+        {{/each}}
+      </div>
+
+      <div class="mg-gambit-library-filter-group">
+        <h3>Cost</h3>
+        {{#each costFilters}}
+          <label>
+            <input type="checkbox" data-filter="costs" value="{{id}}" {{#if checked}}checked{{/if}} />
+            <span>{{label}}</span>
+          </label>
+        {{/each}}
+      </div>
+    </aside>
+  </main>
+</section>

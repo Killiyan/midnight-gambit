@@ -1,0 +1,340 @@
+[
+  {
+    "name": "Smoke in the Mirror",
+    "type": "gambit",
+    "img": "systems/midnight-gambit/assets/images/gambit-ace.png",
+    "system": {
+      "description": "You vanish in a flash or flourish, leaving behind a decoy, illusion, or sound. Instant escape or switcheroo.",
+      "tier": "ace",
+      "gambitType": "infiltration",
+      "gpCost": 3,
+      "tags": [],
+      "used": false
+    }
+  },
+  {
+    "name": "Rewritten Scene",
+    "type": "gambit",
+    "img": "systems/midnight-gambit/assets/images/gambit-ace.png",
+    "system": {
+      "description": "Retcon a small but crucial detail of the scene. A door was unlocked. You had the item all along. That guard? Paid off.",
+      "tier": "ace",
+      "gambitType": "infiltration",
+      "gpCost": 3,
+      "tags": [],
+      "used": false
+    }
+  },
+  {
+    "name": "Key to the City",
+    "type": "gambit",
+    "img": "systems/midnight-gambit/assets/images/gambit-ace.png",
+    "system": {
+      "description": "Instantly unlock any mundane lock or bypass a single piece of security tech or magical barrier.",
+      "tier": "ace",
+      "gambitType": "infiltration",
+      "gpCost": 3,
+      "tags": [],
+      "used": false
+    }
+  },
+  {
+    "name": "Burn the Blueprint",
+    "type": "gambit",
+    "img": "systems/midnight-gambit/assets/images/gambit-ace.png",
+    "system": {
+      "description": "Immediately remove an enemy’s tactical advantage—cover crumbles, the floor collapses, the power cuts. The terrain shifts in your favor.",
+      "tier": "ace",
+      "gambitType": "combat",
+      "gpCost": 3,
+      "tags": [],
+      "used": false
+    }
+  },
+  {
+    "name": "Marked the Exit",
+    "type": "gambit",
+    "img": "systems/midnight-gambit/assets/images/gambit-ace.png",
+    "system": {
+      "description": "Once per Job, declare you placed a marker or escape plan earlier — a grappling hook, unlocked grate, prepped ladder, etc.",
+      "tier": "ace",
+      "gambitType": "support",
+      "gpCost": 3,
+      "tags": [],
+      "used": false
+    }
+  },
+  {
+    "name": "Too Fast, Too Slick",
+    "type": "gambit",
+    "img": "systems/midnight-gambit/assets/images/gambit-ace.png",
+    "system": {
+      "description": "Automatically dodge a single attack or trap. Works even if the hit would’ve dropped you.",
+      "tier": "ace",
+      "gambitType": "combat",
+      "gpCost": 3,
+      "tags": [],
+      "used": false
+    }
+  },
+  {
+    "name": "Flashback Flourish",
+    "type": "gambit",
+    "img": "systems/midnight-gambit/assets/images/gambit-ace.png",
+    "system": {
+      "description": "Once per Job, instantly flash back to reveal a minor prep action you took before this scene. Examples: stealing a key, bribing a guard, planting a tool, etc.",
+      "tier": "ace",
+      "gambitType": "infiltration",
+      "gpCost": 3,
+      "tags": [],
+      "used": false
+    }
+  },
+  {
+    "name": "Friend in the Room",
+    "type": "gambit",
+    "img": "systems/midnight-gambit/assets/images/gambit-ace.png",
+    "system": {
+      "description": "Reveal that an NPC in the scene is someone you know well enough to call on. They will help you once in a meaningful way, but doing so exposes them, costs them, or creates a future obligation.",
+      "tier": "ace",
+      "gambitType": "social",
+      "gpCost": 3,
+      "tags": [],
+      "used": false
+    }
+  },
+  {
+    "name": "The Door’s Unlocked",
+    "type": "gambit",
+    "img": "systems/midnight-gambit/assets/images/gambit-ace.png",
+    "system": {
+      "description": "Choose one sealed, guarded, blocked, or forbidden point of access. Reveal why it can be opened right now: a copied key, old code, loose hinge, bribed attendant, forgotten ritual, maintenance flaw, or insider mark.",
+      "tier": "ace",
+      "gambitType": "infiltration",
+      "gpCost": 3,
+      "tags": [],
+      "used": false
+    }
+  },
+  {
+    "name": "Dead Drop",
+    "type": "gambit",
+    "img": "systems/midnight-gambit/assets/images/gambit-ace.png",
+    "system": {
+      "description": "Reveal that you planted or arranged a hidden cache earlier. It contains one significant item, message, tool, weapon, disguise, document, or resource needed for the current problem.",
+      "tier": "ace",
+      "gambitType": "support",
+      "gpCost": 3,
+      "tags": [],
+      "used": false
+    }
+  },
+  {
+    "name": "Exit Wound",
+    "type": "gambit",
+    "img": "systems/midnight-gambit/assets/images/gambit-ace.png",
+    "system": {
+      "description": "When you are struck, trapped, or restrained, reveal that the impact also broke something useful: a wall, chain, seal, door, machine, spell circle, window, floorboard, or enemy formation. You suffer the consequence, but create an immediate way forward.",
+      "tier": "ace",
+      "gambitType": "combat",
+      "gpCost": 3,
+      "tags": [],
+      "used": false
+    }
+  },
+  {
+    "name": "Cut the Strings",
+    "type": "gambit",
+    "img": "systems/midnight-gambit/assets/images/gambit-ace.png",
+    "system": {
+      "description": "Remove one ongoing control, restraint, charm, or binding from yourself or one ally. Describe the sharp, risky, or clever way you sever it.",
+      "tier": "ace",
+      "gambitType": "support",
+      "gpCost": 3,
+      "tags": [],
+      "used": false
+    }
+  },
+  {
+    "name": "Public Opinion",
+    "type": "gambit",
+    "img": "systems/midnight-gambit/assets/images/gambit-ace.png",
+    "system": {
+      "description": "Reveal why the crowd, witnesses, servants, guards, locals, or onlookers turn against the opposition for a moment. They block, shout, misdirect, shield, or overwhelm just long enough to change the scene.",
+      "tier": "ace",
+      "gambitType": "social",
+      "gpCost": 3,
+      "tags": [],
+      "used": false
+    }
+  },
+  {
+    "name": "Called Shot",
+    "type": "gambit",
+    "img": "systems/midnight-gambit/assets/images/gambit-ace.png",
+    "system": {
+      "description": "Before or after making an attack, declare the real target was not the enemy’s body, but something they depend on: a weapon, focus, engine, footing, armor strap, spell line, mount, exit, or source of command. On a hit, disable or remove that advantage.",
+      "tier": "ace",
+      "gambitType": "combat",
+      "gpCost": 3,
+      "tags": [],
+      "used": false
+    }
+  },
+  {
+    "name": "Break the Pattern",
+    "type": "gambit",
+    "img": "systems/midnight-gambit/assets/images/gambit-ace.png",
+    "system": {
+      "description": "Reveal the flaw in a repeating danger: patrol, ritual, beast behavior, trap cycle, storm pulse, machine rhythm, combat style, or social routine. For the rest of the scene, you and your allies can act against it with Edge once each.",
+      "tier": "ace",
+      "gambitType": "support",
+      "gpCost": 3,
+      "tags": [],
+      "used": false
+    }
+  },
+  {
+    "name": "Second Mask",
+    "type": "gambit",
+    "img": "systems/midnight-gambit/assets/images/gambit-ace.png",
+    "system": {
+      "description": "Reveal a second identity, disguise, alias, uniform, or social role prepared for this exact kind of trouble. You may immediately escape suspicion, shift blame, or enter a new social position in the scene.",
+      "tier": "ace",
+      "gambitType": "infiltration",
+      "gpCost": 3,
+      "tags": [],
+      "used": false
+    }
+  },
+  {
+    "name": "Bought Time",
+    "type": "gambit",
+    "img": "systems/midnight-gambit/assets/images/gambit-ace.png",
+    "system": {
+      "description": "Pause one major threat long enough for the crew to take one round of action.",
+      "tier": "ace",
+      "gambitType": "support",
+      "gpCost": 3,
+      "tags": [],
+      "used": false
+    }
+  },
+  {
+    "name": "Take Me Instead!",
+    "type": "gambit",
+    "img": "systems/midnight-gambit/assets/images/gambit-ace.png",
+    "system": {
+      "description": "When an ally would suffer a major consequence, reveal how you intercept, redirect, substitute, or absorb it. You take the consequence in their place, but reduce its severity by one step or create an opening from the sacrifice.",
+      "tier": "ace",
+      "gambitType": "support",
+      "gpCost": 3,
+      "tags": [],
+      "used": false
+    }
+  },
+  {
+    "name": "The Old Route",
+    "type": "gambit",
+    "img": "systems/midnight-gambit/assets/images/gambit-ace.png",
+    "system": {
+      "description": "Reveal a dangerous old path. It bypasses one travel obstacle.",
+      "tier": "ace",
+      "gambitType": "support",
+      "gpCost": 3,
+      "tags": [],
+      "used": false
+    }
+  },
+  {
+    "name": "Wrong Target",
+    "type": "gambit",
+    "img": "systems/midnight-gambit/assets/images/gambit-ace.png",
+    "system": {
+      "description": "When an enemy, or hazard closes in, reveal why their attention is fixed in the wrong place. They commit to the mistake before they realize the truth.",
+      "tier": "ace",
+      "gambitType": "combat",
+      "gpCost": 3,
+      "tags": [],
+      "used": false
+    }
+  },
+  {
+    "name": "The Favor",
+    "type": "gambit",
+    "img": "systems/midnight-gambit/assets/images/gambit-ace.png",
+    "system": {
+      "description": "Call in a serious favor from an NPC, faction, spirit, contact, rival, or old friend. They provide a major piece of help right now, but afterward, they name what you owe.",
+      "tier": "ace",
+      "gambitType": "social",
+      "gpCost": 3,
+      "tags": [],
+      "used": false
+    }
+  },
+  {
+    "name": "Smoking Gun",
+    "type": "gambit",
+    "img": "systems/midnight-gambit/assets/images/gambit-ace.png",
+    "system": {
+      "description": "Reveal the one detail everyone else missed: The GM tells you what it is.",
+      "tier": "ace",
+      "gambitType": "infiltration",
+      "gpCost": 3,
+      "tags": [],
+      "used": false
+    }
+  },
+  {
+    "name": "Missing Piece",
+    "type": "gambit",
+    "img": "systems/midnight-gambit/assets/images/gambit-ace.png",
+    "system": {
+      "description": "When the crew has gathered clues but cannot connect them, reveal the pattern that links them. Ask the GM what one assumption the crew has wrong.",
+      "tier": "ace",
+      "gambitType": "infiltration",
+      "gpCost": 3,
+      "tags": [],
+      "used": false
+    }
+  },
+  {
+    "name": "Follow the Thread",
+    "type": "gambit",
+    "img": "systems/midnight-gambit/assets/images/gambit-ace.png",
+    "system": {
+      "description": "Choose one person, object, clue, or location tied to the current problem. Reveal the next place, person, or sign it points toward.",
+      "tier": "ace",
+      "gambitType": "infiltration",
+      "gpCost": 3,
+      "tags": [],
+      "used": false
+    }
+  },
+  {
+    "name": "Safe Passage",
+    "type": "gambit",
+    "img": "systems/midnight-gambit/assets/images/gambit-ace.png",
+    "system": {
+      "description": "Reveal why the crew can pass through a hostile area without immediately triggering its worst danger: old markings, local custom, timing, scent masking, terrain knowledge, or a hidden rhythm. The danger remains, but it does not strike first.",
+      "tier": "ace",
+      "gambitType": "infiltration",
+      "gpCost": 3,
+      "tags": [],
+      "used": false
+    }
+  },
+  {
+    "name": "Shelter in the Storm",
+    "type": "gambit",
+    "img": "systems/midnight-gambit/assets/images/gambit-ace.png",
+    "system": {
+      "description": "Reveal a place sturdy enough to survive the current danger. The crew can regroup and clear Track Strain.",
+      "tier": "ace",
+      "gambitType": "support",
+      "gpCost": 3,
+      "tags": [],
+      "used": false
+    }
+  }
+]

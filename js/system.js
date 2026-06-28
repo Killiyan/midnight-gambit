@@ -482,13 +482,25 @@ Hooks.once("init", async () => {
   });
 
   try {
-    const { ITEM_TAGS, ASSET_TAGS, LEVEL_TABLE } = await import("../config.js");
+    const {
+      ITEM_TAGS,
+      ASSET_TAGS,
+      GAMBIT_TIERS,
+      GAMBIT_TYPES,
+      MOVE_TYPES,
+      MOVE_SUBTYPES,
+      LEVEL_TABLE
+    } = await import("../config.js");
     CONFIG.MidnightGambit ??= {};
     const customTags      = game.settings.get("midnight-gambit", "customTags") || [];
     const assetCustomTags = game.settings.get("midnight-gambit", "assetCustomTags") || [];
 
     CONFIG.MidnightGambit.ITEM_TAGS  = [...ITEM_TAGS,  ...customTags];
     CONFIG.MidnightGambit.ASSET_TAGS = [...ASSET_TAGS, ...assetCustomTags];
+    CONFIG.MidnightGambit.GAMBIT_TIERS = GAMBIT_TIERS;
+    CONFIG.MidnightGambit.GAMBIT_TYPES = GAMBIT_TYPES;
+    CONFIG.MidnightGambit.MOVE_TYPES = MOVE_TYPES;
+    CONFIG.MidnightGambit.MOVE_SUBTYPES = MOVE_SUBTYPES;
     CONFIG.MidnightGambit.LEVELS     = LEVEL_TABLE;
 
 

@@ -1,4 +1,4 @@
-import { LEVEL_TABLE } from "../config.js";
+import { LEVEL_TABLE, getGambitDeckSlotsForLevel, getGambitPointsForLevel } from "../config.js";
 
 export class MidnightGambitActor extends Actor {
   prepareData() {
@@ -105,7 +105,7 @@ export class MidnightGambitActor extends Actor {
     };
 
     // Build primary + secondary guises
-    const primary = resolveGuiseRef(data.guise);
+    const primary = resolveGuiseRef(data.guiseId || data.guise);
     const secondaryRefs = Array.isArray(data.secondaryGuises) ? data.secondaryGuises : [];
     const secondary = secondaryRefs.map(resolveGuiseRef).filter(Boolean);
 
@@ -253,6 +253,14 @@ export class MidnightGambitActor extends Actor {
     data.gambits.moveOrder ??= [];
     data.gambits.moveHidden ??= [];
 
+    data.gambitPoints ??= {};
+    data.gambitPoints.max = getGambitPointsForLevel(lvl);
+
+    data.gambitDecks ??= {};
+    data.gambitDecks.slots = getGambitDeckSlotsForLevel(lvl);
+    data.gambitDecks.equipped ??= "";
+    data.gambitDecks.decks = Array.isArray(data.gambitDecks.decks) ? data.gambitDecks.decks : [];
+
     data.unlocks ??= { trickDeck:false, aceInSleeve:false, signaturePerk:false, finalHand:false, allTiers:false, dualClass:false };
 
     if (L?.caps) {
@@ -302,7 +310,16 @@ export class MidnightGambitActor extends Actor {
   /* Ensure the "pending" reward counters exist and are numeric
   ----------------------------------------------------------------------*/
   _ensurePending(base) {
-    const p = { attributes:0, skills:0, moves:0, sparkSlots:0, signaturePerk:0, finalHandDiscoverable:0, ...base };
+    const p = {
+      attributes: 0,
+      moves: 0,
+      sparkSlots: 0,
+      expertise: 0,
+      signaturePerk: 0,
+      finalHandDiscoverable: 0,
+      ...base,
+      skills: 0
+    };
     for (const k of Object.keys(p)) {
       const n = Number(p[k]); p[k] = Number.isFinite(n) ? n : 0;
     }
@@ -320,9 +337,11 @@ export class MidnightGambitActor extends Actor {
 
     return {
       attributes: Number(g.attributePoints || 0),
-      skills:     Number(g.skillPoints || 0),
       moves:      Number(g.moves || 0),
       sparkSlots: isCaster ? Number(g.sparkSlots || 0) : 0,
+      expertise:  Number(g.expertise || 0),
+      gambitPoints: Math.max(0, getGambitPointsForLevel(lvl) - getGambitPointsForLevel(lvl - 1)),
+      deckSlots: Math.max(0, getGambitDeckSlotsForLevel(lvl) - getGambitDeckSlotsForLevel(lvl - 1)),
       signaturePerk: Number(g.signaturePerk || 0),
       finalHandDiscoverable: Number(g.finalHandDiscoverable || 0)
     };
@@ -339,6 +358,8 @@ export class MidnightGambitActor extends Actor {
       case "trick-deck": return "Trick Deck";
       case "ace-in-the-sleeve-unlocked": return "Ace in the Sleeve Unlocked";
       case "ace": return "Ace";
+      case "all-in-unlocked": return "All In Unlocked";
+      case "all-in": return "All In";
       case "final-hand-unlocked": return "Final Hand Unlocked";
       case "all-tiers": return "All Tiers";
       default: return t || "—";
@@ -394,9 +415,9 @@ export class MidnightGambitActor extends Actor {
     const pendingPrev = this._ensurePending(prevFlags.pending ?? {});
     const pendingNext = this._ensurePending({
       attributes: pendingPrev.attributes + grants.attributes,
-      skills:     pendingPrev.skills     + grants.skills,
       moves:      pendingPrev.moves      + grants.moves,
       sparkSlots: pendingPrev.sparkSlots + grants.sparkSlots,
+      expertise:  pendingPrev.expertise  + (grants.expertise || 0),
       signaturePerk:          pendingPrev.signaturePerk + (grants.signaturePerk || 0),
       finalHandDiscoverable:  pendingPrev.finalHandDiscoverable + (grants.finalHandDiscoverable || 0)
     });
@@ -409,9 +430,11 @@ export class MidnightGambitActor extends Actor {
     const tierLabel = this._tierLabelForLevel(next);
     const gainBits = [];
     if (grants.attributes) gainBits.push(`+${grants.attributes} Attribute`);
-    if (grants.skills)     gainBits.push(`+${grants.skills} Skill`);
-    if (grants.moves)      gainBits.push(`+${grants.moves} Move`);
+    if (grants.moves)      gainBits.push(`+${grants.moves} Learned Move`);
     if (grants.sparkSlots) gainBits.push(`+${grants.sparkSlots} Spark Slot`);
+    if (grants.gambitPoints) gainBits.push(`+${grants.gambitPoints} Gambit Point`);
+    if (grants.deckSlots) gainBits.push(`+${grants.deckSlots} Deck Slot`);
+    if (grants.expertise) gainBits.push(`+${grants.expertise} Expertise`);
     if (grants.signaturePerk) gainBits.push(`Signature Perk`);
     if (grants.finalHandDiscoverable) gainBits.push(`Final Hands discoverable`);
 
@@ -538,6 +561,10 @@ export class MidnightGambitActor extends Actor {
       }
       case "ack-finalhand": {
         dec("finalHandDiscoverable");
+        break;
+      }
+      case "ack-expertise": {
+        dec("expertise");
         break;
       }
       case "move": {

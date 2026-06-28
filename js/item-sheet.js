@@ -1,3 +1,15 @@
+import {
+	GAMBIT_TIERS,
+	GAMBIT_TYPES,
+	MOVE_SUBTYPES,
+	MOVE_TYPES,
+	getGambitCostForTier,
+	normalizeGambitTier,
+	normalizeGambitType,
+	normalizeMoveSubtype,
+	normalizeMoveType
+} from "../config.js";
+
 const MG_ITEM_CARD_IMAGE = "systems/midnight-gambit/assets/images/items.jpg";
 const MG_ITEM_GUISE_IMAGE = "systems/midnight-gambit/assets/images/guise.jpg";
 const MG_ITEM_DEFAULT_IMAGE = "icons/svg/item-bag.svg";
@@ -124,6 +136,27 @@ export class MidnightGambitItemSheet extends ItemSheet {
 	}
 
 	async _updateObject(event, formData) {
+		if (this.item?.type === "gambit") {
+			const tier = normalizeGambitTier(formData["system.tier"] ?? this.item.system?.tier);
+			formData["system.tier"] = tier;
+			formData["system.gambitType"] = normalizeGambitType(
+				formData["system.gambitType"] ?? this.item.system?.gambitType
+			);
+			formData["system.gpCost"] = getGambitCostForTier(
+				tier,
+				formData["system.gpCost"] ?? this.item.system?.gpCost
+			);
+		}
+
+		if (this.item?.type === "move") {
+			formData["system.moveType"] = normalizeMoveType(
+				formData["system.moveType"] ?? this.item.system?.moveType
+			);
+			formData["system.moveSubtype"] = normalizeMoveSubtype(
+				formData["system.moveSubtype"] ?? this.item.system?.moveSubtype
+			);
+		}
+
 		// Asset tag CSV conversion
 		if (
 			this.item?.type === "asset" &&
@@ -233,6 +266,21 @@ export class MidnightGambitItemSheet extends ItemSheet {
 		context.system = this.item.system ?? {};
 		context.itemType = this.item.type;
 		context.itemDisplayImg = mgGetItemSheetImage(this.item);
+		context.gambitTiers = GAMBIT_TIERS;
+		context.gambitTypes = GAMBIT_TYPES;
+		context.moveTypes = MOVE_TYPES;
+		context.moveSubtypes = MOVE_SUBTYPES;
+		if (this.item.type === "gambit") {
+			context.system.tier = normalizeGambitTier(context.system.tier);
+			context.system.gambitType = normalizeGambitType(context.system.gambitType);
+			context.system.gpCost = getGambitCostForTier(context.system.tier, context.system.gpCost);
+			context.isRookieGambit = context.system.tier === "rookie";
+			context.gambitFixedCost = context.isRookieGambit ? null : context.system.gpCost;
+		}
+		if (this.item.type === "move") {
+			context.system.moveType = normalizeMoveType(context.system.moveType);
+			context.system.moveSubtype = normalizeMoveSubtype(context.system.moveSubtype);
+		}
 		
 		context.owner = this.item.isOwner;
 		context.editable = this.isEditable;
@@ -350,6 +398,12 @@ export class MidnightGambitItemSheet extends ItemSheet {
 
 	activateListeners(html) {
 		super.activateListeners(html);
+
+		html.find(".mg-gambit-tier-select").on("change", async (event) => {
+			event.preventDefault();
+			await this.submit({ preventClose: true });
+			this.render(false);
+		});
 
 		// Toggle tag on the item without re-rendering, and live-update both the
 		// top tag buttons and the bottom “selected tags” row.
