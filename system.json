@@ -2,12 +2,12 @@
   "name": "midnight-gambit",
   "title": "Midnight Gambit",
   "type": "system",
-  "version": "1.2.7",
+  "version": "1.2.8",
   "author": "Vaughn Gallagher / Killiyan",
   "description": "A custom system for high-stakes narrative action.",
   "esmodules": ["midnight-gambit.js"],
   "manifest": "https://raw.githubusercontent.com/Killiyan/midnight-gambit/main/system.json",
-  "download": "https://github.com/Killiyan/midnight-gambit/releases/download/v1.2.7/midnight-gambit.zip",
+  "download": "https://github.com/Killiyan/midnight-gambit/releases/download/v1.2.8/midnight-gambit.zip",
   "url": "https://github.com/Killiyan/midnight-gambit/",
   "languages": [
     {
@@ -64,7 +64,7 @@
       "name": "guises",
       "label": "MG | Guises",
       "system": "midnight-gambit",
-      "path": "packs/guises.db",
+      "path": "packs/guises",
       "type": "Item",
       "private": false
     },
@@ -72,7 +72,7 @@
       "name": "gambits",
       "label": "MG | Gambits",
       "system": "midnight-gambit",
-      "path": "packs/gambits.db",
+      "path": "packs/gambits",
       "type": "Item",
       "private": false
     },
@@ -80,7 +80,7 @@
       "name": "moves",
       "label": "MG | Moves",
       "system": "midnight-gambit",
-      "path": "packs/moves.db",
+      "path": "packs/moves",
       "type": "Item",
       "private": false
     },
@@ -88,7 +88,7 @@
       "name": "items",
       "label": "MG | Items",
       "system": "midnight-gambit",
-      "path": "packs/items.db",
+      "path": "packs/items",
       "type": "Item",
       "private": false
     }
