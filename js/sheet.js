@@ -999,11 +999,11 @@ export class MidnightGambitActorSheet extends ActorSheet {
       const canBrowseFiles = () => game.user?.can?.("FILES_BROWSE") ?? game.user?.isTrusted ?? false;
       const getPlacementSrc = placement => imageOverrides[placement.key] || placement.src;
       const promoteAboveCropModal = app => {
-        for (const delay of [0, 50, 150]) {
+        for (const delay of [0, 50, 150, 300]) {
           setTimeout(() => {
             const $picker = app?.element;
             $picker?.css?.({
-              "z-index": 10050,
+              "z-index": 10070,
               "max-height": "80vh"
             });
             $picker?.find?.(".window-content")?.css?.({
