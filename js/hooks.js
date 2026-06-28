@@ -3569,6 +3569,19 @@ async function mgPromptRevealToEveryone(message) {
   }
 }
 
+function mgBindRevealToEveryone(card, message) {
+  if (!card || card.dataset.mgRevealBound === "true") return;
+
+  card.dataset.mgRevealBound = "true";
+  card.setAttribute("title", "Right-click to reveal to everyone");
+
+  card.addEventListener("contextmenu", async (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    await mgPromptRevealToEveryone(message);
+  });
+}
+
 function mgBuildObscuredRollCard() {
   return `
     <div class="mg-chat-card chat-roll mg-roll-card mg-roll-card-obscured">
@@ -3773,11 +3786,7 @@ Hooks.on("renderChatMessage", (message, html) => {
     // Restricted visible rolls: right-click to reveal to everyone
     if (isRestricted && canRevealToEveryone) {
       const card = rollContainer.querySelector(".mg-roll-card");
-      card?.addEventListener("contextmenu", async (event) => {
-        event.preventDefault();
-        event.stopPropagation();
-        await mgPromptRevealToEveryone(message);
-      });
+      mgBindRevealToEveryone(card, message);
     }
 
   } catch (err) {
@@ -5326,14 +5335,7 @@ Hooks.on("renderChatMessage", (message, html) => {
   // Mark it so CSS / debugging can tell it's restricted
   card.classList.add("is-restricted-roll");
 
-  // Optional tooltip hint
-  card.setAttribute("title", "Right-click to reveal to everyone");
-
-  card.addEventListener("contextmenu", async (event) => {
-    event.preventDefault();
-    event.stopPropagation();
-    await mgPromptRevealToEveryone(message);
-  });
+  mgBindRevealToEveryone(card, message);
 });
 
 // --- Apply privacy badge to ANY visible restricted MG roll ---

@@ -83,6 +83,9 @@ const MG_SKILL_LABELS = {
 	spark: "Spark"
 };
 
+const MG_QUICK_DICE_SIDES = [2, 4, 6, 8, 10, 12, 20, 100];
+const MG_QUICK_DICE_COUNTS = [1, 2, 3, 4, 5, 6, 7, 8];
+
 const MG_SPARK_SCHOOL_LABELS = {
 	veiling: "Veiling",
 	sundering: "Sundering",
@@ -213,6 +216,20 @@ const MG_FALLBACK_TOOLS = {
 /* Clock Subtools
 ----------------------------------------------------------------------*/
 const MG_CUSTOM_TOOL_MENUS = {
+	dice: {
+		label: "Dice",
+		icon: "fa-solid fa-dice-d20",
+		tools: MG_QUICK_DICE_SIDES.flatMap(sides => (
+			MG_QUICK_DICE_COUNTS.map(count => ({
+				name: `roll-${count}d${sides}`,
+				label: `${count}d${sides}`,
+				icon: "fa-solid fa-dice-d20",
+				formula: `${count}d${sides}`,
+				count,
+				sides
+			}))
+		))
+	},
 	clocks: {
 		label: "Clocks",
 		icon: "fa-solid fa-clock",
@@ -424,18 +441,42 @@ function mgRenderControlButtons() {
     return true;
   });
 
-  const foundryButtons = controls.map(control => `
-    <button
-      type="button"
-      class="mg-orb-tool"
-      data-mg-control="${control.control}"
-      data-mg-control-id="${control.id}"
-      title="${control.label}"
-      aria-label="${control.label}"
-    >
-      <i class="${control.icon}"></i>
-    </button>
-  `).join("");
+	const diceButton = `
+		<button
+			type="button"
+			class="mg-orb-tool mg-orb-tool-mg"
+			data-mg-custom-menu="dice"
+			title="Dice"
+			aria-label="Dice"
+		>
+			<i class="fa-solid fa-dice-d20"></i>
+		</button>
+	`;
+
+	const foundryButtons = [];
+	let diceInserted = false;
+
+	for (const control of controls) {
+		if (!diceInserted && control.control === "drawings") {
+			foundryButtons.push(diceButton);
+			diceInserted = true;
+		}
+
+		foundryButtons.push(`
+			<button
+				type="button"
+				class="mg-orb-tool"
+				data-mg-control="${control.control}"
+				data-mg-control-id="${control.id}"
+				title="${control.label}"
+				aria-label="${control.label}"
+			>
+				<i class="${control.icon}"></i>
+			</button>
+		`);
+	}
+
+	if (!diceInserted) foundryButtons.push(diceButton);
 
   const mgButtons = `
 	<button
@@ -459,7 +500,7 @@ function mgRenderControlButtons() {
     </button>
   `;
 
-  return `${foundryButtons}${mgButtons}`;
+  return `${foundryButtons.join("")}${mgButtons}`;
 }
 
 /* Left Sidebar Rendering
@@ -1396,6 +1437,7 @@ function mgOpenCustomSubbar(menuName, sourceButton) {
 ----------------------------------------------------------------------*/
 function mgRenderSubbarTools(controlName, toolsWrap) {
 	const tools = mgGetToolsForControl(controlName);
+	toolsWrap.classList.remove("is-dice-subrail");
 
 	toolsWrap.innerHTML = tools.map(tool => `
 		<button
@@ -1425,7 +1467,13 @@ function mgRenderSubbarTools(controlName, toolsWrap) {
  * Renders Midnight Gambit custom subtool buttons.
  */
 function mgRenderCustomSubbarTools(menuName, toolsWrap) {
+	if (menuName === "dice") {
+		mgRenderDiceSubbarTools(toolsWrap);
+		return;
+	}
+
 	const tools = mgGetCustomToolsForMenu(menuName);
+	toolsWrap.classList.remove("is-dice-subrail");
 
 	toolsWrap.innerHTML = tools.map(tool => `
 		<button
@@ -1460,6 +1508,66 @@ function mgRenderCustomSubbarTools(menuName, toolsWrap) {
 
 			mgRenderCustomSubbarTools(menuName, toolsWrap);
 			mgSetOrbBadge(mgActiveControl, mgActiveTool);
+		});
+	});
+}
+
+function mgRenderDiceSubbarTools(toolsWrap) {
+	const tools = mgGetCustomToolsForMenu("dice");
+	const toolsByFormula = new Map(tools.map(tool => [tool.formula, tool]));
+	toolsWrap.classList.add("is-dice-subrail");
+
+	toolsWrap.innerHTML = `
+		<div class="mg-dice-subrail" role="grid" aria-label="Quick Dice Roller">
+			${MG_QUICK_DICE_SIDES.map(sides => `
+				<div class="mg-dice-row" role="row">
+					<div class="mg-dice-row-label" role="rowheader">
+						<i class="fa-solid fa-dice-d20"></i>
+						<span>d${sides}</span>
+					</div>
+
+					${MG_QUICK_DICE_COUNTS.map(count => {
+						const formula = `${count}d${sides}`;
+						const tool = toolsByFormula.get(formula);
+						const label = tool?.label ?? formula;
+						const toolName = tool?.name ?? `roll-${formula}`;
+						return `
+							<button
+								type="button"
+								class="mg-dice-roll-button"
+								data-mg-custom-subtool="${toolName}"
+								data-mg-dice-formula="${formula}"
+								title="Roll ${label}"
+								aria-label="Roll ${label}"
+								role="gridcell"
+							>
+								${count}
+							</button>
+						`;
+					}).join("")}
+				</div>
+			`).join("")}
+		</div>
+	`;
+
+	toolsWrap.querySelectorAll("[data-mg-dice-formula]").forEach(button => {
+		button.addEventListener("click", async event => {
+			event.preventDefault();
+			event.stopPropagation();
+
+			const toolName = button.dataset.mgCustomSubtool;
+			mgActiveControl = "mg:dice";
+			mgActiveTool = toolName;
+
+			mgRefreshActiveControl(mgActiveControl);
+			mgRefreshActiveTool(toolName);
+			mgSaveUiState({
+				activeControl: mgActiveControl,
+				activeTool: toolName
+			});
+			mgSetOrbBadge(mgActiveControl, toolName);
+
+			await mgRunCustomTool("dice", toolName);
 		});
 	});
 }
@@ -5339,6 +5447,19 @@ function mgRunMgAction(action) {
 }
 
 async function mgRunCustomTool(menuName, toolName) {
+	if (menuName === "dice") {
+		const tool = mgGetCustomToolsForMenu("dice").find(t => t.name === toolName);
+		const formula = tool?.formula;
+
+		if (!formula) {
+			ui.notifications?.warn(`Unknown Dice roll: ${toolName}`);
+			return;
+		}
+
+		await mgRollQuickDice(formula);
+		return;
+	}
+
 	if (menuName === "clocks") {
 		switch (toolName) {
 			case "addClock": {
@@ -5378,6 +5499,34 @@ async function mgRunCustomTool(menuName, toolName) {
 	}
 
 	ui.notifications?.warn(`Unknown MG menu: ${menuName}`);
+}
+
+async function mgRollQuickDice(formula) {
+	try {
+		const roll = new Roll(formula);
+		await roll.evaluate({ async: true });
+
+		const messageData = {
+			user: game.user.id,
+			speaker: ChatMessage.getSpeaker(),
+			flavor: `Roll ${formula}`,
+			rollMode: game.settings.get("core", "rollMode")
+		};
+
+		if (typeof roll.toMessage === "function") {
+			await roll.toMessage(messageData, { rollMode: messageData.rollMode });
+			return;
+		}
+
+		await ChatMessage.create({
+			...messageData,
+			roll,
+			type: CONST.CHAT_MESSAGE_TYPES.ROLL
+		});
+	} catch (err) {
+		ui.notifications?.warn(`Could not roll ${formula}.`);
+		console.warn("MG UI | Quick dice roll failed.", { formula, err });
+	}
 }
 
 /**
@@ -5420,7 +5569,7 @@ function mgRefreshActiveTool(forcedTool = null) {
 
 	mgActiveTool = activeTool || null;
 
-	document.querySelectorAll(".mg-orb-subtool").forEach(button => {
+	document.querySelectorAll(".mg-orb-subtool, .mg-dice-roll-button").forEach(button => {
 		const toolName = button.dataset.mgSubtool || button.dataset.mgCustomSubtool;
 		button.classList.toggle("is-active", toolName === activeTool);
 	});

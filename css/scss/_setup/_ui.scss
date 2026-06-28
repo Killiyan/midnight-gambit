@@ -4114,6 +4114,10 @@ body:not(.mg-hud-enabled) #mg-ui-root {
 			flex-wrap: wrap;
 			backdrop-filter: blur(2px);
 
+			&.is-dice-subrail {
+				max-width: min(90vw, 34rem);
+			}
+
 			.mg-orb-subtool {
 				height: 48px;
 				min-width: 48px;
@@ -4158,6 +4162,80 @@ body:not(.mg-hud-enabled) #mg-ui-root {
 
 					i {
 						color: $mg-green;
+					}
+				}
+			}
+
+			.mg-dice-subrail {
+				display: grid;
+				grid-template-columns: 1fr;
+				min-width: 27rem;
+				border-radius: .5rem;
+				overflow: hidden;
+				background: rgba($mg-blue-4, .72);
+
+				.mg-dice-row {
+					display: grid;
+					grid-template-columns: 6.25rem repeat(8, 2.75rem);
+					min-height: 2.75rem;
+
+					& + .mg-dice-row {
+						border-top: 1px solid rgba($mg-blue-1, .16);
+					}
+				}
+
+				.mg-dice-row-label,
+				.mg-dice-roll-button {
+					display: flex;
+					align-items: center;
+					justify-content: center;
+					min-width: 0;
+					min-height: 2.75rem;
+					margin: 0;
+					border: 0;
+					border-radius: 0;
+					background: transparent;
+					@include oswald();
+					font-size: .95rem;
+					line-height: 1;
+					text-transform: none;
+				}
+
+				.mg-dice-row-label {
+					justify-content: flex-start;
+					gap: .5rem;
+					padding: 0 .75rem;
+					border-right: 1px solid $mg-blue-main;
+					background: rgba($mg-blue-4, .9);
+					color: $mg-blue-2;
+					font-weight: 700;
+					letter-spacing: 0;
+
+					i {
+						width: 1rem;
+						color: $mg-blue-3;
+						text-align: center;
+						@include mg-shadow();
+					}
+				}
+
+				.mg-dice-roll-button {
+					cursor: pointer;
+					border-left: 1px solid rgba($mg-blue-1, .12);
+					transition: background .25s ease, color .25s ease, box-shadow .25s ease;
+					color: $mg-blue-1;
+
+					&:hover,
+					&:focus {
+						background: $mg-blue-5;
+						color: $mg-green;
+						box-shadow: inset 0 0 0 1px rgba($mg-blue-1, .25);
+					}
+
+					&.is-active {
+						background: $mg-blue-main-2;
+						color: $mg-green;
+						box-shadow: inset 0 0 0 1px rgba($mg-blue-1, .3);
 					}
 				}
 			}
