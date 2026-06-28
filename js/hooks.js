@@ -174,8 +174,18 @@ Hooks.on("updateActor", (actor, changes) => {
   renderGambitHand(actor);
 });
 
-Hooks.on("updateUser", (user) => {
-  if (user.id === game.user.id) renderAssignedGambitHand();
+function mgUserUpdateTouchesAssignedCharacter(changes = {}) {
+  return (
+    foundry.utils.hasProperty(changes, "character") ||
+    foundry.utils.hasProperty(changes, "character.id") ||
+    changes?.character !== undefined
+  );
+}
+
+Hooks.on("updateUser", (user, changes) => {
+  if (user.id !== game.user.id) return;
+  if (!mgUserUpdateTouchesAssignedCharacter(changes)) return;
+  renderAssignedGambitHand();
 });
 
 /* Setting Player's Gambit Hand
@@ -322,6 +332,8 @@ function renderGambitHand(actor) {
   let viewSwitchTimer = null;
 
   const getScrollableCardsWrap = () => visibleView === "team" ? teamCardsWrap : moveCardsWrap;
+  let handWheelDelta = 0;
+  let handWheelLocked = false;
 
   const syncViewButton = () => {
     const teamActive = activeView === "team";
@@ -441,6 +453,32 @@ function renderGambitHand(actor) {
     handSlideIndex -= 1;
     handSlideIndex = mgUpdateMoveHandSlider(getScrollableCardsWrap(), handSlideIndex, slideLeft, slideRight);
   });
+
+  handHtml.addEventListener("wheel", (ev) => {
+    if (handHtml.classList.contains("is-transitioning") || handHtml.classList.contains("is-view-switching")) return;
+    if (visibleView !== "moves" && visibleView !== "team") return;
+
+    const cardsWrap = getScrollableCardsWrap();
+    const { max, pages } = mgGetMoveHandSliderState(cardsWrap);
+    if (max <= 8 || pages <= 1) return;
+
+    ev.preventDefault();
+    ev.stopPropagation();
+
+    const delta = Math.abs(ev.deltaX) > Math.abs(ev.deltaY) ? ev.deltaX : ev.deltaY;
+    if (!delta) return;
+
+    handWheelDelta += delta;
+    if (handWheelLocked || Math.abs(handWheelDelta) < 28) return;
+
+    handSlideIndex += handWheelDelta > 0 ? 1 : -1;
+    handSlideIndex = mgUpdateMoveHandSlider(cardsWrap, handSlideIndex, slideLeft, slideRight);
+    handWheelDelta = 0;
+    handWheelLocked = true;
+    window.setTimeout(() => {
+      handWheelLocked = false;
+    }, 140);
+  }, { passive: false });
 
   toggle.addEventListener("click", (ev) => {
     ev.preventDefault();

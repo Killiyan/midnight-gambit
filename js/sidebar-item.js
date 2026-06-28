@@ -367,8 +367,6 @@ function mgBindItemSidebarDrag(panel) {
 			clearDropState();
 			container.classList.add("mg-item-drop-target");
 
-			const target = getDirectDropTarget(event, container);
-			if (target) insertDraggingNearTarget(event, container, target);
 		});
 
 		container.addEventListener("drop", async event => {
@@ -381,6 +379,8 @@ function mgBindItemSidebarDrag(panel) {
 			if (!isRootContainer && nearestContainer !== container) return;
 			event.preventDefault();
 			event.stopPropagation();
+			const target = getDirectDropTarget(event, container);
+			if (target) insertDraggingNearTarget(event, container, target);
 			clearDropState();
 			await finalizeContainerOrder(container);
 		});

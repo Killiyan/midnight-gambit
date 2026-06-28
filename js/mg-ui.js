@@ -2276,8 +2276,6 @@ function mgBindSceneSidebarDrag(panel) {
 			clearDropState();
 			container.classList.add("mg-scene-drop-target");
 
-			const target = getDirectDropTarget(event, container);
-			if (target) insertDraggingNearTarget(event, container, target);
 		});
 
 		container.addEventListener("drop", async event => {
@@ -2290,6 +2288,8 @@ function mgBindSceneSidebarDrag(panel) {
 			if (!isRootContainer && nearestContainer !== container) return;
 			event.preventDefault();
 			event.stopPropagation();
+			const target = getDirectDropTarget(event, container);
+			if (target) insertDraggingNearTarget(event, container, target);
 			clearDropState();
 			await finalizeContainerOrder(container);
 		});

@@ -412,8 +412,6 @@ function mgBindActorSidebarDrag(panel) {
 			clearDropState();
 			container.classList.add("mg-actor-drop-target");
 
-			const target = getDirectDropTarget(event, container);
-			if (target) insertDraggingNearTarget(event, container, target);
 		});
 
 		container.addEventListener("drop", async event => {
@@ -426,6 +424,8 @@ function mgBindActorSidebarDrag(panel) {
 			if (!isRootContainer && nearestContainer !== container) return;
 			event.preventDefault();
 			event.stopPropagation();
+			const target = getDirectDropTarget(event, container);
+			if (target) insertDraggingNearTarget(event, container, target);
 			clearDropState();
 			await finalizeContainerOrder(container);
 		});
