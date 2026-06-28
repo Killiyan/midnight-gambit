@@ -118,24 +118,24 @@
 			}
 		},
 		"move": {
-		"system": {
-			"description": "",
-			"tags": [],
-			"moveType": "",
-			"moveSubtype": "",
-			"learned": false,
-			"npcMove": false,
-			"npcSignature": false,
-			"isSignature": false
-		}
+			"system": {
+				"description": "",
+				"tags": [],
+				"moveType": "",
+				"moveSubtype": "",
+				"learned": false,
+				"npcMove": false,
+				"npcSignature": false,
+				"isSignature": false
+			}
 		},
 		"asset": {
-		"system": {
-			"description": "",
-			"tags": [],
-			"qty": 1,
-			"notes": ""
-		}
+			"system": {
+				"description": "",
+				"tags": [],
+				"qty": 1,
+				"notes": ""
+			}
 		}
 	},
 

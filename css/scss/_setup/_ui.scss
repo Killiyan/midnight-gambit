@@ -2344,6 +2344,229 @@ body.mg-hud-enabled {
 				}
 			}
 
+			.mg-sidebar-items-head {
+				display: flex;
+				margin-bottom: .75rem;
+
+				.mg-sidebar-open-inventory {
+					width: 100%;
+					display: flex;
+					justify-content: center;
+					align-items: center;
+					gap: .5rem;
+				}
+			}
+
+			.mg-sidebar-items-list {
+				display: grid;
+				gap: .75rem;
+			}
+
+			.mg-sidebar-item {
+				@include mg-border();
+				--seeall-toggle-h: 2.65rem;
+				--seeall-gap: .25rem;
+				display: flex;
+				flex-direction: column;
+				gap: 0;
+				padding: 0;
+				border-radius: .625rem;
+				background: $mg-blue-4;
+				box-shadow: 5px 5px 10px rgba($black, .35);
+				overflow: hidden;
+				position: relative;
+				transition: max-height .5s ease;
+				will-change: max-height;
+
+				&.expanded:not(.is-transitioning) {
+					overflow: visible;
+				}
+
+				&.expanded .mg-sidebar-item-toggle:after,
+				&.short .mg-sidebar-item-toggle {
+					display: none;
+				}
+			}
+
+			.mg-sidebar-item-name {
+				@include tiller();
+				display: flex;
+				align-items: center;
+				justify-content: flex-start;
+				gap: .625rem;
+				width: 100%;
+				margin: 0;
+				padding: .85rem 1rem;
+				border-radius: 0;
+				background: $mg-blue-main;
+				color: $mg-blue-1;
+				font-size: 1.05rem;
+				font-weight: 700;
+				line-height: 1.1;
+				text-align: left;
+				text-transform: uppercase;
+				font-style: italic;
+				transition: background .5s ease, color .5s ease;
+
+				span {
+					min-width: 0;
+					overflow: hidden;
+					text-overflow: ellipsis;
+					white-space: nowrap;
+				}
+
+				i {
+					flex: 0 0 auto;
+					color: $mg-blue-2;
+				}
+
+				&:hover,
+				&:focus {
+					background: $mg-blue-3;
+					color: $mg-ivory;
+				}
+			}
+
+			.mg-sidebar-item-media {
+				width: 100%;
+				background: $mg-ivory;
+
+				img {
+					display: block;
+					width: 100%;
+					height: 100%;
+					max-height: 10rem;
+					aspect-ratio: 16 / 10;
+					object-fit: contain;
+					border: none;
+					border-radius: 0;
+					background: $mg-blue-main;
+				}
+			}
+
+			.mg-sidebar-item-body {
+				display: grid;
+				gap: .75rem;
+				padding: 1rem 1rem calc(var(--seeall-toggle-h) + .75rem);
+			}
+
+			.mg-sidebar-item.short .mg-sidebar-item-body {
+				padding-bottom: 1rem;
+			}
+
+			.mg-sidebar-item-capacity {
+				@include mg-border();
+				display: grid;
+				grid-template-columns: repeat(3, 1fr);
+				gap: .5rem;
+				padding: 1rem;
+				border-radius: .5rem;
+				background: rgba($mg-blue-4, .5);
+				color: $mg-blue-2;
+				justify-content: center;
+				align-items: center;
+
+				label {
+					color: $mg-blue-1;
+					@include oswald();
+					font-size: 1rem;
+					font-weight: 700;
+					text-transform: uppercase;
+					margin-bottom: 0;
+					display: block;
+					grid-column: span 2;
+				}
+
+				.bubble-wrapper {
+					display: flex;
+					gap: .5rem;
+				}
+
+				.strain-bubble {
+					background: $mg-blue-4;
+					border: 2px solid $mg-blue-main-2;
+					border-radius: .5rem;
+					display: flex;
+					align-items: center;
+					justify-content: space-between;
+					gap: .5rem;
+					margin: 0;
+					padding: .65rem .75rem;
+
+					i {
+						color: $mg-blue-2;
+						font-size: 1rem;
+					}
+
+					.remaining-number {
+						@include oswald();
+						color: $mg-blue-1;
+						font-size: 1rem;
+						font-weight: 700;
+						line-height: 1;
+					}
+				}
+			}
+
+			.mg-sidebar-item-desc {
+				@include mg-border();
+				display: grid;
+				gap: .5rem;
+				padding: .75rem;
+				border-radius: .5rem;
+				background: rgba($mg-blue-4, .5);
+				color: $mg-blue-2;
+				font-size: .85rem;
+				line-height: 1.45;
+
+				label {
+					@include oswald();
+					margin: 0;
+					color: $mg-blue-1;
+					font-size: .85rem;
+					font-weight: 700;
+					text-transform: uppercase;
+				}
+
+				.desc-content {
+					display: grid;
+					gap: .5rem;
+
+					> :first-child {
+						margin-top: 0;
+					}
+
+					> :last-child {
+						margin-bottom: 0;
+					}
+				}
+			}
+
+			.mg-sidebar-item-tags {
+				display: flex;
+				flex-wrap: wrap;
+				gap: .35rem;
+				padding: .5rem;
+				border: 2px solid rgba($mg-blue-3, .4);
+				border-radius: .5rem;
+				background: rgba($mg-blue-main, .45);
+
+				.item-tag {
+					margin: 0;
+				}
+			}
+
+			.mg-sidebar-item-toggle {
+				width: 100%;
+				height: var(--seeall-toggle-h);
+				margin: 0;
+				border-radius: 0 0 .5rem .5rem;
+
+				i {
+					transition: transform .5s cubic-bezier(.2, .8, .2, 1), color .5s ease;
+				}
+			}
+
 			.skill-grid {
 				display: grid;
 				grid-template-columns: repeat(3, minmax(0, 1fr));

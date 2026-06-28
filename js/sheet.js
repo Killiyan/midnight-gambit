@@ -1,5 +1,6 @@
 import { evaluateRoll, mgApplyStrainAttributePenalty, mgGetStrainEffectBadge, mgGetStrainRollEffects } from "./roll-utils.js";
 import { GambitDeckBuilderApplication } from "./gambit-deck-builder.js";
+import { MovesLibraryApplication } from "./moves-library.js";
 
 const MG_ACTOR_GUISE_IMAGE = "systems/midnight-gambit/assets/images/guise.jpg";
 const MG_ACTOR_DEFAULT_IMAGE = "icons/svg/mystery-man.svg";
@@ -1750,6 +1751,11 @@ _mgOpenSidebarCropper() {
       }
 
       new GambitDeckBuilderApplication(this.actor, deckId).render(true);
+    });
+
+    html.find(".mg-open-moves-library").off("click.mgMovesLibrary").on("click.mgMovesLibrary", (ev) => {
+      ev.preventDefault();
+      new MovesLibraryApplication(this.actor).render(true);
     });
 
     html.find(".mg-equip-gambit-deck").off("click.mgDecks").on("click.mgDecks", async (ev) => {
@@ -6821,15 +6827,18 @@ async _mgOpenStatPicker({ title, current }) {
 
     // 6) Moves (we’ll do a picker later — for now just nudge them)
     if ((pending = await readPending()).moves > 0) {
-      await Dialog.wait({
+      const openLibrary = await Dialog.wait({
         title: "Choose Learned Move",
         content: `
-          <p>You have <strong>${pending.moves}</strong> unspent Learned Move(s). Head to your Moves area and add one; the pending counter will remain until you finalize.</p>
+          <p>You have <strong>${pending.moves}</strong> unspent Learned Move(s). Open the Moves Library to choose one.</p>
         `,
         buttons: {
-          ok: { label: this._mgBtn("Okay", "fa-thumbs-up") }
-        }
+          library: { label: this._mgBtn("Open Moves Library", "fa-book-open"), callback: () => true },
+          later: { label: this._mgBtn("Later", "fa-clock"), callback: () => false }
+        },
+        default: "library"
       });
+      if (openLibrary) new MovesLibraryApplication(actor).render(true);
     }
 
     // 7) Done

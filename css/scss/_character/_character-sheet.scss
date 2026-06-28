@@ -1583,6 +1583,30 @@ ol li {
 
   //Start the Moves Tab of the character sheet
   .tab-moves {
+    .moves-settings {
+      display: flex;
+      gap: 2.125rem;
+      justify-content: center;
+      margin-top: -4.5rem;
+      margin-bottom: 2.125rem;
+      position: relative;
+      z-index: 10;
+      padding: 2rem 1rem;
+      background-color: $mg-blue-main;
+      @include mg-border();
+      border-radius: .625rem;
+      box-shadow: 5px 5px 10px rgba(0,0,0,0.5);
+
+      .mg-open-moves-library {
+        margin: 0;
+        padding: .5rem 1rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: .5rem;
+      }
+    }
+
     .tags-wrap {
       margin: 1.25rem;
       padding: 0;

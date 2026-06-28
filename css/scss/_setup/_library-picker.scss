@@ -207,6 +207,44 @@
   }
 }
 
+.mg-moves-library {
+  .mg-gambit-library-card {
+    &.is-in-deck {
+      .mg-gambit-library-card-art {
+        opacity: .72;
+      }
+    }
+  }
+
+  .mg-moves-library-type-icon {
+    top: -.65rem;
+    right: -.65rem;
+    width: 3rem;
+    height: 3rem;
+    border-radius: .5rem;
+    overflow: hidden;
+  }
+
+  .mg-gambit-library-selected {
+    right: -.15rem;
+    bottom: -.15rem;
+    width: 1.8rem;
+    border-radius: .35rem;
+
+    i {
+      margin: 0;
+      color: $mg-green;
+      font-size: .85rem;
+    }
+  }
+
+  .mg-gambit-library-focus-card {
+    .mg-moves-library-type-icon {
+      z-index: 4;
+    }
+  }
+}
+
 .mg-gambit-library-app {
 	.window-header {
 		display: none;

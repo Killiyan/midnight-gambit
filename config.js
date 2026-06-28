@@ -52,10 +52,12 @@ export const MOVE_SUBTYPES = [
   { id: "defensive", label: "Defensive" },
   { id: "duelist", label: "Duelist" },
   { id: "improvised-weapons", label: "Improvised Weapons" },
+  { id: "melee", label: "Melee" },
   { id: "mobility", label: "Mobility" },
   { id: "ranged", label: "Ranged" },
   { id: "combat", label: "Combat" },
-  { id: "healing", label: "Healing" }
+  { id: "healing", label: "Healing" },
+  { id: "support", label: "Support" }
 ];
 
 export const GAMBIT_TIER_COSTS = Object.fromEntries(

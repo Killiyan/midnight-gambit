@@ -498,6 +498,206 @@ function mgCapitalize(value) {
 	return str ? str.charAt(0).toUpperCase() + str.slice(1) : "";
 }
 
+function mgGetItemTagDefinition(tagId) {
+	const tags = CONFIG.MidnightGambit?.ITEM_TAGS ?? [];
+	if (Array.isArray(tags)) return tags.find(tag => tag?.id === tagId) ?? null;
+	return tags?.[tagId] ?? null;
+}
+
+function mgRenderItemTagPills(item) {
+	const tags = Array.isArray(item?.system?.tags) ? item.system.tags : [];
+	if (!tags.length) return "";
+
+	return `
+		<div class="item-tags mg-sidebar-item-tags">
+			${tags.map(tagId => {
+				const tag = mgGetItemTagDefinition(tagId);
+				const label = tag?.label ?? tagId;
+				const tooltip = tag?.description ? ` data-tooltip="${mgAttr(tag.description)}"` : "";
+				return `
+					<span class="item-tag tag" data-item-id="${mgAttr(item.id)}" data-tag-id="${mgAttr(tagId)}"${tooltip}>
+						${mgEsc(label)}
+					</span>
+				`;
+			}).join("")}
+		</div>
+	`;
+}
+
+function mgStripHtml(value) {
+	const div = document.createElement("div");
+	div.innerHTML = String(value ?? "");
+	return (div.textContent || div.innerText || "").trim();
+}
+
+function mgRenderSidebarItemDescription(item) {
+	const description = String(item?.system?.description ?? "").trim();
+	if (!mgStripHtml(description)) return "";
+
+	return `
+		<div class="desc mg-sidebar-item-desc">
+			<label>Description</label>
+			<div class="desc-content mg-seeall-content">
+				${description}
+			</div>
+		</div>
+	`;
+}
+
+function mgRenderSidebarStrainBubble(icon, value) {
+	const number = Number(value ?? 0) || 0;
+	return `
+		<p class="strain-bubble">
+			<i class="${mgAttr(icon)}"></i>
+			<span class="remaining-number">${number}</span>
+		</p>
+	`;
+}
+
+function mgRenderSidebarItemCapacity(item) {
+	const system = item?.system ?? {};
+	const mortalDamage = Number(system.mortalStrainDamage ?? system.strainDamage ?? 0) || 0;
+	const soulDamage = Number(system.soulStrainDamage ?? 0) || 0;
+	const mortalCapacity = Number(system.remainingCapacity?.mortal ?? system.mortalCapacity ?? 0) || 0;
+	const soulCapacity = Number(system.remainingCapacity?.soul ?? system.soulCapacity ?? 0) || 0;
+	const hasDamage = mortalDamage > 0 || soulDamage > 0;
+	const hasCapacity = mortalCapacity > 0 || soulCapacity > 0;
+
+	if (!hasDamage && !hasCapacity) return "";
+
+	return `
+		<div class="item-capacity mg-sidebar-item-capacity" title="Strain Effects">
+			${hasDamage ? `
+				<label>Strain Damage</label>
+				<div class="bubble-wrapper">
+					${mgRenderSidebarStrainBubble("fa-kit fa-mortal-strain", mortalDamage)}
+					${mgRenderSidebarStrainBubble("fa-kit fa-soul-strain", soulDamage)}
+				</div>
+			` : ""}
+
+			${hasCapacity ? `
+				<label>Capacity</label>
+				<div class="bubble-wrapper">
+					${mgRenderSidebarStrainBubble("fa-kit fa-mortal-strain", mortalCapacity)}
+					${mgRenderSidebarStrainBubble("fa-kit fa-soul-strain", soulCapacity)}
+				</div>
+			` : ""}
+		</div>
+	`;
+}
+
+async function mgPostOwnedInventoryItemToChat(actor, item) {
+	if (!actor || !item) return;
+
+	const { name, system, type } = item;
+	const allDefs = [
+		...(CONFIG.MidnightGambit?.ITEM_TAGS ?? []),
+		...(CONFIG.MidnightGambit?.WEAPON_TAGS ?? []),
+		...(CONFIG.MidnightGambit?.ARMOR_TAGS ?? []),
+		...(CONFIG.MidnightGambit?.MISC_TAGS ?? [])
+	];
+
+	const tagData = (Array.isArray(system?.tags) ? system.tags : [])
+		.map(tagId => {
+			const def = allDefs.find(tag => tag?.id === tagId);
+			const label = def?.label || tagId;
+			const desc = def?.description || "";
+			return `<span class="item-tag tag" data-tag-id="${mgAttr(tagId)}" title="${mgAttr(desc)}">${mgEsc(label)}</span>`;
+		})
+		.join(" ");
+
+	const mortalDamage = Number(system?.mortalStrainDamage ?? system?.strainDamage ?? 0) || 0;
+	const soulDamage = Number(system?.soulStrainDamage ?? 0) || 0;
+	const mortalCapacity = Number(system?.remainingCapacity?.mortal ?? system?.mortalCapacity ?? 0) || 0;
+	const soulCapacity = Number(system?.remainingCapacity?.soul ?? system?.soulCapacity ?? 0) || 0;
+	const damageInfo = mortalDamage || soulDamage
+		? `
+			<label>Strain Damage</label>
+			<div class="bubble-wrapper">
+				${mortalDamage ? mgRenderSidebarStrainBubble("fa-kit fa-mortal-strain", mortalDamage) : ""}
+				${soulDamage ? mgRenderSidebarStrainBubble("fa-kit fa-soul-strain", soulDamage) : ""}
+			</div>
+		`
+		: "";
+	const capacityInfo = mortalCapacity || soulCapacity
+		? `
+			<label>Capacity</label>
+			<div class="bubble-wrapper">
+				${mortalCapacity ? mgRenderSidebarStrainBubble("fa-kit fa-mortal-strain", mortalCapacity) : ""}
+				${soulCapacity ? mgRenderSidebarStrainBubble("fa-kit fa-soul-strain", soulCapacity) : ""}
+			</div>
+		`
+		: "";
+	const descHtml = system?.description
+		? await TextEditor.enrichHTML(String(system.description ?? ""), { async: true, secrets: false })
+		: "";
+	const icon = type === "weapon" ? "fa-solid fa-sword" : type === "armor" ? "fa-solid fa-shield" : "fa-solid fa-backpack";
+
+	await ChatMessage.create({
+		user: game.user.id,
+		speaker: ChatMessage.getSpeaker({ actor }),
+		content: `
+			<div class="chat-item">
+				<h2><i class="${icon}"></i> ${mgEsc(name)}</h2>
+				${descHtml ? `<div class="chat-item-desc">${descHtml}</div>` : ""}
+				${damageInfo}
+				${capacityInfo}
+				${tagData ? `<strong>Tags:</strong><div class="chat-tags">${tagData}</div>` : ""}
+			</div>
+		`
+	});
+}
+
+function mgRenderSidebarItemImage(item) {
+	const src = item?.img || "icons/svg/item-bag.svg";
+	return `
+		<div class="card-media mg-sidebar-item-media">
+			<img class="item-card-img" src="${mgEsc(src)}" alt="${mgAttr(item?.name)}" />
+		</div>
+	`;
+}
+
+function mgRenderFavoriteSidebarItems(actor) {
+	const inventoryTypes = new Set(["weapon", "armor", "misc", "item"]);
+	const favorites = actor.items
+		.filter(item => inventoryTypes.has(item.type) && item.system?.favorite)
+		.sort((a, b) => a.name.localeCompare(b.name));
+
+	if (!favorites.length) {
+		return `<div class="mg-left-empty mg-sidebar-items-empty">No favorite items yet.</div>`;
+	}
+
+	return `
+		<div class="mg-sidebar-items-list">
+			${favorites.map(item => `
+				<article class="mg-sidebar-item" data-mg-sidebar-item-id="${mgAttr(item.id)}" data-seeall-cap="335">
+					<button type="button" class="mg-sidebar-item-name" data-mg-post-owned-item="${mgAttr(item.id)}" title="Post ${mgAttr(item.name)} to chat">
+						<i class="fa-solid fa-messages"></i>
+						<span>${mgEsc(item.name)}</span>
+					</button>
+
+					${mgRenderSidebarItemImage(item)}
+					<div class="card-wrapper mg-sidebar-item-body">
+						${mgRenderSidebarItemCapacity(item)}
+						${mgRenderSidebarItemDescription(item)}
+						${mgRenderItemTagPills(item)}
+					</div>
+
+					<button
+						class="mg-card-toggle card-seeall-toggle mg-sidebar-item-toggle"
+						type="button"
+						title="Expand / collapse card"
+						aria-label="Expand / collapse card"
+						hidden
+					>
+						<i class="fa-solid fa-angle-down"></i>
+					</button>
+				</article>
+			`).join("")}
+		</div>
+	`;
+}
+
 function mgGetSparkSchools(actor) {
 	const rawCasterType = actor?.system?.casterType ?? null;
 	const casterType = rawCasterType === "caster" ? "full" : rawCasterType;
@@ -1702,6 +1902,22 @@ function mgBindLeftSidebarContent(root, tabId) {
 		});
 	});
 
+	root.querySelectorAll("[data-mg-open-actor-tab]").forEach(button => {
+		button.addEventListener("click", () => {
+			const actor = game.actors.get(button.dataset.mgOpenActorTab);
+			mgOpenActorSheetTab(actor, button.dataset.mgTab);
+		});
+	});
+
+	root.querySelectorAll("[data-mg-character-sidebar] [data-mg-post-owned-item]").forEach(button => {
+		button.addEventListener("click", async event => {
+			event.preventDefault();
+			const actor = mgGetCharacterSidebarActor(root);
+			const item = actor?.items?.get(button.dataset.mgPostOwnedItem);
+			await mgPostOwnedInventoryItemToChat(actor, item);
+		});
+	});
+
 	root.querySelectorAll("[data-mg-open-item]").forEach(button => {
 		button.addEventListener("click", () => {
 			const item = game.items.get(button.dataset.mgOpenItem);
@@ -2552,6 +2768,18 @@ function mgRefreshLeftSidebarContent() {
 
 globalThis.mgRefreshLeftSidebarContent = mgRefreshLeftSidebarContent;
 
+function mgOpenActorSheetTab(actor, tabId) {
+	if (!actor) return;
+
+	actor.sheet?.render(true, { focus: true });
+
+	window.setTimeout(() => {
+		const sheetEl = actor.sheet?.element?.[0] ?? actor.sheet?.element;
+		const tabButton = sheetEl?.querySelector?.(`nav.sheet-tabs [data-tab="${mgCssEscape(tabId)}"]`);
+		if (tabButton) tabButton.click();
+	}, 100);
+}
+
 function mgRefreshClocksSidebarContent() {
 	if (mgActiveSidebarTab === "clocks") mgRefreshLeftSidebarContent();
 }
@@ -2712,6 +2940,105 @@ function mgBindCharacterSidebarContent(root) {
 		const next = !actor.system?.edgeNext;
 		await actor.update({ "system.edgeNext": next }, { render: false });
 		mgRefreshCharacterEdgeButtons(actor, next);
+	});
+
+	mgBindCharacterSidebarItemSeeAll(root);
+}
+
+function mgBindCharacterSidebarItemSeeAll(root) {
+	const panel = root?.querySelector("[data-mg-character-sidebar]");
+	if (!panel) return;
+
+	const DEFAULT_CAP = 335;
+
+	const refreshCard = card => {
+		const toggle = card?.querySelector?.(".mg-sidebar-item-toggle");
+		if (!card || !toggle) return;
+
+		const cap = Number(card.dataset.seeallCap) || DEFAULT_CAP;
+		const expanded = card.classList.contains("expanded");
+
+		card.style.maxHeight = "none";
+		const fullHeight = Math.ceil(card.scrollHeight);
+		const overflows = fullHeight > cap + 4;
+
+		toggle.hidden = !overflows;
+		card.classList.toggle("short", !overflows);
+
+		if (!overflows) {
+			card.classList.remove("expanded", "is-transitioning");
+			card.style.maxHeight = "none";
+			toggle.setAttribute("aria-expanded", "false");
+			toggle.querySelector("i")?.classList.remove("rotated");
+			return;
+		}
+
+		card.classList.remove("is-transitioning");
+		card.style.maxHeight = expanded ? `${fullHeight}px` : `${cap}px`;
+		toggle.setAttribute("aria-expanded", String(expanded));
+		toggle.querySelector("i")?.classList.toggle("rotated", expanded);
+	};
+
+	panel.querySelectorAll(".mg-sidebar-item").forEach(refreshCard);
+
+	if (panel.dataset.mgSidebarItemSeeAllBound === "true") return;
+	panel.dataset.mgSidebarItemSeeAllBound = "true";
+
+	panel.addEventListener("click", event => {
+		const toggle = event.target.closest(".mg-sidebar-item-toggle");
+		if (!toggle || !panel.contains(toggle)) return;
+
+		event.preventDefault();
+		event.stopPropagation();
+
+		const card = toggle.closest(".mg-sidebar-item");
+		if (!card) return;
+
+		const cap = Number(card.dataset.seeallCap) || DEFAULT_CAP;
+		const expanding = !card.classList.contains("expanded");
+		const startHeight = Math.ceil(card.getBoundingClientRect().height) || cap;
+
+		if (card._mgSidebarItemSeeAllEnd) {
+			card.removeEventListener("transitionend", card._mgSidebarItemSeeAllEnd);
+			card._mgSidebarItemSeeAllEnd = null;
+		}
+
+		if (card._mgSidebarItemSeeAllTimer) {
+			window.clearTimeout(card._mgSidebarItemSeeAllTimer);
+			card._mgSidebarItemSeeAllTimer = null;
+		}
+
+		card.style.maxHeight = `${startHeight}px`;
+		card.classList.add("is-transitioning");
+		card.classList.toggle("expanded", expanding);
+		toggle.setAttribute("aria-expanded", String(expanding));
+		toggle.querySelector("i")?.classList.toggle("rotated", expanding);
+
+		requestAnimationFrame(() => {
+			const targetHeight = expanding ? Math.ceil(card.scrollHeight) : cap;
+			card.style.maxHeight = `${targetHeight}px`;
+		});
+
+		card._mgSidebarItemSeeAllEnd = transitionEvent => {
+			if (transitionEvent.target !== card || transitionEvent.propertyName !== "max-height") return;
+
+			card.removeEventListener("transitionend", card._mgSidebarItemSeeAllEnd);
+			card._mgSidebarItemSeeAllEnd = null;
+
+			if (card._mgSidebarItemSeeAllTimer) {
+				window.clearTimeout(card._mgSidebarItemSeeAllTimer);
+				card._mgSidebarItemSeeAllTimer = null;
+			}
+
+			card.classList.remove("is-transitioning");
+			card.style.maxHeight = expanding ? `${Math.ceil(card.scrollHeight)}px` : `${cap}px`;
+		};
+
+		card.addEventListener("transitionend", card._mgSidebarItemSeeAllEnd);
+		card._mgSidebarItemSeeAllTimer = window.setTimeout(() => {
+			if (!card._mgSidebarItemSeeAllEnd) return;
+			card._mgSidebarItemSeeAllEnd({ target: card, propertyName: "max-height" });
+		}, 650);
 	});
 }
 
@@ -3293,6 +3620,22 @@ function mgRenderCharacterSidebar(actor) {
 		</div>
 	`;
 
+	const itemsBody = `
+		<div class="mg-sidebar-items-head">
+			<button
+				type="button"
+				class="mg-left-action mg-sidebar-open-inventory"
+				data-mg-open-actor-tab="${actor.id}"
+				data-mg-tab="inventory"
+			>
+				<i class="fa-solid fa-treasure-chest"></i>
+				Open Inventory
+			</button>
+		</div>
+
+		${mgRenderFavoriteSidebarItems(actor)}
+	`;
+
 	return `
 		<section class="character-tab" data-mg-character-sidebar="${actor.id}">
 			<header class="identity">
@@ -3348,6 +3691,14 @@ function mgRenderCharacterSidebar(actor) {
 				open: hasSpark,
 				body: sparkBody
 			}) : ""}
+
+			${mgRenderAccordion(actor, {
+				id: "items",
+				title: "Items",
+				icon: "fa-solid fa-treasure-chest",
+				open: true,
+				body: itemsBody
+			})}
 		</section>
 	`;
 }

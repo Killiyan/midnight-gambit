@@ -1,0 +1,3453 @@
+[
+  {
+    "name": "Fallback Shot",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-combat.png",
+    "folder": "Combat",
+    "subfolder": "Ranged",
+    "system": {
+      "description": "After you successfully make a ranged attack, you may choose to move 1 zone away from your target without drawing a reaction.",
+      "tags": [],
+      "moveType": "combat",
+      "moveSubtype": "ranged",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Deadeye Mark",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-combat.png",
+    "folder": "Combat",
+    "subfolder": "Ranged",
+    "system": {
+      "description": "Once per scene when you line up a range attack against a target, gain Edge",
+      "tags": [],
+      "moveType": "combat",
+      "moveSubtype": "ranged",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Exposed Angle",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-combat.png",
+    "folder": "Combat",
+    "subfolder": "Ranged",
+    "system": {
+      "description": "When you attack a target who isn’t in cover, deal +1 Strain with a Flourish",
+      "tags": [],
+      "moveType": "combat",
+      "moveSubtype": "ranged",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Suppressing Fire",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-combat.png",
+    "folder": "Combat",
+    "subfolder": "Ranged",
+    "system": {
+      "description": "Once per scene when you make a ranged attack against an enemy you may choose one:\nThey cannot move zones closer to you until their next turn\nYou gain Edge on your next reaction against them",
+      "tags": [],
+      "moveType": "combat",
+      "moveSubtype": "ranged",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Pin Down",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-combat.png",
+    "folder": "Combat",
+    "subfolder": "Ranged",
+    "system": {
+      "description": "When you hit a target that’s in cover with a ranged attack, they are forced to stay in cover or take +1 Strain if they attempt to move before your next turn",
+      "tags": [],
+      "moveType": "combat",
+      "moveSubtype": "ranged",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Quickdraw",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-combat.png",
+    "folder": "Combat",
+    "subfolder": "Ranged",
+    "system": {
+      "description": "The first attack you make in a scene with a one-handed range weapon gains +1.",
+      "tags": [],
+      "moveType": "combat",
+      "moveSubtype": "ranged",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Close Quarters Combat",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-combat.png",
+    "folder": "Combat",
+    "subfolder": "Ranged",
+    "system": {
+      "description": "You do not suffer any penalty for using a ranged weapon against a target at Close Range",
+      "tags": [],
+      "moveType": "combat",
+      "moveSubtype": "ranged",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Trick Shot",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-combat.png",
+    "folder": "Combat",
+    "subfolder": "Ranged",
+    "system": {
+      "description": "Once per scene when you make a ranged attack you may target an object, weapon, light source, or piece of scenery instead of an enemy. On a hit, you create a useful opening.",
+      "tags": [],
+      "moveType": "combat",
+      "moveSubtype": "ranged",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Ricochet",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-combat.png",
+    "folder": "Combat",
+    "subfolder": "Ranged",
+    "system": {
+      "description": "Once per scene when a target has cover you may ignore that cover if there is a believable surface, angle, or object you can ricochet the shot from.",
+      "tags": [],
+      "moveType": "combat",
+      "moveSubtype": "ranged",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Covering Shot",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-combat.png",
+    "folder": "Combat",
+    "subfolder": "Ranged",
+    "system": {
+      "description": "When an ally within Short to Mid Range retreats or changes zones, you may make a ranged attack to cover them. On a complication or better your ally gains Edge to their next reaction during the movement.",
+      "tags": [],
+      "moveType": "combat",
+      "moveSubtype": "ranged",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Lead the Target",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-combat.png",
+    "folder": "Combat",
+    "subfolder": "Ranged",
+    "system": {
+      "description": "When a target moves zones before your turn, gain +1 on your next ranged attack against them.",
+      "tags": [],
+      "moveType": "combat",
+      "moveSubtype": "ranged",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Heavy Caliber",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-combat.png",
+    "folder": "Combat",
+    "subfolder": "Ranged",
+    "system": {
+      "description": "Once per scene when you hit with a two-handed ranged weapon, deal +1 Strain or force the target to retreat 1 zone.",
+      "tags": [],
+      "moveType": "combat",
+      "moveSubtype": "ranged",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Make It Count",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-combat.png",
+    "folder": "Combat",
+    "subfolder": "Ranged",
+    "system": {
+      "description": "When you attack with a ranged weapon that must be prepared (reload, charge, etc), gain Edge on your next attack after taking a turn to prepare.",
+      "tags": [],
+      "moveType": "combat",
+      "moveSubtype": "ranged",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Warning Shot",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-combat.png",
+    "folder": "Combat",
+    "subfolder": "Ranged",
+    "system": {
+      "description": "Once per scene make a ranged attack meant to frighten instead of harm. On a complication or above, your target hesitates, drops something, or cannot move zones next turn.",
+      "tags": [],
+      "moveType": "combat",
+      "moveSubtype": "ranged",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Thread the Needle",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-combat.png",
+    "folder": "Combat",
+    "subfolder": "Ranged",
+    "system": {
+      "description": "When you make a ranged attack in a crowded or otherwise dangerous situation, you may ignore penalties from bystanders or partial obstruction.",
+      "tags": [],
+      "moveType": "combat",
+      "moveSubtype": "ranged",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Blood in the Sights",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-combat.png",
+    "folder": "Combat",
+    "subfolder": "Ranged",
+    "system": {
+      "description": "When a target has already taken Mortal Strain during the scene, you gain +1 on your first ranged attack against them.",
+      "tags": [],
+      "moveType": "combat",
+      "moveSubtype": "ranged",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Snap Reaction",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-combat.png",
+    "folder": "Combat",
+    "subfolder": "Ranged",
+    "system": {
+      "description": "Once per combat when an enemy enters Mid Range of you, or leaves cover you may immediately make a ranged attack against them.",
+      "tags": [],
+      "moveType": "combat",
+      "moveSubtype": "ranged",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Smoke and Sightlines",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-combat.png",
+    "folder": "Combat",
+    "subfolder": "Ranged",
+    "system": {
+      "description": "When your vision is obscured by smoke, darkness, or another visual obstruction that would hinder your ranged attack, reduce the penalty by 1.",
+      "tags": [],
+      "moveType": "combat",
+      "moveSubtype": "ranged",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Disarming Shot",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-combat.png",
+    "folder": "Combat",
+    "subfolder": "Ranged",
+    "system": {
+      "description": "Once per scene when you hit a ranged attack, you may choose to deal no Strain to instead disarm, or disable the enemies weapon momentarily.",
+      "tags": [],
+      "moveType": "combat",
+      "moveSubtype": "ranged",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Longshot",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-combat.png",
+    "folder": "Combat",
+    "subfolder": "Ranged",
+    "system": {
+      "description": "You may make ranged attacks across one additional zone.",
+      "tags": [],
+      "moveType": "combat",
+      "moveSubtype": "ranged",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Quick Swap",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-combat.png",
+    "folder": "Combat",
+    "subfolder": "Ranged",
+    "system": {
+      "description": "You seamlessly switch from ranged to melee (or vice versa) and immediately make a second basic attack at –1",
+      "tags": [],
+      "moveType": "combat",
+      "moveSubtype": "ranged",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Locked In",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-combat.png",
+    "folder": "Combat",
+    "subfolder": "Duelist",
+    "system": {
+      "description": "When you start your turn at Close Range with only one enemy, gain +1 on your first melee attack against them.",
+      "tags": [],
+      "moveType": "combat",
+      "moveSubtype": "duelist",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Isolate Prey",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-combat.png",
+    "folder": "Combat",
+    "subfolder": "Duelist",
+    "system": {
+      "description": "Once per scene when you hit an enemy in melee you may force them 1 zone away and then follow them if you choose",
+      "tags": [],
+      "moveType": "combat",
+      "moveSubtype": "duelist",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Never Blink",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-combat.png",
+    "folder": "Combat",
+    "subfolder": "Duelist",
+    "system": {
+      "description": "When you roll to react against the same enemy twice in a scene, gain Edge on your next action against them.",
+      "tags": [],
+      "moveType": "combat",
+      "moveSubtype": "duelist",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Glancing Guard",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-combat.png",
+    "folder": "Combat",
+    "subfolder": "Duelist",
+    "system": {
+      "description": "Once per combat, after you roll to react against a Close Range melee threat, reduce any Mortal Strain you take by 2. If this reduces the Strain to 0, you may move 1 zone without drawing a reaction.",
+      "tags": [],
+      "moveType": "combat",
+      "moveSubtype": "duelist",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Riposte",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-combat.png",
+    "folder": "Combat",
+    "subfolder": "Duelist",
+    "system": {
+      "description": "Once per scene when you roll Grit or Sleight against a Close Range melee threat and take no Strain, immediately deal 1 Mortal Strain or gain Edge on your next attack against them.",
+      "tags": [],
+      "moveType": "combat",
+      "moveSubtype": "duelist",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Cruel Opening",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-combat.png",
+    "folder": "Combat",
+    "subfolder": "Duelist",
+    "system": {
+      "description": "When you hit an enemy after taking no Strain from their pressure since your last turn, deal +1 Strain on a Flourish.",
+      "tags": [],
+      "moveType": "combat",
+      "moveSubtype": "duelist",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Footwork Ghost",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-combat.png",
+    "folder": "Combat",
+    "subfolder": "Duelist",
+    "system": {
+      "description": "When you move out of Close Range from an enemy, gain +1 to your reaction against any resistance that movement provokes.",
+      "tags": [],
+      "moveType": "combat",
+      "moveSubtype": "duelist",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Needle Point",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-combat.png",
+    "folder": "Combat",
+    "subfolder": "Duelist",
+    "system": {
+      "description": "When you attack with a finesse weapon (Daggers, short swords, knives) you may deal no extra damage on a flourish, but instead attempt to impose one small disadvantage:\nDisarm\nStagger\nSilence\nForce them prone",
+      "tags": [],
+      "moveType": "combat",
+      "moveSubtype": "duelist",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Blood Challenge",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-combat.png",
+    "folder": "Combat",
+    "subfolder": "Duelist",
+    "system": {
+      "description": "Once per scene when you deal Mortal Strain to an enemy you may mark them as your challenge. Until they directly pressure you, allies gain +1 to reactions against that enemy’s threats.",
+      "tags": [],
+      "moveType": "combat",
+      "moveSubtype": "duelist",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Close the Distance",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-combat.png",
+    "folder": "Combat",
+    "subfolder": "Duelist",
+    "system": {
+      "description": "When a foe retreats from Close Range with you, you may follow them for free. If they were fleeing from you specifically, gain +1 on your next action against them.",
+      "tags": [],
+      "moveType": "combat",
+      "moveSubtype": "duelist",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Reading the wrist",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-combat.png",
+    "folder": "Combat",
+    "subfolder": "Duelist",
+    "system": {
+      "description": "After you roll to react against a melee threat of an enemy, gain +1 on your next roll to disarm, or counter that enemy.",
+      "tags": [],
+      "moveType": "combat",
+      "moveSubtype": "duelist",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Brutal Presence",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-combat.png",
+    "folder": "Combat",
+    "subfolder": "Duelist",
+    "system": {
+      "description": "When you move into Close Range with an enemy, you may taunt, intimidate, or draw their attention. Gain Edge on that interaction.",
+      "tags": [],
+      "moveType": "combat",
+      "moveSubtype": "duelist",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Knife Between Seconds",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-combat.png",
+    "folder": "Combat",
+    "subfolder": "Duelist",
+    "system": {
+      "description": "Once per combat, when you Flourish on Sleight or Grit against a Close Range melee threat, you may immediately deal 1 Strain or stop the source from changing zones.",
+      "tags": [],
+      "moveType": "combat",
+      "moveSubtype": "duelist",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Perfect Measure",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-combat.png",
+    "folder": "Combat",
+    "subfolder": "Duelist",
+    "system": {
+      "description": "When you Flourish on a melee attack targeting a singular enemy, you may glean one thing about their fighting style, giving you Edge on your next reaction against them.",
+      "tags": [],
+      "moveType": "combat",
+      "moveSubtype": "duelist",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "No Escape",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-combat.png",
+    "folder": "Combat",
+    "subfolder": "Duelist",
+    "system": {
+      "description": "Once per scene, when a foe at Close or Short Range chooses to target someone else while you are threatening them, gain Edge on your next melee attack against them.",
+      "tags": [],
+      "moveType": "combat",
+      "moveSubtype": "duelist",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Slip the Line",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-combat.png",
+    "folder": "Combat",
+    "subfolder": "Duelist",
+    "system": {
+      "description": "When you Flourish on a Sleight reaction against a Close-Range threat, you may immediately reposition to Short Range, or behind nearby cover.",
+      "tags": [],
+      "moveType": "combat",
+      "moveSubtype": "duelist",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Narrow World",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-combat.png",
+    "folder": "Combat",
+    "subfolder": "Duelist",
+    "system": {
+      "description": "When there is a singular enemy in Short Range, you focus solely on them removing all external penalties until this focus is broken.",
+      "tags": [],
+      "moveType": "combat",
+      "moveSubtype": "duelist",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Quick Feint",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-combat.png",
+    "folder": "Combat",
+    "subfolder": "Duelist",
+    "system": {
+      "description": "When you miss a melee attack, gain +1 on your next melee action or reaction against that same enemy.",
+      "tags": [],
+      "moveType": "combat",
+      "moveSubtype": "duelist",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Split Strike",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-combat.png",
+    "folder": "Combat",
+    "subfolder": "Duelist",
+    "system": {
+      "description": "Once per combat, hit two enemies in Close Range of you for 1 Strain each.",
+      "tags": [],
+      "moveType": "combat",
+      "moveSubtype": "duelist",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Wounding Strike",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-combat.png",
+    "folder": "Combat",
+    "subfolder": "Duelist",
+    "system": {
+      "description": "Your attacks cause minor bleeding: +1 Mortal Strain next round.",
+      "tags": [],
+      "moveType": "combat",
+      "moveSubtype": "duelist",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Guard Break",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-combat.png",
+    "folder": "Combat",
+    "subfolder": "Duelist",
+    "system": {
+      "description": "Once per scene when you hit a shielded or warded enemy, ignore their capacity and hit their track directly.",
+      "tags": [],
+      "moveType": "combat",
+      "moveSubtype": "duelist",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Break the Guard",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-combat.png",
+    "folder": "Combat",
+    "subfolder": "Bruiser",
+    "system": {
+      "description": "When you attack an enemy using a shield, armor, or a barrier with a heavy melee weapon, gain +1 on your next attack against them.",
+      "tags": [],
+      "moveType": "combat",
+      "moveSubtype": "bruiser",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Crushing Arc",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-combat.png",
+    "folder": "Combat",
+    "subfolder": "Bruiser",
+    "system": {
+      "description": "When you attack with a two-handed or heavy weapon, you may hit a second enemy within Short range for 1 Strain",
+      "tags": [],
+      "moveType": "combat",
+      "moveSubtype": "bruiser",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Heavy Swing",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-combat.png",
+    "folder": "Combat",
+    "subfolder": "Bruiser",
+    "system": {
+      "description": "Once per scene, when you hit with a two-handed melee weapon, deal +1 Strain or force the target to retreat 1 zone.",
+      "tags": [],
+      "moveType": "combat",
+      "moveSubtype": "bruiser",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Staggering Blow",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-combat.png",
+    "folder": "Combat",
+    "subfolder": "Bruiser",
+    "system": {
+      "description": "Once per scene, when you hit with a heavy melee weapon, you may deal no extra damage from the hit to instead stagger the target.",
+      "tags": [],
+      "moveType": "combat",
+      "moveSubtype": "bruiser",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Follow Through",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-combat.png",
+    "folder": "Combat",
+    "subfolder": "Bruiser",
+    "system": {
+      "description": "When you defeat or break an enemy with a heavy melee attack, you may immediately move 1 zone toward another enemy without drawing a reaction.",
+      "tags": [],
+      "moveType": "combat",
+      "moveSubtype": "bruiser",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Relentless Charge",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-combat.png",
+    "folder": "Combat",
+    "subfolder": "Bruiser",
+    "system": {
+      "description": "When you move at least 1 zone toward a target deal +1 Strain on a Flourish.",
+      "tags": [],
+      "moveType": "combat",
+      "moveSubtype": "bruiser",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Terrible Momentum",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-combat.png",
+    "folder": "Combat",
+    "subfolder": "Bruiser",
+    "system": {
+      "description": "Once per combat, when you hit with a two-handed melee weapon, you may send the target flying one zone. If they collide with a wall, object, or another enemy, deal 1 additional Strain.",
+      "tags": [],
+      "moveType": "combat",
+      "moveSubtype": "bruiser",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Iron Grip",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-combat.png",
+    "folder": "Combat",
+    "subfolder": "Bruiser",
+    "system": {
+      "description": "You cannot be disarmed of a two-handed or heavy melee weapon unless you choose to release it, or the effect comes from a boss-level threat.",
+      "tags": [],
+      "moveType": "combat",
+      "moveSubtype": "bruiser",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Behemoth’s Reach",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-combat.png",
+    "folder": "Combat",
+    "subfolder": "Bruiser",
+    "system": {
+      "description": "When wielding a long, heavy, or oversized melee weapon, you may threaten enemies up to Short Range. Attacking beyond Close Range has a -1 penalty.",
+      "tags": [],
+      "moveType": "combat",
+      "moveSubtype": "bruiser",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Calloused Knuckles",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-combat.png",
+    "folder": "Combat",
+    "subfolder": "Bruiser",
+    "system": {
+      "description": "Your unarmed strikes count as weapons and deal 2 Mortal Strain instead of 1.",
+      "tags": [],
+      "moveType": "combat",
+      "moveSubtype": "bruiser",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "On the Ropes",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-combat.png",
+    "folder": "Combat",
+    "subfolder": "Bruiser",
+    "system": {
+      "description": "When you hit an enemy with an unarmed attack at Close Range, you may deal 1 less Strain to keep them from moving zones until after their next action.",
+      "tags": [],
+      "moveType": "combat",
+      "moveSubtype": "bruiser",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Cheap Shot",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-combat.png",
+    "folder": "Combat",
+    "subfolder": "Bruiser",
+    "system": {
+      "description": "Once per scene you may pull a cheap shot, stunning the enemy for a turn.",
+      "tags": [],
+      "moveType": "combat",
+      "moveSubtype": "bruiser",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Fighting Dirty",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-combat.png",
+    "folder": "Combat",
+    "subfolder": "Bruiser",
+    "system": {
+      "description": "Gain +1 when you attempt to shove, trip, or disarm an enemy in Close Range",
+      "tags": [],
+      "moveType": "combat",
+      "moveSubtype": "bruiser",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Bob and Weave",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-combat.png",
+    "folder": "Combat",
+    "subfolder": "Bruiser",
+    "system": {
+      "description": "When you move zones against an enemy who has a range advantage, gain +1 to your reaction against any resistance triggered.",
+      "tags": [],
+      "moveType": "combat",
+      "moveSubtype": "bruiser",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Human Shield",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-combat.png",
+    "folder": "Combat",
+    "subfolder": "Bruiser",
+    "system": {
+      "description": "When you have an enemy pinned, grabbed, or restrained at Close Range, you may count as being in cover against ranged threats.",
+      "tags": [],
+      "moveType": "combat",
+      "moveSubtype": "bruiser",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Reversal",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-combat.png",
+    "folder": "Combat",
+    "subfolder": "Bruiser",
+    "system": {
+      "description": "When you roll to react against being grabbed, restrained, or pinned gain +1.",
+      "tags": [],
+      "moveType": "combat",
+      "moveSubtype": "bruiser",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Momentum Flow",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-combat.png",
+    "folder": "Combat",
+    "subfolder": "Mobility",
+    "system": {
+      "description": "When you move zones and land a melee hit, gain Edge.",
+      "tags": [],
+      "moveType": "combat",
+      "moveSubtype": "mobility",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Darting Strike",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-combat.png",
+    "folder": "Combat",
+    "subfolder": "Mobility",
+    "system": {
+      "description": "When you move from Short Range to Close Range and hit with a melee attack, you may return to Short Range after the attack on a Flourish without drawing a reaction.",
+      "tags": [],
+      "moveType": "combat",
+      "moveSubtype": "mobility",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Cut Through",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-combat.png",
+    "folder": "Combat",
+    "subfolder": "Mobility",
+    "system": {
+      "description": "Once per scene, when you hit an enemy at Close Range, you may move through their position to the opposite side or into a better angle without drawing a reaction.",
+      "tags": [],
+      "moveType": "combat",
+      "moveSubtype": "mobility",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Dancing Blade",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-combat.png",
+    "folder": "Combat",
+    "subfolder": "Mobility",
+    "system": {
+      "description": "When you change zones before making a melee attack, ignore the first movement based penalty.",
+      "tags": [],
+      "moveType": "combat",
+      "moveSubtype": "mobility",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Step Inside",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-combat.png",
+    "folder": "Combat",
+    "subfolder": "Mobility",
+    "system": {
+      "description": "When you successfully react against a ranged or long-reach threat at Mid Range, you may move to Close Range with the source without drawing another reaction.",
+      "tags": [],
+      "moveType": "combat",
+      "moveSubtype": "mobility",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Press the Advantage",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-combat.png",
+    "folder": "Combat",
+    "subfolder": "Mobility",
+    "system": {
+      "description": "When you gain Edge you may spend it immediately to move 1 zone.",
+      "tags": [],
+      "moveType": "combat",
+      "moveSubtype": "mobility",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Flow State",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-combat.png",
+    "folder": "Combat",
+    "subfolder": "Mobility",
+    "system": {
+      "description": "The first time each scene you hit with a melee attack after changing zones, gain +1 on your next reaction before your next turn.",
+      "tags": [],
+      "moveType": "combat",
+      "moveSubtype": "mobility",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Anything’s a Weapon",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-combat.png",
+    "folder": "Combat",
+    "subfolder": "Improvised Weapons",
+    "system": {
+      "description": "Improvised weapons you can reasonably swing, throw, or smash count as melee weapons and deal 2-3 Mortal Strain.",
+      "tags": [],
+      "moveType": "combat",
+      "moveSubtype": "improvised-weapons",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Break the Room",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-combat.png",
+    "folder": "Combat",
+    "subfolder": "Improvised Weapons",
+    "system": {
+      "description": "Once per scene you can smash an object to create hazardous terrain, cover, or an obstacle within Close Range.",
+      "tags": [],
+      "moveType": "combat",
+      "moveSubtype": "improvised-weapons",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Pocket Trick",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-combat.png",
+    "folder": "Combat",
+    "subfolder": "Improvised Weapons",
+    "system": {
+      "description": "Once per scene you utilize a small hidden object, powder, or coin you have to distract an enemy. Gain Edge on your next roll against the effected target.",
+      "tags": [],
+      "moveType": "combat",
+      "moveSubtype": "improvised-weapons",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Barroom Geometry",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-combat.png",
+    "folder": "Combat",
+    "subfolder": "Improvised Weapons",
+    "system": {
+      "description": "When you fight in a cluttered space, you gain +1 to melee actions using tables, railings, doors, or similar objects.",
+      "tags": [],
+      "moveType": "combat",
+      "moveSubtype": "improvised-weapons",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Kick ‘em While He’s Down",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-combat.png",
+    "folder": "Combat",
+    "subfolder": "Improvised Weapons",
+    "system": {
+      "description": "When you attack an enemy who is staggered, pinned, or distracted by the environment, deal +1 Strain on a Flourish.",
+      "tags": [],
+      "moveType": "combat",
+      "moveSubtype": "improvised-weapons",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Shatterpoint",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-combat.png",
+    "folder": "Combat",
+    "subfolder": "Improvised Weapons",
+    "system": {
+      "description": "Once per scene, when you hit with a melee attack, you may damage a piece of armor, a shield, a weapon, or a nearby object instead of dealing Strain rendering it useless for a turn.",
+      "tags": [],
+      "moveType": "combat",
+      "moveSubtype": "improvised-weapons",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Iron Counter",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-combat.png",
+    "folder": "Combat",
+    "subfolder": "Defensive",
+    "system": {
+      "description": "When you take Mortal Strain from a threat within Close to Short Range, gain +1 on your next melee attack against the source.",
+      "tags": [],
+      "moveType": "combat",
+      "moveSubtype": "defensive",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Hamstring",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-combat.png",
+    "folder": "Combat",
+    "subfolder": "Defensive",
+    "system": {
+      "description": "Once per scene, when you hit with a melee attack, you may reduce your damage by 1 Strain to limit the enemy’s movement. They cannot change zones until after their next action.",
+      "tags": [],
+      "moveType": "combat",
+      "moveSubtype": "defensive",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Blood Price",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-combat.png",
+    "folder": "Combat",
+    "subfolder": "Defensive",
+    "system": {
+      "description": "When you Flourish on Grit and choose to take at least 1 Strain, gain Edge on your next physical action.",
+      "tags": [],
+      "moveType": "combat",
+      "moveSubtype": "defensive",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Immovable Object",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-combat.png",
+    "folder": "Combat",
+    "subfolder": "Defensive",
+    "system": {
+      "description": "When you roll Endure to react against a threat that would move you, gain +1. On a Flourish, you may also prevent one ally within Short Range from being displaced.",
+      "tags": [],
+      "moveType": "combat",
+      "moveSubtype": "defensive",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Shoulder the Blow",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-combat.png",
+    "folder": "Combat",
+    "subfolder": "Defensive",
+    "system": {
+      "description": "Once per scene when an ally in Short Range would roll to react against a physical threat, you may roll instead, using Grit or Endure.",
+      "tags": [],
+      "moveType": "combat",
+      "moveSubtype": "defensive",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Stonewall",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-combat.png",
+    "folder": "Combat",
+    "subfolder": "Defensive",
+    "system": {
+      "description": "When you take Strain from a threat and refuse to move, gain +1 to your next Endure roll this scene.",
+      "tags": [],
+      "moveType": "combat",
+      "moveSubtype": "defensive",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Break Against Me",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-combat.png",
+    "folder": "Combat",
+    "subfolder": "Defensive",
+    "system": {
+      "description": "When you Flourish on Endure against a melee threat, you deal 1 Strain to the source.",
+      "tags": [],
+      "moveType": "combat",
+      "moveSubtype": "defensive",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Not Yet",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-combat.png",
+    "folder": "Combat",
+    "subfolder": "Defensive",
+    "system": {
+      "description": "Once per job when a threat would reduce your MC or SC to 0, keep 1 Capacity instead.",
+      "tags": [],
+      "moveType": "combat",
+      "moveSubtype": "defensive",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Bodyguard",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-combat.png",
+    "folder": "Combat",
+    "subfolder": "Defensive",
+    "system": {
+      "description": "When an ally within Short Range rolls to react, you may give them +1 if you describe how you shield, pull, brace, or warn them. If they still take Strain, you may take 1 of it instead.",
+      "tags": [],
+      "moveType": "combat",
+      "moveSubtype": "defensive",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Thick of It",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-combat.png",
+    "folder": "Combat",
+    "subfolder": "Defensive",
+    "system": {
+      "description": "When two or more enemies are in short range of you, gain +1 to Grit reactions.",
+      "tags": [],
+      "moveType": "combat",
+      "moveSubtype": "defensive",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Anchor Point",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-combat.png",
+    "folder": "Combat",
+    "subfolder": "Defensive",
+    "system": {
+      "description": "Allies within Short Range gain +1 to resist being displaced.",
+      "tags": [],
+      "moveType": "combat",
+      "moveSubtype": "defensive",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Pain Engine",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-combat.png",
+    "folder": "Combat",
+    "subfolder": "Defensive",
+    "system": {
+      "description": "The first time each scene you take Strain from a combat threat, gain Edge on your next action if you move toward the source or hold your ground.",
+      "tags": [],
+      "moveType": "combat",
+      "moveSubtype": "defensive",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Shield Wall",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-combat.png",
+    "folder": "Combat",
+    "subfolder": "Defensive",
+    "system": {
+      "description": "When you have a shield or heavy weapon, allies behind or beside you count as being in cover against ranged threats.",
+      "tags": [],
+      "moveType": "combat",
+      "moveSubtype": "defensive",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "No One Behind Me",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-combat.png",
+    "folder": "Combat",
+    "subfolder": "Defensive",
+    "system": {
+      "description": "Once per scene, when a threat would affect allies within Short Range of you, roll Endure. On a Complication or better, choose one ally who is spared from the effect.",
+      "tags": [],
+      "moveType": "combat",
+      "moveSubtype": "defensive",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Mortal Bulwark",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-combat.png",
+    "folder": "Combat",
+    "subfolder": "Defensive",
+    "system": {
+      "description": "When you roll Grit against a threat that would harm both you and an ally within Short Range, gain +1. On a Flourish, you may choose to take 1 Strain so the ally takes none.",
+      "tags": [],
+      "moveType": "combat",
+      "moveSubtype": "defensive",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Unshakeable",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-combat.png",
+    "folder": "Combat",
+    "subfolder": "Defensive",
+    "system": {
+      "description": "Ignore movement penalties from difficult terrain.",
+      "tags": [],
+      "moveType": "combat",
+      "moveSubtype": "defensive",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Blade Catch",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-combat.png",
+    "folder": "Combat",
+    "subfolder": "Defensive",
+    "system": {
+      "description": "Once per combat when you fail or complicate against a Close Range reaction, reduce the Mortal Strain you take by 1, or immediately counter.",
+      "tags": [],
+      "moveType": "combat",
+      "moveSubtype": "defensive",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Warded Nerves",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-combat.png",
+    "folder": "Combat",
+    "subfolder": "Defensive",
+    "system": {
+      "description": "When you roll to react against a Spark, gain +1 against the effect.",
+      "tags": [],
+      "moveType": "combat",
+      "moveSubtype": "defensive",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Spellbreaker",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-combat.png",
+    "folder": "Combat",
+    "subfolder": "Defensive",
+    "system": {
+      "description": "Once per scene when a magical threat would affect you or an ally within Short Range, you may roll Grit or Endure to interfere. On a Complication or better, reduce the effect or grant that ally Edge on their reaction.",
+      "tags": [],
+      "moveType": "combat",
+      "moveSubtype": "defensive",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Untouchable Angle",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-combat.png",
+    "folder": "Combat",
+    "subfolder": "Defensive",
+    "system": {
+      "description": "When you Flourish on Sleight against a physical threat, gain +1 on your next reaction before your next turn.",
+      "tags": [],
+      "moveType": "combat",
+      "moveSubtype": "defensive",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Behind the Guard",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-combat.png",
+    "folder": "Combat",
+    "subfolder": "Defensive",
+    "system": {
+      "description": "When you have a shield equipped, reduce enemy aura during your reaction by 1.",
+      "tags": [],
+      "moveType": "combat",
+      "moveSubtype": "defensive",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Steady Breath",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-combat.png",
+    "folder": "Combat",
+    "subfolder": "Defensive",
+    "system": {
+      "description": "When an enemy Aura would penalize your reaction, you may ignore 1 point of that penalty if you have not changed zones since your last turn.",
+      "tags": [],
+      "moveType": "combat",
+      "moveSubtype": "defensive",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Rallying Guard",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-combat.png",
+    "folder": "Combat",
+    "subfolder": "Defensive",
+    "system": {
+      "description": "When you reduce an enemy’s Aura penalty during your reaction, one ally within Short Range gains +1 on their next reaction against the same source.",
+      "tags": [],
+      "moveType": "combat",
+      "moveSubtype": "defensive",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Stand in the Storm",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-combat.png",
+    "folder": "Combat",
+    "subfolder": "Defensive",
+    "system": {
+      "description": "Once per scene, when you react against a threat from an enemy with Aura, ignore that Aura penalty for the roll. On a Flourish, you may also ignore that Aura until your next turn.",
+      "tags": [],
+      "moveType": "combat",
+      "moveSubtype": "defensive",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Battle Tested",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-combat.png",
+    "folder": "Combat",
+    "subfolder": "Defensive",
+    "system": {
+      "description": "When you take Strain from an enemy with Aura, reduce that enemy’s Aura penalty by 1 on your next reaction against them this scene.",
+      "tags": [],
+      "moveType": "combat",
+      "moveSubtype": "defensive",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Sparkstrike",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-spark.png",
+    "folder": "Spark",
+    "subfolder": "Combat",
+    "system": {
+      "description": "Once per scene, when you hit with a weapon attack, you may release a Major Spark through the strike. Spend 1 Spark Slot and apply one appropriate Spark effect through the weapon, such as +3 Soul Strain, or a school-based effect.",
+      "tags": [],
+      "moveType": "spark",
+      "moveSubtype": "combat",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Otherworldly Blade",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-spark.png",
+    "folder": "Spark",
+    "subfolder": "Combat",
+    "system": {
+      "description": "When hitting with a melee weapon you may choose the damage type (Mortal, or Soul)",
+      "tags": [],
+      "moveType": "spark",
+      "moveSubtype": "combat",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Controlled Surge",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-spark.png",
+    "folder": "Spark",
+    "subfolder": "Combat",
+    "system": {
+      "description": "When you use Basic Casting against a single enemy, gain +1.",
+      "tags": [],
+      "moveType": "spark",
+      "moveSubtype": "combat",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Stoked Fury",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-spark.png",
+    "folder": "Spark",
+    "subfolder": "Combat",
+    "system": {
+      "description": "When you spend a turn Stoking a damaging Spark, your next Basic Casting deals +1 Strain on a Flourish.",
+      "tags": [],
+      "moveType": "spark",
+      "moveSubtype": "combat",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Sudden Stoke",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-spark.png",
+    "folder": "Spark",
+    "subfolder": "Combat",
+    "system": {
+      "description": "Once per scene, you may Stoke immediately instead of spending a turn. After the roll resolves, take -1 on your next Spark roll.",
+      "tags": [],
+      "moveType": "spark",
+      "moveSubtype": "combat",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Reactive Weave",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-spark.png",
+    "folder": "Spark",
+    "subfolder": "Combat",
+    "system": {
+      "description": "Gain +1 to Spark rolls after taking Strain.",
+      "tags": [],
+      "moveType": "spark",
+      "moveSubtype": "combat",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Spellblade Rhythm",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-spark.png",
+    "folder": "Spark",
+    "subfolder": "Combat",
+    "system": {
+      "description": "When you deal Strain with Spark, gain +1 on your next melee or ranged attack against the same target before your next turn.",
+      "tags": [],
+      "moveType": "spark",
+      "moveSubtype": "combat",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Blade and Bolt",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-spark.png",
+    "folder": "Spark",
+    "subfolder": "Combat",
+    "system": {
+      "description": "When you hit with a melee or ranged weapon, you may immediately use Basic Casting against the same target at -1.",
+      "tags": [],
+      "moveType": "spark",
+      "moveSubtype": "combat",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Charged Weapon",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-spark.png",
+    "folder": "Spark",
+    "subfolder": "Combat",
+    "system": {
+      "description": "When you Stoke, you may store the charge in a weapon you are holding. The next time that weapon hits before the end of the scene, release the Stoked Spark through the hit.",
+      "tags": [],
+      "moveType": "spark",
+      "moveSubtype": "combat",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Wild Detonation",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-spark.png",
+    "folder": "Spark",
+    "subfolder": "Combat",
+    "system": {
+      "description": "When you spend a Spark Slot on an AoE Spark, you may spare one ally within the effect on a complication or failure.",
+      "tags": [],
+      "moveType": "spark",
+      "moveSubtype": "combat",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Gentle Stoke",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-spark.png",
+    "folder": "Spark",
+    "subfolder": "Combat",
+    "system": {
+      "description": "When you spend a turn Stoking a healing or protective Spark, the effect may target one additional ally within Short Range.",
+      "tags": [],
+      "moveType": "spark",
+      "moveSubtype": "combat",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Cleanse Thread",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-spark.png",
+    "folder": "Spark",
+    "subfolder": "Combat",
+    "system": {
+      "description": "Once per job when you spend a Spark Slot to heal or shield an ally, you may also remove one minor condition or debuff.",
+      "tags": [],
+      "moveType": "spark",
+      "moveSubtype": "combat",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Rallying Spark",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-spark.png",
+    "folder": "Spark",
+    "subfolder": "Combat",
+    "system": {
+      "description": "You may use Basic Casting to aid an ally in combat, they gain +1 on their next action or reaction.",
+      "tags": [],
+      "moveType": "spark",
+      "moveSubtype": "combat",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Guiding Glimmer",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-spark.png",
+    "folder": "Spark",
+    "subfolder": "Combat",
+    "system": {
+      "description": "When an ally acts on an opening created by your Spark, they gain +1 on the roll.",
+      "tags": [],
+      "moveType": "spark",
+      "moveSubtype": "combat",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Marked by Spark",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-spark.png",
+    "folder": "Spark",
+    "subfolder": "Combat",
+    "system": {
+      "description": "When you deal Soul Strain with Basic Casting, you may mark the target instead of dealing your highest possible Strain. The next ally to act against them gains Edge.",
+      "tags": [],
+      "moveType": "spark",
+      "moveSubtype": "combat",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Resonant Casting",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-spark.png",
+    "folder": "Spark",
+    "subfolder": "Combat",
+    "system": {
+      "description": "When you cast Spark immediately after an ally succeeds against the same target gain +1.",
+      "tags": [],
+      "moveType": "spark",
+      "moveSubtype": "combat",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Hexing Spark",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-spark.png",
+    "folder": "Spark",
+    "subfolder": "Combat",
+    "system": {
+      "description": "When you use Basic Casting and Flourish, you may deal no extra damage to impose a minor debuff until your next turn. (Slowed, Silenced, Poison, etc.)",
+      "tags": [],
+      "moveType": "spark",
+      "moveSubtype": "combat",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Binding Pressure",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-spark.png",
+    "folder": "Spark",
+    "subfolder": "Combat",
+    "system": {
+      "description": "When your Spark would limit a target's movement, gain +1 if they moved zones since your last turn.",
+      "tags": [],
+      "moveType": "spark",
+      "moveSubtype": "combat",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Terrain Twist",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-spark.png",
+    "folder": "Spark",
+    "subfolder": "Combat",
+    "system": {
+      "description": "When you spend a Spark Slot to alter the battlefield, you may create two of the following instead of one:\nCover\nDifficult terrain\nDangerous Terrain\nConcealment",
+      "tags": [],
+      "moveType": "spark",
+      "moveSubtype": "combat",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Lingering Spark",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-spark.png",
+    "folder": "Spark",
+    "subfolder": "Combat",
+    "system": {
+      "description": "When you spend a Spark Slot to create a terrain, ward, illusion, binding, or environmental effect, it lasts one additional round or until meaningfully disrupted.",
+      "tags": [],
+      "moveType": "spark",
+      "moveSubtype": "combat",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Spell Sink",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-spark.png",
+    "folder": "Spark",
+    "subfolder": "Healing",
+    "system": {
+      "description": "When an ally within Short Range would take Strain from a magical or supernatural threat, spend 1 Spark Slot to reduce that Strain by 3.",
+      "tags": [],
+      "moveType": "spark",
+      "moveSubtype": "healing",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Counter Spark",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-spark.png",
+    "folder": "Spark",
+    "subfolder": "Healing",
+    "system": {
+      "description": "Once per scene, when an enemy Spark, or effect would take hold within Short Range, spend 1 Spark Slot to contest it with Spark. On a Complication or better, reduce it’s effect.",
+      "tags": [],
+      "moveType": "spark",
+      "moveSubtype": "healing",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Mystic Reversal",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-spark.png",
+    "folder": "Spark",
+    "subfolder": "Healing",
+    "system": {
+      "description": "Once per combat when you roll to react against a magical or supernatural threat and take no Strain, gain Edge on your next Spark roll against the source.",
+      "tags": [],
+      "moveType": "spark",
+      "moveSubtype": "healing",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Sanguine Thread",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-spark.png",
+    "folder": "Spark",
+    "subfolder": "Healing",
+    "system": {
+      "description": "When you heal an ally with Spark, you may leave a living thread between you and them until the end of your next turn. If you maintain the thread with your action on later turns, they heal 1 Strain. If you take Strain while the thread is active, roll Will to keep it from breaking.",
+      "tags": [],
+      "moveType": "spark",
+      "moveSubtype": "healing",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Pulse of Life",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-spark.png",
+    "folder": "Spark",
+    "subfolder": "Healing",
+    "system": {
+      "description": "When you Stoke a healing Spark, you may split the healing between two allies within Short Range instead of applying it to one target.",
+      "tags": [],
+      "moveType": "spark",
+      "moveSubtype": "healing",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Overflow",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-spark.png",
+    "folder": "Spark",
+    "subfolder": "Healing",
+    "system": {
+      "description": "When your Spark healing would restore more Strain than the target is missing, convert 1 excess healing into +1 on their next reaction before your next turn.",
+      "tags": [],
+      "moveType": "spark",
+      "moveSubtype": "healing",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Cleansing Light",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-spark.png",
+    "folder": "Spark",
+    "subfolder": "Healing",
+    "system": {
+      "description": "Once per scene, when you heal an ally with Basic Casting, you may also remove one minor debuff from them.",
+      "tags": [],
+      "moveType": "spark",
+      "moveSubtype": "healing",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Blooming Recovery",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-spark.png",
+    "folder": "Spark",
+    "subfolder": "Healing",
+    "system": {
+      "description": "When you spend a Spark Slot on healing, choose one healed target. Until your next turn, the first time they take Strain they reduce it by 1.",
+      "tags": [],
+      "moveType": "spark",
+      "moveSubtype": "healing",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Leeching Cast",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-spark.png",
+    "folder": "Spark",
+    "subfolder": "Healing",
+    "system": {
+      "description": "When you deal Soul Strain with Spark to an enemy, you may deal 1 less Strain to heal 1 Strain from yourself or an ally within Short Range.",
+      "tags": [],
+      "moveType": "spark",
+      "moveSubtype": "healing",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Siphon Crest",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-spark.png",
+    "folder": "Spark",
+    "subfolder": "Healing",
+    "system": {
+      "description": "When an enemy takes Strain from your Spark, you may mark them with a Siphon. The next ally who damages them heals 1 Strain.",
+      "tags": [],
+      "moveType": "spark",
+      "moveSubtype": "healing",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Wound Echo",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-spark.png",
+    "folder": "Spark",
+    "subfolder": "Healing",
+    "system": {
+      "description": "Once per scene, when an ally within Short Range takes Strain, you may mark the wound. The next time you heal that ally before the scene ends, heal 1 additional Strain.",
+      "tags": [],
+      "moveType": "spark",
+      "moveSubtype": "healing",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "From the Brink",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-spark.png",
+    "folder": "Spark",
+    "subfolder": "Healing",
+    "system": {
+      "description": "Once per job, when an ally would go down, you may immediately roll Spark. On a Complication or better, they stay standing with 1 Capacity.",
+      "tags": [],
+      "moveType": "spark",
+      "moveSubtype": "healing",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Strand of the Faithful",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-spark.png",
+    "folder": "Spark",
+    "subfolder": "Healing",
+    "system": {
+      "description": "Once per scene you may select an ally to mark as your Faithful. Every time you heal any target, that ally receives half rounded up. This effect lasts until your concentration is broken.",
+      "tags": [],
+      "moveType": "spark",
+      "moveSubtype": "healing",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Sanctified Ground",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-spark.png",
+    "folder": "Spark",
+    "subfolder": "Healing",
+    "system": {
+      "description": "Once per scene, create a field of restoring energy that heals 1 Strain to all allies at the start of their turn. Lasts until your concentration is lost.",
+      "tags": [],
+      "moveType": "spark",
+      "moveSubtype": "healing",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Temporal Bubble",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-spark.png",
+    "folder": "Spark",
+    "subfolder": "Healing",
+    "system": {
+      "description": "Once per job, create a Short Range protective bubble centered on yourself with 7 Capacity. When an ally inside the bubble would take Strain, the bubble takes that Strain first. The bubble lasts until its Capacity is reduced to 0, you lose concentration, or the scene ends.",
+      "tags": [],
+      "moveType": "spark",
+      "moveSubtype": "healing",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Mark of the Solavi",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-spark.png",
+    "folder": "Spark",
+    "subfolder": "Healing",
+    "system": {
+      "description": "Once per scene, mark an ally within Short Range with a warding sigil. The next time they would take Strain, reduce it by 2, then the mark fades.",
+      "tags": [],
+      "moveType": "spark",
+      "moveSubtype": "healing",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Mirror Ward",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-spark.png",
+    "folder": "Spark",
+    "subfolder": "Healing",
+    "system": {
+      "description": "Once per scene, when a warded ally within Short Range takes Strain from a magical or supernatural threat, reduce the Strain by 1 and deal 1 Soul Strain back to the source.",
+      "tags": [],
+      "moveType": "spark",
+      "moveSubtype": "healing",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Salt Circle",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-spark.png",
+    "folder": "Spark",
+    "subfolder": "Healing",
+    "system": {
+      "description": "Once per scene, draw a warded Short Range boundary. Until your concentration breaks, the first enemy each round that crosses it triggers a reaction from one ally of your choice with Edge.",
+      "tags": [],
+      "moveType": "spark",
+      "moveSubtype": "healing",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Shelter the Small",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-spark.png",
+    "folder": "Spark",
+    "subfolder": "Healing",
+    "system": {
+      "description": "When you create a ward, barrier, or protective field with Spark, choose one ally inside it. They may ignore the first point of Aura penalty they would suffer while the ward holds.",
+      "tags": [],
+      "moveType": "spark",
+      "moveSubtype": "healing",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Ward Rune",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-spark.png",
+    "folder": "Spark",
+    "subfolder": "Healing",
+    "system": {
+      "description": "When you prevent or reduce Strain with a Spark ward, you may store a max of 1 charge. You may spend the charge to add a +1 to your next roll.",
+      "tags": [],
+      "moveType": "spark",
+      "moveSubtype": "healing",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Tether",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-spark.png",
+    "folder": "Spark",
+    "subfolder": "Healing",
+    "system": {
+      "description": "Once per scene, when an ally within Short Range would be displaced roll Spark. On a Complication or better, they remain where they are.",
+      "tags": [],
+      "moveType": "spark",
+      "moveSubtype": "healing",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Dawn Lamp",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-spark.png",
+    "folder": "Spark",
+    "subfolder": "Healing",
+    "system": {
+      "description": "When you heal an ally with Spark, you may also place a fragile ward on them. The next time they take Strain reduce it by 1.",
+      "tags": [],
+      "moveType": "spark",
+      "moveSubtype": "healing",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Fanged Shield",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-spark.png",
+    "folder": "Spark",
+    "subfolder": "Healing",
+    "system": {
+      "description": "The first time one of your wards is broken on an ally, the source gets to roll Edge on their next action against the source of the break.",
+      "tags": [],
+      "moveType": "spark",
+      "moveSubtype": "healing",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Circle of Refusal",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-spark.png",
+    "folder": "Spark",
+    "subfolder": "Healing",
+    "system": {
+      "description": "Once per scene, create a warded circle at Short Range. Allies inside the circle gain +1 to resist a magical effect until your concentration breaks.",
+      "tags": [],
+      "moveType": "spark",
+      "moveSubtype": "healing",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Bastion Step",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-spark.png",
+    "folder": "Spark",
+    "subfolder": "Healing",
+    "system": {
+      "description": "When you move zones, you may carry one active ward, barrier, or protective field with you instead of leaving it behind.",
+      "tags": [],
+      "moveType": "spark",
+      "moveSubtype": "healing",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Blink Step",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-spark.png",
+    "folder": "Spark",
+    "subfolder": "Support",
+    "system": {
+      "description": "Once per scene, you may use Spark to instantly shift 1 zone to a place you could reasonably reach, see, or describe through your School.",
+      "tags": [],
+      "moveType": "spark",
+      "moveSubtype": "support",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Glitch Echo",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-spark.png",
+    "folder": "Spark",
+    "subfolder": "Support",
+    "system": {
+      "description": "First Glitch each Job echoes - store it and apply later on a job.",
+      "tags": [],
+      "moveType": "spark",
+      "moveSubtype": "support",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Spark Reservoir",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-spark.png",
+    "folder": "Spark",
+    "subfolder": "Support",
+    "system": {
+      "description": "Gain +1 Spark Slot (Only two of this move allowed)",
+      "tags": [],
+      "moveType": "spark",
+      "moveSubtype": "support",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Adaptive Focus",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-spark.png",
+    "folder": "Spark",
+    "subfolder": "Support",
+    "system": {
+      "description": "After casting Spark, gain +1 to the next non-Spark roll.",
+      "tags": [],
+      "moveType": "spark",
+      "moveSubtype": "support",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Overcharge",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-spark.png",
+    "folder": "Spark",
+    "subfolder": "Support",
+    "system": {
+      "description": "Once per Job, cast Spark without using a slot — then roll a glitch.",
+      "tags": [],
+      "moveType": "spark",
+      "moveSubtype": "support",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Spark Anchor",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-spark.png",
+    "folder": "Spark",
+    "subfolder": "Support",
+    "system": {
+      "description": "Once per scene, reroll a failed Spark attempt.",
+      "tags": [],
+      "moveType": "spark",
+      "moveSubtype": "support",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Converging Force",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-spark.png",
+    "folder": "Spark",
+    "subfolder": "Support",
+    "system": {
+      "description": "When two players cast a Spark in same round, gain Edge.",
+      "tags": [],
+      "moveType": "spark",
+      "moveSubtype": "support",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Aetheric Familiar",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-spark.png",
+    "folder": "Spark",
+    "subfolder": "Support",
+    "system": {
+      "description": "You manifest a small magical assistant — adds +1 to Spark rolls involving objects.",
+      "tags": [],
+      "moveType": "spark",
+      "moveSubtype": "support",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Non-Vocal",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-spark.png",
+    "folder": "Spark",
+    "subfolder": "Support",
+    "system": {
+      "description": "You may Spark even when silenced or gagged.",
+      "tags": [],
+      "moveType": "spark",
+      "moveSubtype": "support",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Chaotic Harmony",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-spark.png",
+    "folder": "Spark",
+    "subfolder": "Support",
+    "system": {
+      "description": "If you roll a Glitch, gain +1 on your next roll.",
+      "tags": [],
+      "moveType": "spark",
+      "moveSubtype": "support",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Twin Current",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-spark.png",
+    "folder": "Spark",
+    "subfolder": "Support",
+    "system": {
+      "description": "When you cast a Major Spark, you may spend 2 Spark Slots to combine two Spark Schools you know into a single effect without another caster’s help.",
+      "tags": [],
+      "moveType": "spark",
+      "moveSubtype": "support",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Patient Casting",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-spark.png",
+    "folder": "Spark",
+    "subfolder": "Support",
+    "system": {
+      "description": "When you cast Spark carefully and without immediate pressure, reduce the first complication caused.",
+      "tags": [],
+      "moveType": "spark",
+      "moveSubtype": "support",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Lingering Touch",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-spark.png",
+    "folder": "Spark",
+    "subfolder": "Support",
+    "system": {
+      "description": "When you create a non-damaging Spark effect, you may keep a faint version of it active while you remain nearby and concentrate.",
+      "tags": [],
+      "moveType": "spark",
+      "moveSubtype": "support",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Spark Signal",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-spark.png",
+    "folder": "Spark",
+    "subfolder": "Support",
+    "system": {
+      "description": "You may use Spark to send a brief message, image, feeling, pulse, or warning to an ally you can see, or to one marked by your Spark.",
+      "tags": [],
+      "moveType": "spark",
+      "moveSubtype": "support",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Borrowed Shape",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-spark.png",
+    "folder": "Spark",
+    "subfolder": "Support",
+    "system": {
+      "description": "Once per scene, when an ally uses a tool, object, disguise, mechanism, or piece of terrain affected by your Spark, they gain +1.",
+      "tags": [],
+      "moveType": "spark",
+      "moveSubtype": "support",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Spark Scry",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-spark.png",
+    "folder": "Spark",
+    "subfolder": "Support",
+    "system": {
+      "description": "Once per job, you may place an ethereal eye in an area you can see. The eye relays what it observes to you and may be used as the origin point for your Spark. The eye lasts until the scene ends, it is disrupted, or you dismiss it.",
+      "tags": [],
+      "moveType": "spark",
+      "moveSubtype": "support",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Ignition Foci",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-spark.png",
+    "folder": "Spark",
+    "subfolder": "Support",
+    "system": {
+      "description": "When you use a meaningful focus, instrument, tool, or ritual object specifically suited to a non-combat Spark, gain Edge on the roll.",
+      "tags": [],
+      "moveType": "spark",
+      "moveSubtype": "support",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Danger Sense",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-spark.png",
+    "folder": "Spark",
+    "subfolder": "Support",
+    "system": {
+      "description": "When you walk into a room with a latent Spark effect, you get an uneasy feeling.",
+      "tags": [],
+      "moveType": "spark",
+      "moveSubtype": "support",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Spark Lines",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-spark.png",
+    "folder": "Spark",
+    "subfolder": "Support",
+    "system": {
+      "description": "Once per job you can analyze a spark effect for it’s structure, gaining edge on removing or altering the effect.",
+      "tags": [],
+      "moveType": "spark",
+      "moveSubtype": "support",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Imitation is Flattery",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-spark.png",
+    "folder": "Spark",
+    "subfolder": "Support",
+    "system": {
+      "description": "Once per job you may attempt to copy someone’s spark even if it’s outside of your schools.",
+      "tags": [],
+      "moveType": "spark",
+      "moveSubtype": "support",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Slippery",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-utility.png",
+    "folder": "Utility",
+    "subfolder": "General",
+    "system": {
+      "description": "Once per scene, when you fail a social roll, you may reroll.",
+      "tags": [],
+      "moveType": "utility",
+      "moveSubtype": "general",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Silver Tongue",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-utility.png",
+    "folder": "Utility",
+    "subfolder": "General",
+    "system": {
+      "description": "Once per scene, when you Flourish on a Presence roll, recover 1 spent Risk Die.",
+      "tags": [],
+      "moveType": "utility",
+      "moveSubtype": "general",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Professional Reputation",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-utility.png",
+    "folder": "Utility",
+    "subfolder": "General",
+    "system": {
+      "description": "Once per job, when someone has heard of you, gain Edge on your first serious interaction with them.",
+      "tags": [],
+      "moveType": "utility",
+      "moveSubtype": "general",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Brawn over Brain",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-utility.png",
+    "folder": "Utility",
+    "subfolder": "General",
+    "system": {
+      "description": "You may use Tenacity in place of another attribute 3 times per Job.",
+      "tags": [],
+      "moveType": "utility",
+      "moveSubtype": "general",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Flow like a River",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-utility.png",
+    "folder": "Utility",
+    "subfolder": "General",
+    "system": {
+      "description": "You may use Finesse in place of another attribute 3 times per Job.",
+      "tags": [],
+      "moveType": "utility",
+      "moveSubtype": "general",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Mind over Matter",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-utility.png",
+    "folder": "Utility",
+    "subfolder": "General",
+    "system": {
+      "description": "You may use Resolve in place of another attribute 3 times per Job.",
+      "tags": [],
+      "moveType": "utility",
+      "moveSubtype": "general",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Inventive Logic",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-utility.png",
+    "folder": "Utility",
+    "subfolder": "General",
+    "system": {
+      "description": "You may use Guile in place of another attribute 3 times per Job.",
+      "tags": [],
+      "moveType": "utility",
+      "moveSubtype": "general",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Gut Check",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-utility.png",
+    "folder": "Utility",
+    "subfolder": "General",
+    "system": {
+      "description": "You may use Instinct in place of another attribute 3 times per Job.",
+      "tags": [],
+      "moveType": "utility",
+      "moveSubtype": "general",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Force of Personality",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-utility.png",
+    "folder": "Utility",
+    "subfolder": "General",
+    "system": {
+      "description": "You may use Presence in place of another attribute 3 times per Job.",
+      "tags": [],
+      "moveType": "utility",
+      "moveSubtype": "general",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Cold Read",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-utility.png",
+    "folder": "Utility",
+    "subfolder": "General",
+    "system": {
+      "description": "Once per scene, when you Flourish on Survey or Investigate, recover 1 spent Risk Die.",
+      "tags": [],
+      "moveType": "utility",
+      "moveSubtype": "general",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Iron Willed",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-utility.png",
+    "folder": "Utility",
+    "subfolder": "General",
+    "system": {
+      "description": "Once per scene, when you Flourish on Endure, Grit, or Will, recover 1 spent Risk Die.",
+      "tags": [],
+      "moveType": "utility",
+      "moveSubtype": "general",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Perfect Touch",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-utility.png",
+    "folder": "Utility",
+    "subfolder": "General",
+    "system": {
+      "description": "Once per scene, when you Flourish on Sleight, Stealth, or Aim, recover 1 spent Risk Die.",
+      "tags": [],
+      "moveType": "utility",
+      "moveSubtype": "general",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Commanding Presence",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-utility.png",
+    "folder": "Utility",
+    "subfolder": "General",
+    "system": {
+      "description": "Once per Scene, when you give clear orders during a tense non-combat scene, any ally who follows your direction gains +1 on their next roll.",
+      "tags": [],
+      "moveType": "utility",
+      "moveSubtype": "general",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "A Face in Every Room",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-utility.png",
+    "folder": "Utility",
+    "subfolder": "General",
+    "system": {
+      "description": "When you enter a social scene, you may ask the Director who here is easiest to impress, frighten, bribe, or deceive.",
+      "tags": [],
+      "moveType": "utility",
+      "moveSubtype": "general",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Read the Silence",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-utility.png",
+    "folder": "Utility",
+    "subfolder": "General",
+    "system": {
+      "description": "When someone refuses to answer, dodges a question, or changes the subject, gain +1 on your next social roll with them.",
+      "tags": [],
+      "moveType": "utility",
+      "moveSubtype": "general",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Name Carries Weight",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-utility.png",
+    "folder": "Utility",
+    "subfolder": "General",
+    "system": {
+      "description": "Once per job, when your reputation would matter, you may use Presence instead of the normal attribute for the roll.",
+      "tags": [],
+      "moveType": "utility",
+      "moveSubtype": "general",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Street Reader",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-utility.png",
+    "folder": "Utility",
+    "subfolder": "General",
+    "system": {
+      "description": "When you enter a faction space, workplace, or any other social hierarchy, you can tell who holds real authority, even if they are not the person with the title.",
+      "tags": [],
+      "moveType": "utility",
+      "moveSubtype": "general",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Private Eye",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-utility.png",
+    "folder": "Utility",
+    "subfolder": "General",
+    "system": {
+      "description": "Once per job, when you roll Survey or Investigate to study a person, place, or history, gain Edge.",
+      "tags": [],
+      "moveType": "utility",
+      "moveSubtype": "general",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Scene Memory",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-utility.png",
+    "folder": "Utility",
+    "subfolder": "General",
+    "system": {
+      "description": "Once per scene, after you have spent time observing an area, you may ask the Director what changed since you arrived.",
+      "tags": [],
+      "moveType": "utility",
+      "moveSubtype": "general",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Clean Exit",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-utility.png",
+    "folder": "Utility",
+    "subfolder": "General",
+    "system": {
+      "description": "Once per scene, when you are attempting to exfil or escape gain +1 on your next roll to leave unnoticed.",
+      "tags": [],
+      "moveType": "utility",
+      "moveSubtype": "general",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Plausible Lie",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-utility.png",
+    "folder": "Utility",
+    "subfolder": "General",
+    "system": {
+      "description": "When your lie includes a true detail, gain +1 to Deceive.",
+      "tags": [],
+      "moveType": "utility",
+      "moveSubtype": "general",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Borrowed Authority",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-utility.png",
+    "folder": "Utility",
+    "subfolder": "General",
+    "system": {
+      "description": "When you wear, carry, or imitate a symbol of authority appropriate to the scene, gain +1 on the first roll to pass as someone with permission to be there.",
+      "tags": [],
+      "moveType": "utility",
+      "moveSubtype": "general",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Pocket Sand Philosophy",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-utility.png",
+    "folder": "Utility",
+    "subfolder": "General",
+    "system": {
+      "description": "Once per scene, when a social or investigative scene turns against you, you may create a brief distraction. Gain +1 on your next roll to escape, hide, redirect, or stall.",
+      "tags": [],
+      "moveType": "utility",
+      "moveSubtype": "general",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Local Weather",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-utility.png",
+    "folder": "Utility",
+    "subfolder": "General",
+    "system": {
+      "description": "When you spend a few moments studying the environment, you can tell what natural danger is most likely to worsen soon.",
+      "tags": [],
+      "moveType": "utility",
+      "moveSubtype": "general",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Lived Experience",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-utility.png",
+    "folder": "Utility",
+    "subfolder": "General",
+    "system": {
+      "description": "Once per job, when a situation overlaps with your background, profession, homeland, faction, or former life, gain Edge on a relevant non-combat roll.",
+      "tags": [],
+      "moveType": "utility",
+      "moveSubtype": "general",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "I Read About This",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-utility.png",
+    "folder": "Utility",
+    "subfolder": "General",
+    "system": {
+      "description": "Once per scene, when you roll Lore or Spark to identify a strange creature, relic, place, or phenomenon, gain +1.",
+      "tags": [],
+      "moveType": "utility",
+      "moveSubtype": "general",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Practical Theory",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-utility.png",
+    "folder": "Utility",
+    "subfolder": "General",
+    "system": {
+      "description": "When you use Lore to create a plan, shortcut, explanation, or safe method, the next ally who follows it gains +1.",
+      "tags": [],
+      "moveType": "utility",
+      "moveSubtype": "general",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Traveler’s Intuition",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-utility.png",
+    "folder": "Utility",
+    "subfolder": "General",
+    "system": {
+      "description": "After the Director describes the visible paths leading from a Landmark, you may ask which path feels most immediately dangerous. The answer reveals danger, not opportunity, safety, or reward.",
+      "tags": [],
+      "moveType": "utility",
+      "moveSubtype": "general",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Travel Light",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-utility.png",
+    "folder": "Utility",
+    "subfolder": "General",
+    "system": {
+      "description": "Once per job, when the group retreats from a Landmark or node, you ignore one the cost.",
+      "tags": [],
+      "moveType": "utility",
+      "moveSubtype": "general",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Wyrdwise",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-utility.png",
+    "folder": "Utility",
+    "subfolder": "General",
+    "system": {
+      "description": "When the group commits to a node of The Wyrd, gain +1 on your first roll to understand, resist, navigate, or stabilize its strange effects.",
+      "tags": [],
+      "moveType": "utility",
+      "moveSubtype": "general",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Trail Signs",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-utility.png",
+    "folder": "Utility",
+    "subfolder": "General",
+    "system": {
+      "description": "When the group commits to Predator Territory, you may immediately ask one question before the threat fully reveals itself:\nIf it’s in the location still\nIf it’s aware of you\nIf it’s aggressive",
+      "tags": [],
+      "moveType": "utility",
+      "moveSubtype": "general",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Stranger’s Read",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-utility.png",
+    "folder": "Utility",
+    "subfolder": "General",
+    "system": {
+      "description": "When the group commits to a Traveler node, gain +1 on your first Survey, Charm, Command, or Deceive roll.",
+      "tags": [],
+      "moveType": "utility",
+      "moveSubtype": "general",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Campcraft",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-utility.png",
+    "folder": "Utility",
+    "subfolder": "General",
+    "system": {
+      "description": "When the group camps during travel you recover 1 additional Strain, clear a minor travel hardship, or gain +1 on the first roll after camp.",
+      "tags": [],
+      "moveType": "utility",
+      "moveSubtype": "general",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Safe Enough",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-utility.png",
+    "folder": "Utility",
+    "subfolder": "General",
+    "system": {
+      "description": "Once per job, when the group camps in a dangerous or uncertain location, you may roll Survey, Nature, Stealth, or Spark. On a Complication or better, the camp avoids the first ambush, hazard, or interruption that would disturb it.",
+      "tags": [],
+      "moveType": "utility",
+      "moveSubtype": "general",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Pathcutter",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-utility.png",
+    "folder": "Utility",
+    "subfolder": "General",
+    "system": {
+      "description": "Once per job, after the group resolves a node, you may reduce the remaining journey length by 1 if you can explain how the path, landmark, shortcut, or information gained helps the group move faster.",
+      "tags": [],
+      "moveType": "utility",
+      "moveSubtype": "general",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Pack Keeper",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-utility.png",
+    "folder": "Utility",
+    "subfolder": "General",
+    "system": {
+      "description": "Once per job, when the group would lose Materials during travel from an event, attack, or setback, reduce the loss by half, rounded up.",
+      "tags": [],
+      "moveType": "utility",
+      "moveSubtype": "general",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Can Feel it in",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-utility.png",
+    "folder": "Utility",
+    "subfolder": "General",
+    "system": {
+      "description": "When the Wyrd, weather, terrain, or environment is about to worsen, the Director gives you a warning sign before it fully hits.",
+      "tags": [],
+      "moveType": "utility",
+      "moveSubtype": "general",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Landmark Lore",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-utility.png",
+    "folder": "Utility",
+    "subfolder": "General",
+    "system": {
+      "description": "When a Landmark appears, you may roll Lore, Nature, Survey, or Spark to recall any information on it. On a Complication or better, gain +1 to the first investigation roll after committing.",
+      "tags": [],
+      "moveType": "utility",
+      "moveSubtype": "general",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Wyrd Compass",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-utility.png",
+    "folder": "Utility",
+    "subfolder": "General",
+    "system": {
+      "description": "Once per job, after the visible paths are described, ask the Director which path seems most likely to lead forward rather than sideways, deeper, or astray.",
+      "tags": [],
+      "moveType": "utility",
+      "moveSubtype": "general",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Forager’s Eye",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-utility.png",
+    "folder": "Utility",
+    "subfolder": "General",
+    "system": {
+      "description": "When the group resolves an Opportunity node or camps in a resource-rich area, gain +1 on rolls to find Materials, food, shelter, medicine, or useful salvage.",
+      "tags": [],
+      "moveType": "utility",
+      "moveSubtype": "general",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Omen Reader",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-utility.png",
+    "folder": "Utility",
+    "subfolder": "General",
+    "system": {
+      "description": "When the group chooses a path, you may name one thing you fear finding there. If that fear proves true, gain Edge on your first roll against it.",
+      "tags": [],
+      "moveType": "utility",
+      "moveSubtype": "general",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  },
+  {
+    "name": "Shelter Sense",
+    "type": "move",
+    "img": "systems/midnight-gambit/assets/images/moves-utility.png",
+    "folder": "Utility",
+    "subfolder": "General",
+    "system": {
+      "description": "When the group commits to a Landmark, you can tell whether it contains a place that could become temporary shelter, though not whether it is safe.",
+      "tags": [],
+      "moveType": "utility",
+      "moveSubtype": "general",
+      "learned": false,
+      "npcMove": false,
+      "npcSignature": false,
+      "isSignature": false
+    }
+  }
+]
