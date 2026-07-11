@@ -2793,9 +2793,15 @@ ol li {
             }
           }
 
-          &:hover {
-            background: $mg-blue-1;
-            color: $mg-blue-4;
+          &:hover,
+          &:focus {
+            background: $mg-blue-4;
+            color: $mg-green;
+            box-shadow: none;
+
+            i {
+              color: $mg-green;
+            }
           }
         }
       }

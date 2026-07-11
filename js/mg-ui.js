@@ -95,8 +95,7 @@ const MG_SPARK_SCHOOL_LABELS = {
 	warding: "Warding",
 	shaping: "Shaping",
 	gloom: "Gloom",
-	life: "Life",
-	ember: "Ember"
+	life: "Life"
 };
 
 /* Main Foundry canvas control groups shown in the MG Orb rail.
@@ -673,6 +672,7 @@ async function mgPostOwnedInventoryItemToChat(actor, item) {
 		? await TextEditor.enrichHTML(String(system.description ?? ""), { async: true, secrets: false })
 		: "";
 	const icon = type === "weapon" ? "fa-solid fa-sword" : type === "armor" ? "fa-solid fa-shield" : "fa-solid fa-backpack";
+	const itemImg = item?.img || "icons/svg/item-bag.svg";
 
 	await ChatMessage.create({
 		user: game.user.id,
@@ -680,6 +680,9 @@ async function mgPostOwnedInventoryItemToChat(actor, item) {
 		content: `
 			<div class="chat-item">
 				<h2><i class="${icon}"></i> ${mgEsc(name)}</h2>
+				<figure class="chat-item-image">
+					<img src="${mgEsc(itemImg)}" alt="${mgAttr(name)}" loading="lazy" />
+				</figure>
 				${descHtml ? `<div class="chat-item-desc">${descHtml}</div>` : ""}
 				${damageInfo}
 				${capacityInfo}

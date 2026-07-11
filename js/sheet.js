@@ -4172,10 +4172,14 @@ _mgOpenSidebarCropper() {
       const descHtml = system.description
         ? await TextEditor.enrichHTML(String(system.description ?? ""), { async: true, secrets: false })
         : "";
+      const itemImg = item.img || "icons/svg/item-bag.svg";
 
       const content = `
         <div class="chat-item">
           <h2><i class="fa-solid fa-shield"></i> ${safe(name)}</h2>
+          <figure class="chat-item-image">
+            <img src="${safe(itemImg)}" alt="${safe(name)}" loading="lazy" />
+          </figure>
           ${descHtml ? `<div class="chat-item-desc">${descHtml}</div>` : ""}
           ${extraInfo}
           ${tagData ? `<strong>Tags:</strong><div class="chat-tags">${tagData}</div>` : ""}

@@ -1404,13 +1404,47 @@ function mgGetInterfaceVolume() {
   }
 }
 
+function mgGetClockSfxSrc() {
+  try {
+    const src = `systems/${game.system?.id ?? "midnight-gambit"}/assets/sounds/gambit-clock.ogg`;
+    return foundry.utils?.getRoute?.(src) ?? src;
+  } catch (_) {
+    return MG_CLOCK_SFX;
+  }
+}
+
+function mgPlayClockBrowserAudio(src, volume) {
+  try {
+    const audio = new Audio(src);
+    audio.volume = volume;
+    audio.play()?.catch?.(err => console.warn("MG | Clock browser audio fallback failed.", err));
+  } catch (err) {
+    console.warn("MG | Clock browser audio fallback failed.", err);
+  }
+}
+
 function mgPlayClockSfx(baseVolume = 0.8, { broadcast = false } = {}) {
   const volume = mgClamp01(baseVolume, 0.8) * mgGetInterfaceVolume();
+  const src = mgGetClockSfxSrc();
 
-  AudioHelper.play(
-    { src: MG_CLOCK_SFX, volume, autoplay: true, loop: false },
-    false
-  );
+  try {
+    const helper = globalThis.AudioHelper ?? foundry?.audio?.AudioHelper;
+    if (helper?.play) {
+      const playback = helper.play(
+        { src, volume, autoplay: true, loop: false },
+        false
+      );
+      playback?.catch?.(err => {
+        console.warn("MG | Clock sound failed to play.", err);
+        mgPlayClockBrowserAudio(src, volume);
+      });
+    } else {
+      mgPlayClockBrowserAudio(src, volume);
+    }
+  } catch (err) {
+    console.warn("MG | Clock sound failed to play.", err);
+    mgPlayClockBrowserAudio(src, volume);
+  }
 
   if (broadcast && game.user?.isGM) {
     game.socket?.emit?.("system.midnight-gambit", {
@@ -2060,29 +2094,6 @@ function mgStartSweep(el, length, opts = {}) {
   );
 }
 
-// Play the same sting when the clock first enters the "red" (<=25% remaining) stage.
-// - Only the GM triggers the sound to avoid duplicates.
-// - Broadcast to everyone if the clock is Public; play local-only if GM-only.
-function mgMaybePlayRedSfx($wrap, id, total, filled) {
-  const root = $wrap[0];
-  if (!root) return;
-
-  const remaining = Math.max(0, total - Math.max(0, Math.min(total, filled)));
-  const isRedNow  = (remaining / Math.max(1, total)) <= 0.25;
-
-  const wasRed = root.dataset.mgRedStage === "1";
-  root.dataset.mgRedStage = isRedNow ? "1" : "0";
-
-  // Fire only on the transition into red
-  if (!wasRed && isRedNow) {
-    if (game.user.isGM) {
-      const c = mgClockGetById(id, mgClockScopeFromWrap($wrap)) || {};
-      const broadcast = !c.gmOnly; // Public → everyone hears; GM-only → just GM
-      mgPlayClockSfx(0.8, { broadcast });
-    }
-  }
-}
-
 /* Segment Smoother
 ----------------------------------------------------------------------*/
 function mgUpdateRings($wrap, id) {
@@ -2131,9 +2142,6 @@ function mgUpdateRings($wrap, id) {
     if (bg)    bg.setAttribute("opacity", "1");
     fullRing.setAttribute("display", "none");
   }
-
-  // always update glow (partial or full)
-  mgMaybePlayRedSfx($wrap, id, total, filled);   // <-- add this line
 
   // always update glow (partial or full)
   mgUpdateGlowArc($wrap, id);
@@ -2678,6 +2686,7 @@ function mgBindClock($wrap, id) {
     await mgClockSetById(id, { filled: nf }, scope);
     const remaining = Math.max(0, total - nf);
     mgAnnounceClockTickDown(name, remaining, total, gmOnly);
+    mgPlayClockSfx(0.8, { broadcast: !gmOnly });
   });
 
   // N/N overwrite (GM only)
@@ -2745,6 +2754,7 @@ function mgBindClock($wrap, id) {
         const { total, name, gmOnly } = mgClockGetById(id, scope); // total/name/vis are stable
         const remaining = Math.max(0, total - lastFilled);
         mgAnnounceClockTickDown(name, remaining, total, gmOnly);
+        mgPlayClockSfx(0.8, { broadcast: !gmOnly });
       }
     } catch (_) {}
   });
