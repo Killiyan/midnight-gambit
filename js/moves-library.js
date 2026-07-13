@@ -50,8 +50,11 @@ export class MovesLibraryApplication extends Application {
     this._restoreSearchFocus = false;
     this._filterRenderTimer = null;
     this._filterFadeTimer = null;
+    this._focusCloseTimer = null;
     this._animateFilterResults = false;
+    this._suppressFocusFade = false;
     this._filterScrollTop = 0;
+    this._libraryScrollTop = 0;
   }
 
   static get defaultOptions() {
@@ -103,6 +106,7 @@ export class MovesLibraryApplication extends Application {
       cards: gridCards,
       selected,
       hasFocus: Boolean(selected),
+      suppressFocusFade: Boolean(selected && this._suppressFocusFade),
       search: this.filters.search,
       learnedOnly: this.filters.learned,
       unassignedOnly: this.filters.unassigned,
@@ -143,14 +147,14 @@ export class MovesLibraryApplication extends Application {
 
     html.find(".mg-gambit-library-card").on("click", ev => {
       ev.preventDefault();
+      this._captureLibraryScroll();
       this.selectedUuid = String(ev.currentTarget.dataset.uuid ?? "");
       this.render(false);
     });
 
     html.find(".mg-gambit-library-focus-close, .mg-gambit-library-focus-backdrop").on("click", ev => {
       ev.preventDefault();
-      this.selectedUuid = "";
-      this.render(false);
+      this._closeFocusPreview();
     });
 
     html.find(".mg-gambit-library-toggle-card").on("click", async ev => {
@@ -161,8 +165,7 @@ export class MovesLibraryApplication extends Application {
 
     $(window).off(`keydown.mgMovesLibrary${this.appId}`).on(`keydown.mgMovesLibrary${this.appId}`, ev => {
       if (ev.key !== "Escape" || !this.selectedUuid) return;
-      this.selectedUuid = "";
-      this.render(false);
+      this._closeFocusPreview();
     });
 
     if (this._restoreSearchFocus) {
@@ -174,6 +177,7 @@ export class MovesLibraryApplication extends Application {
     }
 
     this._restoreFilterScroll(html);
+    this._restoreLibraryScroll(html);
 
     if (this._animateFilterResults) {
       this._animateFilterResults = false;
@@ -182,7 +186,9 @@ export class MovesLibraryApplication extends Application {
   }
 
   async _render(force, options = {}) {
+    this._captureLibraryScroll();
     await super._render(force, options);
+    this._suppressFocusFade = false;
     this._ensureFocusBackdrop();
   }
 
@@ -190,6 +196,7 @@ export class MovesLibraryApplication extends Application {
     this._removeFocusBackdrop();
     clearTimeout(this._filterRenderTimer);
     clearTimeout(this._filterFadeTimer);
+    clearTimeout(this._focusCloseTimer);
     $(window).off(`keydown.mgMovesLibrary${this.appId}`);
     return super.close(options);
   }
@@ -202,6 +209,7 @@ export class MovesLibraryApplication extends Application {
     clearTimeout(this._filterRenderTimer);
     clearTimeout(this._filterFadeTimer);
     this._captureFilterScroll();
+    this._captureLibraryScroll();
 
     this._filterRenderTimer = setTimeout(() => {
       const grid = this.element?.find?.(".mg-gambit-library-grid")?.[0];
@@ -227,6 +235,46 @@ export class MovesLibraryApplication extends Application {
     requestAnimationFrame(() => {
       filters.scrollTop = this._filterScrollTop ?? 0;
     });
+  }
+
+  _captureLibraryScroll({ force = false } = {}) {
+    if (!force && (this.selectedUuid || this.element?.find?.(".mg-gambit-library.is-focused")?.length)) return;
+    const stage = this.element?.find?.(".mg-gambit-library-stage")?.[0];
+    this._libraryScrollTop = Number(stage?.scrollTop ?? this._libraryScrollTop ?? 0);
+  }
+
+  _restoreLibraryScroll(html) {
+    const stage = html.find(".mg-gambit-library-stage")[0];
+    if (!stage) return;
+    const scrollTop = this._libraryScrollTop ?? 0;
+    stage.style.setProperty("--mg-gambit-library-overlay-top", `${scrollTop}px`);
+    stage.scrollTop = scrollTop;
+
+    requestAnimationFrame(() => {
+      stage.style.setProperty("--mg-gambit-library-overlay-top", `${scrollTop}px`);
+      stage.scrollTop = scrollTop;
+    });
+  }
+
+  _closeFocusPreview() {
+    if (!this.selectedUuid) return;
+    clearTimeout(this._focusCloseTimer);
+    this.selectedUuid = "";
+
+    const library = this.element?.find?.(".mg-gambit-library");
+    library?.addClass("is-focus-closing");
+
+    this._focusCloseTimer = setTimeout(() => {
+      library?.removeClass("is-focused is-focus-closing is-focus-refresh");
+      library?.find?.(".mg-gambit-library-card.is-focused")?.removeClass("is-focused");
+      library?.find?.(".mg-gambit-library-focus-backdrop, .mg-gambit-library-focus")?.remove();
+    }, this._prefersReducedMotion() ? 0 : 500);
+  }
+
+  _renderFocusRefresh() {
+    if (!this.selectedUuid) return;
+    this._suppressFocusFade = Boolean(this.selectedUuid);
+    this.render(false);
   }
 
   _animateCardsIn(html) {
@@ -355,12 +403,12 @@ export class MovesLibraryApplication extends Application {
     const existing = this._findActorMove(card);
     if (existing) {
       await existing.delete();
-      this.render(false);
+      this._renderFocusRefresh();
       return;
     }
 
     await this._ensureActorMove(card);
-    this.render(false);
+    this._renderFocusRefresh();
   }
 
   async _ensureActorMove(card) {
