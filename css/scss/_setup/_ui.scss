@@ -1215,6 +1215,9 @@ body.mg-hud-enabled {
 				.mg-scene-folder-body {
 					display: grid;
 					gap: .5rem;
+					min-height: 3.5rem;
+					padding-top: .75rem;
+					padding-bottom: 1.25rem;
 
 					&.mg-scene-drop-target,
 					&.mg-actor-drop-target,
@@ -1494,6 +1497,12 @@ body.mg-hud-enabled {
 					min-height: 4rem;
 				}
 
+				.mg-left-accordion.mg-scene-drop-folder > .mg-left-accordion-toggle,
+				.mg-left-accordion.mg-actor-drop-folder > .mg-left-accordion-toggle,
+				.mg-left-accordion.mg-item-drop-folder > .mg-left-accordion-toggle,
+				.mg-left-accordion.mg-journal-drop-folder > .mg-left-accordion-toggle,
+				.mg-left-accordion.mg-compendium-drop-folder > .mg-left-accordion-toggle,
+				.mg-left-accordion.mg-playlist-drop-folder > .mg-left-accordion-toggle,
 				.mg-left-accordion-toggle.mg-scene-drop-folder,
 				.mg-left-accordion-toggle.mg-actor-drop-folder,
 				.mg-left-accordion-toggle.mg-item-drop-folder,
@@ -5599,16 +5608,24 @@ body:not(.mg-hud-enabled) #mg-ui-root {
 		transition: opacity .5s ease;
 	}
 
-	&:hover,
-	&:focus {
-		background: $mg-blue-1;
-		color: $mg-blue-4;
+	&:hover {
+		background: $mg-blue-4;
+		color: $mg-green;
 		box-shadow: none;
 
 		i {
-			color: $mg-blue-4;
+			color: $mg-blue-1;
+			opacity: 1;
 		}
 	}
+
+	&:focus {
+		background: transparent;
+
+		i {
+			color: $mg-ivory;
+		}
+	}	
 
 	i {
 		color: $mg-ivory;

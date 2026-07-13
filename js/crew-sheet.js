@@ -14,6 +14,28 @@ const ESC = (s) =>
     ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;","/":"&#x2F;","`":"&#x60;","=":"&#x3D;" }[c])
   );
 
+function mgGetFilePickerSources() {
+	const sources = FilePicker?.sources;
+	if (!sources) return [];
+	if (sources instanceof Map) return Array.from(sources.entries());
+	return Object.entries(sources);
+}
+
+function mgGetImageFilePickerOptions(current = "") {
+	const sources = mgGetFilePickerSources();
+	const sourceText = ([key, source]) => `${key} ${source?.label ?? ""} ${source?.name ?? ""}`;
+	const forgeSource = sources.find(source => /forge/i.test(sourceText(source)));
+	const dataSource = sources.find(([key]) => key === "data");
+	const activeSource = forgeSource?.[0] ?? dataSource?.[0] ?? sources[0]?.[0];
+	const clean = String(current ?? "").trim().replace(/\\/g, "/");
+	const packagedPath = /^(systems|modules|icons|ui)\//i.test(clean);
+	const externalPath = /^(https?:|data:)/i.test(clean);
+	const canUseCurrent = (!activeSource || activeSource === "data") && !packagedPath && !externalPath;
+	const options = { current: canUseCurrent ? clean : "" };
+	if (activeSource) options.activeSource = activeSource;
+	return options;
+}
+
 
 export class MidnightGambitCrewSheet extends ActorSheet {
 	static get defaultOptions() {
@@ -1083,11 +1105,9 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 		return foundry.utils.getRoute(u);
 	}
 
-	/** Default directory the picker opens to (world assets first, else your system). */
+	/** Default directory the picker opens to. Empty lets the active storage source choose its root. */
 	_initialPickerDir() {
-		const worldBase = `worlds/${game.world?.id || ""}`;
-		// point somewhere sane in the world dir if it exists in your content tree
-		return worldBase ? `${worldBase}/assets/images` : `systems/${game.system.id}/assets/images`;
+		return "";
 	}
 
 
@@ -1491,8 +1511,7 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 			const current = this.actor.getFlag("midnight-gambit", "directoryIcon") || this._initialPickerDir?.();
 			const picker = new FilePicker({
 				type: "image",
-				activeSource: "data",
-				current,
+				...mgGetImageFilePickerOptions(current),
 				callback: async (path) => {
 					// 0) Remember the raw selection (optional flag)
 					await this.actor.setFlag("midnight-gambit", "directoryIcon", path);
@@ -1585,10 +1604,14 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 
 			// Enrich Description so TinyMCE formatting survives in chat
 			const descHtml = await TextEditor.enrichHTML(String(item.system?.description ?? ""), { async: true });
+			const itemImg = item.img || "icons/svg/item-bag.svg";
 
 			const content = `
 			<div class="chat-item">
 				<h2><i class="fa-solid fa-vault"></i> ${ESC(item.name)}</h2>
+				<figure class="chat-item-image">
+					<img src="${ESC(itemImg)}" alt="${ESC(item.name)}" loading="lazy" />
+				</figure>
 				${descHtml ? `<div class="asset-desc-chat">${descHtml}</div>` : ""}
 				${(item.system?.tags?.length)
 				? `<strong>Tags:</strong>

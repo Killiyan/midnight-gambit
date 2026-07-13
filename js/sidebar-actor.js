@@ -35,6 +35,10 @@ function mgCssEscape(value) {
 	return String(value).replace(/"/g, '\\"');
 }
 
+function mgCanCreateActorDocuments() {
+	return !!game.user?.isGM || !!game.user?.can?.("ACTOR_CREATE");
+}
+
 function mgGetActorSidebarImage(actor) {
 	const shared = mgShared();
 	if (typeof shared.getActorPlacementImage === "function") {
@@ -345,10 +349,59 @@ function mgBindActorSidebarDrag(panel) {
 		container.insertBefore(dragging, after ? target.nextSibling : target);
 	};
 
+	const insertDraggingAtPointer = (event, container) => {
+		const entries = Array.from(container.children)
+			.filter(el => el !== dragging && el.matches?.(".mg-actor-row[data-mg-actor-id], [data-mg-actor-folder-id]"));
+		const before = entries.find(entry => {
+			const rect = entry.getBoundingClientRect();
+			return event.clientY < rect.top + rect.height / 2;
+		});
+		container.insertBefore(dragging, before || null);
+	};
+
 	const isFolderNestZone = (event, folderDrop) => {
+		if (!folderDrop) return false;
+		const isDraggingFolder = Object.keys(dragging?.dataset ?? {}).some(key => key.endsWith("FolderId"));
+		if (!isDraggingFolder) return true;
 		const rect = folderDrop.getBoundingClientRect();
 		const y = event.clientY - rect.top;
-		return y > rect.height * 0.25 && y < rect.height * 0.75;
+		return y > rect.height * 0.3 && y < rect.height * 0.7;
+	};
+
+	const canNestActorFolder = (targetFolderId, draggedFolderId) => {
+		const targetFolder = targetFolderId ? game.folders?.get(targetFolderId) : null;
+		const draggedFolder = draggedFolderId ? game.folders?.get(draggedFolderId) : null;
+		if (!targetFolder || !draggedFolder || targetFolder.id === draggedFolder.id) return false;
+		if (targetFolder.type !== "Actor" || draggedFolder.type !== "Actor") return false;
+		if (mgGetActorFolderDepth(targetFolder) > 0) return false;
+		return !Array.from(game.folders ?? []).some(folder =>
+			folder.type === "Actor" && (folder.folder?.id ?? folder.folder ?? null) === draggedFolder.id
+		);
+	};
+
+	const getFolderListDropContainer = folderDrop => {
+		const container = folderDrop?.parentElement;
+		return container?.matches?.("[data-mg-actor-container]") ? container : null;
+	};
+
+	const canDropActorFolderInList = folderDrop => {
+		const container = getFolderListDropContainer(folderDrop);
+		const draggedFolderId = dragging?.dataset?.mgActorFolderId || "";
+		if (!container || !draggedFolderId || !game.user?.isGM) return false;
+		if ((folderDrop?.dataset?.mgActorFolderId || "") === draggedFolderId) return false;
+
+		const isRootContainer = container.dataset.mgActorContainer === "";
+		const originalDisplayContainer = dragging.dataset.mgActorDisplayContainer || "";
+		return isRootContainer || mgNormalizeActorContainerId(container.dataset.mgActorContainer) === mgNormalizeActorContainerId(originalDisplayContainer);
+	};
+
+	const insertFolderNearListTarget = (event, folderDrop) => {
+		const container = getFolderListDropContainer(folderDrop);
+		if (!container) return null;
+		const rect = folderDrop.getBoundingClientRect();
+		const after = event.clientY > rect.top + rect.height / 2;
+		container.insertBefore(dragging, after ? folderDrop.nextSibling : folderDrop);
+		return container;
 	};
 
 	panel.querySelectorAll(".mg-actor-row[data-mg-actor-id]").forEach(row => {
@@ -426,25 +479,55 @@ function mgBindActorSidebarDrag(panel) {
 			event.stopPropagation();
 			const target = getDirectDropTarget(event, container);
 			if (target) insertDraggingNearTarget(event, container, target);
+			else if (isDraggingFolder) insertDraggingAtPointer(event, container);
 			clearDropState();
 			await finalizeContainerOrder(container);
 		});
 	});
 
-	panel.querySelectorAll("[data-mg-actor-folder-drop]").forEach(folderDrop => {
+	panel.querySelectorAll("[data-mg-actor-folder-id]").forEach(folderDrop => {
 		folderDrop.addEventListener("dragover", event => {
-			if (!dragging?.dataset?.mgActorId || !game.user?.isGM || !isFolderNestZone(event, folderDrop)) return;
+			const targetFolderId = folderDrop.dataset.mgActorFolderId || null;
+			const canDropActor = !!dragging?.dataset?.mgActorId;
+			const canDropFolderInList = !!dragging?.dataset?.mgActorFolderId && !isFolderNestZone(event, folderDrop) && canDropActorFolderInList(folderDrop);
+			const canDropFolder = canNestActorFolder(targetFolderId, dragging?.dataset?.mgActorFolderId || "");
+			if (!game.user?.isGM || (!isFolderNestZone(event, folderDrop) && !canDropFolderInList) || (!canDropActor && !canDropFolder && !canDropFolderInList)) return;
 			event.preventDefault();
 			event.stopPropagation();
 			event.dataTransfer.dropEffect = "move";
 			clearDropState();
-			folderDrop.classList.add("mg-actor-drop-folder");
+			if (canDropFolderInList) getFolderListDropContainer(folderDrop)?.classList.add("mg-actor-drop-target");
+			else folderDrop.classList.add("mg-actor-drop-folder");
 		});
 
 		folderDrop.addEventListener("drop", async event => {
+			const folderId = folderDrop.dataset.mgActorFolderId || null;
+			const draggedFolderId = dragging?.dataset?.mgActorFolderId || "";
+			if (draggedFolderId && !isFolderNestZone(event, folderDrop)) {
+				if (!canDropActorFolderInList(folderDrop)) return;
+				event.preventDefault();
+				event.stopPropagation();
+				const container = insertFolderNearListTarget(event, folderDrop);
+				clearDropState();
+				await finalizeContainerOrder(container);
+				return;
+			}
+			if (draggedFolderId) {
+				if (!game.user?.isGM || !isFolderNestZone(event, folderDrop) || !canNestActorFolder(folderId, draggedFolderId)) return;
+				event.preventDefault();
+				event.stopPropagation();
+				clearDropState();
+
+				const targetFolder = game.folders?.get(folderId);
+				const folder = game.folders?.get(draggedFolderId);
+				await folder?.update({ folder: folderId || null });
+				await mgAppendActorFolderToUserOrder(folderId, folder.id);
+				if (targetFolder) mgSetAccordionOpen(null, `actor-folder-${targetFolder.id}`, true);
+				return;
+			}
+
 			if (!dragging?.dataset?.mgActorId) return;
 			const actorId = getDragActorId(event);
-			const folderId = folderDrop.dataset.mgActorFolderDrop || null;
 			const actor = actorId ? game.actors?.get(actorId) : null;
 			if (!actor || !game.user?.isGM || !isFolderNestZone(event, folderDrop)) return;
 
@@ -514,10 +597,18 @@ async function mgAppendActorToUserOrder(folderId, actorId) {
 	await game.user?.setFlag?.(MG_UI_NS, MG_ACTOR_USER_ORDER_FLAG, order);
 }
 
+async function mgAppendActorFolderToUserOrder(folderId, actorFolderId) {
+	const key = mgGetActorUserOrderKey(folderId);
+	const order = mgGetActorUserOrder();
+	const token = mgActorOrderToken("folder", actorFolderId);
+	order[key] = [...(order[key] ?? []).filter(existing => existing !== token), token];
+	await game.user?.setFlag?.(MG_UI_NS, MG_ACTOR_USER_ORDER_FLAG, order);
+}
+
 /* Actor and actor folder creation
 ----------------------------------------------------------------------*/
 async function mgCreateActor(folderId = null) {
-	if (!game.user?.isGM) return;
+	if (!mgCanCreateActorDocuments()) return;
 
 	try {
 		if (typeof Actor?.createDialog === "function") {
@@ -534,7 +625,7 @@ async function mgCreateActor(folderId = null) {
 }
 
 async function mgCreateActorFolder(parentId = null) {
-	if (!game.user?.isGM) return;
+	if (!mgCanCreateActorDocuments()) return;
 
 	try {
 		const parent = parentId ? game.folders?.get(parentId) : null;
@@ -938,11 +1029,12 @@ async function mgDeleteActorFolderContents(folder) {
 ----------------------------------------------------------------------*/
 function mgRenderActorSidebarContent() {
 	const canManage = game.user?.isGM;
+	const canCreate = mgCanCreateActorDocuments();
 	const actors = Array.from(game.actors ?? [])
 		.filter(actor => canManage || mgCanUserSeeActor(actor));
 	const folderTree = mgBuildActorFolderTree(actors, { showAllFolders: canManage });
 	const assignedActor = game.user?.character ?? null;
-	const controls = canManage ? `
+	const controls = canCreate ? `
 		<section class="mg-scene-directory-actions mg-actor-directory-actions">
 			<button type="button" class="mg-left-action" data-mg-actor-create>
 				<i class="fa-solid fa-user-plus"></i>
@@ -1123,7 +1215,8 @@ function mgRenderActorFolder(node, depth = 0) {
 	const folder = node.folder;
 	const id = `actor-folder-${folder.id}`;
 	const isOpen = mgIsAccordionOpen(null, id, true);
-	const canCreateSubfolder = game.user?.isGM && depth === 0;
+	const canCreate = mgCanCreateActorDocuments();
+	const canCreateSubfolder = canCreate && depth === 0;
 	const body = mgRenderActorBranch(node, depth + 1) || `<div class="mg-left-empty mg-scene-folder-empty mg-actor-folder-empty">No actors in this folder.</div>`;
 	const color = String(folder.color ?? "").trim();
 	const iconStyle = color ? ` style="color: ${mgAttr(color)};"` : "";
@@ -1146,7 +1239,7 @@ function mgRenderActorFolder(node, depth = 0) {
 			<div class="mg-left-accordion-body" ${isOpen ? "" : "hidden"} style="max-height: ${isOpen ? "none" : "0px"};">
 				<div class="mg-left-accordion-inner">
 					<div class="mg-scene-folder-body mg-actor-folder-body" data-mg-actor-folder-body="${folder.id}" data-mg-actor-container="${folder.id}">
-						${game.user?.isGM ? `
+						${canCreate ? `
 							<div class="mg-scene-folder-actions mg-actor-folder-actions">
 								<button type="button" class="mg-scene-mini-action mg-actor-mini-action" data-mg-actor-create="${folder.id}" title="Create actor in ${mgAttr(folder.name)}" aria-label="Create actor in ${mgAttr(folder.name)}">
 									<i class="fa-solid fa-user-plus"></i>
@@ -1273,7 +1366,12 @@ function mgNormalizeActorFolderConfigLayout(root) {
 			<div class="form-fields"></div>
 			${hint}
 		`;
-		block.querySelector(".form-fields").appendChild(input);
+		const formFields = block.querySelector(".form-fields");
+		const colorPicker = input.name === "color"
+			? currentGroup?.querySelector?.('input[type="color"]:not([name="color"])')
+			: null;
+		formFields.appendChild(input);
+		if (colorPicker) formFields.appendChild(colorPicker);
 
 		if (currentGroup?.parentElement) currentGroup.replaceWith(block);
 		else form.prepend(block);

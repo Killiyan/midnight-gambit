@@ -47,6 +47,8 @@
     border: 3px solid $mg-blue-main-2;
     border-radius: .5rem;
     z-index: 6;
+    max-height: 100vh;
+    margin: 0 0 1rem 0;
   }
 
   .mg-ini-foil__ring {

@@ -4483,28 +4483,6 @@ Hooks.on("updateItem", (item, changes, options, userId) => {
   }
 });
 
-/* Inventory Item Update Sync
-------------------------------------------------------------------*/
-// When an embedded inventory item changes, refresh any open parent actor sheets.
-// This keeps tags, strain damage, capacity, quantity, etc. synced after editing
-// the item through its item sheet.
-Hooks.on("updateItem", (item, changes, options, userId) => {
-  try {
-    const actor = item?.parent;
-    if (!actor || actor.documentName !== "Actor") return;
-    if (actor.type !== "character") return;
-    if (!["weapon", "armor", "misc", "gambit", "asset"].includes(item.type)) return;
-
-    if (!actor.isOwner && !game.user.isGM) return;
-
-    for (const app of Object.values(actor.apps ?? {})) {
-      app?.render?.(false);
-    }
-  } catch (err) {
-    console.warn("MG | updateItem inventory sync failed:", err);
-  }
-});
-
 /* Check if a guise has been added to the sheet, and then apply level up section
 ------------------------------------------------------------------*/
 Hooks.on("updateActor", (actor, diff, _opts, _id) => {

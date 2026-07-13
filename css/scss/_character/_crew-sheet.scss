@@ -903,7 +903,8 @@
 
 						i {
 							font-size: 0.9rem;
-							transition: transform 0.3s ease, opacity 0.25s ease;
+							transition: transform 0.5s ease, opacity 0.5s ease, color .5s ease;
+							color: $mg-ivory;
 
 							&.rotated {
 								transform: rotate(180deg);
@@ -911,8 +912,14 @@
 						}
 
 						&:hover {
-							background: $mg-blue-1;
-							color: $mg-blue-4;
+							background: $mg-blue-4;
+							color: $mg-green;
+							box-shadow: none;
+
+							i {
+								color: $mg-blue-1;
+								opacity: 1;
+							}
 						}
 					}
 				}

@@ -480,7 +480,7 @@ ol li {
         color:$mg-ivory;
 
         // Character sheet button tweak. Remove later if I don't like
-        button:not(.tox-tbtn):not(.inventory-bucket-toggle):not(.mg-card-toggle):not(.post-gambit):not(.status-buttons button):not(.delete-move):not(.mg-hand-order-eye):not(.mg-primary-toggle),
+        button:not(.tox-tbtn):not(.inventory-bucket-toggle):not(.mg-card-toggle):not(.post-gambit):not(.status-buttons button):not(.delete-move):not(.mg-hand-order-eye):not(.mg-primary-toggle):not(.mg-seeall-toggle):not(.mg-card-toggle),
         form button,
         .dialog-button {
           background: $mg-blue-4;
@@ -2368,8 +2368,7 @@ ol li {
           color: $mg-blue-2;
         }
 
-        &:hover,
-        &:focus {
+        &:hover {
           background: $mg-blue-4;
           border-color: $mg-green;
           color: $mg-green;
@@ -2649,6 +2648,14 @@ ol li {
           }
         }
 
+        .info-wrapper .item-edit {
+
+          &:hover,
+          &:focus {
+            border-color: $mg-green !important;
+          }
+        }
+
         .info-wrapper,
         .item-capacity {
           display: flex;
@@ -2796,11 +2803,10 @@ ol li {
           &:hover,
           &:focus {
             background: $mg-blue-4;
-            color: $mg-green;
             box-shadow: none;
 
             i {
-              color: $mg-green;
+              color: $mg-blue-1;
             }
           }
         }
@@ -2828,14 +2834,13 @@ ol li {
           transition: opacity .5s ease;
         }
 
-        &:hover,
-        &:focus {
+        &:hover {
           background: $mg-blue-4;
           color: $mg-green;
           box-shadow: none;
 
           i {
-            color: $mg-blue-2;
+            color: $mg-blue-1;
           }
         }
 
@@ -2896,9 +2901,7 @@ ol li {
 }
 
 .gambit-card:hover {
-  transform: scale(1.05);
   box-shadow: 0 8px $mg-blue-1;
-  cursor: grab;
 }
 
 .gambit-description {
@@ -2970,9 +2973,7 @@ ol li {
       }
 
       &:hover {
-        transform: scale(1.05);
         box-shadow: 0 0 8px rgba(255, 255, 255, 0.3);
-        cursor: grab;
       }
 
       &.faded {
@@ -3634,6 +3635,7 @@ ol li {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  overflow: visible;
 
   transform:
     translate(calc(-1% * var(--mg-crop-x, 50)), calc(-1% * var(--mg-crop-y, 50)))
@@ -3656,6 +3658,13 @@ ol li {
   &.npc .mg-crop-stage {
     width: 31rem;
     height: 31rem;
+    aspect-ratio: 1 / 1;
+
+    img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
   }
 
   .mg-crop-panel { 
@@ -4177,6 +4186,7 @@ ol li {
       user-select: none;
       pointer-events: none;
       border-radius: 0;
+      overflow: visible;
     }
   }
 

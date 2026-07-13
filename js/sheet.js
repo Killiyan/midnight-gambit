@@ -16,6 +16,28 @@ function mgGetActorPlacementImage(actor, key, fallback = mgGetActorSheetImage(ac
   return src || fallback;
 }
 
+function mgGetFilePickerSources() {
+  const sources = FilePicker?.sources;
+  if (!sources) return [];
+  if (sources instanceof Map) return Array.from(sources.entries());
+  return Object.entries(sources);
+}
+
+function mgGetImageFilePickerOptions(current = "") {
+  const sources = mgGetFilePickerSources();
+  const sourceText = ([key, source]) => `${key} ${source?.label ?? ""} ${source?.name ?? ""}`;
+  const forgeSource = sources.find(source => /forge/i.test(sourceText(source)));
+  const dataSource = sources.find(([key]) => key === "data");
+  const activeSource = forgeSource?.[0] ?? dataSource?.[0] ?? sources[0]?.[0];
+  const clean = String(current ?? "").trim().replace(/\\/g, "/");
+  const packagedPath = /^(systems|modules|icons|ui)\//i.test(clean);
+  const externalPath = /^(https?:|data:)/i.test(clean);
+  const canUseCurrent = (!activeSource || activeSource === "data") && !packagedPath && !externalPath;
+  const options = { current: canUseCurrent ? clean : "" };
+  if (activeSource) options.activeSource = activeSource;
+  return options;
+}
+
 function mgGetDifficultyModifier() {
   try {
     const value = Number(game.settings.get("midnight-gambit", "gmDifficultyModifier") ?? 0);
@@ -1189,7 +1211,7 @@ export class MidnightGambitActorSheet extends ActorSheet {
         if (canBrowseFiles()) {
           const fp = new FilePicker({
             type: "image",
-            current,
+            ...mgGetImageFilePickerOptions(current),
             callback: applyImage
           });
           fp.render(true);
@@ -5736,7 +5758,7 @@ _mgOpenSidebarCropper() {
       if (canBrowse) {
         const fp = new FilePicker({
           type: "image",
-          current,
+          ...mgGetImageFilePickerOptions(current),
           callback: applyImg
         });
         fp.render(true);

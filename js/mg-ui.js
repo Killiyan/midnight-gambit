@@ -95,6 +95,7 @@ const MG_SPARK_SCHOOL_LABELS = {
 	warding: "Warding",
 	shaping: "Shaping",
 	gloom: "Gloom",
+	ember: "Life",
 	life: "Life"
 };
 
@@ -2314,10 +2315,59 @@ function mgBindSceneSidebarDrag(panel) {
 		container.insertBefore(dragging, after ? target.nextSibling : target);
 	};
 
+	const insertDraggingAtPointer = (event, container) => {
+		const entries = Array.from(container.children)
+			.filter(el => el !== dragging && el.matches?.(".mg-scene-row[data-mg-scene-id], [data-mg-scene-folder-id]"));
+		const before = entries.find(entry => {
+			const rect = entry.getBoundingClientRect();
+			return event.clientY < rect.top + rect.height / 2;
+		});
+		container.insertBefore(dragging, before || null);
+	};
+
 	const isFolderNestZone = (event, folderDrop) => {
+		if (!folderDrop) return false;
+		const isDraggingFolder = Object.keys(dragging?.dataset ?? {}).some(key => key.endsWith("FolderId"));
+		if (!isDraggingFolder) return true;
 		const rect = folderDrop.getBoundingClientRect();
 		const y = event.clientY - rect.top;
-		return y > rect.height * 0.25 && y < rect.height * 0.75;
+		return y > rect.height * 0.3 && y < rect.height * 0.7;
+	};
+
+	const canNestSceneFolder = (targetFolderId, draggedFolderId) => {
+		const targetFolder = targetFolderId ? game.folders?.get(targetFolderId) : null;
+		const draggedFolder = draggedFolderId ? game.folders?.get(draggedFolderId) : null;
+		if (!targetFolder || !draggedFolder || targetFolder.id === draggedFolder.id) return false;
+		if (targetFolder.type !== "Scene" || draggedFolder.type !== "Scene") return false;
+		if (mgGetSceneFolderDepth(targetFolder) > 0) return false;
+		return !Array.from(game.folders ?? []).some(folder =>
+			folder.type === "Scene" && (folder.folder?.id ?? folder.folder ?? null) === draggedFolder.id
+		);
+	};
+
+	const getFolderListDropContainer = folderDrop => {
+		const container = folderDrop?.parentElement;
+		return container?.matches?.("[data-mg-scene-container]") ? container : null;
+	};
+
+	const canDropSceneFolderInList = folderDrop => {
+		const container = getFolderListDropContainer(folderDrop);
+		const draggedFolderId = dragging?.dataset?.mgSceneFolderId || "";
+		if (!container || !draggedFolderId || !game.user?.isGM) return false;
+		if ((folderDrop?.dataset?.mgSceneFolderId || "") === draggedFolderId) return false;
+
+		const isRootContainer = container.dataset.mgSceneContainer === "";
+		const originalDisplayContainer = dragging.dataset.mgSceneDisplayContainer || "";
+		return isRootContainer || mgNormalizeSceneContainerId(container.dataset.mgSceneContainer) === mgNormalizeSceneContainerId(originalDisplayContainer);
+	};
+
+	const insertFolderNearListTarget = (event, folderDrop) => {
+		const container = getFolderListDropContainer(folderDrop);
+		if (!container) return null;
+		const rect = folderDrop.getBoundingClientRect();
+		const after = event.clientY > rect.top + rect.height / 2;
+		container.insertBefore(dragging, after ? folderDrop.nextSibling : folderDrop);
+		return container;
 	};
 
 	// Scene rows are draggable everywhere they appear, including favorites.
@@ -2401,29 +2451,57 @@ function mgBindSceneSidebarDrag(panel) {
 			event.stopPropagation();
 			const target = getDirectDropTarget(event, container);
 			if (target) insertDraggingNearTarget(event, container, target);
+			else if (isDraggingFolder) insertDraggingAtPointer(event, container);
 			clearDropState();
 			await finalizeContainerOrder(container);
 		});
 	});
 
 	// Dropping a scene onto the center of a folder header moves that scene into the folder for GMs.
-	panel.querySelectorAll("[data-mg-scene-folder-drop]").forEach(folderDrop => {
+	panel.querySelectorAll("[data-mg-scene-folder-id]").forEach(folderDrop => {
 		folderDrop.addEventListener("dragover", event => {
 			if (!dragging) return;
-			if (!dragging.dataset.mgSceneId) return;
-			if (!game.user?.isGM) return;
-			if (!isFolderNestZone(event, folderDrop)) return;
+			const targetFolderId = folderDrop.dataset.mgSceneFolderId || null;
+			const canDropScene = !!dragging.dataset.mgSceneId;
+			const canDropFolderInList = !!dragging.dataset.mgSceneFolderId && !isFolderNestZone(event, folderDrop) && canDropSceneFolderInList(folderDrop);
+			const canDropFolder = canNestSceneFolder(targetFolderId, dragging.dataset.mgSceneFolderId || "");
+			if (!game.user?.isGM || (!isFolderNestZone(event, folderDrop) && !canDropFolderInList) || (!canDropScene && !canDropFolder && !canDropFolderInList)) return;
 			event.preventDefault();
 			event.stopPropagation();
 			event.dataTransfer.dropEffect = "move";
 			clearDropState();
-			folderDrop.classList.add("mg-scene-drop-folder");
+			if (canDropFolderInList) getFolderListDropContainer(folderDrop)?.classList.add("mg-scene-drop-target");
+			else folderDrop.classList.add("mg-scene-drop-folder");
 		});
 
 		folderDrop.addEventListener("drop", async event => {
+			const folderId = folderDrop.dataset.mgSceneFolderId || null;
+			const draggedFolderId = dragging?.dataset?.mgSceneFolderId || "";
+			if (draggedFolderId && !isFolderNestZone(event, folderDrop)) {
+				if (!canDropSceneFolderInList(folderDrop)) return;
+				event.preventDefault();
+				event.stopPropagation();
+				const container = insertFolderNearListTarget(event, folderDrop);
+				clearDropState();
+				await finalizeContainerOrder(container);
+				return;
+			}
+			if (draggedFolderId) {
+				if (!game.user?.isGM || !isFolderNestZone(event, folderDrop) || !canNestSceneFolder(folderId, draggedFolderId)) return;
+				event.preventDefault();
+				event.stopPropagation();
+				clearDropState();
+
+				const targetFolder = game.folders?.get(folderId);
+				const folder = game.folders?.get(draggedFolderId);
+				await folder?.update({ folder: folderId || null });
+				await mgAppendSceneFolderToUserOrder(folderId, folder.id);
+				if (targetFolder) mgSetAccordionOpen(null, `scene-folder-${targetFolder.id}`, true);
+				return;
+			}
+
 			if (!dragging?.dataset?.mgSceneId) return;
 			const sceneId = getDragSceneId(event);
-			const folderId = folderDrop.dataset.mgSceneFolderDrop || null;
 			const scene = sceneId ? game.scenes?.get(sceneId) : null;
 			if (!scene) return;
 			if (!game.user?.isGM) return;
@@ -2497,6 +2575,14 @@ async function mgAppendSceneToUserOrder(folderId, sceneId) {
 	const key = mgGetSceneUserOrderKey(folderId);
 	const order = mgGetSceneUserOrder();
 	const token = mgSceneOrderToken("scene", sceneId);
+	order[key] = [...(order[key] ?? []).filter(existing => existing !== token), token];
+	await game.user?.setFlag?.(MG_UI_NS, MG_SCENE_USER_ORDER_FLAG, order);
+}
+
+async function mgAppendSceneFolderToUserOrder(folderId, sceneFolderId) {
+	const key = mgGetSceneUserOrderKey(folderId);
+	const order = mgGetSceneUserOrder();
+	const token = mgSceneOrderToken("folder", sceneFolderId);
 	order[key] = [...(order[key] ?? []).filter(existing => existing !== token), token];
 	await game.user?.setFlag?.(MG_UI_NS, MG_SCENE_USER_ORDER_FLAG, order);
 }
@@ -4097,7 +4183,8 @@ function mgRenderCrewSidebarContent() {
 		return `
 			<div class="mg-left-empty">
 				<i class="fa-solid fa-users"></i>
-				<p>No Crew actor found.</p>
+				<h2>No Primary Crew selected</h2>
+				<p>Head to the Actors tab, create a crew character, and click "Primary Crew" at the top to utilize this sidebar, and initiative.</p>
 			</div>
 		`;
 	}
@@ -5625,6 +5712,9 @@ Hooks.on("updateUser", user => {
 });
 Hooks.on("renderFolderConfig", (app, html) => {
 	const folder = app?.object ?? app?.folder;
+	mgNormalizeFolderColorConfig(html);
+	window.setTimeout(() => mgNormalizeFolderColorConfig(html), 0);
+
 	if (folder?.type === "Scene") {
 		mgTidySceneFolderConfig(html, folder);
 		window.setTimeout(() => mgTidySceneFolderConfig(html, folder), 0);
@@ -5697,10 +5787,86 @@ Hooks.on("updateActor", (actor, changed) => {
 
 /* Folder config cleanup
 ----------------------------------------------------------------------*/
+function mgNormalizeFolderColorConfig(html) {
+	const root = html?.jquery ? html[0] : html?.[0] ?? html;
+	if (!root?.querySelectorAll) return;
+
+	const colorInput = root.querySelector('input[name="color"]');
+	if (!colorInput || colorInput.dataset.mgFolderColorNormalized === "true") return;
+
+	const colorGroup = colorInput.closest(".form-group, .form-field, fieldset, .standard-form-group");
+	const colorPicker = colorGroup?.querySelector('input[type="color"]:not([name="color"])')
+		?? root.querySelector('input[type="color"][data-edit="color"], input[type="color"]:not([name="color"])');
+	const normalizeHex = value => {
+		const raw = String(value ?? "").trim().replace(/^#/, "");
+		if (!raw) return "";
+		if (/^[0-9a-fA-F]{3}$/.test(raw)) return `#${raw.split("").map(char => `${char}${char}`).join("").toLowerCase()}`;
+		if (/^[0-9a-fA-F]{6}$/.test(raw)) return `#${raw.toLowerCase()}`;
+		return null;
+	};
+	const cleanPartialHex = value => {
+		const raw = String(value ?? "").trim();
+		const hex = raw.replace(/^#/, "").replace(/[^0-9a-fA-F]/g, "").slice(0, 6);
+		return hex ? `#${hex}` : "";
+	};
+	const syncPickerFromText = ({ final = false } = {}) => {
+		if (!colorPicker) return;
+		const normalized = normalizeHex(colorInput.value);
+		if (normalized) colorPicker.value = normalized;
+		else if (final && !String(colorInput.value ?? "").trim()) colorPicker.value = "#000000";
+	};
+	const syncTextFromPicker = () => {
+		const normalized = normalizeHex(colorPicker?.value);
+		if (normalized) colorInput.value = normalized;
+	};
+
+	colorInput.dataset.mgFolderColorNormalized = "true";
+	colorInput.type = "text";
+	colorInput.placeholder = "#4173BE";
+	colorInput.maxLength = 7;
+	colorInput.pattern = "^#?[0-9a-fA-F]{3}([0-9a-fA-F]{3})?$";
+	colorInput.title = "Hex color, for example #4173BE";
+	colorInput.autocomplete = "off";
+	colorInput.spellcheck = false;
+
+	const initial = normalizeHex(colorInput.value);
+	if (initial) colorInput.value = initial;
+	else if (colorPicker) syncTextFromPicker();
+
+	colorInput.addEventListener("input", () => {
+		const clean = cleanPartialHex(colorInput.value);
+		if (colorInput.value !== clean) colorInput.value = clean;
+		syncPickerFromText();
+	});
+	colorInput.addEventListener("blur", () => {
+		const normalized = normalizeHex(colorInput.value);
+		if (normalized !== null) colorInput.value = normalized;
+		syncPickerFromText({ final: true });
+	});
+	colorInput.form?.addEventListener("submit", event => {
+		const normalized = normalizeHex(colorInput.value);
+		if (normalized === null) {
+			event.preventDefault();
+			ui.notifications?.warn("Use a hex folder color like #4173BE.");
+			colorInput.focus();
+			return;
+		}
+		colorInput.value = normalized;
+	}, { capture: true });
+
+	if (colorPicker) {
+		colorPicker.dataset.mgFolderColorPicker = "true";
+		colorPicker.addEventListener("input", syncTextFromPicker);
+		colorPicker.addEventListener("change", syncTextFromPicker);
+		syncPickerFromText({ final: true });
+	}
+}
+
 function mgTidySceneFolderConfig(html, folder) {
 	const root = html?.jquery ? html[0] : html?.[0] ?? html;
 	if (!root?.querySelectorAll) return;
 
+	mgNormalizeFolderColorConfig(root);
 	mgHideFolderConfigSorting(root);
 
 	const fieldName = `flags.${MG_UI_NS}.${MG_SCENE_FOLDER_PLAYER_VISIBLE_FLAG}`;
@@ -5776,7 +5942,12 @@ function mgNormalizeSceneFolderConfigLayout(root) {
 			<div class="form-fields"></div>
 			${hint}
 		`;
-		block.querySelector(".form-fields").appendChild(input);
+		const formFields = block.querySelector(".form-fields");
+		const colorPicker = input.name === "color"
+			? currentGroup?.querySelector?.('input[type="color"]:not([name="color"])')
+			: null;
+		formFields.appendChild(input);
+		if (colorPicker) formFields.appendChild(colorPicker);
 
 		if (currentGroup?.parentElement) currentGroup.replaceWith(block);
 		else form.prepend(block);

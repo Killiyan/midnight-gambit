@@ -312,10 +312,59 @@ function mgBindJournalEntrySidebarDrag(panel) {
 		container.insertBefore(dragging, after ? target.nextSibling : target);
 	};
 
+	const insertDraggingAtPointer = (event, container) => {
+		const entries = Array.from(container.children)
+			.filter(el => el !== dragging && el.matches?.(".mg-journal-row[data-mg-journal-id], [data-mg-journal-folder-id]"));
+		const before = entries.find(entry => {
+			const rect = entry.getBoundingClientRect();
+			return event.clientY < rect.top + rect.height / 2;
+		});
+		container.insertBefore(dragging, before || null);
+	};
+
 	const isFolderNestZone = (event, folderDrop) => {
+		if (!folderDrop) return false;
+		const isDraggingFolder = Object.keys(dragging?.dataset ?? {}).some(key => key.endsWith("FolderId"));
+		if (!isDraggingFolder) return true;
 		const rect = folderDrop.getBoundingClientRect();
 		const y = event.clientY - rect.top;
-		return y > rect.height * 0.25 && y < rect.height * 0.75;
+		return y > rect.height * 0.3 && y < rect.height * 0.7;
+	};
+
+	const canNestJournalEntryFolder = (targetFolderId, draggedFolderId) => {
+		const targetFolder = targetFolderId ? game.folders?.get(targetFolderId) : null;
+		const draggedFolder = draggedFolderId ? game.folders?.get(draggedFolderId) : null;
+		if (!targetFolder || !draggedFolder || targetFolder.id === draggedFolder.id) return false;
+		if (targetFolder.type !== "JournalEntry" || draggedFolder.type !== "JournalEntry") return false;
+		if (mgGetJournalEntryFolderDepth(targetFolder) > 0) return false;
+		return !Array.from(game.folders ?? []).some(folder =>
+			folder.type === "JournalEntry" && (folder.folder?.id ?? folder.folder ?? null) === draggedFolder.id
+		);
+	};
+
+	const getFolderListDropContainer = folderDrop => {
+		const container = folderDrop?.parentElement;
+		return container?.matches?.("[data-mg-journal-container]") ? container : null;
+	};
+
+	const canDropJournalEntryFolderInList = folderDrop => {
+		const container = getFolderListDropContainer(folderDrop);
+		const draggedFolderId = dragging?.dataset?.mgJournalFolderId || "";
+		if (!container || !draggedFolderId || !game.user?.isGM) return false;
+		if ((folderDrop?.dataset?.mgJournalFolderId || "") === draggedFolderId) return false;
+
+		const isRootContainer = container.dataset.mgJournalContainer === "";
+		const originalDisplayContainer = dragging.dataset.mgJournalDisplayContainer || "";
+		return isRootContainer || mgNormalizeJournalEntryContainerId(container.dataset.mgJournalContainer) === mgNormalizeJournalEntryContainerId(originalDisplayContainer);
+	};
+
+	const insertFolderNearListTarget = (event, folderDrop) => {
+		const container = getFolderListDropContainer(folderDrop);
+		if (!container) return null;
+		const rect = folderDrop.getBoundingClientRect();
+		const after = event.clientY > rect.top + rect.height / 2;
+		container.insertBefore(dragging, after ? folderDrop.nextSibling : folderDrop);
+		return container;
 	};
 
 	panel.querySelectorAll(".mg-journal-row[data-mg-journal-id]").forEach(row => {
@@ -390,25 +439,55 @@ function mgBindJournalEntrySidebarDrag(panel) {
 			event.stopPropagation();
 			const target = getDirectDropTarget(event, container);
 			if (target) insertDraggingNearTarget(event, container, target);
+			else if (isDraggingFolder) insertDraggingAtPointer(event, container);
 			clearDropState();
 			await finalizeContainerOrder(container);
 		});
 	});
 
-	panel.querySelectorAll("[data-mg-journal-folder-drop]").forEach(folderDrop => {
+	panel.querySelectorAll("[data-mg-journal-folder-id]").forEach(folderDrop => {
 		folderDrop.addEventListener("dragover", event => {
-			if (!dragging?.dataset?.mgJournalId || !game.user?.isGM || !isFolderNestZone(event, folderDrop)) return;
+			const targetFolderId = folderDrop.dataset.mgJournalFolderId || null;
+			const canDropJournal = !!dragging?.dataset?.mgJournalId;
+			const canDropFolderInList = !!dragging?.dataset?.mgJournalFolderId && !isFolderNestZone(event, folderDrop) && canDropJournalEntryFolderInList(folderDrop);
+			const canDropFolder = canNestJournalEntryFolder(targetFolderId, dragging?.dataset?.mgJournalFolderId || "");
+			if (!game.user?.isGM || (!isFolderNestZone(event, folderDrop) && !canDropFolderInList) || (!canDropJournal && !canDropFolder && !canDropFolderInList)) return;
 			event.preventDefault();
 			event.stopPropagation();
 			event.dataTransfer.dropEffect = "move";
 			clearDropState();
-			folderDrop.classList.add("mg-journal-drop-folder");
+			if (canDropFolderInList) getFolderListDropContainer(folderDrop)?.classList.add("mg-journal-drop-target");
+			else folderDrop.classList.add("mg-journal-drop-folder");
 		});
 
 		folderDrop.addEventListener("drop", async event => {
+			const folderId = folderDrop.dataset.mgJournalFolderId || null;
+			const draggedFolderId = dragging?.dataset?.mgJournalFolderId || "";
+			if (draggedFolderId && !isFolderNestZone(event, folderDrop)) {
+				if (!canDropJournalEntryFolderInList(folderDrop)) return;
+				event.preventDefault();
+				event.stopPropagation();
+				const container = insertFolderNearListTarget(event, folderDrop);
+				clearDropState();
+				await finalizeContainerOrder(container);
+				return;
+			}
+			if (draggedFolderId) {
+				if (!game.user?.isGM || !isFolderNestZone(event, folderDrop) || !canNestJournalEntryFolder(folderId, draggedFolderId)) return;
+				event.preventDefault();
+				event.stopPropagation();
+				clearDropState();
+
+				const targetFolder = game.folders?.get(folderId);
+				const folder = game.folders?.get(draggedFolderId);
+				await folder?.update({ folder: folderId || null });
+				await mgAppendJournalEntryFolderToUserOrder(folderId, folder.id);
+				if (targetFolder) mgSetAccordionOpen(null, `journal-folder-${targetFolder.id}`, true);
+				return;
+			}
+
 			if (!dragging?.dataset?.mgJournalId) return;
 			const journalId = getDragJournalEntryId(event);
-			const folderId = folderDrop.dataset.mgJournalFolderDrop || null;
 			const journal = journalId ? mgGetJournalCollection()?.get(journalId) : null;
 			if (!journal || !game.user?.isGM || !isFolderNestZone(event, folderDrop)) return;
 
@@ -474,6 +553,14 @@ async function mgAppendJournalEntryToUserOrder(folderId, journalId) {
 	const key = mgGetJournalEntryUserOrderKey(folderId);
 	const order = mgGetJournalEntryUserOrder();
 	const token = mgJournalOrderToken("journal", journalId);
+	order[key] = [...(order[key] ?? []).filter(existing => existing !== token), token];
+	await game.user?.setFlag?.(MG_UI_NS, MG_JOURNAL_USER_ORDER_FLAG, order);
+}
+
+async function mgAppendJournalEntryFolderToUserOrder(folderId, journalFolderId) {
+	const key = mgGetJournalEntryUserOrderKey(folderId);
+	const order = mgGetJournalEntryUserOrder();
+	const token = mgJournalOrderToken("folder", journalFolderId);
 	order[key] = [...(order[key] ?? []).filter(existing => existing !== token), token];
 	await game.user?.setFlag?.(MG_UI_NS, MG_JOURNAL_USER_ORDER_FLAG, order);
 }

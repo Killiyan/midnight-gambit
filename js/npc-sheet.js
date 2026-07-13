@@ -15,6 +15,28 @@ function mgGetActorPlacementImage(actor, key, fallback = mgGetActorSheetImage(ac
   return src || fallback;
 }
 
+function mgGetFilePickerSources() {
+  const sources = FilePicker?.sources;
+  if (!sources) return [];
+  if (sources instanceof Map) return Array.from(sources.entries());
+  return Object.entries(sources);
+}
+
+function mgGetImageFilePickerOptions(current = "") {
+  const sources = mgGetFilePickerSources();
+  const sourceText = ([key, source]) => `${key} ${source?.label ?? ""} ${source?.name ?? ""}`;
+  const forgeSource = sources.find(source => /forge/i.test(sourceText(source)));
+  const dataSource = sources.find(([key]) => key === "data");
+  const activeSource = forgeSource?.[0] ?? dataSource?.[0] ?? sources[0]?.[0];
+  const clean = String(current ?? "").trim().replace(/\\/g, "/");
+  const packagedPath = /^(systems|modules|icons|ui)\//i.test(clean);
+  const externalPath = /^(https?:|data:)/i.test(clean);
+  const canUseCurrent = (!activeSource || activeSource === "data") && !packagedPath && !externalPath;
+  const options = { current: canUseCurrent ? clean : "" };
+  if (activeSource) options.activeSource = activeSource;
+  return options;
+}
+
 export class MidnightGambitNpcSheet extends ActorSheet {
   static get defaultOptions() {
     return foundry.utils.mergeObject(super.defaultOptions, {
@@ -490,7 +512,7 @@ export class MidnightGambitNpcSheet extends ActorSheet {
       if (canBrowse) {
         const picker = new FilePicker({
           type: "image",
-          current,
+          ...mgGetImageFilePickerOptions(current),
           callback: applyImg
         });
 
@@ -1045,6 +1067,8 @@ export class MidnightGambitNpcSheet extends ActorSheet {
         description: "This image is placed at the top of your NPC sheet.",
         src: sheetSrc,
         className: "npc",
+        fillFrame: true,
+        matchFrameSelector: ".profile-image",
         defaultsFrom: []
       },
       {
@@ -1088,6 +1112,7 @@ export class MidnightGambitNpcSheet extends ActorSheet {
   }
 
   _mgOpenImageOptions(html, startKey = "profile") {
+    const $root = html instanceof jQuery ? html : $(html);
     const placements = this._mgGetImageCropPlacements(html).filter(p => p.src);
     if (!placements.length) return;
 
@@ -1204,7 +1229,12 @@ export class MidnightGambitNpcSheet extends ActorSheet {
 
     const applyPlacementSize = (img, placement, current) => {
       if (!img) return;
-      if (placement.fitAxis === "width") {
+      img.style.objectFit = "";
+      if (placement.fillFrame) {
+        img.style.width = "100%";
+        img.style.height = "100%";
+        img.style.objectFit = "cover";
+      } else if (placement.fitAxis === "width") {
         img.style.width = `${Number.isFinite(current.width) ? current.width : 100}%`;
         img.style.height = "auto";
       } else if (placement.fitAxis === "height") {
@@ -1216,6 +1246,21 @@ export class MidnightGambitNpcSheet extends ActorSheet {
       }
     };
 
+    const applyPlacementFrame = placement => {
+      stage.style.removeProperty("width");
+      stage.style.removeProperty("height");
+      stage.style.removeProperty("aspect-ratio");
+      if (!placement.matchFrameSelector) return;
+
+      const frame = $root.find(placement.matchFrameSelector).first()[0];
+      const rect = frame?.getBoundingClientRect?.();
+      if (!rect || rect.width <= 0 || rect.height <= 0) return;
+
+      stage.style.width = `${Math.round(rect.width)}px`;
+      stage.style.height = `${Math.round(rect.height)}px`;
+      stage.style.aspectRatio = `${rect.width} / ${rect.height}`;
+    };
+
     const renderPlacement = key => {
       const placement = byKey[key];
       if (!placement) return;
@@ -1224,6 +1269,7 @@ export class MidnightGambitNpcSheet extends ActorSheet {
 
       $ui.removeClass(placements.map(p => p.className).filter(Boolean).join(" "));
       if (placement.className) $ui.addClass(placement.className);
+      applyPlacementFrame(placement);
       $ui.find(".mg-crop-title").text(placement.title);
       $ui.find(".mg-crop-hint").text(placement.hint);
       $ui.find("[data-mg-crop-description]").text(placement.description || "");
@@ -1296,7 +1342,7 @@ export class MidnightGambitNpcSheet extends ActorSheet {
       if (canBrowseFiles()) {
         const fp = new FilePicker({
           type: "image",
-          current,
+          ...mgGetImageFilePickerOptions(current),
           callback: applyImage
         });
         fp.render(true);

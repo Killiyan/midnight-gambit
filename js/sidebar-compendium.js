@@ -440,10 +440,59 @@ function mgBindCompendiumSidebarDrag(panel) {
 		container.insertBefore(dragging, after ? target.nextSibling : target);
 	};
 
+	const insertDraggingAtPointer = (event, container) => {
+		const entries = Array.from(container.children)
+			.filter(el => el !== dragging && el.matches?.(".mg-compendium-row[data-mg-compendium-id], [data-mg-compendium-folder-id]"));
+		const before = entries.find(entry => {
+			const rect = entry.getBoundingClientRect();
+			return event.clientY < rect.top + rect.height / 2;
+		});
+		container.insertBefore(dragging, before || null);
+	};
+
 	const isFolderNestZone = (event, folderDrop) => {
+		if (!folderDrop) return false;
+		const isDraggingFolder = Object.keys(dragging?.dataset ?? {}).some(key => key.endsWith("FolderId"));
+		if (!isDraggingFolder) return true;
 		const rect = folderDrop.getBoundingClientRect();
 		const y = event.clientY - rect.top;
-		return y > rect.height * 0.25 && y < rect.height * 0.75;
+		return y > rect.height * 0.3 && y < rect.height * 0.7;
+	};
+
+	const canNestCompendiumFolder = (targetFolderId, draggedFolderId) => {
+		const targetFolder = targetFolderId ? game.folders?.get(targetFolderId) : null;
+		const draggedFolder = draggedFolderId ? game.folders?.get(draggedFolderId) : null;
+		if (!targetFolder || !draggedFolder || targetFolder.id === draggedFolder.id) return false;
+		if (targetFolder.type !== "Compendium" || draggedFolder.type !== "Compendium") return false;
+		if (mgGetCompendiumFolderDepth(targetFolder) > 0) return false;
+		return !Array.from(game.folders ?? []).some(folder =>
+			folder.type === "Compendium" && (folder.folder?.id ?? folder.folder ?? null) === draggedFolder.id
+		);
+	};
+
+	const getFolderListDropContainer = folderDrop => {
+		const container = folderDrop?.parentElement;
+		return container?.matches?.("[data-mg-compendium-container]") ? container : null;
+	};
+
+	const canDropCompendiumFolderInList = folderDrop => {
+		const container = getFolderListDropContainer(folderDrop);
+		const draggedFolderId = dragging?.dataset?.mgCompendiumFolderId || "";
+		if (!container || !draggedFolderId || !game.user?.isGM) return false;
+		if ((folderDrop?.dataset?.mgCompendiumFolderId || "") === draggedFolderId) return false;
+
+		const isRootContainer = container.dataset.mgCompendiumContainer === "";
+		const originalDisplayContainer = dragging.dataset.mgCompendiumDisplayContainer || "";
+		return isRootContainer || mgNormalizeCompendiumContainerId(container.dataset.mgCompendiumContainer) === mgNormalizeCompendiumContainerId(originalDisplayContainer);
+	};
+
+	const insertFolderNearListTarget = (event, folderDrop) => {
+		const container = getFolderListDropContainer(folderDrop);
+		if (!container) return null;
+		const rect = folderDrop.getBoundingClientRect();
+		const after = event.clientY > rect.top + rect.height / 2;
+		container.insertBefore(dragging, after ? folderDrop.nextSibling : folderDrop);
+		return container;
 	};
 
 	panel.querySelectorAll(".mg-compendium-row[data-mg-compendium-id]").forEach(row => {
@@ -518,25 +567,55 @@ function mgBindCompendiumSidebarDrag(panel) {
 			event.stopPropagation();
 			const target = getDirectDropTarget(event, container);
 			if (target) insertDraggingNearTarget(event, container, target);
+			else if (isDraggingFolder) insertDraggingAtPointer(event, container);
 			clearDropState();
 			await finalizeContainerOrder(container);
 		});
 	});
 
-	panel.querySelectorAll("[data-mg-compendium-folder-drop]").forEach(folderDrop => {
+	panel.querySelectorAll("[data-mg-compendium-folder-id]").forEach(folderDrop => {
 		folderDrop.addEventListener("dragover", event => {
-			if (!dragging?.dataset?.mgCompendiumId || !game.user?.isGM || !isFolderNestZone(event, folderDrop)) return;
+			const targetFolderId = folderDrop.dataset.mgCompendiumFolderId || null;
+			const canDropPack = !!dragging?.dataset?.mgCompendiumId;
+			const canDropFolderInList = !!dragging?.dataset?.mgCompendiumFolderId && !isFolderNestZone(event, folderDrop) && canDropCompendiumFolderInList(folderDrop);
+			const canDropFolder = canNestCompendiumFolder(targetFolderId, dragging?.dataset?.mgCompendiumFolderId || "");
+			if (!game.user?.isGM || (!isFolderNestZone(event, folderDrop) && !canDropFolderInList) || (!canDropPack && !canDropFolder && !canDropFolderInList)) return;
 			event.preventDefault();
 			event.stopPropagation();
 			event.dataTransfer.dropEffect = "move";
 			clearDropState();
-			folderDrop.classList.add("mg-compendium-drop-folder");
+			if (canDropFolderInList) getFolderListDropContainer(folderDrop)?.classList.add("mg-compendium-drop-target");
+			else folderDrop.classList.add("mg-compendium-drop-folder");
 		});
 
 		folderDrop.addEventListener("drop", async event => {
+			const folderId = folderDrop.dataset.mgCompendiumFolderId || null;
+			const draggedFolderId = dragging?.dataset?.mgCompendiumFolderId || "";
+			if (draggedFolderId && !isFolderNestZone(event, folderDrop)) {
+				if (!canDropCompendiumFolderInList(folderDrop)) return;
+				event.preventDefault();
+				event.stopPropagation();
+				const container = insertFolderNearListTarget(event, folderDrop);
+				clearDropState();
+				await finalizeContainerOrder(container);
+				return;
+			}
+			if (draggedFolderId) {
+				if (!game.user?.isGM || !isFolderNestZone(event, folderDrop) || !canNestCompendiumFolder(folderId, draggedFolderId)) return;
+				event.preventDefault();
+				event.stopPropagation();
+				clearDropState();
+
+				const targetFolder = game.folders?.get(folderId);
+				const folder = game.folders?.get(draggedFolderId);
+				await folder?.update({ folder: folderId || null });
+				await mgAppendCompendiumFolderToUserOrder(folderId, folder.id);
+				if (targetFolder) mgSetAccordionOpen(null, `compendium-folder-${targetFolder.id}`, true);
+				return;
+			}
+
 			if (!dragging?.dataset?.mgCompendiumId) return;
 			const packId = getDragPackId(event);
-			const folderId = folderDrop.dataset.mgCompendiumFolderDrop || null;
 			const pack = packId ? game.packs?.get(packId) : null;
 			if (!pack || !game.user?.isGM || !isFolderNestZone(event, folderDrop)) return;
 
@@ -602,6 +681,14 @@ async function mgAppendCompendiumToUserOrder(folderId, packId) {
 	const key = mgGetCompendiumUserOrderKey(folderId);
 	const order = mgGetCompendiumUserOrder();
 	const token = mgCompendiumOrderToken("pack", packId);
+	order[key] = [...(order[key] ?? []).filter(existing => existing !== token), token];
+	await game.user?.setFlag?.(MG_UI_NS, MG_COMPENDIUM_USER_ORDER_FLAG, order);
+}
+
+async function mgAppendCompendiumFolderToUserOrder(folderId, compendiumFolderId) {
+	const key = mgGetCompendiumUserOrderKey(folderId);
+	const order = mgGetCompendiumUserOrder();
+	const token = mgCompendiumOrderToken("folder", compendiumFolderId);
 	order[key] = [...(order[key] ?? []).filter(existing => existing !== token), token];
 	await game.user?.setFlag?.(MG_UI_NS, MG_COMPENDIUM_USER_ORDER_FLAG, order);
 }

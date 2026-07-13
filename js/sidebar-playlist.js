@@ -455,10 +455,59 @@ function mgBindPlaylistSidebarDrag(panel) {
 		container.insertBefore(dragging, after ? target.nextSibling : target);
 	};
 
+	const insertDraggingAtPointer = (event, container) => {
+		const entries = Array.from(container.children)
+			.filter(el => el !== dragging && el.matches?.(".mg-playlist-row-wrap[data-mg-playlist-id], [data-mg-playlist-folder-id]"));
+		const before = entries.find(entry => {
+			const rect = entry.getBoundingClientRect();
+			return event.clientY < rect.top + rect.height / 2;
+		});
+		container.insertBefore(dragging, before || null);
+	};
+
 	const isFolderNestZone = (event, folderDrop) => {
+		if (!folderDrop) return false;
+		const isDraggingFolder = Object.keys(dragging?.dataset ?? {}).some(key => key.endsWith("FolderId"));
+		if (!isDraggingFolder) return true;
 		const rect = folderDrop.getBoundingClientRect();
 		const y = event.clientY - rect.top;
-		return y > rect.height * 0.25 && y < rect.height * 0.75;
+		return y > rect.height * 0.3 && y < rect.height * 0.7;
+	};
+
+	const canNestPlaylistFolder = (targetFolderId, draggedFolderId) => {
+		const targetFolder = targetFolderId ? game.folders?.get(targetFolderId) : null;
+		const draggedFolder = draggedFolderId ? game.folders?.get(draggedFolderId) : null;
+		if (!targetFolder || !draggedFolder || targetFolder.id === draggedFolder.id) return false;
+		if (targetFolder.type !== "Playlist" || draggedFolder.type !== "Playlist") return false;
+		if (mgGetPlaylistFolderDepth(targetFolder) > 0) return false;
+		return !Array.from(game.folders ?? []).some(folder =>
+			folder.type === "Playlist" && (folder.folder?.id ?? folder.folder ?? null) === draggedFolder.id
+		);
+	};
+
+	const getFolderListDropContainer = folderDrop => {
+		const container = folderDrop?.parentElement;
+		return container?.matches?.("[data-mg-playlist-container]") ? container : null;
+	};
+
+	const canDropPlaylistFolderInList = folderDrop => {
+		const container = getFolderListDropContainer(folderDrop);
+		const draggedFolderId = dragging?.dataset?.mgPlaylistFolderId || "";
+		if (!container || !draggedFolderId || !game.user?.isGM) return false;
+		if ((folderDrop?.dataset?.mgPlaylistFolderId || "") === draggedFolderId) return false;
+
+		const isRootContainer = container.dataset.mgPlaylistContainer === "";
+		const originalDisplayContainer = dragging.dataset.mgPlaylistDisplayContainer || "";
+		return isRootContainer || mgNormalizePlaylistContainerId(container.dataset.mgPlaylistContainer) === mgNormalizePlaylistContainerId(originalDisplayContainer);
+	};
+
+	const insertFolderNearListTarget = (event, folderDrop) => {
+		const container = getFolderListDropContainer(folderDrop);
+		if (!container) return null;
+		const rect = folderDrop.getBoundingClientRect();
+		const after = event.clientY > rect.top + rect.height / 2;
+		container.insertBefore(dragging, after ? folderDrop.nextSibling : folderDrop);
+		return container;
 	};
 
 	panel.querySelectorAll(".mg-playlist-row-wrap[data-mg-playlist-id]").forEach(row => {
@@ -527,25 +576,54 @@ function mgBindPlaylistSidebarDrag(panel) {
 			event.stopPropagation();
 			const target = getDirectDropTarget(event, container);
 			if (target) insertDraggingNearTarget(event, container, target);
+			else if (isDraggingFolder) insertDraggingAtPointer(event, container);
 			clearDropState();
 			await finalizeContainerOrder(container);
 		});
 	});
 
-	panel.querySelectorAll("[data-mg-playlist-folder-drop]").forEach(folderDrop => {
+	panel.querySelectorAll("[data-mg-playlist-folder-id]").forEach(folderDrop => {
 		folderDrop.addEventListener("dragover", event => {
-			if (!dragging?.dataset?.mgPlaylistId || !game.user?.isGM || !isFolderNestZone(event, folderDrop)) return;
+			const targetFolderId = folderDrop.dataset.mgPlaylistFolderId || null;
+			const canDropPlaylist = !!dragging?.dataset?.mgPlaylistId;
+			const canDropFolderInList = !!dragging?.dataset?.mgPlaylistFolderId && !isFolderNestZone(event, folderDrop) && canDropPlaylistFolderInList(folderDrop);
+			const canDropFolder = canNestPlaylistFolder(targetFolderId, dragging?.dataset?.mgPlaylistFolderId || "");
+			if (!game.user?.isGM || (!isFolderNestZone(event, folderDrop) && !canDropFolderInList) || (!canDropPlaylist && !canDropFolder && !canDropFolderInList)) return;
 			event.preventDefault();
 			event.stopPropagation();
 			event.dataTransfer.dropEffect = "move";
 			clearDropState();
-			folderDrop.classList.add("mg-playlist-drop-folder");
+			if (canDropFolderInList) getFolderListDropContainer(folderDrop)?.classList.add("mg-playlist-drop-target");
+			else folderDrop.classList.add("mg-playlist-drop-folder");
 		});
 
 		folderDrop.addEventListener("drop", async event => {
+			const folderId = folderDrop.dataset.mgPlaylistFolderId || null;
+			const draggedFolderId = dragging?.dataset?.mgPlaylistFolderId || "";
+			if (draggedFolderId && !isFolderNestZone(event, folderDrop)) {
+				if (!canDropPlaylistFolderInList(folderDrop)) return;
+				event.preventDefault();
+				event.stopPropagation();
+				const container = insertFolderNearListTarget(event, folderDrop);
+				clearDropState();
+				await finalizeContainerOrder(container);
+				return;
+			}
+			if (draggedFolderId) {
+				if (!game.user?.isGM || !isFolderNestZone(event, folderDrop) || !canNestPlaylistFolder(folderId, draggedFolderId)) return;
+				event.preventDefault();
+				event.stopPropagation();
+				clearDropState();
+				const targetFolder = game.folders?.get(folderId);
+				const folder = game.folders?.get(draggedFolderId);
+				await folder?.update({ folder: folderId || null });
+				await mgAppendPlaylistFolderToUserOrder(folderId, folder.id);
+				if (targetFolder) mgSetAccordionOpen(null, `playlist-folder-${targetFolder.id}`, true);
+				return;
+			}
+
 			if (!dragging?.dataset?.mgPlaylistId) return;
 			const playlistId = getDragPlaylistId(event);
-			const folderId = folderDrop.dataset.mgPlaylistFolderDrop || null;
 			const playlist = playlistId ? game.playlists?.get(playlistId) : null;
 			if (!playlist || !game.user?.isGM || !isFolderNestZone(event, folderDrop)) return;
 			event.preventDefault();
@@ -607,6 +685,14 @@ async function mgAppendPlaylistToUserOrder(folderId, playlistId) {
 	const key = mgGetPlaylistUserOrderKey(folderId);
 	const order = mgGetPlaylistUserOrder();
 	const token = mgPlaylistOrderToken("playlist", playlistId);
+	order[key] = [...(order[key] ?? []).filter(existing => existing !== token), token];
+	await game.user?.setFlag?.(MG_UI_NS, MG_PLAYLIST_USER_ORDER_FLAG, order);
+}
+
+async function mgAppendPlaylistFolderToUserOrder(folderId, playlistFolderId) {
+	const key = mgGetPlaylistUserOrderKey(folderId);
+	const order = mgGetPlaylistUserOrder();
+	const token = mgPlaylistOrderToken("folder", playlistFolderId);
 	order[key] = [...(order[key] ?? []).filter(existing => existing !== token), token];
 	await game.user?.setFlag?.(MG_UI_NS, MG_PLAYLIST_USER_ORDER_FLAG, order);
 }

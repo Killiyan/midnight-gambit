@@ -29,6 +29,10 @@ function mgCssEscape(value) {
 	return String(value).replace(/"/g, '\\"');
 }
 
+function mgCanCreateItemDocuments() {
+	return !!game.user?.isGM || !!game.user?.can?.("ITEM_CREATE");
+}
+
 function mgCssUrl(value) {
 	const shared = mgShared();
 	if (typeof shared.cssUrl === "function") return shared.cssUrl(value);
@@ -300,10 +304,59 @@ function mgBindItemSidebarDrag(panel) {
 		container.insertBefore(dragging, after ? target.nextSibling : target);
 	};
 
+	const insertDraggingAtPointer = (event, container) => {
+		const entries = Array.from(container.children)
+			.filter(el => el !== dragging && el.matches?.(".mg-item-row[data-mg-item-id], [data-mg-item-folder-id]"));
+		const before = entries.find(entry => {
+			const rect = entry.getBoundingClientRect();
+			return event.clientY < rect.top + rect.height / 2;
+		});
+		container.insertBefore(dragging, before || null);
+	};
+
 	const isFolderNestZone = (event, folderDrop) => {
+		if (!folderDrop) return false;
+		const isDraggingFolder = Object.keys(dragging?.dataset ?? {}).some(key => key.endsWith("FolderId"));
+		if (!isDraggingFolder) return true;
 		const rect = folderDrop.getBoundingClientRect();
 		const y = event.clientY - rect.top;
-		return y > rect.height * 0.25 && y < rect.height * 0.75;
+		return y > rect.height * 0.3 && y < rect.height * 0.7;
+	};
+
+	const canNestItemFolder = (targetFolderId, draggedFolderId) => {
+		const targetFolder = targetFolderId ? game.folders?.get(targetFolderId) : null;
+		const draggedFolder = draggedFolderId ? game.folders?.get(draggedFolderId) : null;
+		if (!targetFolder || !draggedFolder || targetFolder.id === draggedFolder.id) return false;
+		if (targetFolder.type !== "Item" || draggedFolder.type !== "Item") return false;
+		if (mgGetItemFolderDepth(targetFolder) > 0) return false;
+		return !Array.from(game.folders ?? []).some(folder =>
+			folder.type === "Item" && (folder.folder?.id ?? folder.folder ?? null) === draggedFolder.id
+		);
+	};
+
+	const getFolderListDropContainer = folderDrop => {
+		const container = folderDrop?.parentElement;
+		return container?.matches?.("[data-mg-item-container]") ? container : null;
+	};
+
+	const canDropItemFolderInList = folderDrop => {
+		const container = getFolderListDropContainer(folderDrop);
+		const draggedFolderId = dragging?.dataset?.mgItemFolderId || "";
+		if (!container || !draggedFolderId || !game.user?.isGM) return false;
+		if ((folderDrop?.dataset?.mgItemFolderId || "") === draggedFolderId) return false;
+
+		const isRootContainer = container.dataset.mgItemContainer === "";
+		const originalDisplayContainer = dragging.dataset.mgItemDisplayContainer || "";
+		return isRootContainer || mgNormalizeItemContainerId(container.dataset.mgItemContainer) === mgNormalizeItemContainerId(originalDisplayContainer);
+	};
+
+	const insertFolderNearListTarget = (event, folderDrop) => {
+		const container = getFolderListDropContainer(folderDrop);
+		if (!container) return null;
+		const rect = folderDrop.getBoundingClientRect();
+		const after = event.clientY > rect.top + rect.height / 2;
+		container.insertBefore(dragging, after ? folderDrop.nextSibling : folderDrop);
+		return container;
 	};
 
 	panel.querySelectorAll(".mg-item-row[data-mg-item-id]").forEach(row => {
@@ -381,25 +434,55 @@ function mgBindItemSidebarDrag(panel) {
 			event.stopPropagation();
 			const target = getDirectDropTarget(event, container);
 			if (target) insertDraggingNearTarget(event, container, target);
+			else if (isDraggingFolder) insertDraggingAtPointer(event, container);
 			clearDropState();
 			await finalizeContainerOrder(container);
 		});
 	});
 
-	panel.querySelectorAll("[data-mg-item-folder-drop]").forEach(folderDrop => {
+	panel.querySelectorAll("[data-mg-item-folder-id]").forEach(folderDrop => {
 		folderDrop.addEventListener("dragover", event => {
-			if (!dragging?.dataset?.mgItemId || !game.user?.isGM || !isFolderNestZone(event, folderDrop)) return;
+			const targetFolderId = folderDrop.dataset.mgItemFolderId || null;
+			const canDropItem = !!dragging?.dataset?.mgItemId;
+			const canDropFolderInList = !!dragging?.dataset?.mgItemFolderId && !isFolderNestZone(event, folderDrop) && canDropItemFolderInList(folderDrop);
+			const canDropFolder = canNestItemFolder(targetFolderId, dragging?.dataset?.mgItemFolderId || "");
+			if (!game.user?.isGM || (!isFolderNestZone(event, folderDrop) && !canDropFolderInList) || (!canDropItem && !canDropFolder && !canDropFolderInList)) return;
 			event.preventDefault();
 			event.stopPropagation();
 			event.dataTransfer.dropEffect = "move";
 			clearDropState();
-			folderDrop.classList.add("mg-item-drop-folder");
+			if (canDropFolderInList) getFolderListDropContainer(folderDrop)?.classList.add("mg-item-drop-target");
+			else folderDrop.classList.add("mg-item-drop-folder");
 		});
 
 		folderDrop.addEventListener("drop", async event => {
+			const folderId = folderDrop.dataset.mgItemFolderId || null;
+			const draggedFolderId = dragging?.dataset?.mgItemFolderId || "";
+			if (draggedFolderId && !isFolderNestZone(event, folderDrop)) {
+				if (!canDropItemFolderInList(folderDrop)) return;
+				event.preventDefault();
+				event.stopPropagation();
+				const container = insertFolderNearListTarget(event, folderDrop);
+				clearDropState();
+				await finalizeContainerOrder(container);
+				return;
+			}
+			if (draggedFolderId) {
+				if (!game.user?.isGM || !isFolderNestZone(event, folderDrop) || !canNestItemFolder(folderId, draggedFolderId)) return;
+				event.preventDefault();
+				event.stopPropagation();
+				clearDropState();
+
+				const targetFolder = game.folders?.get(folderId);
+				const folder = game.folders?.get(draggedFolderId);
+				await folder?.update({ folder: folderId || null });
+				await mgAppendItemFolderToUserOrder(folderId, folder.id);
+				if (targetFolder) mgSetAccordionOpen(null, `item-folder-${targetFolder.id}`, true);
+				return;
+			}
+
 			if (!dragging?.dataset?.mgItemId) return;
 			const itemId = getDragItemId(event);
-			const folderId = folderDrop.dataset.mgItemFolderDrop || null;
 			const item = itemId ? game.items?.get(itemId) : null;
 			if (!item || !game.user?.isGM || !isFolderNestZone(event, folderDrop)) return;
 
@@ -469,10 +552,18 @@ async function mgAppendItemToUserOrder(folderId, itemId) {
 	await game.user?.setFlag?.(MG_UI_NS, MG_ITEM_USER_ORDER_FLAG, order);
 }
 
+async function mgAppendItemFolderToUserOrder(folderId, folderItemId) {
+	const key = mgGetItemUserOrderKey(folderId);
+	const order = mgGetItemUserOrder();
+	const token = mgItemOrderToken("folder", folderItemId);
+	order[key] = [...(order[key] ?? []).filter(existing => existing !== token), token];
+	await game.user?.setFlag?.(MG_UI_NS, MG_ITEM_USER_ORDER_FLAG, order);
+}
+
 /* Item and item folder creation
 ----------------------------------------------------------------------*/
 async function mgCreateItem(folderId = null) {
-	if (!game.user?.isGM) return;
+	if (!mgCanCreateItemDocuments()) return;
 
 	try {
 		if (typeof Item?.createDialog === "function") {
@@ -489,7 +580,7 @@ async function mgCreateItem(folderId = null) {
 }
 
 async function mgCreateItemFolder(parentId = null) {
-	if (!game.user?.isGM) return;
+	if (!mgCanCreateItemDocuments()) return;
 
 	try {
 		const parent = parentId ? game.folders?.get(parentId) : null;
@@ -891,10 +982,11 @@ async function mgDeleteItemFolderContents(folder) {
 ----------------------------------------------------------------------*/
 function mgRenderItemSidebarContent() {
 	const canManage = game.user?.isGM;
+	const canCreate = mgCanCreateItemDocuments();
 	const items = Array.from(game.items ?? [])
 		.filter(item => canManage || mgCanUserSeeItem(item));
 	const folderTree = mgBuildItemFolderTree(items, { showAllFolders: canManage });
-	const controls = canManage ? `
+	const controls = canCreate ? `
 		<section class="mg-scene-directory-actions mg-item-directory-actions">
 			<button type="button" class="mg-left-action" data-mg-item-create>
 				<i class="fa-solid fa-briefcase"></i>
@@ -1061,7 +1153,8 @@ function mgRenderItemFolder(node, depth = 0) {
 	const folder = node.folder;
 	const id = `item-folder-${folder.id}`;
 	const isOpen = mgIsAccordionOpen(null, id, true);
-	const canCreateSubfolder = game.user?.isGM && depth === 0;
+	const canCreate = mgCanCreateItemDocuments();
+	const canCreateSubfolder = canCreate && depth === 0;
 	const body = mgRenderItemBranch(node, depth + 1) || `<div class="mg-left-empty mg-scene-folder-empty mg-item-folder-empty">No items in this folder.</div>`;
 	const color = String(folder.color ?? "").trim();
 	const iconStyle = color ? ` style="color: ${mgAttr(color)};"` : "";
@@ -1084,7 +1177,7 @@ function mgRenderItemFolder(node, depth = 0) {
 			<div class="mg-left-accordion-body" ${isOpen ? "" : "hidden"} style="max-height: ${isOpen ? "none" : "0px"};">
 				<div class="mg-left-accordion-inner">
 					<div class="mg-scene-folder-body mg-item-folder-body" data-mg-item-folder-body="${folder.id}" data-mg-item-container="${folder.id}">
-						${game.user?.isGM ? `
+						${canCreate ? `
 							<div class="mg-scene-folder-actions mg-item-folder-actions">
 								<button type="button" class="mg-scene-mini-action mg-item-mini-action" data-mg-item-create="${folder.id}" title="Create item in ${mgAttr(folder.name)}" aria-label="Create item in ${mgAttr(folder.name)}">
 									<i class="fa-solid fa-plus"></i>
