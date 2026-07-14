@@ -4456,6 +4456,70 @@ Hooks.on("updateActor", (actor, changes) => {
 
 /* Inventory Item Update Sync
 ------------------------------------------------------------------*/
+function mgCanViewActorSheet(actor) {
+  return Boolean(
+    game.user.isGM ||
+    actor?.isOwner ||
+    actor?.testUserPermission?.(game.user, "OBSERVER")
+  );
+}
+
+function mgRenderOpenActorSheets(actor) {
+  if (!actor || !mgCanViewActorSheet(actor)) return;
+  for (const app of Object.values(actor.apps ?? {})) {
+    app?.render?.(false);
+  }
+}
+
+function mgItemTouchesCharacterSheet(item) {
+  return ["weapon", "armor", "misc", "item", "asset", "gambit", "move", "guise"].includes(item?.type);
+}
+
+function mgActorUpdateTouchesCharacterSheet(changes = {}) {
+  return (
+    foundry.utils.hasProperty(changes, "system.skills") ||
+    foundry.utils.hasProperty(changes, "system.tempSkillBonuses") ||
+    foundry.utils.hasProperty(changes, "system.tempAttributeBonuses") ||
+    foundry.utils.hasProperty(changes, "system.gambits") ||
+    foundry.utils.hasProperty(changes, "system.gambitDecks") ||
+    foundry.utils.hasProperty(changes, "system.guise") ||
+    foundry.utils.hasProperty(changes, "system.guiseId") ||
+    foundry.utils.hasProperty(changes, "system.movesGuiseId")
+  );
+}
+
+Hooks.on("updateActor", (actor, changes) => {
+  try {
+    if (actor?.type !== "character") return;
+    if (!mgActorUpdateTouchesCharacterSheet(changes)) return;
+    mgRenderOpenActorSheets(actor);
+  } catch (err) {
+    console.warn("MG | actor sheet live sync failed:", err);
+  }
+});
+
+Hooks.on("createItem", (item) => {
+  try {
+    const actor = item?.parent;
+    if (!actor || actor.documentName !== "Actor" || actor.type !== "character") return;
+    if (!mgItemTouchesCharacterSheet(item)) return;
+    mgRenderOpenActorSheets(actor);
+  } catch (err) {
+    console.warn("MG | createItem sheet sync failed:", err);
+  }
+});
+
+Hooks.on("deleteItem", (item) => {
+  try {
+    const actor = item?.parent;
+    if (!actor || actor.documentName !== "Actor" || actor.type !== "character") return;
+    if (!mgItemTouchesCharacterSheet(item)) return;
+    mgRenderOpenActorSheets(actor);
+  } catch (err) {
+    console.warn("MG | deleteItem sheet sync failed:", err);
+  }
+});
+
 // When an embedded inventory item changes, refresh any open parent actor sheets.
 // This keeps tags, strain damage, capacity, quantity, etc. synced after editing
 // the item through its item sheet.
@@ -4468,16 +4532,11 @@ Hooks.on("updateItem", (item, changes, options, userId) => {
     // Character inventory only. Crew assets have their own card/edit flow.
     if (actor.type !== "character") return;
 
-    // Only inventory-ish item types.
-    if (!["weapon", "armor", "misc", "gambit", "asset"].includes(item.type)) return;
-
-    // If this client cannot see/own the actor, don't touch its sheet.
-    if (!actor.isOwner && !game.user.isGM) return;
+    // Only sheet-visible item types.
+    if (!mgItemTouchesCharacterSheet(item)) return;
 
     // Re-render every open sheet for this actor on this client.
-    for (const app of Object.values(actor.apps ?? {})) {
-      app?.render?.(false);
-    }
+    mgRenderOpenActorSheets(actor);
   } catch (err) {
     console.warn("MG | updateItem inventory sync failed:", err);
   }
@@ -5541,6 +5600,8 @@ Hooks.on("renderChatMessage", (_message, html) => {
 // ---------------------------------------------------------------------------
 
 function mgGetActorCharacterSheetImage(actor) {
+  const tokenSrc = String(actor?.getFlag?.("midnight-gambit", "crops")?.actorToken?.src ?? "").trim();
+  if (tokenSrc) return tokenSrc;
   const profileSrc = String(actor?.getFlag?.("midnight-gambit", "crops")?.profile?.src ?? "").trim();
   return profileSrc || String(actor?.img ?? "").trim();
 }

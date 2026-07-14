@@ -271,10 +271,37 @@ export class MovesLibraryApplication extends Application {
     }, this._prefersReducedMotion() ? 0 : 500);
   }
 
-  _renderFocusRefresh() {
-    if (!this.selectedUuid) return;
-    this._suppressFocusFade = Boolean(this.selectedUuid);
-    this.render(false);
+  _findLibraryCardElement(uuid) {
+    const targetUuid = String(uuid ?? "");
+    return this.element?.find?.(".mg-gambit-library-card").filter((_, el) => {
+      return String(el.dataset?.uuid ?? "") === targetUuid;
+    });
+  }
+
+  _findFocusToggleElement(uuid) {
+    const targetUuid = String(uuid ?? "");
+    return this.element?.find?.(".mg-gambit-library-toggle-card").filter((_, el) => {
+      return String(el.dataset?.uuid ?? "") === targetUuid;
+    });
+  }
+
+  _syncFocusedMoveState(card) {
+    if (!card) return;
+    const learned = Boolean(this._findActorMove(card));
+    const $card = this._findLibraryCardElement(card.uuid);
+    $card.toggleClass("is-in-deck", learned);
+
+    let selectedBadge = $card.find(".mg-gambit-library-selected");
+    if (learned && !selectedBadge.length) {
+      $card.find(".mg-gambit-library-card-art").append('<span class="mg-gambit-library-selected"><i class="fa-solid fa-check"></i></span>');
+      selectedBadge = $card.find(".mg-gambit-library-selected");
+    } else if (!learned) {
+      selectedBadge.remove();
+    }
+
+    const $toggle = this._findFocusToggleElement(card.uuid);
+    $toggle.find("i").toggleClass("fa-circle-minus", learned).toggleClass("fa-circle-plus", !learned);
+    $toggle.find("span").text(learned ? "Remove Learned Move" : "Learn Move");
   }
 
   _animateCardsIn(html) {
@@ -403,12 +430,12 @@ export class MovesLibraryApplication extends Application {
     const existing = this._findActorMove(card);
     if (existing) {
       await existing.delete();
-      this._renderFocusRefresh();
+      this._syncFocusedMoveState(card);
       return;
     }
 
     await this._ensureActorMove(card);
-    this._renderFocusRefresh();
+    this._syncFocusedMoveState(card);
   }
 
   async _ensureActorMove(card) {

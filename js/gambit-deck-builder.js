@@ -320,10 +320,38 @@ export class GambitDeckBuilderApplication extends Application {
     }, this._prefersReducedMotion() ? 0 : 500);
   }
 
-  _renderFocusRefresh() {
-    if (!this.selectedUuid) return;
-    this._suppressFocusFade = Boolean(this.selectedUuid);
-    this.render(false);
+  _findLibraryCardElement(uuid) {
+    const targetUuid = String(uuid ?? "");
+    return this.element?.find?.(".mg-gambit-library-card").filter((_, el) => {
+      return String(el.dataset?.uuid ?? "") === targetUuid;
+    });
+  }
+
+  _findFocusToggleElement(uuid) {
+    const targetUuid = String(uuid ?? "");
+    return this.element?.find?.(".mg-gambit-library-toggle-card").filter((_, el) => {
+      return String(el.dataset?.uuid ?? "") === targetUuid;
+    });
+  }
+
+  _syncFocusedCardState(card) {
+    if (!card) return;
+    const deck = this._getDeck();
+    const deckRefs = mgGetDeckGambitRefs(deck);
+    const selectedRefs = new Set(deckRefs.map(ref => mgGetRefLibraryKey(this.actor, ref)));
+    const selected = selectedRefs.has(card.uuid);
+    const gpMax = Number(this.actor?.system?.gambitPoints?.max ?? 4) || 4;
+    const gpSpent = deckRefs.reduce((total, ref) => total + mgGetRefCost(this.actor, ref), 0);
+    const canAfford = selected || card.gpCost <= Math.max(0, gpMax - gpSpent);
+
+    this._findLibraryCardElement(card.uuid)?.toggleClass("is-in-deck", selected);
+
+    const $toggle = this._findFocusToggleElement(card.uuid);
+    $toggle.prop("disabled", !canAfford);
+    $toggle.find("span").text(selected ? "Remove from Deck" : (canAfford ? "Add to Deck" : "Not Enough GP"));
+
+    const $deckGp = this.element?.find?.(".mg-gambit-library-deck-gp");
+    if ($deckGp?.length) $deckGp.html(`<i class="fa-kit fa-gambit-points"></i>${gpSpent}/${gpMax}`);
   }
 
   _animateCardsIn(html) {
@@ -542,7 +570,7 @@ export class GambitDeckBuilderApplication extends Application {
     if (existing) {
       deck.gambits = deck.gambits.filter(ref => ref !== existing);
       await this.actor.update({ "system.gambitDecks.decks": decks });
-      this._renderFocusRefresh();
+      this._syncFocusedCardState(card);
       return;
     }
 
@@ -565,7 +593,7 @@ export class GambitDeckBuilderApplication extends Application {
     });
 
     await this.actor.update({ "system.gambitDecks.decks": decks });
-    this._renderFocusRefresh();
+    this._syncFocusedCardState(card);
   }
 
   async _ensureActorGambit(card) {

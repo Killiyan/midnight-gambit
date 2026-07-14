@@ -4,6 +4,12 @@ import { MovesLibraryApplication } from "./moves-library.js";
 
 const MG_ACTOR_GUISE_IMAGE = "systems/midnight-gambit/assets/images/guise.jpg";
 const MG_ACTOR_DEFAULT_IMAGE = "icons/svg/mystery-man.svg";
+const MG_TOKEN_FRAMES = [
+  { key: "filigree", label: "Filigree", src: "systems/midnight-gambit/assets/images/Tokens/filifgree-frame.png", aperture: { x: 10.5, y: 11, width: 78.6, height: 76.9 } },
+  { key: "mortal", label: "Mortal", src: "systems/midnight-gambit/assets/images/Tokens/mortal-frame.png", aperture: { x: 9.5, y: 10.3, width: 80.9, height: 82.6 } },
+  { key: "soul", label: "Soul", src: "systems/midnight-gambit/assets/images/Tokens/soul-frame.png", aperture: { x: 13.9, y: 13.5, width: 73, height: 75.5 } },
+  { key: "kintsugi", label: "Kintsugi", src: "systems/midnight-gambit/assets/images/Tokens/kintsugi-frame.png", aperture: { x: 11, y: 10.2, width: 77.3, height: 75.1 } }
+];
 
 function mgGetActorSheetImage(actor) {
   const img = String(actor?.img ?? "").trim();
@@ -36,6 +42,113 @@ function mgGetImageFilePickerOptions(current = "") {
   const options = { current: canUseCurrent ? clean : "" };
   if (activeSource) options.activeSource = activeSource;
   return options;
+}
+
+function mgLoadDrawableImage(src) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error(`Could not load image: ${src}`));
+    img.src = foundry.utils.getRoute(String(src ?? "").trim());
+  });
+}
+
+function mgGetActorTokenPreviewBox(img, stage) {
+  const imgRect = img?.getBoundingClientRect?.();
+  const stageRect = stage?.getBoundingClientRect?.();
+  if (!imgRect || !stageRect || stageRect.width <= 0 || stageRect.height <= 0 || imgRect.width <= 0 || imgRect.height <= 0) return null;
+  const size = 1000;
+  return {
+    x: ((imgRect.left - stageRect.left) / stageRect.width) * size,
+    y: ((imgRect.top - stageRect.top) / stageRect.height) * size,
+    width: (imgRect.width / stageRect.width) * size,
+    height: (imgRect.height / stageRect.height) * size
+  };
+}
+
+function mgClampDrawBoxToClip(draw, clip) {
+  let { x, y, width, height } = draw;
+  const minScale = Math.max(clip.width / Math.max(width, 1), clip.height / Math.max(height, 1), 1);
+  if (minScale > 1) {
+    const cx = x + (width / 2);
+    const cy = y + (height / 2);
+    width *= minScale;
+    height *= minScale;
+    x = cx - (width / 2);
+    y = cy - (height / 2);
+  }
+
+  if (x > clip.x) x = clip.x;
+  if (y > clip.y) y = clip.y;
+  if (x + width < clip.x + clip.width) x = clip.x + clip.width - width;
+  if (y + height < clip.y + clip.height) y = clip.y + clip.height - height;
+
+  return { x, y, width, height };
+}
+
+async function mgComposeActorTokenImage(imageSrc, frameDef, crop = {}, previewBox = null) {
+  const [image, frameImg] = await Promise.all([
+    mgLoadDrawableImage(imageSrc),
+    mgLoadDrawableImage(frameDef.src)
+  ]);
+  const size = 1000;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d");
+  ctx.clearRect(0, 0, size, size);
+
+  const x = Number.isFinite(crop.x) ? crop.x : 50;
+  const y = Number.isFinite(crop.y) ? crop.y : 50;
+  const scale = Number.isFinite(crop.scale) ? crop.scale : 1;
+  const widthPct = Number.isFinite(crop.width) && crop.width > 0 ? crop.width : 100;
+  const heightPct = Number.isFinite(crop.height) && crop.height > 0 ? crop.height : null;
+  const aperture = frameDef.aperture || { x: 0, y: 0, width: 100, height: 100 };
+  const clipX = (aperture.x / 100) * size;
+  const clipY = (aperture.y / 100) * size;
+  const clipW = (aperture.width / 100) * size;
+  const clipH = (aperture.height / 100) * size;
+  const clip = { x: clipX, y: clipY, width: clipW, height: clipH };
+  const imageRatio = image.naturalWidth / Math.max(image.naturalHeight, 1);
+  const hasPreviewBox = previewBox &&
+    Number.isFinite(previewBox.x) &&
+    Number.isFinite(previewBox.y) &&
+    Number.isFinite(previewBox.width) &&
+    Number.isFinite(previewBox.height) &&
+    previewBox.width > 0 &&
+    previewBox.height > 0;
+  let drawX;
+  let drawY;
+  let drawW;
+  let drawH;
+
+  if (hasPreviewBox) {
+    ({ x: drawX, y: drawY, width: drawW, height: drawH } = previewBox);
+  } else {
+    let baseW = (widthPct / 100) * clipW;
+    let baseH = heightPct ? (heightPct / 100) * clipH : baseW / imageRatio;
+    if (!Number.isFinite(baseH) || baseH <= 0) baseH = size;
+
+    drawW = baseW * scale;
+    drawH = baseH * scale;
+    drawX = clipX + (clipW / 2) - (drawW * (x / 100));
+    drawY = clipY + (clipH / 2) - (drawH * (y / 100));
+  }
+
+  ({ x: drawX, y: drawY, width: drawW, height: drawH } = mgClampDrawBoxToClip(
+    { x: drawX, y: drawY, width: drawW, height: drawH },
+    clip
+  ));
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(clipX, clipY, clipW, clipH);
+  ctx.clip();
+  ctx.drawImage(image, drawX, drawY, drawW, drawH);
+  ctx.restore();
+  ctx.drawImage(frameImg, 0, 0, size, size);
+  return canvas.toDataURL("image/png");
 }
 
 function mgGetDifficultyModifier() {
@@ -819,6 +932,20 @@ export class MidnightGambitActorSheet extends ActorSheet {
           fitAxis: "height"
         },
         {
+          key: "actorToken",
+          label: "Actor Token",
+          icon: "fa-solid fa-circle-user",
+          title: "Actor Token",
+          hint: "Drag to pan - Mouse wheel to zoom - Esc to cancel",
+          description: "This image is used when this actor is dropped onto the map as a token.",
+          src: actorSrc,
+          className: "actor-token-crop",
+          defaultsFrom: ["profile"],
+          saveSize: false,
+          fitAxis: "width",
+          tokenFrame: true
+        },
+        {
           key: "crewInitiative",
           label: "Sidebar Crew Initiative",
           icon: "fa-solid fa-list-ol",
@@ -920,7 +1047,17 @@ export class MidnightGambitActorSheet extends ActorSheet {
       const savedCrops = this.actor.getFlag("midnight-gambit", "crops") || {};
       const byKey = Object.fromEntries(placements.map(p => [p.key, p]));
       const imageOverrides = Object.fromEntries(
-        placements.map(p => [p.key, typeof savedCrops[p.key]?.src === "string" ? savedCrops[p.key].src : ""])
+        placements.map(p => [
+          p.key,
+          typeof savedCrops[p.key]?.[p.tokenFrame ? "baseSrc" : "src"] === "string"
+            ? savedCrops[p.key][p.tokenFrame ? "baseSrc" : "src"]
+            : ""
+        ])
+      );
+      const tokenFrameSelections = Object.fromEntries(
+        placements
+          .filter(p => p.tokenFrame)
+          .map(p => [p.key, String(savedCrops[p.key]?.tokenFrame || "soul")])
       );
       const cropTargetMarkup = placements
         .flatMap(p => p.cropTargets?.map(t => ({ placement: p, target: t })) || [])
@@ -955,8 +1092,8 @@ export class MidnightGambitActorSheet extends ActorSheet {
         saved ||= {};
         const cropModel = target.cropModel || placement.cropModel;
         if (cropModel && saved.model !== cropModel) saved = {};
-        const savedWidth = placement.fitAxis === "height" ? null : saved.width;
-        const savedHeight = placement.fitAxis === "width" ? null : saved.height;
+        const savedWidth = placement.tokenFrame || placement.fitAxis === "height" ? null : saved.width;
+        const savedHeight = placement.tokenFrame || placement.fitAxis === "width" ? null : saved.height;
 
         return {
           x: Number.isFinite(saved.x) ? saved.x : 50,
@@ -999,11 +1136,25 @@ export class MidnightGambitActorSheet extends ActorSheet {
                   Use Default
                 </button>
               </div>
+              <div class="mg-token-frame-tools" data-mg-token-frame-tools hidden>
+                <div class="mg-token-frame-title">Actor Token</div>
+                <div class="mg-token-frame-options" role="radiogroup" aria-label="Actor token frame type">
+                  ${MG_TOKEN_FRAMES.map(frame => `
+                    <button type="button" class="mg-token-frame-choice mg-primary-toggle is-off" data-mg-token-frame="${frame.key}" role="radio" aria-checked="false">
+                      <span>${frame.label}</span>
+                      <span class="mg-primary-toggle-track" aria-hidden="true">
+                        <span class="mg-primary-toggle-knob"></span>
+                      </span>
+                    </button>
+                  `).join("")}
+                </div>
+              </div>
             </div>
             <div class="mg-crop-stage mg-crop-stage-single">
               <div class="mg-crop-img-plane">
                 <img alt="preview" data-mg-crop-img="single">
               </div>
+              <img alt="" class="mg-token-frame-preview" data-mg-token-frame-preview>
             </div>
             <div class="mg-crop-targets" aria-label="Image placement previews">
               ${cropTargetMarkup}
@@ -1039,6 +1190,56 @@ export class MidnightGambitActorSheet extends ActorSheet {
       const getImgForTarget = key => {
         if (key === active && !byKey[active]?.cropTargets?.length) return imgEl;
         return $ui.find(`[data-mg-crop-img="${key}"]`)[0];
+      };
+
+      const getTokenFrame = key => MG_TOKEN_FRAMES.find(frame => frame.key === key) || MG_TOKEN_FRAMES.find(frame => frame.key === "soul") || MG_TOKEN_FRAMES[0];
+
+      const getTokenMinScale = (placement, img) => {
+        if (!placement?.tokenFrame || !img?.naturalWidth || !img?.naturalHeight) return 1;
+        const frame = getTokenFrame(tokenFrameSelections[placement.key] || "soul");
+        const aperture = frame?.aperture || { width: 100, height: 100 };
+        const imageRatio = img.naturalWidth / Math.max(img.naturalHeight, 1);
+        const apertureRatio = aperture.width / Math.max(aperture.height, 1);
+        return Math.max(1, imageRatio / Math.max(apertureRatio, 0.001));
+      };
+
+      const enforceTokenCover = (placement, targetKey, img) => {
+        if (!placement?.tokenFrame || !img) return;
+        const current = values[targetKey];
+        if (!current) return;
+        const minScale = getTokenMinScale(placement, img);
+        if (current.scale < minScale) {
+          current.scale = minScale;
+          apply(targetKey);
+        }
+      };
+
+      const renderTokenFrameTools = placement => {
+        const tools = $ui.find("[data-mg-token-frame-tools]");
+        const preview = $ui.find("[data-mg-token-frame-preview]")[0];
+        const show = !!placement.tokenFrame;
+        tools.prop("hidden", !show);
+        $ui.toggleClass("has-token-frame-tools", show);
+        if (!show) {
+          if (preview) preview.removeAttribute("src");
+          return;
+        }
+
+        const selected = tokenFrameSelections[placement.key] || "soul";
+        const frame = getTokenFrame(selected);
+        if (preview) preview.src = frame?.src || "";
+        const aperture = frame?.aperture || { x: 0, y: 0, width: 100, height: 100 };
+        $ui[0].style.setProperty("--mg-token-aperture-x", String(aperture.x));
+        $ui[0].style.setProperty("--mg-token-aperture-y", String(aperture.y));
+        $ui[0].style.setProperty("--mg-token-aperture-w", String(aperture.width));
+        $ui[0].style.setProperty("--mg-token-aperture-h", String(aperture.height));
+        tools.find("[data-mg-token-frame]").each((_, el) => {
+          const isActive = el.dataset.mgTokenFrame === selected;
+          el.classList.toggle("is-active", isActive);
+          el.classList.toggle("is-on", isActive);
+          el.classList.toggle("is-off", !isActive);
+          el.setAttribute("aria-checked", isActive ? "true" : "false");
+        });
       };
 
       const apply = (key = active) => {
@@ -1085,6 +1286,7 @@ export class MidnightGambitActorSheet extends ActorSheet {
         $ui.find("[data-mg-crop-description]").text(placement.description || "");
         const imageTools = $ui.find("[data-mg-crop-image-tools]");
         imageTools.prop("hidden", false);
+        renderTokenFrameTools(placement);
         const canReset = !!imageOverrides[placement.key] || getTargets(placement).some(t => !!savedCrops[t.key]?.css);
         imageTools.find(".mg-crop-use-default").prop("disabled", !canReset);
         $ui.find("[data-mg-crop-tab]").toggleClass("is-active", false).attr("aria-selected", "false");
@@ -1101,6 +1303,8 @@ export class MidnightGambitActorSheet extends ActorSheet {
           if (img) {
             const previewSrc = getPlacementSrc(placement);
             img.src = previewSrc;
+            img.onload = () => enforceTokenCover(placement, target.key, img);
+            if (img.complete) enforceTokenCover(placement, target.key, img);
             const plane = img.closest?.(".mg-crop-img-plane");
             if (plane && placement.key === "mainInitiative") {
               plane.style.backgroundImage = `url("${previewSrc}")`;
@@ -1167,7 +1371,8 @@ export class MidnightGambitActorSheet extends ActorSheet {
         const current = values[targetKey];
         if (!current) return;
         const step = ev.shiftKey ? 0.15 : 0.05;
-        current.scale = Math.max(0.05, current.scale - (Math.sign(oe.deltaY || 0) * step));
+        const minScale = getTokenMinScale(byKey[active], getImgForTarget(targetKey));
+        current.scale = Math.max(minScale, current.scale - (Math.sign(oe.deltaY || 0) * step));
         dirtyTargets.add(targetKey);
         apply(targetKey);
       });
@@ -1175,6 +1380,14 @@ export class MidnightGambitActorSheet extends ActorSheet {
       $ui.on("click", "[data-mg-crop-tab]", ev => {
         ev.preventDefault();
         renderPlacement(ev.currentTarget.dataset.mgCropTab);
+      });
+
+      $ui.on("click", "[data-mg-token-frame]", ev => {
+        ev.preventDefault();
+        const placement = byKey[active];
+        if (!placement?.tokenFrame) return;
+        tokenFrameSelections[placement.key] = ev.currentTarget.dataset.mgTokenFrame || "soul";
+        renderTokenFrameTools(placement);
       });
 
       $ui.on("click", ".mg-reset", ev => {
@@ -1275,6 +1488,23 @@ export class MidnightGambitActorSheet extends ActorSheet {
           }
           if (crops[placement.key] && !Object.keys(crops[placement.key]).length) delete crops[placement.key];
           if (savedCrops[placement.key]) delete savedCrops[placement.key].src;
+          if (placement.tokenFrame) {
+            deleteUpdates[`flags.${ns}.crops.${placement.key}.-=tokenFrame`] = null;
+            deleteUpdates[`flags.${ns}.crops.${placement.key}.-=tokenFrameSrc`] = null;
+            deleteUpdates[`flags.${ns}.crops.${placement.key}.-=baseSrc`] = null;
+            tokenFrameSelections[placement.key] = "soul";
+            if (crops[placement.key]) {
+              delete crops[placement.key].tokenFrame;
+              delete crops[placement.key].tokenFrameSrc;
+              delete crops[placement.key].baseSrc;
+              if (!Object.keys(crops[placement.key]).length) delete crops[placement.key];
+            }
+            if (savedCrops[placement.key]) {
+              delete savedCrops[placement.key].tokenFrame;
+              delete savedCrops[placement.key].tokenFrameSrc;
+              delete savedCrops[placement.key].baseSrc;
+            }
+          }
           await this.actor.setFlag(ns, "crops", crops);
           await this.actor.update(deleteUpdates);
           this._mgRefreshImagePlacement(placement.key, html);
@@ -1315,15 +1545,29 @@ export class MidnightGambitActorSheet extends ActorSheet {
           {
             crops[placement.key] = crops[placement.key] || {};
             const overrideSrc = String(imageOverrides[placement.key] || "").trim();
-            if (overrideSrc) crops[placement.key].src = overrideSrc;
+            if (placement.tokenFrame) {
+              const frame = getTokenFrame(tokenFrameSelections[placement.key] || "soul");
+              const previewImg = getImgForTarget(placement.key);
+              const previewStage = previewImg?.closest?.(".mg-crop-stage") || stage;
+              const previewBox = mgGetActorTokenPreviewBox(previewImg, previewStage);
+              crops[placement.key].tokenFrame = frame.key;
+              crops[placement.key].tokenFrameSrc = frame.src;
+              crops[placement.key].baseSrc = overrideSrc || placement.src;
+              crops[placement.key].src = await mgComposeActorTokenImage(crops[placement.key].baseSrc, frame, crops[placement.key].css || values[placement.key] || {}, previewBox);
+            } else if (overrideSrc) crops[placement.key].src = overrideSrc;
             else delete crops[placement.key].src;
             if (!Object.keys(crops[placement.key]).length) delete crops[placement.key];
             savedCrops[placement.key] = savedCrops[placement.key] || {};
-            if (overrideSrc) savedCrops[placement.key].src = overrideSrc;
+            if (placement.tokenFrame) {
+              savedCrops[placement.key].src = crops[placement.key]?.src;
+              savedCrops[placement.key].tokenFrame = crops[placement.key]?.tokenFrame;
+              savedCrops[placement.key].tokenFrameSrc = crops[placement.key]?.tokenFrameSrc;
+              savedCrops[placement.key].baseSrc = crops[placement.key]?.baseSrc;
+            } else if (overrideSrc) savedCrops[placement.key].src = overrideSrc;
             else delete savedCrops[placement.key].src;
           }
           await this.actor.setFlag(ns, "crops", crops);
-          if (!String(imageOverrides[placement.key] || "").trim()) {
+          if (!placement.tokenFrame && !String(imageOverrides[placement.key] || "").trim()) {
             await this.actor.update({ [`flags.${ns}.crops.${placement.key}.-=src`]: null });
           }
 
@@ -2057,6 +2301,7 @@ _mgOpenSidebarCropper() {
       const nav = html.find(".sheet-tabs.floating");
       const app = html.closest(".window-app");
       if (nav.length && app.length) {
+        app.find("> .sheet-tabs.floating").not(nav).remove();
         app.append(nav);
 
         // --- Settings tab glow + count badge (nav lives in .window-app now) ---
@@ -6000,12 +6245,67 @@ _mgOpenSidebarCropper() {
 
   }
 
-  /** Preserve scroll position across re-renders + fix header paint glitches. */
+  _mgCssEscape(value) {
+    if (window.CSS?.escape) return CSS.escape(String(value));
+    return String(value).replace(/["\\\]]/g, "\\$&");
+  }
+
+  _mgSheetRoot() {
+    return this.element?.closest?.(".window-app")?.[0] ?? this.element?.[0] ?? null;
+  }
+
+  _mgSheetTabStorageKey() {
+    const root = this._mgSheetRoot();
+    const groupEl = root?.querySelector?.("nav.sheet-tabs");
+    const group = groupEl?.getAttribute("data-group") || "main";
+    return `mg.tab.${this.actor.id}.${game.user.id}.${group}`;
+  }
+
+  _mgGetActiveSheetTab() {
+    const root = this._mgSheetRoot();
+    const active = root?.querySelector?.("nav.sheet-tabs .item.active[data-tab], .sheet-tabs .item.active[data-tab]");
+    const activeTab = active?.dataset?.tab || active?.getAttribute?.("data-tab") || null;
+    if (activeTab) return activeTab;
+
+    try {
+      return localStorage.getItem(this._mgSheetTabStorageKey()) || null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  _mgRestoreSheetTab(tab) {
+    if (!tab) return;
+    const root = this._mgSheetRoot();
+    if (!root) return;
+
+    const safeTab = this._mgCssEscape(tab);
+    const targetPanel = root.querySelector(`.sheet-body .tab[data-tab="${safeTab}"]`);
+    const targetNav = root.querySelector(`nav.sheet-tabs .item[data-tab="${safeTab}"], .sheet-tabs .item[data-tab="${safeTab}"]`);
+    if (!targetPanel || !targetNav) return;
+
+    root.querySelectorAll("nav.sheet-tabs .item[data-tab], .sheet-tabs .item[data-tab]").forEach(el => {
+      el.classList.toggle("active", el === targetNav);
+    });
+
+    root.querySelectorAll(".sheet-body .tab[data-tab]").forEach(el => {
+      el.classList.toggle("active", el === targetPanel);
+    });
+
+    try {
+      localStorage.setItem(this._mgSheetTabStorageKey(), tab);
+    } catch (_) {}
+  }
+
+  /** Preserve scroll/tab position across re-renders + fix header paint glitches. */
   async _render(force, options = {}) {
     const bodyBefore = this.element?.[0]?.querySelector?.(".window-content");
     const scrollTop = bodyBefore?.scrollTop ?? 0;
+    const activeTab = this._mgGetActiveSheetTab();
 
     await super._render(force, options);
+
+    this._mgRestoreSheetTab(activeTab);
 
     const bodyAfter = this.element?.[0]?.querySelector?.(".window-content");
     if (bodyAfter) bodyAfter.scrollTop = scrollTop;
@@ -6503,13 +6803,14 @@ _mgOpenSidebarCropper() {
     $root.addClass("mg-view-only");
   }
 
-  /* If the current user is not an owned of this Actor, only show the first tab.
-  This hides the extra tab buttons and their panels in the DOM
-  Change MIN_LEVEL to "OBSERVER" if you want observers to see all tabs.
+  /* If the current user is not an owner of this Actor, show only public read-only tabs.
+  Observers can inspect the general sheet, moves, and gambits, while private/editing tabs
+  remain hidden.
   ----------------------------------------------------------------------*/
   _mgRestrictTabsForNonOwners(html) {
     const isOwner = this.actor?.testUserPermission?.(game.user, "OWNER") || this.actor?.isOwner || game.user.isGM;
     if (isOwner) return; // Owners & GMs see everything
+    const publicTabs = new Set(["general", "moves", "gambits"]);
 
     // Locate the tab nav & body
     const $root = html instanceof jQuery ? html : $(html);
@@ -6518,27 +6819,48 @@ _mgOpenSidebarCropper() {
 
     if (!$items.length) return;
 
-    // First tab id (fallback-safe)
-    const $firstItem = $items.first();
-    const firstTab = $firstItem.data("tab") || $firstItem.attr("data-tab");
-    if (!firstTab) return;
+    // Remove private nav items.
+    $items.each((_, el) => {
+      const tab = el.dataset?.tab || el.getAttribute("data-tab");
+      if (!publicTabs.has(tab)) el.remove();
+    });
 
-    // Remove all other nav items
-    $items.slice(1).remove();
-
-    // Hide/remove all other tab panels
+    // Hide/remove private tab panels.
     const $body = $root.find(".sheet-body");
     const $tabs = $body.find('.tab[data-tab]');
     $tabs.each((_, el) => {
       const tab = el.getAttribute("data-tab");
-      if (tab !== firstTab) el.remove();
+      if (!publicTabs.has(tab)) el.remove();
     });
 
-    // Force-activate the first tab visually
+    const $remainingItems = $nav.find('.item[data-tab], [data-tab].item');
+    if (!$remainingItems.length) return;
+
+    const activeTab = $remainingItems.filter(".active").first().data("tab") ||
+      $remainingItems.filter(".active").first().attr("data-tab");
+    const nextTab = publicTabs.has(activeTab) ? activeTab : "general";
+    const $nextItem = $remainingItems.filter(`[data-tab="${nextTab}"]`).first();
+
+    // Force-activate a visible public tab.
     $nav.find(".item").removeClass("active");
-    $firstItem.addClass("active");
+    ($nextItem.length ? $nextItem : $remainingItems.first()).addClass("active");
     $body.find(".tab").removeClass("active");
-    $body.find(`.tab[data-tab="${firstTab}"]`).addClass("active");
+    $body.find(`.tab[data-tab="${nextTab}"]`).addClass("active");
+
+    $nav.off("click.mgObserverTabs").on("click.mgObserverTabs", ".item[data-tab], [data-tab].item", (ev) => {
+      ev.preventDefault();
+      const tab = ev.currentTarget.dataset?.tab || ev.currentTarget.getAttribute("data-tab");
+      if (!publicTabs.has(tab)) return;
+
+      $nav.find(".item").removeClass("active");
+      $(ev.currentTarget).addClass("active");
+      $body.find(".tab").removeClass("active");
+      $body.find(`.tab[data-tab="${tab}"]`).addClass("active");
+
+      try {
+        localStorage.setItem(this._mgSheetTabStorageKey(), tab);
+      } catch (_) {}
+    });
   }
 
 
@@ -7768,12 +8090,15 @@ async _mgOpenStatPicker({ title, current }) {
     return created;
   }
 
-  /** Preserve scroll position across re-renders + fix header paint glitches. */
+  /** Preserve scroll/tab position across re-renders + fix header paint glitches. */
   async _render(force, options = {}) {
     const bodyBefore = this.element?.[0]?.querySelector?.(".window-content");
     const scrollTop = bodyBefore?.scrollTop ?? 0;
+    const activeTab = this._mgGetActiveSheetTab();
 
     await super._render(force, options);
+
+    this._mgRestoreSheetTab(activeTab);
 
     const bodyAfter = this.element?.[0]?.querySelector?.(".window-content");
     if (bodyAfter) bodyAfter.scrollTop = scrollTop;
