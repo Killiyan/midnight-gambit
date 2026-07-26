@@ -1,5 +1,6 @@
 // npc-sheet.js
 import { evaluateRoll } from "./roll-utils.js";
+import { MG_TOKEN_FRAMES, mgComposeActorTokenImage, mgGetActorTokenPreviewBox, mgGetTokenFrame, mgGetTokenMinScale } from "./token-frame.js";
 
 const MG_ACTOR_GUISE_IMAGE = "systems/midnight-gambit/assets/images/guise.jpg";
 const MG_ACTOR_DEFAULT_IMAGE = "icons/svg/mystery-man.svg";
@@ -1107,6 +1108,20 @@ export class MidnightGambitNpcSheet extends ActorSheet {
         defaultsFrom: ["profile"],
         saveSize: true,
         fitAxis: "width"
+      },
+      {
+        key: "actorToken",
+        label: "Actor Token",
+        icon: "fa-solid fa-circle-user",
+        title: "Actor Token",
+        hint: "Drag to pan - Mouse wheel to zoom - Esc to cancel",
+        description: "This image is used when this NPC is dropped onto the map as a token.",
+        src: actorSrc,
+        className: "actor-token-crop",
+        defaultsFrom: ["profile"],
+        saveSize: false,
+        fitAxis: "width",
+        tokenFrame: true
       }
     ];
   }
@@ -1119,7 +1134,17 @@ export class MidnightGambitNpcSheet extends ActorSheet {
     const savedCrops = this.actor.getFlag("midnight-gambit", "crops") || {};
     const byKey = Object.fromEntries(placements.map(p => [p.key, p]));
     const imageOverrides = Object.fromEntries(
-      placements.map(p => [p.key, typeof savedCrops[p.key]?.src === "string" ? savedCrops[p.key].src : ""])
+      placements.map(p => [
+        p.key,
+        typeof savedCrops[p.key]?.[p.tokenFrame ? "baseSrc" : "src"] === "string"
+          ? savedCrops[p.key][p.tokenFrame ? "baseSrc" : "src"]
+          : ""
+      ])
+    );
+    const tokenFrameSelections = Object.fromEntries(
+      placements
+        .filter(p => p.tokenFrame)
+        .map(p => [p.key, String(savedCrops[p.key]?.tokenFrame || "soul")])
     );
     let active = byKey[startKey] ? startKey : placements[0].key;
     let dragging = false;
@@ -1185,11 +1210,25 @@ export class MidnightGambitNpcSheet extends ActorSheet {
                 Use Default
               </button>
             </div>
+            <div class="mg-token-frame-tools" data-mg-token-frame-tools hidden>
+              <div class="mg-token-frame-title">Actor Token</div>
+              <div class="mg-token-frame-options" role="radiogroup" aria-label="Actor token frame type">
+                ${MG_TOKEN_FRAMES.map(frame => `
+                  <button type="button" class="mg-token-frame-choice mg-primary-toggle is-off" data-mg-token-frame="${frame.key}" role="radio" aria-checked="false">
+                    <span>${esc(frame.label)}</span>
+                    <span class="mg-primary-toggle-track" aria-hidden="true">
+                      <span class="mg-primary-toggle-knob"></span>
+                    </span>
+                  </button>
+                `).join("")}
+              </div>
+            </div>
           </div>
           <div class="mg-crop-stage mg-crop-stage-single">
             <div class="mg-crop-img-plane">
               <img alt="preview" data-mg-crop-img="single">
             </div>
+            <img alt="" class="mg-token-frame-preview" data-mg-token-frame-preview>
           </div>
           <div class="mg-actions">
             <button type="button" class="ghost mg-reset">Reset</button>
@@ -1219,12 +1258,58 @@ export class MidnightGambitNpcSheet extends ActorSheet {
       }
     };
 
+    const enforceTokenCover = (placement, img) => {
+      if (!placement?.tokenFrame || !img) return;
+      const current = values[active];
+      if (!current) return;
+      const minScale = mgGetTokenMinScale(tokenFrameSelections[placement.key] || "soul", img);
+      if (current.scale < minScale) {
+        current.scale = minScale;
+        apply();
+      }
+    };
+
+    const renderTokenFrameTools = placement => {
+      const tools = $ui.find("[data-mg-token-frame-tools]");
+      const preview = $ui.find("[data-mg-token-frame-preview]")[0];
+      const show = !!placement.tokenFrame;
+      tools.prop("hidden", !show);
+      $ui.toggleClass("has-token-frame-tools", show);
+      if (preview) preview.hidden = !show;
+      if (!show) {
+        if (preview) preview.removeAttribute("src");
+        return;
+      }
+
+      const selected = tokenFrameSelections[placement.key] || "soul";
+      const frame = mgGetTokenFrame(selected);
+      if (preview) preview.src = frame?.src || "";
+      const aperture = frame?.aperture || { x: 0, y: 0, width: 100, height: 100 };
+      $ui[0].style.setProperty("--mg-token-aperture-x", String(aperture.x));
+      $ui[0].style.setProperty("--mg-token-aperture-y", String(aperture.y));
+      $ui[0].style.setProperty("--mg-token-aperture-w", String(aperture.width));
+      $ui[0].style.setProperty("--mg-token-aperture-h", String(aperture.height));
+      tools.find("[data-mg-token-frame]").each((_, el) => {
+        const isActive = el.dataset.mgTokenFrame === selected;
+        el.classList.toggle("is-active", isActive);
+        el.classList.toggle("is-on", isActive);
+        el.classList.toggle("is-off", !isActive);
+        el.setAttribute("aria-checked", isActive ? "true" : "false");
+      });
+    };
+
     const apply = () => {
       const current = values[active];
       if (!current || !imgEl) return;
       imgEl.style.setProperty("--x", String(current.x));
       imgEl.style.setProperty("--y", String(current.y));
       imgEl.style.setProperty("--s", String(current.scale));
+      const plane = imgEl.closest?.(".mg-crop-img-plane");
+      if (plane) {
+        plane.style.setProperty("--x", String(current.x));
+        plane.style.setProperty("--y", String(current.y));
+        plane.style.setProperty("--s", String(current.scale));
+      }
     };
 
     const applyPlacementSize = (img, placement, current) => {
@@ -1270,15 +1355,18 @@ export class MidnightGambitNpcSheet extends ActorSheet {
       $ui.removeClass(placements.map(p => p.className).filter(Boolean).join(" "));
       if (placement.className) $ui.addClass(placement.className);
       applyPlacementFrame(placement);
+      renderTokenFrameTools(placement);
       $ui.find(".mg-crop-title").text(placement.title);
       $ui.find(".mg-crop-hint").text(placement.hint);
       $ui.find("[data-mg-crop-description]").text(placement.description || "");
-      const canReset = !!imageOverrides[placement.key] || !!savedCrops[placement.key]?.css;
+      const canReset = !!imageOverrides[placement.key] || !!savedCrops[placement.key]?.css || !!savedCrops[placement.key]?.tokenFrame;
       $ui.find(".mg-crop-use-default").prop("disabled", !canReset);
       $ui.find("[data-mg-crop-tab]").toggleClass("is-active", false).attr("aria-selected", "false");
       $ui.find(`[data-mg-crop-tab="${key}"]`).toggleClass("is-active", true).attr("aria-selected", "true");
 
       imgEl.src = getPlacementSrc(placement);
+      imgEl.onload = () => enforceTokenCover(placement, imgEl);
+      if (imgEl.complete) enforceTokenCover(placement, imgEl);
       applyPlacementSize(imgEl, placement, values[active]);
       apply();
     };
@@ -1317,13 +1405,23 @@ export class MidnightGambitNpcSheet extends ActorSheet {
       const current = values[active];
       if (!current) return;
       const step = ev.shiftKey ? 0.15 : 0.05;
-      current.scale = Math.max(0.05, current.scale - (Math.sign(oe.deltaY || 0) * step));
+      const minScale = byKey[active]?.tokenFrame ? mgGetTokenMinScale(tokenFrameSelections[active] || "soul", imgEl) : 0.05;
+      current.scale = Math.max(minScale, current.scale - (Math.sign(oe.deltaY || 0) * step));
       apply();
     });
 
     $ui.on("click", "[data-mg-crop-tab]", ev => {
       ev.preventDefault();
       renderPlacement(ev.currentTarget.dataset.mgCropTab);
+    });
+
+    $ui.on("click", "[data-mg-token-frame]", ev => {
+      ev.preventDefault();
+      const placement = byKey[active];
+      if (!placement?.tokenFrame) return;
+      tokenFrameSelections[placement.key] = ev.currentTarget.dataset.mgTokenFrame || "soul";
+      renderTokenFrameTools(placement);
+      enforceTokenCover(placement, imgEl);
     });
 
     $ui.on("click", ".mg-crop-select-image", ev => {
@@ -1395,13 +1493,25 @@ export class MidnightGambitNpcSheet extends ActorSheet {
           [`flags.${ns}.crops.${placement.key}.-=src`]: null,
           [`flags.${ns}.crops.${placement.key}.-=css`]: null
         };
+        if (placement.tokenFrame) {
+          deleteUpdates[`flags.${ns}.crops.${placement.key}.-=tokenFrame`] = null;
+          deleteUpdates[`flags.${ns}.crops.${placement.key}.-=tokenFrameSrc`] = null;
+          deleteUpdates[`flags.${ns}.crops.${placement.key}.-=baseSrc`] = null;
+          tokenFrameSelections[placement.key] = "soul";
+        }
         crops[placement.key] = crops[placement.key] || {};
         delete crops[placement.key].src;
         delete crops[placement.key].css;
+        delete crops[placement.key].tokenFrame;
+        delete crops[placement.key].tokenFrameSrc;
+        delete crops[placement.key].baseSrc;
         if (!Object.keys(crops[placement.key]).length) delete crops[placement.key];
         if (savedCrops[placement.key]) {
           delete savedCrops[placement.key].src;
           delete savedCrops[placement.key].css;
+          delete savedCrops[placement.key].tokenFrame;
+          delete savedCrops[placement.key].tokenFrameSrc;
+          delete savedCrops[placement.key].baseSrc;
         }
         await this.actor.setFlag(ns, "crops", crops);
         await this.actor.update(deleteUpdates);
@@ -1447,11 +1557,23 @@ export class MidnightGambitNpcSheet extends ActorSheet {
         }
         crops[active].css = css;
         const overrideSrc = String(imageOverrides[active] || "").trim();
-        if (overrideSrc) crops[active].src = overrideSrc;
+        if (placement.tokenFrame) {
+          const frame = mgGetTokenFrame(tokenFrameSelections[active] || "soul");
+          const previewBox = mgGetActorTokenPreviewBox(imgEl, stage);
+          crops[active].tokenFrame = frame.key;
+          crops[active].tokenFrameSrc = frame.src;
+          crops[active].baseSrc = overrideSrc || placement.src;
+          crops[active].src = await mgComposeActorTokenImage(crops[active].baseSrc, frame, css, previewBox);
+          savedCrops[active] = savedCrops[active] || {};
+          savedCrops[active].src = crops[active].src;
+          savedCrops[active].tokenFrame = crops[active].tokenFrame;
+          savedCrops[active].tokenFrameSrc = crops[active].tokenFrameSrc;
+          savedCrops[active].baseSrc = crops[active].baseSrc;
+        } else if (overrideSrc) crops[active].src = overrideSrc;
         else delete crops[active].src;
         if (!Object.keys(crops[active]).length) delete crops[active];
         await this.actor.setFlag(ns, "crops", crops);
-        if (!overrideSrc) {
+        if (!placement.tokenFrame && !overrideSrc) {
           await this.actor.update({ [`flags.${ns}.crops.${active}.-=src`]: null });
         }
 
@@ -1460,7 +1582,7 @@ export class MidnightGambitNpcSheet extends ActorSheet {
         ui.notifications?.info(`${placement.title} saved.`);
       } catch (err) {
         console.error("MG | Save NPC image crop failed:", err);
-        ui.notifications?.error("Failed to save NPC image framing. See console.");
+        ui.notifications?.error(err?.message || "Failed to save NPC image framing. See console.");
       }
     });
 

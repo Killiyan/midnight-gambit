@@ -1,15 +1,10 @@
 import { evaluateRoll, mgApplyStrainAttributePenalty, mgGetStrainEffectBadge, mgGetStrainRollEffects } from "./roll-utils.js";
 import { GambitDeckBuilderApplication } from "./gambit-deck-builder.js";
 import { MovesLibraryApplication } from "./moves-library.js";
+import { MG_TOKEN_FRAMES, mgComposeActorTokenImage, mgGetActorTokenPreviewBox, mgGetTokenFrame, mgGetTokenMinScale } from "./token-frame.js";
 
 const MG_ACTOR_GUISE_IMAGE = "systems/midnight-gambit/assets/images/guise.jpg";
 const MG_ACTOR_DEFAULT_IMAGE = "icons/svg/mystery-man.svg";
-const MG_TOKEN_FRAMES = [
-  { key: "filigree", label: "Filigree", src: "systems/midnight-gambit/assets/images/Tokens/filifgree-frame.png", aperture: { x: 10.5, y: 11, width: 78.6, height: 76.9 } },
-  { key: "mortal", label: "Mortal", src: "systems/midnight-gambit/assets/images/Tokens/mortal-frame.png", aperture: { x: 9.5, y: 6, width: 80.9, height: 86 } },
-  { key: "soul", label: "Soul", src: "systems/midnight-gambit/assets/images/Tokens/soul-frame.png", aperture: { x: 13.9, y: 13.5, width: 73, height: 75.5 } },
-  { key: "kintsugi", label: "Kintsugi", src: "systems/midnight-gambit/assets/images/Tokens/kintsugi-frame.png", aperture: { x: 11, y: 10.2, width: 77.3, height: 75.1 } }
-];
 
 function mgGetActorSheetImage(actor) {
   const img = String(actor?.img ?? "").trim();
@@ -42,113 +37,6 @@ function mgGetImageFilePickerOptions(current = "") {
   const options = { current: canUseCurrent ? clean : "" };
   if (activeSource) options.activeSource = activeSource;
   return options;
-}
-
-function mgLoadDrawableImage(src) {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.crossOrigin = "anonymous";
-    img.onload = () => resolve(img);
-    img.onerror = () => reject(new Error(`Could not load image: ${src}`));
-    img.src = foundry.utils.getRoute(String(src ?? "").trim());
-  });
-}
-
-function mgGetActorTokenPreviewBox(img, stage) {
-  const imgRect = img?.getBoundingClientRect?.();
-  const stageRect = stage?.getBoundingClientRect?.();
-  if (!imgRect || !stageRect || stageRect.width <= 0 || stageRect.height <= 0 || imgRect.width <= 0 || imgRect.height <= 0) return null;
-  const size = 1000;
-  return {
-    x: ((imgRect.left - stageRect.left) / stageRect.width) * size,
-    y: ((imgRect.top - stageRect.top) / stageRect.height) * size,
-    width: (imgRect.width / stageRect.width) * size,
-    height: (imgRect.height / stageRect.height) * size
-  };
-}
-
-function mgClampDrawBoxToClip(draw, clip) {
-  let { x, y, width, height } = draw;
-  const minScale = Math.max(clip.width / Math.max(width, 1), clip.height / Math.max(height, 1), 1);
-  if (minScale > 1) {
-    const cx = x + (width / 2);
-    const cy = y + (height / 2);
-    width *= minScale;
-    height *= minScale;
-    x = cx - (width / 2);
-    y = cy - (height / 2);
-  }
-
-  if (x > clip.x) x = clip.x;
-  if (y > clip.y) y = clip.y;
-  if (x + width < clip.x + clip.width) x = clip.x + clip.width - width;
-  if (y + height < clip.y + clip.height) y = clip.y + clip.height - height;
-
-  return { x, y, width, height };
-}
-
-async function mgComposeActorTokenImage(imageSrc, frameDef, crop = {}, previewBox = null) {
-  const [image, frameImg] = await Promise.all([
-    mgLoadDrawableImage(imageSrc),
-    mgLoadDrawableImage(frameDef.src)
-  ]);
-  const size = 1000;
-  const canvas = document.createElement("canvas");
-  canvas.width = size;
-  canvas.height = size;
-  const ctx = canvas.getContext("2d");
-  ctx.clearRect(0, 0, size, size);
-
-  const x = Number.isFinite(crop.x) ? crop.x : 50;
-  const y = Number.isFinite(crop.y) ? crop.y : 50;
-  const scale = Number.isFinite(crop.scale) ? crop.scale : 1;
-  const widthPct = Number.isFinite(crop.width) && crop.width > 0 ? crop.width : 100;
-  const heightPct = Number.isFinite(crop.height) && crop.height > 0 ? crop.height : null;
-  const aperture = frameDef.aperture || { x: 0, y: 0, width: 100, height: 100 };
-  const clipX = (aperture.x / 100) * size;
-  const clipY = (aperture.y / 100) * size;
-  const clipW = (aperture.width / 100) * size;
-  const clipH = (aperture.height / 100) * size;
-  const clip = { x: clipX, y: clipY, width: clipW, height: clipH };
-  const imageRatio = image.naturalWidth / Math.max(image.naturalHeight, 1);
-  const hasPreviewBox = previewBox &&
-    Number.isFinite(previewBox.x) &&
-    Number.isFinite(previewBox.y) &&
-    Number.isFinite(previewBox.width) &&
-    Number.isFinite(previewBox.height) &&
-    previewBox.width > 0 &&
-    previewBox.height > 0;
-  let drawX;
-  let drawY;
-  let drawW;
-  let drawH;
-
-  if (hasPreviewBox) {
-    ({ x: drawX, y: drawY, width: drawW, height: drawH } = previewBox);
-  } else {
-    let baseW = (widthPct / 100) * clipW;
-    let baseH = heightPct ? (heightPct / 100) * clipH : baseW / imageRatio;
-    if (!Number.isFinite(baseH) || baseH <= 0) baseH = size;
-
-    drawW = baseW * scale;
-    drawH = baseH * scale;
-    drawX = clipX + (clipW / 2) - (drawW * (x / 100));
-    drawY = clipY + (clipH / 2) - (drawH * (y / 100));
-  }
-
-  ({ x: drawX, y: drawY, width: drawW, height: drawH } = mgClampDrawBoxToClip(
-    { x: drawX, y: drawY, width: drawW, height: drawH },
-    clip
-  ));
-
-  ctx.save();
-  ctx.beginPath();
-  ctx.rect(clipX, clipY, clipW, clipH);
-  ctx.clip();
-  ctx.drawImage(image, drawX, drawY, drawW, drawH);
-  ctx.restore();
-  ctx.drawImage(frameImg, 0, 0, size, size);
-  return canvas.toDataURL("image/png");
 }
 
 function mgGetDifficultyModifier() {
@@ -1192,15 +1080,9 @@ export class MidnightGambitActorSheet extends ActorSheet {
         return $ui.find(`[data-mg-crop-img="${key}"]`)[0];
       };
 
-      const getTokenFrame = key => MG_TOKEN_FRAMES.find(frame => frame.key === key) || MG_TOKEN_FRAMES.find(frame => frame.key === "soul") || MG_TOKEN_FRAMES[0];
-
       const getTokenMinScale = (placement, img) => {
         if (!placement?.tokenFrame || !img?.naturalWidth || !img?.naturalHeight) return 1;
-        const frame = getTokenFrame(tokenFrameSelections[placement.key] || "soul");
-        const aperture = frame?.aperture || { width: 100, height: 100 };
-        const imageRatio = img.naturalWidth / Math.max(img.naturalHeight, 1);
-        const apertureRatio = aperture.width / Math.max(aperture.height, 1);
-        return Math.max(1, imageRatio / Math.max(apertureRatio, 0.001));
+        return mgGetTokenMinScale(tokenFrameSelections[placement.key] || "soul", img);
       };
 
       const enforceTokenCover = (placement, targetKey, img) => {
@@ -1227,7 +1109,7 @@ export class MidnightGambitActorSheet extends ActorSheet {
         }
 
         const selected = tokenFrameSelections[placement.key] || "soul";
-        const frame = getTokenFrame(selected);
+        const frame = mgGetTokenFrame(selected);
         if (preview) preview.src = frame?.src || "";
         const aperture = frame?.aperture || { x: 0, y: 0, width: 100, height: 100 };
         $ui[0].style.setProperty("--mg-token-aperture-x", String(aperture.x));
@@ -1547,7 +1429,7 @@ export class MidnightGambitActorSheet extends ActorSheet {
             crops[placement.key] = crops[placement.key] || {};
             const overrideSrc = String(imageOverrides[placement.key] || "").trim();
             if (placement.tokenFrame) {
-              const frame = getTokenFrame(tokenFrameSelections[placement.key] || "soul");
+              const frame = mgGetTokenFrame(tokenFrameSelections[placement.key] || "soul");
               const previewImg = getImgForTarget(placement.key);
               const previewStage = previewImg?.closest?.(".mg-crop-stage") || stage;
               const previewBox = mgGetActorTokenPreviewBox(previewImg, previewStage);
@@ -1576,7 +1458,7 @@ export class MidnightGambitActorSheet extends ActorSheet {
 	          ui.notifications?.info(`${placement.title} saved.`);
         } catch (err) {
           console.error("MG | Save image crop failed:", err);
-          ui.notifications?.error("Failed to save image framing. See console.");
+          ui.notifications?.error(err?.message || "Failed to save image framing. See console.");
         }
       });
 
