@@ -4139,6 +4139,8 @@ ol li {
       gap: 2px;
       margin: 0 -1rem 1rem -1rem;
       border-bottom: 2px solid $mg-blue-main-2;
+      align-items: stretch;
+      grid-auto-rows: 44px;      
 
       button {
         width: 100%;
@@ -4155,8 +4157,8 @@ ol li {
         align-items: center;
         padding: .5rem .75rem;
         border-radius: 0;
-        line-height: 1;
-        color: $mg-blue-2;
+        line-height: 1.1;
+        color: $mg-blue-1;
 
         i {
           color: $mg-blue-2;

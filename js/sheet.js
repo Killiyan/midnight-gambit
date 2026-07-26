@@ -6,7 +6,7 @@ const MG_ACTOR_GUISE_IMAGE = "systems/midnight-gambit/assets/images/guise.jpg";
 const MG_ACTOR_DEFAULT_IMAGE = "icons/svg/mystery-man.svg";
 const MG_TOKEN_FRAMES = [
   { key: "filigree", label: "Filigree", src: "systems/midnight-gambit/assets/images/Tokens/filifgree-frame.png", aperture: { x: 10.5, y: 11, width: 78.6, height: 76.9 } },
-  { key: "mortal", label: "Mortal", src: "systems/midnight-gambit/assets/images/Tokens/mortal-frame.png", aperture: { x: 9.5, y: 10.3, width: 80.9, height: 82.6 } },
+  { key: "mortal", label: "Mortal", src: "systems/midnight-gambit/assets/images/Tokens/mortal-frame.png", aperture: { x: 9.5, y: 6, width: 80.9, height: 86 } },
   { key: "soul", label: "Soul", src: "systems/midnight-gambit/assets/images/Tokens/soul-frame.png", aperture: { x: 13.9, y: 13.5, width: 73, height: 75.5 } },
   { key: "kintsugi", label: "Kintsugi", src: "systems/midnight-gambit/assets/images/Tokens/kintsugi-frame.png", aperture: { x: 11, y: 10.2, width: 77.3, height: 75.1 } }
 ];
@@ -919,19 +919,6 @@ export class MidnightGambitActorSheet extends ActorSheet {
           fitAxis: "width"
         },
         {
-          key: "crewSidebar",
-          label: "Sidebar Crew Portrait",
-          icon: "fa-solid fa-users",
-          title: "Frame Crew Tab Portrait",
-          hint: "Drag to pan - Mouse wheel to zoom - Esc to cancel",
-          description: "This image is placed in your Crew Tab of the left sidebar, inside the Party Accordion.",
-          src: actorSrc,
-          className: "crew-sidebar-crop",
-          defaultsFrom: ["profile"],
-          saveSize: true,
-          fitAxis: "height"
-        },
-        {
           key: "actorToken",
           label: "Actor Token",
           icon: "fa-solid fa-circle-user",
@@ -944,6 +931,19 @@ export class MidnightGambitActorSheet extends ActorSheet {
           saveSize: false,
           fitAxis: "width",
           tokenFrame: true
+        },        
+        {
+          key: "crewSidebar",
+          label: "Sidebar Crew Portrait",
+          icon: "fa-solid fa-users",
+          title: "Frame Crew Tab Portrait",
+          hint: "Drag to pan - Mouse wheel to zoom - Esc to cancel",
+          description: "This image is placed in your Crew Tab of the left sidebar, inside the Party Accordion.",
+          src: actorSrc,
+          className: "crew-sidebar-crop",
+          defaultsFrom: ["profile"],
+          saveSize: true,
+          fitAxis: "height"
         },
         {
           key: "crewInitiative",
@@ -1220,6 +1220,7 @@ export class MidnightGambitActorSheet extends ActorSheet {
         const show = !!placement.tokenFrame;
         tools.prop("hidden", !show);
         $ui.toggleClass("has-token-frame-tools", show);
+        if (preview) preview.hidden = !show;
         if (!show) {
           if (preview) preview.removeAttribute("src");
           return;
