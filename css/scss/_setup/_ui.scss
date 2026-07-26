@@ -5925,6 +5925,304 @@ body:not(.mg-hud-enabled) #mg-ui-root {
   }
 }
 
+/* File Picker Styles
+----------------------------------------------------------------------*/
+.window-app.filepicker {
+
+	.window-content {
+		padding-top: 0;
+	}
+
+	.tabs {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(7.5rem, 1fr));
+		background: $mg-blue-main-2;
+		gap: 2px;
+		margin: 0 -1rem 1rem -1rem;
+		border-top: 2px solid $mg-blue-main-2;
+		border-bottom: 2px solid $mg-blue-main-2;
+		align-items: stretch;
+		grid-auto-rows: 44px;      
+
+		.item {
+			width: 100%;
+			min-width: 0;
+			background: $mg-blue-main;
+			transition: background .5s ease, color .5s ease;
+			text-shadow: none;
+			@include oswald();
+			text-transform: uppercase;
+			font-style: italic;
+			font-size: .75rem;
+			font-weight: 700;
+			display: flex;
+			justify-content: center;
+			align-items: center;
+			text-align: center;
+			padding: .5rem .75rem;
+			border-radius: 0;
+			line-height: 1.1;
+			color: $mg-blue-1;
+			gap: .5rem;
+
+			i {
+				color: $mg-blue-2;
+				transition: color .5s ease;
+			}
+
+			&.active,
+			&:hover {
+				background: $mg-blue-4;
+				color: $mg-green;
+				box-shadow: none;
+
+				i {
+					color: $mg-blue-1;
+				}
+			}        
+		}
+	}
+
+	.current-dir {
+		display: flex;
+		align-items: stretch;
+		gap: .35rem;
+		margin: 0;
+
+		input {
+			flex: 1 1 auto;
+		}
+		
+		button {
+			align-self: stretch;
+			height: auto;
+			min-height: 0;
+			background: $mg-blue-main;
+			transition: background .5s ease, color .5s ease;
+			text-shadow: none;
+			@include oswald();
+			text-transform: uppercase;
+			font-style: italic;
+			font-size: .75rem;
+			font-weight: 700;
+			display: flex;
+			justify-content: center;
+			align-items: center;
+			text-align: center;
+			padding: 0 .75rem;
+			border-radius: 0;
+			line-height: 1.1;
+			color: $mg-blue-1;		
+			@include mg-border();
+			border-radius: .5rem;
+			
+			i {
+				color: $mg-blue-2;
+				transition: color .5s ease;
+			}
+
+			&.active,
+			&:hover {
+				background: $mg-blue-4;
+				color: $mg-green;
+				box-shadow: none;
+
+				i {
+					color: $mg-blue-1;
+				}
+			}  			
+		}
+	}
+
+	.favorites {
+
+		.label {
+			display: flex;
+			justify-content: center;
+			align-items: center;
+			gap: .5rem;
+
+			a {
+				align-self: stretch;
+				height: auto;
+				min-height: 0;
+				background: $mg-blue-main;
+				transition: background .5s ease, color .5s ease;
+				text-shadow: none;
+				@include oswald();
+				text-transform: uppercase;
+				font-style: italic;
+				font-size: .75rem;
+				font-weight: 700;
+				display: flex;
+				justify-content: center;
+				align-items: center;
+				text-align: center;
+				padding: 0 .75rem;
+				border-radius: 0;
+				line-height: 1.1;
+				color: $mg-blue-1;		
+				@include mg-border();
+				border-radius: .5rem;
+				
+				i {
+					color: $mg-blue-2;
+					transition: color .5s ease;
+				}
+
+				&.active,
+				&:hover {
+					background: $mg-blue-4;
+					color: $mg-green;
+					box-shadow: none;
+
+					i {
+						color: $mg-blue-1;
+					}
+				}  			
+			}
+		}
+
+		.paths {
+			@include mg-border();
+			display: flex;
+			flex-wrap: wrap;
+			gap: .5rem;
+			border-radius: .5rem;
+			padding: .5rem;
+
+			.path {
+				display: flex;
+				gap: 0;
+				background: transparent;
+				@include mg-border();
+				border-radius: .5rem;
+				overflow: hidden;
+				margin: 0;
+				padding: 0;
+
+				a {
+					background: $mg-blue-main;
+					@include oswald();
+					text-transform: uppercase;
+					font-style: italic;
+					letter-spacing: .05em;
+					font-weight: 700;
+					font-size: .75rem;
+					color: $mg-blue-1;
+					padding: .5rem;
+					border-radius: 0;
+					transition: color .5s ease, background .5s ease, filter .5s ease;					
+
+					&:before {
+						color: $mg-blue-2;
+					}
+
+					&.active,
+					&:hover {
+						background: $mg-blue-4;
+						color: $mg-green;
+						box-shadow: none;
+						text-shadow: none;
+
+						i {
+							color: $mg-blue-1;
+						}
+					}
+					
+					&.remove {
+						border-left: 2px solid $mg-blue-main-2;
+					}
+				}
+			}			
+		}
+	}
+
+	.display-modes {
+		gap: .5rem;
+
+		.display-mode {
+			background: $mg-blue-main;
+			transition: background .5s ease, color .5s ease;
+			text-shadow: none;
+			@include oswald();
+			text-transform: uppercase;
+			font-style: italic;
+			font-size: .75rem;
+			font-weight: 700;
+			display: flex;
+			justify-content: center;
+			align-items: center;
+			text-align: center;
+			padding: .75rem;
+			border-radius: 0;
+			line-height: 1.1;
+			color: $mg-blue-1;		
+			@include mg-border();
+			border-radius: .5rem;
+			
+			i {
+				color: $mg-blue-2;
+				transition: color .5s ease;
+			}
+
+			&.active,
+			&:hover {
+				background: $mg-blue-4;
+				color: $mg-green;
+				box-shadow: none;
+
+				i {
+					color: $mg-blue-1;
+				}
+			} 			
+		}
+	}
+
+	.folders-list,
+	.files-list {
+		@include mg-border();
+		border-radius: .5rem;
+		overflow: hidden;
+
+		li {
+			border-color: $mg-blue-main;
+			color: $mg-blue-2;
+			background: $mg-blue-4;
+			transition: background .5s ease, color .5s ease, border .5s ease;
+			border-bottom: 2px solid $mg-blue-main;
+
+			&:last-of-type {
+				border: none;
+			}
+
+			&:hover{
+				color: $mg-blue-1;
+				background: $mg-blue-5;
+				text-shadow: none;
+			}
+
+			i {
+				color: $mg-blue-3;
+				opacity: .7;
+				transition: color .5s ease, opacity .5s ease;
+			}
+
+			&.picked {
+				background: $mg-blue-6;
+				color: $mg-green;
+				transition: color .5s ease, background .5s ease;
+
+				i {
+					color: $mg-blue-1;
+					opacity: 1;
+				}
+			}
+		}
+	}
+}
+
+
 /* Pointer Event Resets
 ----------------------------------------------------------------------*/
 
