@@ -60,11 +60,6 @@ ol li {
     &:first-of-type {
       margin: 0;
     }
-
-    .signature-check {
-      display: grid;
-      grid-template-columns: 1fr;
-    }
   }
 }
 
@@ -218,7 +213,7 @@ ol li {
       display: inline-block;
       vertical-align: middle;
       cursor: pointer;
-      transition: transform .5s ease, background-color .5s ease;
+      transition: transform .5s ease, background-color .5s ease, border .5s ease, background-image .5s ease;
       background-repeat: no-repeat;
       background-position: center;
       background-size: 12px 10px;
@@ -226,13 +221,46 @@ ol li {
       box-shadow: none;
 
       &:checked {
-        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 10'%3E%3Cpath d='M1 5 L4.25 8.25 L11 1.5' fill='none' stroke='%2385A5D5' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 10'%3E%3Cpath d='M1 5 L4.25 8.25 L11 1.5' fill='none' stroke='%234173BE' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
         background-repeat: no-repeat;
         background-position: center;
         background-size: 12px 10px;
         background-color: rgba($black, 0.5);
         box-shadow: none;
-      }      
+
+        &:hover,
+        &:focus {
+          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 10'%3E%3Cpath d='M1 5 L4.25 8.25 L11 1.5' fill='none' stroke='%23C5D4EC' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+        }
+      }
+
+      &:hover,
+      &:focus {
+        background-image: none;
+      }
+    }
+
+    input[type="radio"] {
+      border-radius: 50%;
+
+      &:checked {
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Ccircle cx='6' cy='6' r='3.5' fill='%234173BE'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: center;
+        background-size: 100%;
+        background-color: rgba($black, 0.5);
+        box-shadow: none;
+
+        &:hover,
+        &:focus {
+          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Ccircle cx='6' cy='6' r='3.5' fill='%23C5D4EC'/%3E%3C/svg%3E");
+        }        
+      }
+
+      &:hover,
+      &:focus {
+        background-image: none;
+      }
     }
 
     input::placeholder {

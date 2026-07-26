@@ -6,8 +6,8 @@ import {
   normalizeGambitTier,
   normalizeGambitType
 } from "../config.js";
+import { mgGetLibraryDocuments } from "./library-sources.js";
 
-const MG_GAMBIT_PACK = "midnight-gambit.gambits";
 const MG_DECK_CARD_IMAGES = {
   midnight: "systems/midnight-gambit/assets/images/Gambits-Midnight.jpg",
   pearl: "systems/midnight-gambit/assets/images/Gambits-Pearl.jpg",
@@ -492,16 +492,7 @@ export class GambitDeckBuilderApplication extends Application {
   async _getLibraryCards() {
     if (this._libraryCards) return this._libraryCards;
 
-    const pack = game.packs.get(MG_GAMBIT_PACK) ??
-      game.packs.find(p => p.metadata?.system === "midnight-gambit" && p.metadata?.name === "gambits");
-
-    if (!pack) {
-      ui.notifications?.warn("Could not find the Gambits compendium.");
-      this._libraryCards = [];
-      return this._libraryCards;
-    }
-
-    const docs = await pack.getDocuments();
+    const docs = await mgGetLibraryDocuments("gambit");
     this._libraryCards = docs
       .filter(item => item?.type === "gambit")
       .map(item => this._cardFromItem(item))

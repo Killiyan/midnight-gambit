@@ -6,8 +6,8 @@ import {
   normalizeMoveSubtype,
   normalizeMoveType
 } from "../config.js";
+import { mgGetLibraryDocuments } from "./library-sources.js";
 
-const MG_MOVES_PACK = "midnight-gambit.moves";
 const MG_MOVE_CARD_IMAGES = {
   midnight: "systems/midnight-gambit/assets/images/Gambits-Midnight.jpg",
   pearl: "systems/midnight-gambit/assets/images/Gambits-Pearl.jpg",
@@ -366,16 +366,7 @@ export class MovesLibraryApplication extends Application {
   async _getLibraryCards() {
     if (this._libraryCards) return this._libraryCards;
 
-    const pack = game.packs.get(MG_MOVES_PACK) ??
-      game.packs.find(p => p.metadata?.system === "midnight-gambit" && p.metadata?.name === "moves");
-
-    if (!pack) {
-      ui.notifications?.warn("Could not find the Moves compendium.");
-      this._libraryCards = [];
-      return this._libraryCards;
-    }
-
-    const docs = await pack.getDocuments();
+    const docs = await mgGetLibraryDocuments("move");
     this._libraryCards = docs
       .filter(item => item?.type === "move" && item.system?.isSignature !== true)
       .map(item => this._cardFromItem(item))

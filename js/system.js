@@ -244,6 +244,14 @@ Hooks.once("init", async () => {
     default: []
   });
 
+  game.settings.register("midnight-gambit", "libraryCompendiums", {
+    name: "Library Compendiums",
+    scope: "world",
+    config: false,
+    type: Array,
+    default: []
+  });
+
   /* MG HUD Mode Toggle
   ----------------------------------------------------------------------*/
   game.settings.register("midnight-gambit", "mgHudEnabled", {

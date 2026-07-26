@@ -148,6 +148,18 @@
   }
 }
 
+/* Item Sheet
+----------------------------------------------------------------------*/
+
+.item-sheet {
+
+
+  .mg-content .form-group {
+      display: grid;
+      grid-template-columns: 1fr;
+  }
+}
+
 /* Guise Sheet
 ----------------------------------------------------------------------*/
 .guise-sheet {

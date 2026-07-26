@@ -136,6 +136,10 @@ export class MidnightGambitItemSheet extends ItemSheet {
 	}
 
 	async _updateObject(event, formData) {
+		if (["move", "gambit"].includes(this.item?.type) && !this.item?.parent) {
+			formData["system.libraryEnabled"] = Boolean(formData["system.libraryEnabled"]);
+		}
+
 		if (this.item?.type === "gambit") {
 			const tier = normalizeGambitTier(formData["system.tier"] ?? this.item.system?.tier);
 			formData["system.tier"] = tier;
@@ -265,6 +269,7 @@ export class MidnightGambitItemSheet extends ItemSheet {
 		context.item = this.item;
 		context.system = this.item.system ?? {};
 		context.itemType = this.item.type;
+		context.libraryEligible = ["move", "gambit"].includes(this.item.type) && !this.item.parent;
 		context.itemDisplayImg = mgGetItemSheetImage(this.item);
 		context.gambitTiers = GAMBIT_TIERS;
 		context.gambitTypes = GAMBIT_TYPES;

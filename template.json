@@ -114,6 +114,7 @@
 				"gambitType": "",
 				"gpCost": 1,
 				"tags": [],
+				"libraryEnabled": false,
 				"used": false
 			}
 		},
@@ -123,6 +124,7 @@
 				"tags": [],
 				"moveType": "",
 				"moveSubtype": "",
+				"libraryEnabled": false,
 				"learned": false,
 				"npcMove": false,
 				"npcSignature": false,

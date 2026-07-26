@@ -1,3 +1,10 @@
+import {
+	mgCanToggleLibraryPack,
+	mgIsLibraryCompendium,
+	mgSetCompendiumLibraryItems,
+	mgSetLibraryCompendium
+} from "./library-sources.js";
+
 const MG_UI_NS = "midnight-gambit";
 const MG_COMPENDIUM_USER_ORDER_FLAG = "compendiumSidebarOrder";
 const MG_COMPENDIUM_DEFAULT_IMAGE = "systems/midnight-gambit/assets/images/items.jpg";
@@ -798,12 +805,15 @@ function mgOpenCompendiumContextMenu(packId, anchor, row, event = null) {
 	const canManage = game.user?.isGM;
 	const locked = mgIsPackLocked(pack);
 	const canDelete = canManage && mgIsWorldCompendium(pack);
+	const canToggleLibrary = canManage && mgCanToggleLibraryPack(pack);
+	const inLibrary = mgIsLibraryCompendium(pack);
 	const menu = document.createElement("nav");
 	menu.className = "mg-scene-context-menu mg-compendium-context-menu";
 	menu.dataset.mgCompendiumContextMenu = mgGetPackId(pack);
 	menu.innerHTML = `
 		${canManage ? `<button type="button" data-mg-compendium-action="ownership"><i class="fa-solid fa-user-shield"></i> Configure Ownership</button>` : ""}
 		${canManage ? `<button type="button" data-mg-compendium-action="lock"><i class="fa-solid ${locked ? "fa-lock-open" : "fa-lock"}"></i> ${locked ? "Unlock Editing" : "Lock Editing"}</button>` : ""}
+		${canToggleLibrary ? `<button type="button" data-mg-compendium-action="library"><i class="fa-solid fa-books"></i> ${inLibrary ? "Exclude from Library" : "Include in Library"}</button>` : ""}
 		${canManage ? `<button type="button" data-mg-compendium-action="duplicate"><i class="fa-regular fa-copy"></i> Duplicate Compendium</button>` : ""}
 		${canManage ? `<button type="button" data-mg-compendium-action="import-all"><i class="fa-solid fa-file-import"></i> Import All Content</button>` : ""}
 		${canDelete ? `<button type="button" class="danger" data-mg-compendium-action="delete"><i class="fa-solid fa-trash"></i> Delete</button>` : ""}
@@ -883,6 +893,13 @@ async function mgRunCompendiumAction(pack, action) {
 				break;
 			case "lock":
 				await mgConfigurePack(pack, { locked: !mgIsPackLocked(pack) });
+				break;
+			case "library":
+				const nextEnabled = !mgIsLibraryCompendium(pack);
+				if (nextEnabled) await mgSetCompendiumLibraryItems(pack, true);
+				await mgSetLibraryCompendium(pack, nextEnabled);
+				ui.notifications?.info(`${mgGetPackLabel(pack)} ${mgIsLibraryCompendium(pack) ? "included in" : "removed from"} the Library.`);
+				globalThis.mgRefreshCompendiumSidebarContent?.();
 				break;
 			case "duplicate":
 				await mgDuplicateCompendium(pack);
