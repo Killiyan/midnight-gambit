@@ -1133,44 +1133,6 @@ function mgEscapeHtml(value) {
 ==============================================================================================================================================*/
 
 Hooks.once("init", () => {
-  game.settings.register("midnight-gambit", "chatPortraitSource", {
-    name: "Chat Portrait Source",
-    hint: "Which image to show next to chat messages.",
-    scope: "world",
-    config: true,
-    type: String,
-    choices: {
-      token: "Token image (if present)",
-      actor: "Actor image",
-      user: "User avatar"
-    },
-    default: "token"
-  });
-
-  game.settings.register("midnight-gambit", "chatPortraitSize", {
-    name: "Chat Portrait Size (px)",
-    hint: "Square size of the portrait next to chat messages.",
-    scope: "world",
-    config: true,
-    type: Number,
-    default: 38,
-    range: { min: 24, max: 96, step: 2 }
-  });
-
-  game.settings.register("midnight-gambit", "chatPortraitShape", {
-    name: "Chat Portrait Shape",
-    hint: "How the portrait should be masked.",
-    scope: "world",
-    config: true,
-    type: String,
-    choices: {
-      circle: "Circle",
-      rounded: "Rounded square",
-      square: "Square"
-    },
-    default: "circle"
-  });
-
   // --- Crew Sheet registration ---
   Actors.registerSheet("midnight-gambit", MidnightGambitCrewSheet, {
     types: ["crew"],
@@ -3410,6 +3372,39 @@ Hooks.once("ready", () => {
 
 /* Portrait Injection
 ----------------------------------------------------------------------*/
+const MG_CHAT_FALLBACK_IMAGE = "icons/svg/mystery-man.svg";
+
+function mgGetChatSpeakerActor(message) {
+  const speaker = message?.speaker ?? {};
+  const actorId = speaker.actor;
+  let actor = actorId ? game.actors.get(actorId) : null;
+  if (actor) return actor;
+
+  const tokenId = speaker.token;
+  const foundryCanvas = globalThis.canvas;
+  const liveToken = tokenId ? foundryCanvas?.tokens?.get?.(tokenId) : null;
+  const sceneToken = tokenId ? foundryCanvas?.scene?.tokens?.get?.(tokenId) : null;
+  actor = liveToken?.actor ?? sceneToken?.actor ?? null;
+  if (actor) return actor;
+
+  return message?.actor ?? null;
+}
+
+function mgGetActorChatPlacementImage(actor) {
+  const crops = actor?.getFlag?.("midnight-gambit", "crops") || {};
+  const chatSrc = String(crops.chat?.src ?? "").trim();
+  if (chatSrc) return chatSrc;
+
+  const profileSrc = String(crops.profile?.src ?? "").trim();
+  if (profileSrc) return profileSrc;
+
+  const actorImg = String(actor?.img ?? "").trim();
+  if (actorImg && actorImg !== MG_CHAT_FALLBACK_IMAGE && !actorImg.endsWith("/mystery-man.svg")) {
+    return actorImg;
+  }
+
+  return "";
+}
 
 Hooks.on("renderChatMessage", async (message, html) => {
   let speaker = {};
@@ -3419,33 +3414,24 @@ Hooks.on("renderChatMessage", async (message, html) => {
     // Guard: avoid double-injection
     if (html[0]?.classList?.contains("mg-chat")) return;
 
-    // Settings (already registered in your file)
-    const source = game.settings.get("midnight-gambit", "chatPortraitSource"); // "token" | "actor" | "user"
-
-    // Resolve an image without touching your message content
     speaker = message.speaker ?? {};
-    const actorId = speaker.actor;
-    const speakerActor = actorId ? game.actors.get(actorId) : null;
-    let img = speakerActor?.getFlag?.("midnight-gambit", "crops")?.chat?.src || null;
+    const speakerActor = mgGetChatSpeakerActor(message);
 
-    // Try token texture if requested/available
-    if (!img && (source === "token" || source === "actor")) {
-      const tokId = speaker.token;
-      const live  = tokId ? canvas?.tokens?.get(tokId) : null;
-      const scTok = tokId ? canvas?.scene?.tokens?.get?.(tokId) : null;
-      const tokDoc = live?.document || scTok;
-      img = tokDoc?.texture?.src ?? null;
-    }
-
-    // Try actor image
-    if (!img && (source === "actor" || source === "token")) {
-      img = speakerActor?.img ?? null;
-    }
-
-    // Fallback to user avatar
+    // Order of operations: Image Options chat image, Character Sheet image, actor image, token image, user avatar.
+    let img = mgGetActorChatPlacementImage(speakerActor);
     if (!img) {
-      const user = game.users.get(message.user?.id);
-      img = user?.avatar ?? null;
+      const tokId = speaker.token;
+      const foundryCanvas = globalThis.canvas;
+      const live = tokId ? foundryCanvas?.tokens?.get?.(tokId) : null;
+      const sceneToken = tokId ? foundryCanvas?.scene?.tokens?.get?.(tokId) : null;
+      const tokDoc = live?.document || sceneToken;
+      img = tokDoc?.texture?.src ?? "";
+    }
+
+    if (!img) {
+      const userId = message.user?.id ?? message.user;
+      const user = userId ? game.users.get(userId) : null;
+      img = user?.avatar ?? "";
     }
 
     // If no image, do nothing
@@ -3456,35 +3442,30 @@ Hooks.on("renderChatMessage", async (message, html) => {
 
     $avatar = $(`
       <div class="mg-chat-avatar-wrap">
-        <img class="mg-chat-avatar" src="${img}" alt="" loading="lazy"/>
+        <img class="mg-chat-avatar" src="${mgEscapeHtml(img)}" alt="" loading="lazy"/>
       </div>
     `);
 
-    const actorIdForHud = message.speaker?.actor;
-    if (actorIdForHud) {
-      const actorForHud = game.actors.get(actorIdForHud);
+    if (speakerActor?.type === "character") {
+      const sto = Number(speakerActor.system?.sto?.value ?? 0);
+      const riskTotal = Number(speakerActor.system?.riskDice ?? 0);
+      const riskUsed = Number(speakerActor.system?.riskUsed ?? 0);
+      const riskRemaining = Math.max(0, riskTotal - riskUsed);
 
-      if (actorForHud?.type === "character") {
-        const sto = Number(actorForHud.system?.sto?.value ?? 0);
-        const riskTotal = Number(actorForHud.system?.riskDice ?? 0);
-        const riskUsed = Number(actorForHud.system?.riskUsed ?? 0);
-        const riskRemaining = Math.max(0, riskTotal - riskUsed);
-
-        const $hud = $(`
-          <div class="mg-chat-avatar-hud">
-            <div class="mg-chat-avatar-stat mg-chat-avatar-stat-risk">
-              <i class="fa-kit fa-risk"></i>
-              <span>${riskRemaining}</span>
-            </div>
-            <div class="mg-chat-avatar-stat mg-chat-avatar-stat-sto">
-              <i class="fa-kit fa-sto"></i>
-              <span>${sto}</span>
-            </div>
+      const $hud = $(`
+        <div class="mg-chat-avatar-hud">
+          <div class="mg-chat-avatar-stat mg-chat-avatar-stat-risk">
+            <i class="fa-kit fa-risk"></i>
+            <span>${riskRemaining}</span>
           </div>
-        `);
+          <div class="mg-chat-avatar-stat mg-chat-avatar-stat-sto">
+            <i class="fa-kit fa-sto"></i>
+            <span>${sto}</span>
+          </div>
+        </div>
+      `);
 
-        $avatar.append($hud);
-      }
+      $avatar.append($hud);
     }
 
     // Apply per-actor chat framing (CSS vars) TO THE IMG (not the wrapper)

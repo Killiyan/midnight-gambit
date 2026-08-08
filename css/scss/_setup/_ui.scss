@@ -6183,7 +6183,11 @@ body:not(.mg-hud-enabled) #mg-ui-root {
 	.files-list {
 		@include mg-border();
 		border-radius: .5rem;
-		overflow: hidden;
+		width: 100%;
+
+		&.tiles-list {
+			grid-template-columns: repeat(4, 1fr);
+		}
 
 		li {
 			border-color: $mg-blue-main;
@@ -6219,6 +6223,10 @@ body:not(.mg-hud-enabled) #mg-ui-root {
 				}
 			}
 		}
+	}
+
+	button[type="submit"] {
+		margin-top: 2.125rem;
 	}
 }
 
