@@ -28,6 +28,21 @@ export function mgLoadDrawableImage(src, { anonymous = true } = {}) {
   });
 }
 
+function mgGetFilePickerSources() {
+  const sources = FilePicker?.sources;
+  if (!sources) return [];
+  if (sources instanceof Map) return Array.from(sources.entries());
+  return Object.entries(sources);
+}
+
+function mgGetTokenFrameUploadSource() {
+  const sources = mgGetFilePickerSources();
+  const sourceText = ([key, source]) => `${key} ${source?.label ?? ""} ${source?.name ?? ""}`;
+  const forgeSource = sources.find(source => /forge/i.test(sourceText(source)));
+  const dataSource = sources.find(([key]) => key === "data");
+  return forgeSource?.[0] ?? dataSource?.[0] ?? sources[0]?.[0] ?? "data";
+}
+
 async function mgLoadCanvasImage(src) {
   try {
     return await mgLoadDrawableImage(src, { anonymous: true });
@@ -36,6 +51,68 @@ async function mgLoadCanvasImage(src) {
     if (!/^(https?:)?\/\//i.test(clean)) throw err;
     return mgLoadDrawableImage(src, { anonymous: false });
   }
+}
+
+function mgSlug(value, fallback = "token") {
+  return String(value ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80) || fallback;
+}
+
+async function mgEnsureUploadDirectory(source, target) {
+  if (typeof FilePicker?.createDirectory !== "function") return;
+  const parts = String(target ?? "").split("/").filter(Boolean);
+  let current = "";
+  for (const part of parts) {
+    current = current ? `${current}/${part}` : part;
+    try {
+      await FilePicker.createDirectory(source, current, { notify: false });
+    } catch (_) {
+      // Existing directories and sources without folder creation are both fine here.
+    }
+  }
+}
+
+function mgCanvasToBlob(canvas) {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob(blob => {
+      if (blob) resolve(blob);
+      else reject(new Error("Could not export framed token image."));
+    }, "image/png");
+  });
+}
+
+function mgCanvasToDataURL(canvas, imageSrc) {
+  try {
+    return canvas.toDataURL("image/png");
+  } catch (err) {
+    const clean = String(imageSrc ?? "").trim();
+    if (/^(https?:)?\/\//i.test(clean)) {
+      throw new Error("This remote image can be displayed, but the browser will not allow Midnight Gambit to export it as a framed token. Choose it through Foundry's file browser or upload a local/world image first.", { cause: err });
+    }
+    throw err;
+  }
+}
+
+async function mgUploadTokenFrameCanvas(canvas, actor, frameDef) {
+  if (typeof FilePicker?.upload !== "function" || typeof File !== "function") return "";
+  const canUpload = game.user?.can?.("FILES_UPLOAD") ?? game.user?.isTrusted ?? game.user?.isGM ?? false;
+  if (!canUpload) return "";
+
+  const source = mgGetTokenFrameUploadSource();
+  const target = "midnight-gambit/token-frames";
+  const actorId = mgSlug(actor?.id || actor?._id || actor?.name, "actor");
+  const frameKey = mgSlug(frameDef?.key, "frame");
+  const filename = `${actorId}-${frameKey}.png`;
+  const blob = await mgCanvasToBlob(canvas);
+  const file = new File([blob], filename, { type: "image/png" });
+
+  await mgEnsureUploadDirectory(source, target);
+  const response = await FilePicker.upload(source, target, file, {}, { notify: false });
+  return String(response?.path || response?.url || `${target}/${filename}`).trim();
 }
 
 export function mgGetActorTokenPreviewBox(img, stage) {
@@ -80,7 +157,7 @@ export function mgGetTokenMinScale(frameKey, img) {
   return Math.max(1, imageRatio / Math.max(apertureRatio, 0.001));
 }
 
-export async function mgComposeActorTokenImage(imageSrc, frameDef, crop = {}, previewBox = null) {
+async function mgRenderActorTokenCanvas(imageSrc, frameDef, crop = {}, previewBox = null) {
   const [image, frameImg] = await Promise.all([
     mgLoadCanvasImage(imageSrc),
     mgLoadCanvasImage(frameDef.src)
@@ -141,13 +218,21 @@ export async function mgComposeActorTokenImage(imageSrc, frameDef, crop = {}, pr
   ctx.drawImage(image, drawX, drawY, drawW, drawH);
   ctx.restore();
   ctx.drawImage(frameImg, 0, 0, size, size);
+  return canvas;
+}
+
+export async function mgComposeActorTokenImage(imageSrc, frameDef, crop = {}, previewBox = null) {
+  const canvas = await mgRenderActorTokenCanvas(imageSrc, frameDef, crop, previewBox);
+  return mgCanvasToDataURL(canvas, imageSrc);
+}
+
+export async function mgComposeAndStoreActorTokenImage(actor, imageSrc, frameDef, crop = {}, previewBox = null) {
+  const canvas = await mgRenderActorTokenCanvas(imageSrc, frameDef, crop, previewBox);
   try {
-    return canvas.toDataURL("image/png");
+    const uploaded = await mgUploadTokenFrameCanvas(canvas, actor, frameDef);
+    if (uploaded) return uploaded;
   } catch (err) {
-    const clean = String(imageSrc ?? "").trim();
-    if (/^(https?:)?\/\//i.test(clean)) {
-      throw new Error("This remote image can be displayed, but the browser will not allow Midnight Gambit to export it as a framed token. Choose it through Foundry's file browser or upload a local/world image first.", { cause: err });
-    }
-    throw err;
+    console.warn("MG | Could not upload framed token image; falling back to inline image.", err);
   }
+  return mgCanvasToDataURL(canvas, imageSrc);
 }

@@ -1,7 +1,7 @@
 import { evaluateRoll, mgApplyStrainAttributePenalty, mgGetStrainEffectBadge, mgGetStrainRollEffects } from "./roll-utils.js";
 import { GambitDeckBuilderApplication } from "./gambit-deck-builder.js";
 import { MovesLibraryApplication } from "./moves-library.js";
-import { MG_TOKEN_FRAMES, mgComposeActorTokenImage, mgGetActorTokenPreviewBox, mgGetTokenFrame, mgGetTokenMinScale } from "./token-frame.js";
+import { MG_TOKEN_FRAMES, mgComposeAndStoreActorTokenImage, mgGetActorTokenPreviewBox, mgGetTokenFrame, mgGetTokenMinScale } from "./token-frame.js";
 
 const MG_ACTOR_GUISE_IMAGE = "systems/midnight-gambit/assets/images/guise.jpg";
 const MG_ACTOR_DEFAULT_IMAGE = "icons/svg/mystery-man.svg";
@@ -1025,7 +1025,7 @@ export class MidnightGambitActorSheet extends ActorSheet {
                 </button>
               </div>
               <div class="mg-token-frame-tools" data-mg-token-frame-tools hidden>
-                <div class="mg-token-frame-title">Actor Token</div>
+                <div class="mg-token-frame-title">Token Design</div>
                 <div class="mg-token-frame-options" role="radiogroup" aria-label="Actor token frame type">
                   ${MG_TOKEN_FRAMES.map(frame => `
                     <button type="button" class="mg-token-frame-choice mg-primary-toggle is-off" data-mg-token-frame="${frame.key}" role="radio" aria-checked="false">
@@ -1436,7 +1436,7 @@ export class MidnightGambitActorSheet extends ActorSheet {
               crops[placement.key].tokenFrame = frame.key;
               crops[placement.key].tokenFrameSrc = frame.src;
               crops[placement.key].baseSrc = overrideSrc || placement.src;
-              crops[placement.key].src = await mgComposeActorTokenImage(crops[placement.key].baseSrc, frame, crops[placement.key].css || values[placement.key] || {}, previewBox);
+              crops[placement.key].src = await mgComposeAndStoreActorTokenImage(this.actor, crops[placement.key].baseSrc, frame, crops[placement.key].css || values[placement.key] || {}, previewBox);
             } else if (overrideSrc) crops[placement.key].src = overrideSrc;
             else delete crops[placement.key].src;
             if (!Object.keys(crops[placement.key]).length) delete crops[placement.key];

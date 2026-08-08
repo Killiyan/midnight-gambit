@@ -1,6 +1,6 @@
 // npc-sheet.js
 import { evaluateRoll } from "./roll-utils.js";
-import { MG_TOKEN_FRAMES, mgComposeActorTokenImage, mgGetActorTokenPreviewBox, mgGetTokenFrame, mgGetTokenMinScale } from "./token-frame.js";
+import { MG_TOKEN_FRAMES, mgComposeAndStoreActorTokenImage, mgGetActorTokenPreviewBox, mgGetTokenFrame, mgGetTokenMinScale } from "./token-frame.js";
 
 const MG_ACTOR_GUISE_IMAGE = "systems/midnight-gambit/assets/images/guise.jpg";
 const MG_ACTOR_DEFAULT_IMAGE = "icons/svg/mystery-man.svg";
@@ -1211,7 +1211,7 @@ export class MidnightGambitNpcSheet extends ActorSheet {
               </button>
             </div>
             <div class="mg-token-frame-tools" data-mg-token-frame-tools hidden>
-              <div class="mg-token-frame-title">Actor Token</div>
+              <div class="mg-token-frame-title">Token Design</div>
               <div class="mg-token-frame-options" role="radiogroup" aria-label="Actor token frame type">
                 ${MG_TOKEN_FRAMES.map(frame => `
                   <button type="button" class="mg-token-frame-choice mg-primary-toggle is-off" data-mg-token-frame="${frame.key}" role="radio" aria-checked="false">
@@ -1563,7 +1563,7 @@ export class MidnightGambitNpcSheet extends ActorSheet {
           crops[active].tokenFrame = frame.key;
           crops[active].tokenFrameSrc = frame.src;
           crops[active].baseSrc = overrideSrc || placement.src;
-          crops[active].src = await mgComposeActorTokenImage(crops[active].baseSrc, frame, css, previewBox);
+          crops[active].src = await mgComposeAndStoreActorTokenImage(this.actor, crops[active].baseSrc, frame, css, previewBox);
           savedCrops[active] = savedCrops[active] || {};
           savedCrops[active].src = crops[active].src;
           savedCrops[active].tokenFrame = crops[active].tokenFrame;
