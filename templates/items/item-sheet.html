@@ -18,8 +18,12 @@
         <h2><i class="fa-solid fa-cards"></i> Gambit</h2>
       {{/if}}
 
-      {{#if (eq itemType "move")}}
-        <h2><i class="fa-solid fa-hand-fist"></i> Move</h2>
+      {{#if isSignatureMove}}
+        <h2><i class="fa-kit fa-signature-perk"></i>Signature Perk</h2>
+      {{/if}}
+
+      {{#if (and (eq itemType "move") (not isSignatureMove))}}
+        <h2><i class="fa-kit fa-basic-move"></i> Move</h2>
       {{/if}}
     </div>
     <img class="profile-img" src="{{itemDisplayImg}}" data-edit="img" title="{{item.name}}" />
@@ -38,7 +42,7 @@
         editable=editable
         button=false
       }}
-    </div>    
+    </div>
 
     {{#if (eq item.type "gambit")}}
       <div class="wrapper mg-content">
@@ -171,7 +175,7 @@
       </div>
     {{/if}}
 
-    {{#if (eq itemType "move")}}
+    {{#if (and (eq itemType "move") (not isSignatureMove))}}
       <div class="wrapper mg-content">
         {{#if libraryEligible}}
           <div class="form-group signature-check library-settings">
@@ -185,6 +189,17 @@
         {{/if}}
 
         <div class="form-group">
+          <label>Library Teaser</label>
+          <input
+            type="text"
+            name="system.teaser"
+            value="{{system.teaser}}"
+            placeholder="Disarm resistance"
+            maxlength="64"
+          />
+        </div>
+
+        <div class="form-group">
           <label>Move Type</label>
           <select name="system.moveType">
             <option value="" {{#unless system.moveType}}selected{{/unless}}>Unassigned</option>
@@ -195,25 +210,28 @@
         </div>
 
         <div class="form-group">
-          <label>Sub Type</label>
-          <select name="system.moveSubtype">
-            <option value="" {{#unless system.moveSubtype}}selected{{/unless}}>Unassigned</option>
+          <label>Sub Types</label>
+          <div class="tag-selector move-subtype-selector" data-move-subtype-selector>
+            <input type="hidden" name="system.moveSubtypesCsv" value="{{system.moveSubtypesCsv}}" />
             {{#each moveSubtypes}}
-              <option value="{{this.id}}" {{#if (eq ../system.moveSubtype this.id)}}selected{{/if}}>{{this.label}}</option>
+              <button
+                type="button"
+                class="tag-pill move-subtype-pill {{#if (lookup ../moveSubtypeSelected this.id)}}selected{{/if}}"
+                data-subtype-id="{{this.id}}"
+                title="{{this.label}}"
+              >
+                {{this.label}}
+              </button>
             {{/each}}
-          </select>
-        </div>
-      </div>
-
-      <div class="wrapper mg-content">
-        <div class="form-group signature-check">
-          <label>Signature Perk?</label>
-          <div class="form-wrap">
-            <input type="checkbox" name="system.isSignature" {{#if system.isSignature}}checked{{/if}} />
-            <p>If checked, this item will post and render as a Signature Perk instead of a Move.</p>
           </div>
         </div>
       </div>
+
+    {{/if}}
+
+    {{#if (and (eq itemType "move") isSignatureMove)}}
+      <input type="hidden" name="system.isSignature" value="true" />
+      <input type="hidden" name="system.libraryEnabled" value="false" />
     {{/if}}
 
     <div class="wrapper mg-content">

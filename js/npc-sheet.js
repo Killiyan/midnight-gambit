@@ -58,10 +58,12 @@ export class MidnightGambitNpcSheet extends ActorSheet {
     // Keep the same attribute ordering as the player sheet uses
     context.attributeKeys = ["tenacity", "finesse", "resolve", "guile", "instinct", "presence"];
 
-    // NPC moves live as normal Item documents (type "move") but flagged
-    const allMoves = this.actor.items.filter(i => i.type === "move");
+    // NPC moves/signatures live as Item documents and may be old flagged moves
+    // or the newer real Signature Perk item type.
+    const allMoves = this.actor.items.filter(i => i.type === "move" || i.type === "signaturePerk");
 
-    const isNpcSignature = (i) => i.system?.npcSignature === true || i.system?.isSignature === true;
+    const isNpcSignature = (i) =>
+      i.type === "signaturePerk" || i.system?.npcSignature === true || i.system?.isSignature === true;
 
     // --- Signatures (allow multiple) ---
     const signatureMoves = allMoves
@@ -143,7 +145,7 @@ export class MidnightGambitNpcSheet extends ActorSheet {
         // render(false) is cheap and keeps tab state
         this.render(false);
       });
-    }    
+    }
 
     // ----------------------------------------------------
     // Post Moves / Signature Perk to chat
@@ -252,7 +254,7 @@ export class MidnightGambitNpcSheet extends ActorSheet {
 
       const chatContent = `
         <div class="chat-move">
-          <h2><i class="fa-solid fa-diamond"></i> Signature Perk: ${escapeChatHtml(name)}</h2>
+          <h2><i class="fa-kit fa-signature-perk"></i>${escapeChatHtml(name)}</h2>
           ${descHtml ? `<div class="chat-move-desc">${descHtml}</div>` : ""}
           ${tagsHtml}
         </div>
@@ -456,7 +458,7 @@ export class MidnightGambitNpcSheet extends ActorSheet {
       // Expose refresh for other parts of the sheet if you want to call it after edits
       this._mgNpcRefreshTags = refreshAll;
     }
-    
+
     const isOwner =
       this.actor?.testUserPermission?.(game.user, "OWNER") ||
       this.actor?.isOwner ||
@@ -781,7 +783,7 @@ export class MidnightGambitNpcSheet extends ActorSheet {
       if (maxEl) maxEl.textContent = String(Math.max(nextCap, currentMax));
 
       this.render(false);
-    });    
+    });
 
     // ----------------------------
     // Attribute: right-click edit base (same behavior as PC sheet)
@@ -1867,12 +1869,14 @@ export class MidnightGambitNpcSheet extends ActorSheet {
   }
 
   _mgNpcAllowedDropTypes() {
-    return new Set(["move"]);
+    return new Set(["move", "signaturePerk"]);
   }
 
   _mgNpcBlockedDropMessage({ documentName, type, tier } = {}) {
     if (documentName === "Actor") return "Actors cannot be dropped onto NPC sheets.";
-    if (documentName === "Item" && type !== "move") return "NPC sheets only accept Moves.";
+    if (documentName === "Item" && type !== "move" && type !== "signaturePerk") {
+      return "NPC sheets only accept Moves and Signature Perks.";
+    }
     return null;
   }
 
@@ -2225,16 +2229,16 @@ export class MidnightGambitNpcSheet extends ActorSheet {
     const dropzone = findDropzone(event);
     console.log("MG NPC DROPZONE:", dropzone, "target:", event.target);
 
-    // NPC sheets only accept Item drops of type "move".
+    // NPC sheets only accept Item drops of type "move" or "signaturePerk".
     let data;
     try {
       data = TextEditor.getDragEventData(event);
     } catch (_) {
-      ui.notifications?.warn("NPC sheets only accept Moves.");
+      ui.notifications?.warn("NPC sheets only accept Moves and Signature Perks.");
       return false;
     }
     if (data?.type !== "Item") {
-      ui.notifications?.warn("NPC sheets only accept Moves.");
+      ui.notifications?.warn("NPC sheets only accept Moves and Signature Perks.");
       return false;
     }
 
@@ -2246,19 +2250,19 @@ export class MidnightGambitNpcSheet extends ActorSheet {
       src = null;
     }
     if (!src || src.documentName !== "Item") {
-      ui.notifications?.warn("Could not resolve the dropped Move.");
+      ui.notifications?.warn("Could not resolve the dropped Move or Signature Perk.");
       return false;
     }
 
     const dropped = src.toObject();
-    if (dropped.type !== "move") {
-      ui.notifications?.warn("NPC sheets only accept Moves.");
+    if (dropped.type !== "move" && dropped.type !== "signaturePerk") {
+      ui.notifications?.warn("NPC sheets only accept Moves and Signature Perks.");
       return false;
     }
 
     // De-dupe by sourceId or name
     const existing = this.actor.items.find(i =>
-      i.type === "move" && (
+      (i.type === dropped.type || i.type === "move" || i.type === "signaturePerk") && (
         (i.flags?.core?.sourceId && i.flags.core.sourceId === dropped.flags?.core?.sourceId) ||
         (i.name?.toLowerCase?.() === dropped.name?.toLowerCase?.())
       )
@@ -2284,6 +2288,11 @@ export class MidnightGambitNpcSheet extends ActorSheet {
     }
 
     if (dropzone === "moves") {
+      if (dropped.type === "signaturePerk" || dropped.system.isSignature === true) {
+        ui.notifications?.warn("Signature Perks belong in the Signature Perk area.");
+        return false;
+      }
+
       dropped.system.npcMove = true;
       dropped.system.npcSignature = false;
       dropped.system.isSignature = false;
@@ -2322,7 +2331,7 @@ export class MidnightGambitNpcSheet extends ActorSheet {
       this._mgNpcUpdateItemHookId = null;
     }
     return super.close(options);
-  }  
+  }
 
   async _updateObject(event, formData) {
     // Nothing fancy: Foundry will update system.npc.signatureName / signatureText directly from input names

@@ -364,58 +364,61 @@
         </div>
 
         <div>
-          {{#if guise}}
-            <h2 class="mg-content"><i class="fa-solid fa-diamond"></i> Signature Perk</h2>
-            <div class="signature-wrapper">
+          <h2 class="mg-content"><i class="fa-kit fa-signature-perk"></i> Signature Perk</h2>
+          <div class="signature-wrapper">
 
-              <div class="signature-perk" data-dropzone="signature">
-                <h3>
-                  <span class="post-signature"
-                        data-perk-name="{{guise.system.signaturePerk}}"
-                        data-perk-description="{{guise.system.signatureDescription}}">
-                    <i class="fa-solid fa-messages"></i>Signature Perk: {{guise.system.signaturePerk}}
-                  </span>
-                </h3>
-                <div class="move-content">
-                  {{{signatureHtml}}}
-                </div>
-
-                {{#if signatureTags.length}}
-                  <div class="tags-wrap">
-                    <div class="item-tags">
-                      {{#each signatureTags as |tagId|}}
-                        {{#with (lookup ../../CONFIG.MidnightGambit.ITEM_TAGS tagId) as |tag|}}
-                          <div class="item-tag tag" data-tag-id="{{tagId}}">
-                            <span data-tooltip="{{tag.description}}">
-                              {{tag.label}}
-                            </span>
-                          </div>
-                        {{else}}
-                          <div class="item-tag tag" data-tag-id="{{tagId}}">
-                            <span>{{tagId}}</span>
-                          </div>
-                        {{/with}}
-                      {{/each}}
-                    </div>
-
-                    <span class="tags-toggle" hidden>
-                      <i class="fa-solid fa-angle-down"></i>
+            {{#if guise}}
+              {{#each enrichedPrimarySignatureMoves}}
+                <div class="signature-perk" data-dropzone="signature">
+                  <h3>
+                    <span class="post-signature"
+                          data-perk-name="{{this.name}}"
+                          data-perk-description="{{this.description}}">
+                      <i class="fa-kit fa-signature-perk"></i></i>{{this.name}}
                     </span>
+                  </h3>
+                  <div class="move-content">
+                    {{{this.html}}}
                   </div>
-                {{/if}}              
-              </div>
-              
-              {{#if enrichedSecondarySignatureMoves.length}}
-                <div class="signature-secondary">
-                  {{#each enrichedSecondarySignatureMoves}}
-                    <div class="signature-perk" data-item-id="{{this._id}}">
+
+                  {{#if this.tags.length}}
+                    <div class="tags-wrap">
+                      <div class="item-tags">
+                        {{#each this.tags as |tagId|}}
+                          {{#with (lookup ../../CONFIG.MidnightGambit.ITEM_TAGS tagId) as |tag|}}
+                            <div class="item-tag tag" data-tag-id="{{tagId}}">
+                              <span data-tooltip="{{tag.description}}">
+                                {{tag.label}}
+                              </span>
+                            </div>
+                          {{else}}
+                            <div class="item-tag tag" data-tag-id="{{tagId}}">
+                              <span>{{tagId}}</span>
+                            </div>
+                          {{/with}}
+                        {{/each}}
+                      </div>
+
+                      <span class="tags-toggle" hidden>
+                        <i class="fa-solid fa-angle-down"></i>
+                      </span>
+                    </div>
+                  {{/if}}
+                </div>
+              {{/each}}
+            {{/if}}
+
+            {{#if (or enrichedSecondarySignatureMoves.length embeddedSignatureMoves.length)}}
+              <div class="signature-secondary">
+                {{#each enrichedSecondarySignatureMoves}}
+                  <div class="signature-perk" data-item-id="{{this._id}}">
                       <h3>
                         <span
                           class="post-signature"
                           data-perk-name="{{this.name}}"
                           data-perk-description="{{this.description}}"
                         >
-                          <i class="fa-solid fa-messages"></i>Signature Perk: {{this.name}}
+                          <i class="fa-kit fa-signature-perk"></i>{{this.name}}
                         </span>
                       </h3>
 
@@ -445,22 +448,74 @@
                             <i class="fa-solid fa-angle-down"></i>
                           </span>
                         </div>
-                      {{/if}}                     
-                    </div>
-                  {{/each}}
-                </div>
-              {{/if}}
-            </div>     
+                      {{/if}}
+                  </div>
+                {{/each}}
 
+                {{#each embeddedSignatureMoves}}
+                  <div class="signature-perk" data-item-id="{{this._id}}" draggable="true">
+                      <h3>
+                        <span
+                          class="post-signature"
+                          data-perk-name="{{this.name}}"
+                          data-perk-description="{{this.description}}"
+                        >
+                          <i class="fa-kit fa-signature-perk"></i>{{this.name}}
+                        </span>
+                      </h3>
+
+                      <div class="move-content">
+                        {{{this.html}}}
+                      </div>
+
+                      {{#if this.tags.length}}
+                        <div class="tags-wrap">
+                          <div class="item-tags">
+                            {{#each this.tags as |tagId|}}
+                              {{#with (lookup ../../CONFIG.MidnightGambit.ITEM_TAGS tagId) as |tag|}}
+                                <div class="item-tag tag" data-tag-id="{{tagId}}">
+                                  <span data-tooltip="{{tag.description}}">
+                                    {{tag.label}}
+                                  </span>
+                                </div>
+                              {{else}}
+                                <div class="item-tag tag" data-tag-id="{{tagId}}">
+                                  <span>{{tagId}}</span>
+                                </div>
+                              {{/with}}
+                            {{/each}}
+                          </div>
+
+                          <span class="tags-toggle" hidden>
+                            <i class="fa-solid fa-angle-down"></i>
+                          </span>
+                        </div>
+                      {{/if}}
+
+                      <div class="status-buttons">
+                        <button type="button" class="item-edit" data-item-id="{{this._id}}" title="Edit">
+                          <i class="fas fa-edit"></i>
+                        </button>
+                        <button type="button" class="item-delete" data-item-id="{{this._id}}" title="Delete">
+                          <i class="fas fa-trash"></i>
+                        </button>
+                      </div>
+                  </div>
+                {{/each}}
+              </div>
+            {{/if}}
+          </div>
+
+          {{#if guise}}
             <div class="basic-moves">
-              <h3 class="mg-content"><i class="fa-solid fa-hand-fist"></i> Basic Moves</h3>
+              <h3 class="mg-content"><i class="fa-kit fa-basic-move"></i>Basic Moves</h3>
               <div class="move-container">
                 {{#each enrichedMoves}}
                   <div class="move-block" data-move-index="{{@index}}">
                     <strong class="post-move"
                             data-move-name="{{this.name}}"
                             data-move-description="{{this.description}}">
-                      <i class="fa-solid fa-messages"></i>{{this.name}}
+                      <i class="fa-kit fa-basic-move"></i>{{this.name}}
                     </strong>
                     <div class="move-content">
                       {{{this.html}}}
@@ -498,7 +553,7 @@
                           <strong class="post-move"
                                   data-move-name="{{this.name}}"
                                   data-move-description="{{this.description}}">
-                            <i class="fa-solid fa-messages"></i>{{this.name}}
+                            <i class="fa-kit fa-basic-move"></i></i>{{this.name}}
                           </strong>
                           <div class="move-content">
                             {{{this.html}}}
@@ -538,7 +593,7 @@
         </div>
 
         <div class="moves-section">
-          <h3 class="mg-content"><i class="fa-solid fa-book"></i> Learned Moves</h3>
+          <h3 class="mg-content"><i class="fa-kit fa-learned-moves"></i> Learned Moves</h3>
           <div class="moves-grid" data-move-list>
             {{#each actor.items as |item|}}
               {{#if (and (eq item.type "move") item.system.learned (not item.system.isSignature))}}
@@ -549,7 +604,7 @@
                     data-move-name="{{item.name}}"
                     data-move-description="{{item.system.description}}"
                   >
-                    <i class="fa-solid fa-messages"></i>
+                    <i class="fa-kit fa-learned-moves"></i>
                     {{item.name}}
                   </span>
                 </header>

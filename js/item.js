@@ -3,6 +3,7 @@ import {
   normalizeGambitTier,
   normalizeGambitType,
   normalizeMoveSubtype,
+  normalizeMoveSubtypes,
   normalizeMoveType
 } from "../config.js";
 
@@ -42,8 +43,27 @@ export class MidnightGambitItem extends Item {
         break;
       }
       case "move": {
-        sys.moveType = normalizeMoveType(sys.moveType);
-        sys.moveSubtype = normalizeMoveSubtype(sys.moveSubtype);
+        if (typeof sys.teaser !== "string") sys.teaser = "";
+        if (sys.isSignature === true) {
+          sys.libraryEnabled = false;
+          sys.learned = false;
+          sys.moveType = "";
+          sys.moveSubtype = "";
+          sys.moveSubtypes = [];
+        } else {
+          sys.moveType = normalizeMoveType(sys.moveType);
+          const subtypes = normalizeMoveSubtypes(
+            Array.isArray(sys.moveSubtypes) && sys.moveSubtypes.length ? sys.moveSubtypes : sys.moveSubtype
+          );
+          sys.moveSubtypes = subtypes;
+          sys.moveSubtype = subtypes[0] ?? normalizeMoveSubtype(sys.moveSubtype);
+        }
+        break;
+      }
+      case "signaturePerk": {
+        sys.tags = Array.isArray(sys.tags) ? sys.tags : [];
+        sys.libraryEnabled = false;
+        sys.learned = false;
         break;
       }
       case "weapon":

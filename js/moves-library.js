@@ -4,6 +4,7 @@ import {
   MOVE_TYPE_LABELS,
   MOVE_TYPES,
   normalizeMoveSubtype,
+  normalizeMoveSubtypes,
   normalizeMoveType
 } from "../config.js";
 import { mgGetLibraryDocuments } from "./library-sources.js";
@@ -22,12 +23,31 @@ const MG_MOVE_TYPE_IMAGES = {
 
 function mgIncludesSearch(card, search) {
   if (!search) return true;
-  const haystack = `${card.name} ${card.description}`.toLowerCase();
-  return haystack.includes(search.toLowerCase());
+  const haystack = mgNormalizeLibrarySearchText(`${card.name} ${card.teaser} ${card.description}`);
+  const needle = mgNormalizeLibrarySearchText(search);
+  if (!needle.spaced) return true;
+  return haystack.spaced.includes(needle.spaced) || haystack.compact.includes(needle.compact);
 }
 
 function mgGetActorMoveLibraryKey(item) {
   return String(item?.getFlag?.("midnight-gambit", "libraryUuid") ?? "");
+}
+
+function mgNormalizeLibrarySearchText(value) {
+  const spaced = String(value ?? "")
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[‘’‚‛`´]/g, "'")
+    .replace(/[“”„‟]/g, "\"")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()
+    .replace(/\s+/g, " ");
+
+  return {
+    spaced,
+    compact: spaced.replace(/\s+/g, "")
+  };
 }
 
 function mgNormalizeMoveName(name) {
@@ -130,6 +150,57 @@ export class MovesLibraryApplication extends Application {
       const target = this.filters[group];
       if (!(target instanceof Set)) return;
       ev.currentTarget.checked ? target.add(value) : target.delete(value);
+      this._queueFilterRender(0);
+    });
+
+    html.find("[data-filter-type-toggle]").on("click", ev => {
+      ev.preventDefault();
+      const value = String(ev.currentTarget.dataset.filterTypeToggle ?? "");
+      if (!value) return;
+
+      const wasSelected = this.filters.types.has(value);
+      if (wasSelected) {
+        this.filters.types.clear();
+      } else {
+        this.filters.types = new Set([value]);
+      }
+
+      html.find("[data-filter-type-toggle]").each((_, el) => {
+        const selected = !wasSelected && String(el.dataset.filterTypeToggle ?? "") === value;
+        el.classList.toggle("is-on", selected);
+        el.classList.toggle("is-off", !selected);
+        el.setAttribute("aria-pressed", String(selected));
+      });
+
+      this._queueFilterRender(0);
+    });
+
+    html.find("[data-filter-toggle-button]").on("click", ev => {
+      ev.preventDefault();
+      const group = String(ev.currentTarget.dataset.filterToggleButton ?? "");
+      if (!Object.prototype.hasOwnProperty.call(this.filters, group)) return;
+
+      const selected = !Boolean(this.filters[group]);
+      this.filters[group] = selected;
+      ev.currentTarget.classList.toggle("is-on", selected);
+      ev.currentTarget.classList.toggle("is-off", !selected);
+      ev.currentTarget.setAttribute("aria-pressed", String(selected));
+
+      this._queueFilterRender(0);
+    });
+
+    html.find("[data-filter-subtype-pill]").on("click", ev => {
+      ev.preventDefault();
+      const value = String(ev.currentTarget.dataset.filterSubtypePill ?? "");
+      if (!value) return;
+
+      const selected = this.filters.subtypes.has(value);
+      if (selected) this.filters.subtypes.delete(value);
+      else this.filters.subtypes.add(value);
+
+      ev.currentTarget.classList.toggle("selected", !selected);
+      ev.currentTarget.setAttribute("aria-pressed", String(!selected));
+
       this._queueFilterRender(0);
     });
 
@@ -262,11 +333,11 @@ export class MovesLibraryApplication extends Application {
     this.selectedUuid = "";
 
     const library = this.element?.find?.(".mg-gambit-library");
-    library?.addClass("is-focus-closing");
+    library?.removeClass("is-focused is-focus-refresh")?.addClass("is-focus-closing");
+    library?.find?.(".mg-gambit-library-card.is-focused")?.removeClass("is-focused");
 
     this._focusCloseTimer = setTimeout(() => {
-      library?.removeClass("is-focused is-focus-closing is-focus-refresh");
-      library?.find?.(".mg-gambit-library-card.is-focused")?.removeClass("is-focused");
+      library?.removeClass("is-focus-closing");
       library?.find?.(".mg-gambit-library-focus-backdrop, .mg-gambit-library-focus")?.remove();
     }, this._prefersReducedMotion() ? 0 : 500);
   }
@@ -377,17 +448,26 @@ export class MovesLibraryApplication extends Application {
 
   _cardFromItem(item) {
     const moveType = normalizeMoveType(item.system?.moveType);
-    const moveSubtype = normalizeMoveSubtype(item.system?.moveSubtype);
+    const moveSubtypes = normalizeMoveSubtypes(
+      Array.isArray(item.system?.moveSubtypes) && item.system.moveSubtypes.length
+        ? item.system.moveSubtypes
+        : item.system?.moveSubtype
+    );
+    const moveSubtype = moveSubtypes[0] ?? normalizeMoveSubtype(item.system?.moveSubtype);
 
     return {
       uuid: item.uuid,
       item,
       name: item.name,
       description: String(item.system?.description ?? ""),
+      teaser: String(item.system?.teaser ?? "").trim(),
       moveType,
       moveSubtype,
+      moveSubtypes,
       typeLabel: MOVE_TYPE_LABELS[moveType] ?? "Unassigned",
-      subtypeLabel: MOVE_SUBTYPE_LABELS[moveSubtype] ?? "Unassigned",
+      subtypeLabel: moveSubtypes.length
+        ? moveSubtypes.map(subtype => MOVE_SUBTYPE_LABELS[subtype] ?? subtype).join(", ")
+        : "Unassigned",
       typeIcon: MG_MOVE_TYPE_IMAGES[moveType] ?? MG_MOVE_TYPE_IMAGES.utility
     };
   }
@@ -395,9 +475,9 @@ export class MovesLibraryApplication extends Application {
   _cardPassesFilters(card, learnedRefs = new Set()) {
     if (!mgIncludesSearch(card, this.filters.search)) return false;
     if (this.filters.learned && !learnedRefs.has(card.uuid)) return false;
-    if (this.filters.unassigned && card.moveType && card.moveSubtype) return false;
+    if (this.filters.unassigned && card.moveType && card.moveSubtypes?.length) return false;
     if (this.filters.types.size && !this.filters.types.has(card.moveType)) return false;
-    if (this.filters.subtypes.size && !this.filters.subtypes.has(card.moveSubtype)) return false;
+    if (this.filters.subtypes.size && !card.moveSubtypes?.some(subtype => this.filters.subtypes.has(subtype))) return false;
     return true;
   }
 

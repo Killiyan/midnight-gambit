@@ -566,12 +566,92 @@ async function mgCreateItem(folderId = null) {
 	if (!mgCanCreateItemDocuments()) return;
 
 	try {
-		if (typeof Item?.createDialog === "function") {
-			await Item.createDialog({ folder: folderId || null }, { folder: folderId || null });
-			return;
+		const itemTypes = [
+			["guise", "Guise"],
+			["weapon", "Weapon"],
+			["armor", "Armor"],
+			["misc", "Miscellaneous"],
+			["gambit", "Gambit"],
+			["move", "Move"],
+			["signaturePerk", "Signature Perk"],
+			["asset", "Asset"]
+		];
+
+		const result = await Dialog.wait({
+			title: "Create New Item",
+			content: `
+				<form class="mg-create-item-dialog">
+					<div class="form-group">
+						<label>Name</label>
+						<input type="text" name="name" value="New Item" autofocus />
+					</div>
+					<div class="form-group">
+						<label>Type</label>
+						<select name="type">
+							${itemTypes.map(([value, label]) => `<option value="${value}">${label}</option>`).join("")}
+						</select>
+					</div>
+				</form>
+			`,
+			buttons: {
+				create: {
+					icon: '<i class="fa-solid fa-check"></i>',
+					label: "Create Item",
+					callback: html => {
+						const name = String(html.find('[name="name"]').val() ?? "").trim();
+						const type = String(html.find('[name="type"]').val() ?? "misc");
+						if (!name) return null;
+						return { name, type };
+					}
+				},
+				cancel: {
+					icon: '<i class="fa-solid fa-xmark"></i>',
+					label: "Cancel",
+					callback: () => null
+				}
+			},
+			default: "create"
+		});
+
+		if (!result) return;
+
+		const itemData = {
+			name: result.name,
+			type: result.type,
+			folder: folderId || null
+		};
+
+		let item;
+		try {
+			item = await Item.create(itemData, { renderSheet: false });
+		} catch (createErr) {
+			const isSignatureTypeError =
+				result.type === "signaturePerk" &&
+				String(createErr?.message ?? "").includes("signaturePerk is not a valid choice");
+
+			if (!isSignatureTypeError) throw createErr;
+
+			item = await Item.create({
+				name: result.name,
+				type: "move",
+				folder: folderId || null,
+				system: {
+					description: "",
+					tags: [],
+					libraryEnabled: false,
+					learned: false,
+					moveType: "",
+					moveSubtype: "",
+					moveSubtypes: [],
+					npcMove: false,
+					npcSignature: false,
+					isSignature: true
+				}
+			}, { renderSheet: false });
+
+			ui.notifications?.warn("Created as a legacy Signature Perk Move. Restart Foundry to enable the new Signature Perk item type.");
 		}
 
-		const item = await Item.create({ name: "New Item", type: "misc", folder: folderId || null }, { renderSheet: false });
 		item?.sheet?.render(true, { focus: true });
 	} catch (err) {
 		ui.notifications?.error("Could not create item.");

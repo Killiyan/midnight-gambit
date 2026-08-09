@@ -21,6 +21,10 @@ export function mgCanToggleLibraryPack(pack) {
 	return mgIsItemLibraryPack(pack) && !mgIsBuiltinLibraryPack(pack);
 }
 
+export function mgCanShowLibraryPackAction(pack) {
+	return mgIsItemLibraryPack(pack);
+}
+
 export function mgGetLibraryCompendiumIds() {
 	const ids = game.settings.get("midnight-gambit", MG_LIBRARY_COMPENDIUM_SETTING) || [];
 	return Array.isArray(ids) ? ids.map(String).filter(Boolean) : [];
@@ -49,11 +53,22 @@ export async function mgSetCompendiumLibraryItems(pack, enabled = true) {
 	const docs = await pack.getDocuments();
 	const libraryDocs = docs.filter(item => ["move", "gambit"].includes(item?.type));
 	let updated = 0;
+	const updates = [];
 
 	for (const item of libraryDocs) {
 		if (item.system?.libraryEnabled === enabled) continue;
-		await item.update({ "system.libraryEnabled": enabled });
+		updates.push({ _id: item.id, "system.libraryEnabled": enabled });
 		updated += 1;
+	}
+
+	if (updates.length) {
+		const wasLocked = pack.locked;
+		try {
+			if (wasLocked) await pack.configure({ locked: false });
+			await Item.updateDocuments(updates, { pack: mgGetPackId(pack) });
+		} finally {
+			if (wasLocked) await pack.configure({ locked: true });
+		}
 	}
 
 	return updated;
@@ -79,7 +94,7 @@ function mgIsLooseLibraryItem(item, kind) {
 
 function mgIsPackLibraryItem(item, kind, pack) {
 	if (!item || item.type !== kind) return false;
-	if (mgIsBuiltinLibraryPack(pack)) return item.system?.libraryEnabled !== false;
+	if (mgIsBuiltinLibraryPack(pack)) return true;
 	return item.system?.libraryEnabled === true;
 }
 

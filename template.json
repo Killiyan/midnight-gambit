@@ -72,7 +72,24 @@
 	},
 
 	"Item": {
-		"types": ["guise", "weapon", "armor", "misc", "gambit", "move", "asset"],
+		"types": ["guise", "weapon", "armor", "misc", "gambit", "move", "signaturePerk", "asset"],
+		"guise": {
+			"system": {
+				"description": "",
+				"mortalCap": 0,
+				"soulCap": 0,
+				"sparkSlots": 0,
+				"riskDice": 5,
+				"casterType": "none",
+				"sparkAttribute": "guile",
+				"modifiers": {},
+				"signaturePerks": [],
+				"signaturePerk": "",
+				"signatureDescription": "",
+				"signatureTags": [],
+				"moves": []
+			}
+		},
 		"weapon": {
 			"system": {
 				"description": "",
@@ -121,14 +138,22 @@
 		"move": {
 			"system": {
 				"description": "",
+				"teaser": "",
 				"tags": [],
 				"moveType": "",
 				"moveSubtype": "",
+				"moveSubtypes": [],
 				"libraryEnabled": false,
 				"learned": false,
 				"npcMove": false,
 				"npcSignature": false,
 				"isSignature": false
+			}
+		},
+		"signaturePerk": {
+			"system": {
+				"description": "",
+				"tags": []
 			}
 		},
 		"asset": {

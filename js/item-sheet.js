@@ -7,6 +7,7 @@ import {
 	normalizeGambitTier,
 	normalizeGambitType,
 	normalizeMoveSubtype,
+	normalizeMoveSubtypes,
 	normalizeMoveType
 } from "../config.js";
 
@@ -52,7 +53,7 @@ export class MidnightGambitItemSheet extends ItemSheet {
 		const canPromote =
 			this.item?.isEmbedded &&
 			this.item?.parent?.documentName === "Actor" &&
-			["weapon", "armor", "misc", "gambit", "asset"].includes(this.item.type);
+			["weapon", "armor", "misc", "gambit", "signaturePerk", "asset"].includes(this.item.type);
 
 		if (canPromote) {
 			buttons.unshift({
@@ -153,12 +154,35 @@ export class MidnightGambitItemSheet extends ItemSheet {
 		}
 
 		if (this.item?.type === "move") {
+			formData["system.teaser"] = String(
+				formData["system.teaser"] ?? this.item.system?.teaser ?? ""
+			).trim();
+			const isSignature = this.item.system?.isSignature === true || formData["system.isSignature"] === true;
+			if (isSignature) {
+				formData["system.isSignature"] = true;
+				formData["system.libraryEnabled"] = false;
+				formData["system.moveType"] = "";
+				formData["system.moveSubtype"] = "";
+				formData["system.moveSubtypes"] = [];
+				formData["system.learned"] = false;
+			}
 			formData["system.moveType"] = normalizeMoveType(
 				formData["system.moveType"] ?? this.item.system?.moveType
 			);
-			formData["system.moveSubtype"] = normalizeMoveSubtype(
-				formData["system.moveSubtype"] ?? this.item.system?.moveSubtype
+			const moveSubtypes = normalizeMoveSubtypes(
+				formData["system.moveSubtypesCsv"] ??
+				formData["system.moveSubtypes"] ??
+				this.item.system?.moveSubtypes ??
+				this.item.system?.moveSubtype
 			);
+			formData["system.moveSubtypes"] = moveSubtypes;
+			formData["system.moveSubtype"] = moveSubtypes[0] ?? "";
+			delete formData["system.moveSubtypesCsv"];
+		}
+
+		if (this.item?.type === "signaturePerk") {
+			formData["system.libraryEnabled"] = false;
+			formData["system.learned"] = false;
 		}
 
 		// Asset tag CSV conversion
@@ -269,7 +293,8 @@ export class MidnightGambitItemSheet extends ItemSheet {
 		context.item = this.item;
 		context.system = this.item.system ?? {};
 		context.itemType = this.item.type;
-		context.libraryEligible = ["move", "gambit"].includes(this.item.type) && !this.item.parent;
+		context.isSignatureMove = this.item.type === "signaturePerk" || (this.item.type === "move" && this.item.system?.isSignature === true);
+		context.libraryEligible = ["move", "gambit"].includes(this.item.type) && !this.item.parent && !context.isSignatureMove;
 		context.itemDisplayImg = mgGetItemSheetImage(this.item);
 		context.gambitTiers = GAMBIT_TIERS;
 		context.gambitTypes = GAMBIT_TYPES;
@@ -284,7 +309,14 @@ export class MidnightGambitItemSheet extends ItemSheet {
 		}
 		if (this.item.type === "move") {
 			context.system.moveType = normalizeMoveType(context.system.moveType);
-			context.system.moveSubtype = normalizeMoveSubtype(context.system.moveSubtype);
+			context.system.moveSubtypes = normalizeMoveSubtypes(
+				Array.isArray(context.system.moveSubtypes) && context.system.moveSubtypes.length
+					? context.system.moveSubtypes
+					: context.system.moveSubtype
+			);
+			context.system.moveSubtype = context.system.moveSubtypes[0] ?? normalizeMoveSubtype(context.system.moveSubtype);
+			context.system.moveSubtypesCsv = context.system.moveSubtypes.join(",");
+			context.moveSubtypeSelected = Object.fromEntries(context.system.moveSubtypes.map(id => [id, true]));
 		}
 		
 		context.owner = this.item.isOwner;
@@ -410,6 +442,40 @@ export class MidnightGambitItemSheet extends ItemSheet {
 			this.render(false);
 		});
 
+		html.off("click.mgMoveSubtype", ".move-subtype-pill").on("click.mgMoveSubtype", ".move-subtype-pill", async (ev) => {
+			ev.preventDefault();
+			ev.stopPropagation();
+
+			const pill = ev.currentTarget;
+			const subtypeId = pill.dataset.subtypeId;
+			if (!subtypeId) return;
+
+			const current = normalizeMoveSubtypes(
+				Array.isArray(this.item.system?.moveSubtypes) && this.item.system.moveSubtypes.length
+					? this.item.system.moveSubtypes
+					: this.item.system?.moveSubtype
+			);
+			const set = new Set(current);
+			if (set.has(subtypeId)) set.delete(subtypeId);
+			else set.add(subtypeId);
+
+			const next = normalizeMoveSubtypes(Array.from(set));
+			await this.item.update({
+				"system.moveSubtypes": next,
+				"system.moveSubtype": next[0] ?? ""
+			}, { render: false });
+
+			const selector = pill.closest("[data-move-subtype-selector]");
+			selector?.querySelectorAll(".move-subtype-pill").forEach(el => {
+				const on = next.includes(el.dataset.subtypeId);
+				el.classList.toggle("selected", on);
+				el.classList.toggle("active", on);
+			});
+
+			const hidden = selector?.querySelector?.("input[name='system.moveSubtypesCsv']");
+			if (hidden) hidden.value = next.join(",");
+		});
+
 		// Toggle tag on the item without re-rendering, and live-update both the
 		// top tag buttons and the bottom “selected tags” row.
 		html.off("click.mgTag", ".tag-pill").on("click.mgTag", ".tag-pill", async (ev) => {
@@ -417,6 +483,7 @@ export class MidnightGambitItemSheet extends ItemSheet {
 		ev.stopPropagation();
 
 		const pill  = ev.currentTarget;
+		if (pill.closest("[data-move-subtype-selector]")) return;
 		const tagId = pill.dataset.tagId;
 		if (!tagId) return;
 

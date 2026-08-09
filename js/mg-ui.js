@@ -1967,6 +1967,76 @@ function mgRenderLeftSidebarContent(tabId) {
 	}
 }
 
+function mgGetGlobalConstructor(paths) {
+	for (const path of paths) {
+		const ctor = path.split(".").reduce((value, key) => value?.[key], globalThis);
+		if (typeof ctor === "function") return ctor;
+	}
+	return null;
+}
+
+function mgClickNativeSettingsButton(labels = [], actions = [], fallbackName = "that settings panel") {
+	const settings = ui?.settings;
+	const sidebar = ui?.sidebar;
+
+	sidebar?.activateTab?.("settings");
+	settings?.render?.(true);
+
+	const normalizedLabels = labels.map(label => String(label).toLowerCase());
+	const normalizedActions = actions.map(action => String(action).toLowerCase());
+
+	window.setTimeout(() => {
+		const settingsRoot = settings?.element?.[0] ?? document.getElementById("settings");
+		if (!settingsRoot) return;
+
+		const buttons = Array.from(settingsRoot.querySelectorAll("button, a"));
+		const button = buttons.find(el => {
+			const text = String(el.textContent ?? "").trim().toLowerCase();
+			const title = String(el.getAttribute("title") ?? "").trim().toLowerCase();
+			const action = String(el.dataset.action ?? el.dataset.settingsAction ?? "").trim().toLowerCase();
+			return normalizedLabels.some(label => text.includes(label) || title.includes(label))
+				|| normalizedActions.includes(action);
+		});
+
+		if (!button) {
+			ui.notifications?.warn(`Could not find ${fallbackName} in Foundry Settings.`);
+			return;
+		}
+
+		button.click();
+	}, 50);
+}
+
+function mgOpenUserManagement() {
+	const App = mgGetGlobalConstructor([
+		"UserManagement",
+		"foundry.applications.settings.UserManagement",
+		"foundry.applications.apps.UserManagement"
+	]);
+
+	if (App) {
+		new App().render(true);
+		return;
+	}
+
+	mgClickNativeSettingsButton(["User Management", "Manage Users"], ["users", "user-management"], "User Management");
+}
+
+function mgOpenInvitationLinks() {
+	const App = mgGetGlobalConstructor([
+		"InvitationLinks",
+		"foundry.applications.settings.InvitationLinks",
+		"foundry.applications.apps.InvitationLinks"
+	]);
+
+	if (App) {
+		new App().render(true);
+		return;
+	}
+
+	mgClickNativeSettingsButton(["Invitation Links", "Invite Players"], ["invitation-links", "invitations", "invite"], "Invitation Links");
+}
+
 function mgBindLeftSidebarContent(root, tabId) {
 	if (tabId === "players") {
 		mgDockFoundryPlayersBox(root);
@@ -2093,7 +2163,7 @@ function mgBindLeftSidebarContent(root, tabId) {
 
 	root.querySelector("[data-mg-settings-users]")?.addEventListener("click", () => {
 		try {
-			new UserManagement().render(true);
+			mgOpenUserManagement();
 		} catch (err) {
 			ui.notifications?.warn("Could not open User Management.");
 			console.warn("MG UI | User Management failed.", err);
@@ -2102,7 +2172,7 @@ function mgBindLeftSidebarContent(root, tabId) {
 
 	root.querySelector("[data-mg-settings-invites]")?.addEventListener("click", () => {
 		try {
-			new InvitationLinks().render(true);
+			mgOpenInvitationLinks();
 		} catch (err) {
 			ui.notifications?.warn("Could not open Invitation Links.");
 			console.warn("MG UI | Invitation Links failed.", err);
@@ -3490,13 +3560,58 @@ async function mgHandleStrainDot(actor, type, clicked) {
 	mgRefreshLeftSidebarContent();
 }
 
+function mgGetActorMaxStrainCapacity(actor, type) {
+	const cached = Number(actor?.system?.strain?.maxCapacity?.[type] ?? NaN);
+	const base = Number(actor?.system?.baseStrainCapacity?.[type] ?? 0) || 0;
+	const temp = Number(actor?.system?.strain?.tempBonus?.[type] ?? 0) || 0;
+	const gear = Array.from(actor?.items ?? []).filter(item =>
+		["armor", "misc"].includes(item.type) &&
+		item.system?.equipped &&
+		item.system?.capacityApplied
+	);
+	const gearSum = gear.reduce((sum, item) => sum + (Number(item.system?.remainingCapacity?.[type] ?? 0) || 0), 0);
+	const derived = Math.max(0, base + temp + gearSum);
+
+	return Number.isFinite(cached) ? Math.max(0, cached, derived) : derived;
+}
+
+function mgGetActorCurrentStrainCapacity(actor, type) {
+	const capKey = `${type} capacity`;
+	const raw = actor?.system?.strain?.[capKey];
+	const value = Number(raw);
+	if (raw !== undefined && raw !== null && raw !== "" && Number.isFinite(value)) return Math.max(0, value);
+	return mgGetActorMaxStrainCapacity(actor, type);
+}
+
+async function mgPrimeActorStrainCapacity(actor, type) {
+	const capKey = `${type} capacity`;
+	const updates = {};
+	const max = mgGetActorMaxStrainCapacity(actor, type);
+	const rawCap = actor?.system?.strain?.[capKey];
+	const rawMax = actor?.system?.strain?.maxCapacity?.[type];
+
+	if (rawCap === undefined || rawCap === null || rawCap === "" || !Number.isFinite(Number(rawCap))) {
+		updates[`system.strain.${capKey}`] = max;
+		updates[`system.strain.manualOverride.${capKey}`] = true;
+	}
+
+	if (rawMax === undefined || rawMax === null || rawMax === "" || !Number.isFinite(Number(rawMax))) {
+		updates[`system.strain.maxCapacity.${type}`] = max;
+	}
+
+	if (!Object.keys(updates).length) return;
+	await actor.update(updates, { render: false });
+}
+
 async function mgHandleCapacityTick(actor, type, dir) {
 	if (!actor || !type || !dir) return;
+	if (!["mortal", "soul"].includes(type)) return;
+	await mgPrimeActorStrainCapacity(actor, type);
 
 	const capKey = `${type} capacity`;
-	const current = Number(actor.system?.strain?.[capKey] ?? 0) || 0;
+	const current = mgGetActorCurrentStrainCapacity(actor, type);
 	const track = Number(actor.system?.strain?.[type] ?? 0) || 0;
-	const max = Number(actor.system?.strain?.maxCapacity?.[type] ?? current) || current;
+	const max = mgGetActorMaxStrainCapacity(actor, type);
 	const updates = {};
 
 	if (dir < 0) {
@@ -3514,6 +3629,10 @@ async function mgHandleCapacityTick(actor, type, dir) {
 		updates[`system.strain.${capKey}`] = Math.min(max, current + 1);
 	}
 
+	if (Object.prototype.hasOwnProperty.call(updates, `system.strain.${capKey}`)) {
+		updates[`system.strain.manualOverride.${capKey}`] = true;
+	}
+
 	await actor.update(updates, { render: false });
 	mgRefreshLeftSidebarContent();
 }
@@ -3522,8 +3641,8 @@ async function mgSetExactCapacity(actor, type) {
 	if (!actor || !["mortal", "soul"].includes(type)) return;
 
 	const capKey = `${type} capacity`;
-	const currentCap = Number(actor.system?.strain?.[capKey] ?? 0);
-	const currentMax = Number(actor.system?.strain?.maxCapacity?.[type] ?? currentCap);
+	const currentCap = mgGetActorCurrentStrainCapacity(actor, type);
+	const currentMax = mgGetActorMaxStrainCapacity(actor, type);
 	const label = type === "mortal" ? "Mortal Capacity" : "Soul Capacity";
 	const sheet = actor.sheet;
 
@@ -3665,8 +3784,8 @@ function mgRenderCharacterSidebar(actor) {
 	const guiseName = mgResolveGuiseName(actor);
 	const crewName = mgResolveCrewName(actor);
 	const strain = actor.system?.strain ?? {};
-	const mortalCap = Number(strain["mortal capacity"] ?? 0) || 0;
-	const soulCap = Number(strain["soul capacity"] ?? 0) || 0;
+	const mortalCap = mgGetActorCurrentStrainCapacity(actor, "mortal");
+	const soulCap = mgGetActorCurrentStrainCapacity(actor, "soul");
 	const mortalTrack = Number(strain.mortal ?? 0) || 0;
 	const soulTrack = Number(strain.soul ?? 0) || 0;
 	const riskDice = Number(actor.system?.riskDice ?? 5) || 0;
@@ -5790,6 +5909,7 @@ Hooks.on("updateActor", (actor, changed) => {
 function mgNormalizeFolderColorConfig(html) {
 	const root = html?.jquery ? html[0] : html?.[0] ?? html;
 	if (!root?.querySelectorAll) return;
+	const defaultFolderColor = "#85a5d5";
 
 	const colorInput = root.querySelector('input[name="color"]');
 	if (!colorInput || colorInput.dataset.mgFolderColorNormalized === "true") return;
@@ -5813,7 +5933,10 @@ function mgNormalizeFolderColorConfig(html) {
 		if (!colorPicker) return;
 		const normalized = normalizeHex(colorInput.value);
 		if (normalized) colorPicker.value = normalized;
-		else if (final && !String(colorInput.value ?? "").trim()) colorPicker.value = "#000000";
+		else if (final && !String(colorInput.value ?? "").trim()) {
+			colorInput.value = defaultFolderColor;
+			colorPicker.value = defaultFolderColor;
+		}
 	};
 	const syncTextFromPicker = () => {
 		const normalized = normalizeHex(colorPicker?.value);
@@ -5822,16 +5945,19 @@ function mgNormalizeFolderColorConfig(html) {
 
 	colorInput.dataset.mgFolderColorNormalized = "true";
 	colorInput.type = "text";
-	colorInput.placeholder = "#4173BE";
+	colorInput.placeholder = defaultFolderColor;
 	colorInput.maxLength = 7;
 	colorInput.pattern = "^#?[0-9a-fA-F]{3}([0-9a-fA-F]{3})?$";
-	colorInput.title = "Hex color, for example #4173BE";
+	colorInput.title = `Hex color, for example ${defaultFolderColor}`;
 	colorInput.autocomplete = "off";
 	colorInput.spellcheck = false;
 
 	const initial = normalizeHex(colorInput.value);
-	if (initial) colorInput.value = initial;
-	else if (colorPicker) syncTextFromPicker();
+	if (initial && initial !== "#000000") colorInput.value = initial;
+	else {
+		colorInput.value = defaultFolderColor;
+		if (colorPicker) colorPicker.value = defaultFolderColor;
+	}
 
 	colorInput.addEventListener("input", () => {
 		const clean = cleanPartialHex(colorInput.value);
@@ -5847,11 +5973,11 @@ function mgNormalizeFolderColorConfig(html) {
 		const normalized = normalizeHex(colorInput.value);
 		if (normalized === null) {
 			event.preventDefault();
-			ui.notifications?.warn("Use a hex folder color like #4173BE.");
+			ui.notifications?.warn(`Use a hex folder color like ${defaultFolderColor}.`);
 			colorInput.focus();
 			return;
 		}
-		colorInput.value = normalized;
+		colorInput.value = normalized || defaultFolderColor;
 	}, { capture: true });
 
 	if (colorPicker) {

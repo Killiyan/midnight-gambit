@@ -34,12 +34,16 @@
     "minimum": "11",
     "verified": "11"
   },
+  "documentTypes": {
+    "Actor": ["character", "npc", "crew"],
+    "Item": ["guise", "weapon", "armor", "misc", "gambit", "move", "signaturePerk", "asset"]
+  },
   "system": {
     "gridDistance": 5,
     "gridUnits": "ft",
     "primaryTokenAttribute": "strain.mortal",
-    "actorTypes": ["character"],
-    "itemTypes": ["guise", "weapon", "armor", "misc", "gambit", "asset"]
+    "actorTypes": ["character", "npc", "crew"],
+    "itemTypes": ["guise", "weapon", "armor", "misc", "gambit", "move", "signaturePerk", "asset"]
   },
   "config": {
     "actorTypes": {
@@ -56,6 +60,7 @@
       "armor": { "label": "Armor" },
       "misc": { "label": "Misc" },
       "move": { "label": "Move" },
+      "signaturePerk": { "label": "Signature Perk" },
       "asset":  { "label": "Asset" }
     }
   },

@@ -19,11 +19,165 @@ import { MidnightGambitNpcSheet } from "./npc-sheet.js";
 const MG_HUD_CLASS = "mg-hud-enabled";
 
 const MG_HUD_TRANSITION_MS = 1000;
+const MG_DEFAULT_AUDIO_INPUT = 0.5;
+const MG_CORE_AUDIO_VOLUME_KEYS = [
+  "globalPlaylistVolume",
+  "globalAmbientVolume",
+  "globalInterfaceVolume"
+];
+const MG_SKIRMISH_SUBTYPE_MIGRATION_VERSION = 1;
 
 let mgHudTransitionTimer = null;
 let mgHudChordLatched = false;
 const mgHudChordKeys = new Set();
 const mgHudChordPressedAt = new Map();
+
+function mgInputToVolume(value) {
+  if (globalThis.AudioHelper?.inputToVolume) return AudioHelper.inputToVolume(value);
+  return Math.pow(Number(value) || 0, 1.5);
+}
+
+function mgHasSavedClientSetting(namespace, key) {
+  const settingKey = `${namespace}.${key}`;
+
+  try {
+    const storage = game.settings?.storage?.get?.("client");
+    const raw = storage?.getItem?.(settingKey);
+    if (raw !== null && raw !== undefined) return true;
+  } catch (_) {}
+
+  try {
+    return localStorage.getItem(settingKey) !== null;
+  } catch (_) {
+    return false;
+  }
+}
+
+async function mgEnsureDefaultAudioVolumes() {
+  const defaultVolume = mgInputToVolume(MG_DEFAULT_AUDIO_INPUT);
+
+  for (const key of MG_CORE_AUDIO_VOLUME_KEYS) {
+    if (mgHasSavedClientSetting("core", key)) continue;
+    try {
+      await game.settings.set("core", key, defaultVolume);
+    } catch (err) {
+      console.warn(`MG | Could not set default ${key}.`, err);
+    }
+  }
+}
+
+function mgNormalizeSkirmishSubtypeValue(value) {
+  return String(value ?? "").trim() === "combat" ? "skirmish" : String(value ?? "").trim();
+}
+
+function mgGetSkirmishSubtypeMigrationUpdate(item) {
+  if (!item || item.type !== "move") return null;
+
+  const system = item.system ?? {};
+  const update = {};
+  const subtype = String(system.moveSubtype ?? "").trim();
+  const rawSubtypes = Array.isArray(system.moveSubtypes) ? system.moveSubtypes : [];
+  const nextSubtypes = [];
+  let changed = false;
+
+  for (const entry of rawSubtypes) {
+    const normalized = mgNormalizeSkirmishSubtypeValue(entry);
+    if (!normalized) continue;
+    if (normalized !== String(entry ?? "").trim()) changed = true;
+    if (!nextSubtypes.includes(normalized)) nextSubtypes.push(normalized);
+  }
+
+  if (subtype === "combat") {
+    update["system.moveSubtype"] = "skirmish";
+    if (!rawSubtypes.length) update["system.moveSubtypes"] = ["skirmish"];
+  }
+
+  if (rawSubtypes.length && changed) {
+    update["system.moveSubtypes"] = nextSubtypes;
+    if (!update["system.moveSubtype"] && (!subtype || !nextSubtypes.includes(subtype))) {
+      update["system.moveSubtype"] = nextSubtypes[0] ?? "";
+    }
+  }
+
+  return Object.keys(update).length ? update : null;
+}
+
+async function mgRunSkirmishSubtypeMigration() {
+  if (!game.user?.isGM) return;
+
+  const current = Number(game.settings.get("midnight-gambit", "skirmishSubtypeMigrationVersion") ?? 0);
+  if (current >= MG_SKIRMISH_SUBTYPE_MIGRATION_VERSION) return;
+
+  let worldItems = 0;
+  let actorItems = 0;
+  let compendiumItems = 0;
+
+  for (const item of game.items ?? []) {
+    const update = mgGetSkirmishSubtypeMigrationUpdate(item);
+    if (!update) continue;
+    await item.update(update);
+    worldItems++;
+  }
+
+  for (const actor of game.actors ?? []) {
+    const updates = [];
+    for (const item of actor.items ?? []) {
+      const update = mgGetSkirmishSubtypeMigrationUpdate(item);
+      if (!update) continue;
+      updates.push({ _id: item.id, ...update });
+    }
+    if (!updates.length) continue;
+    await actor.updateEmbeddedDocuments("Item", updates);
+    actorItems += updates.length;
+  }
+
+  for (const pack of game.packs ?? []) {
+    if (pack.metadata?.type !== "Item") continue;
+    if (pack.metadata?.system && pack.metadata.system !== "midnight-gambit") continue;
+
+    const wasLocked = pack.locked;
+    try {
+      if (wasLocked) await pack.configure({ locked: false });
+      const docs = await pack.getDocuments();
+      const updates = docs
+        .map(item => {
+          const update = mgGetSkirmishSubtypeMigrationUpdate(item);
+          return update ? { _id: item.id, ...update } : null;
+        })
+        .filter(Boolean);
+
+      if (updates.length) {
+        await Item.updateDocuments(updates, { pack: pack.collection });
+        compendiumItems += updates.length;
+      }
+    } catch (err) {
+      console.warn(`MG | Could not migrate Move subtypes in compendium ${pack.collection}.`, err);
+    } finally {
+      if (wasLocked) {
+        try {
+          await pack.configure({ locked: true });
+        } catch (err) {
+          console.warn(`MG | Could not re-lock compendium ${pack.collection}.`, err);
+        }
+      }
+    }
+  }
+
+  await game.settings.set(
+    "midnight-gambit",
+    "skirmishSubtypeMigrationVersion",
+    MG_SKIRMISH_SUBTYPE_MIGRATION_VERSION
+  );
+
+  const total = worldItems + actorItems + compendiumItems;
+  if (total) {
+    console.log(`MG | Migrated ${total} Move subtype value(s) from combat to skirmish.`, {
+      worldItems,
+      actorItems,
+      compendiumItems
+    });
+  }
+}
 
 function mgIsEditableKeyTarget(target) {
 	if (!target) return false;
@@ -174,12 +328,39 @@ async function mgToggleHudMode() {
   await mgSetHudMode(!current);
 }
 
+function mgEnsureSignaturePerkItemType() {
+  const type = "signaturePerk";
+  const label = "TYPES.Item.signaturePerk";
+
+  const pushType = (list) => {
+    if (!Array.isArray(list) || list.includes(type)) return;
+    list.push(type);
+  };
+
+  pushType(game.system?.template?.Item?.types);
+  pushType(game.system?.documentTypes?.Item);
+  pushType(CONFIG.Item?.documentTypes);
+
+  if (game.system?.template?.Item && !game.system.template.Item[type]) {
+    game.system.template.Item[type] = {
+      system: {
+        description: "",
+        tags: []
+      }
+    };
+  }
+
+  CONFIG.Item.typeLabels ??= {};
+  CONFIG.Item.typeLabels[type] = label;
+}
+
 
 
 // Initializing my custom actor and pointing to its HTML structure
 //Also initiating Item sheet
 Hooks.once("init", async () => {
   console.log("Midnight Gambit | Initializing System");
+  mgEnsureSignaturePerkItemType();
 
   // Register custom document classes
   CONFIG.Actor.documentClass = MidnightGambitActor;
@@ -252,6 +433,14 @@ Hooks.once("init", async () => {
     default: []
   });
 
+  game.settings.register("midnight-gambit", "skirmishSubtypeMigrationVersion", {
+    name: "Skirmish Subtype Migration Version",
+    scope: "world",
+    config: false,
+    type: Number,
+    default: 0
+  });
+
   /* MG HUD Mode Toggle
   ----------------------------------------------------------------------*/
   game.settings.register("midnight-gambit", "mgHudEnabled", {
@@ -279,7 +468,7 @@ Hooks.once("init", async () => {
   // Register Item Sheets
   Items.unregisterSheet("core", ItemSheet);
   Items.registerSheet("midnight-gambit", MidnightGambitItemSheet, {
-    types: ["weapon", "armor", "misc", "gambit", "move", "asset"],
+    types: ["weapon", "armor", "misc", "gambit", "move", "signaturePerk", "asset"],
     makeDefault: true
   });
 
@@ -522,6 +711,8 @@ Hooks.once("ready", () => {
 	const enabled = game.settings.get("midnight-gambit", "mgHudEnabled");
 	mgApplyHudMode(enabled);
 	mgBindHudChordToggle();
+	void mgEnsureDefaultAudioVolumes();
+	void mgRunSkirmishSubtypeMigration();
 
 	game.mgUi?.refreshLogo?.();
 

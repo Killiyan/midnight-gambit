@@ -1,6 +1,7 @@
 const MG_UI_NS = "midnight-gambit";
 const MG_PLAYLIST_USER_ORDER_FLAG = "playlistSidebarOrder";
 const MG_PLAYLIST_IMAGE_FLAG = "sidebarImage";
+const MG_DEFAULT_AUDIO_INPUT = 0.5;
 
 function mgShared() {
 	return globalThis.MGSidebarShared ?? {};
@@ -65,7 +66,11 @@ function mgVolumePercent(value) {
 	return Math.round(mgVolumeToInput(value) * 100);
 }
 
-function mgGetSetting(key, fallback = 1) {
+function mgGetDefaultAudioVolume() {
+	return mgInputToVolume(MG_DEFAULT_AUDIO_INPUT);
+}
+
+function mgGetSetting(key, fallback = mgGetDefaultAudioVolume()) {
 	try {
 		return game.settings?.get?.("core", key) ?? fallback;
 	} catch (_) {
@@ -1172,7 +1177,7 @@ function mgRenderVolumeControls() {
 				<span><i class="fa-solid fa-volume-high"></i> Volume</span>
 			</header>
 			${controls.map(([key, label, icon]) => {
-				const volume = mgGetSetting(key, 1);
+				const volume = mgGetSetting(key);
 				return `
 					<label class="mg-playlist-volume-row">
 						<span><i class="${icon}"></i>${label}</span>

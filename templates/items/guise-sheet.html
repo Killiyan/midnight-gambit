@@ -13,7 +13,7 @@
   <div class="sheet-body">
 
     <div class="desription-group mg-content">
-      <label class="title-label">Description</label>
+      <label class="title-label"><i class="fa-solid fa-scroll"></i>Description</label>
       {{editor
         system.description
         target="system.description"
@@ -26,7 +26,7 @@
 
     <div class="guise-strain mg-content">
 
-      <label class="title-label">Strain and Resurces</label>
+      <label class="title-label"><i class="fa-kit fa-risk"></i>Strain and Resources</label>
 
       <div class="guise-capacity">
         <label>Mortal Strain Cap</label>
@@ -50,7 +50,7 @@
     </div>
 
     <div class="guise-caster mg-content">
-      <label class="title-label">Spark</label>
+      <label class="title-label"><i class="fa-kit fa-spark"></i>Spark</label>
 
       <div class="guise-resource">
         <label for="casterType">Caster Type</label>
@@ -75,7 +75,7 @@
 
 
     <div class="attribute-modifiers mg-content">
-      <label class="title-label">Attribute Modifiers</label>
+      <label class="title-label"><i class="fa-solid fa-bicep"></i>Attribute Modifiers</label>
       <div class="grid">
         {{#each attributeKeys}}
           <div class="attr-row">
@@ -86,65 +86,64 @@
       </div>
     </div>
 
-    <!--This is rendering the Guise Signature Perk-->
+    <!--This is rendering the Guise Signature Perks-->
     <div class="guise-moves mg-content">
+      <label class="title-label"><i class="fa-kit fa-signature-perk"></i>Signature Perks</label>
 
-      <div class="guise-signature">
-        <label class="title-label">Signature Perk</label>
-        <input type="text" name="system.signaturePerk" value="{{system.signaturePerk}}" />
+      {{#each system.signaturePerks as |signature idx|}}
+        <div class="guise-signature move-block" data-index="{{idx}}">
+          <label>Signature Perk Name</label>
+          <input type="text"
+            name="system.signaturePerks.{{@index}}.name"
+            value="{{this.name}}" />
 
-        <div class="desription-group">
           <label>Signature Description</label>
-          {{editor
-            system.signatureDescription
-            target="system.signatureDescription"
-            engine="tinymce"
-            owner=owner
-            editable=editable
-            button=false
-          }}
-        </div>
+          <textarea name="system.signaturePerks.{{@index}}.description" class="mg-rich signature-description">{{this.description}}</textarea>
 
-        {{!-- SIGNATURE TAGS --}}
+          <div class="wrapper mg-content">
+            <label>Signature Tags</label>
 
-        <div class="wrapper mg-content">
-          <label>Signature Tags</label>
-
-          <input type="hidden" name="system.moves.{{idx}}.tagsCsv" value="{{this.tagsCsv}}" data-tags-csv="moves.{{idx}}.tags">
-          <div class="tag-selector" data-tags-target="signatureTags">
-            {{#each tags}}
-              <div class="tag-container">
-                <button
-                  type="button"
-                  class="tag-pill {{#if (lookup ../signatureTagSelected this.id)}}selected{{/if}}"
-                  data-tag-id="{{this.id}}"
-                  title="{{this.description}}"
-                >
-                  {{this.label}}
-                </button>
-
-                {{#if this.isCustom}}
+            <input type="hidden" name="system.signaturePerks.{{idx}}.tagsCsv" value="{{this.tagsCsv}}" data-tags-csv="signaturePerks.{{idx}}.tags">
+            <div class="tag-selector" data-tags-target="signaturePerks.{{idx}}.tags">
+              {{#each ../tags}}
+                <div class="tag-container">
                   <button
                     type="button"
-                    class="delete-custom-tag"
+                    class="tag-pill {{#if (lookup (lookup ../../signaturePerkTagSelected idx) this.id)}}selected{{/if}}"
                     data-tag-id="{{this.id}}"
-                    title="Delete custom tag globally"
+                    title="{{this.description}}"
                   >
-                    <i class="fa-solid fa-delete-left"></i>
+                    {{this.label}}
                   </button>
-                {{/if}}
-              </div>
-            {{/each}}
+
+                  {{#if this.isCustom}}
+                    <button
+                      type="button"
+                      class="delete-custom-tag"
+                      data-tag-id="{{this.id}}"
+                      title="Delete custom tag globally"
+                    >
+                      <i class="fa-solid fa-delete-left"></i>
+                    </button>
+                  {{/if}}
+                </div>
+              {{/each}}
+            </div>
           </div>
-        </div>  
-      </div>
+
+          <button type="button" class="remove-signature-perk" data-index="{{idx}}">Remove</button>
+        </div>
+      {{/each}}
+
+      <button type="button" class="add-signature-perk">+ Add Signature Perk</button>
     </div>
 
     <!--This is rendering the Guise Basic moves-->
     <div class="guise-moves mg-content">
+      <label class="title-label"><i class="fa-kit fa-basic-move"></i>Basic Moves</label>
       {{#each system.moves as |move idx|}}
         <div class="move-block" data-index="{{idx}}">
-          <label class="title-label">Move Name</label>
+          <label>Move Name</label>
           
           <input type="text"
             name="system.moves.{{@index}}.name"

@@ -21,6 +21,9 @@
                 <img src="{{typeIcon}}" alt="{{typeLabel}}" />
               </span>
               <span class="mg-gambit-library-card-name">{{name}}</span>
+              {{#if teaser}}
+                <span class="mg-moves-library-card-teaser">{{teaser}}</span>
+              {{/if}}
               {{#if learned}}
                 <span class="mg-gambit-library-selected">
                   <i class="fa-solid fa-check"></i>
@@ -84,10 +87,20 @@
 
       <div class="mg-gambit-library-filter-group">
         <h3>Status</h3>
-        <label>
-          <input type="checkbox" data-filter-toggle="learned" value="1" {{#if learnedOnly}}checked{{/if}} />
-          <span>Learned</span>
-        </label>
+        <div class="mg-moves-library-toggle-list">
+          <button
+            type="button"
+            class="mg-moves-library-filter-toggle {{#if learnedOnly}}is-on{{else}}is-off{{/if}}"
+            data-filter-toggle-button="learned"
+            aria-pressed="{{#if learnedOnly}}true{{else}}false{{/if}}"
+            title="Learned"
+          >
+            <span class="mg-moves-library-toggle-label">Learned</span>
+            <span class="mg-primary-toggle-track" aria-hidden="true">
+              <span class="mg-primary-toggle-knob"></span>
+            </span>
+          </button>
+        </div>
         {{!-- Future testing helper:
         <label>
           <input type="checkbox" data-filter-toggle="unassigned" value="1" {{#if unassignedOnly}}checked{{/if}} />
@@ -98,22 +111,42 @@
 
       <div class="mg-gambit-library-filter-group">
         <h3>Type</h3>
-        {{#each typeFilters}}
-          <label>
-            <input type="checkbox" data-filter="types" value="{{id}}" {{#if checked}}checked{{/if}} />
-            <span>{{label}}</span>
-          </label>
-        {{/each}}
+        <div class="mg-moves-library-toggle-list">
+          {{#each typeFilters}}
+            <button
+              type="button"
+              class="mg-moves-library-filter-toggle {{#if checked}}is-on{{else}}is-off{{/if}}"
+              data-filter-type-toggle="{{id}}"
+              aria-pressed="{{#if checked}}true{{else}}false{{/if}}"
+              title="{{label}}"
+            >
+              <span class="mg-moves-library-toggle-label">{{label}}</span>
+              <span class="mg-primary-toggle-track" aria-hidden="true">
+                <span class="mg-primary-toggle-knob"></span>
+              </span>
+            </button>
+          {{/each}}
+        </div>
       </div>
 
       <div class="mg-gambit-library-filter-group">
         <h3>Sub Type</h3>
-        {{#each subtypeFilters}}
-          <label>
-            <input type="checkbox" data-filter="subtypes" value="{{id}}" {{#if checked}}checked{{/if}} />
-            <span>{{label}}</span>
-          </label>
-        {{/each}}
+        <div class="tag-selector mg-moves-library-subtype-pills">
+          {{#each subtypeFilters}}
+            <button
+              type="button"
+              class="tag-pill mg-moves-library-subtype-pill {{#if checked}}selected{{/if}}"
+              data-filter-subtype-pill="{{id}}"
+              aria-pressed="{{#if checked}}true{{else}}false{{/if}}"
+              title="{{label}}"
+            >
+              {{#if icon}}
+                <i class="{{icon}}" aria-hidden="true"></i>
+              {{/if}}
+              <span>{{label}}</span>
+            </button>
+          {{/each}}
+        </div>
       </div>
     </aside>
   </main>

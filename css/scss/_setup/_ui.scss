@@ -164,8 +164,9 @@ body.mg-hud-enabled {
 		width: 7rem;
 		filter: drop-shadow(4px 4px 4px $black);
 		position: absolute;
-		top: 1rem;
+		top: -1rem;
 		left: calc(50vw - 3.5rem);
+		pointer-events: none;
 	}
 
 	#ui-right {
@@ -2038,6 +2039,7 @@ body.mg-hud-enabled {
 				i {
 					color: $mg-blue-main-2;
 					font-size: 1.3rem;
+					margin: 0;
 				}
 
 				&:hover,

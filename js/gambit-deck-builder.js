@@ -311,11 +311,11 @@ export class GambitDeckBuilderApplication extends Application {
     this.selectedUuid = "";
 
     const library = this.element?.find?.(".mg-gambit-library");
-    library?.addClass("is-focus-closing");
+    library?.removeClass("is-focused is-focus-refresh")?.addClass("is-focus-closing");
+    library?.find?.(".mg-gambit-library-card.is-focused")?.removeClass("is-focused");
 
     this._focusCloseTimer = setTimeout(() => {
-      library?.removeClass("is-focused is-focus-closing is-focus-refresh");
-      library?.find?.(".mg-gambit-library-card.is-focused")?.removeClass("is-focused");
+      library?.removeClass("is-focus-closing");
       library?.find?.(".mg-gambit-library-focus-backdrop, .mg-gambit-library-focus")?.remove();
     }, this._prefersReducedMotion() ? 0 : 500);
   }

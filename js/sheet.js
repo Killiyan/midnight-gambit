@@ -401,6 +401,8 @@ export class MidnightGambitActorSheet extends ActorSheet {
       // Moves: learned moves + secondary guise content reconstructed from guise items
       // ----------------------------------------------------------------------
       const allMoves = this.actor.items.filter(i => i.type === "move");
+      const isSignaturePerkItem = (item) =>
+        item?.type === "signaturePerk" || (item?.type === "move" && item.system?.isSignature === true);
 
       // Keep your existing learned-moves behavior
       context.learnedMoves = allMoves.filter(m =>
@@ -466,12 +468,49 @@ export class MidnightGambitActorSheet extends ActorSheet {
         return [];
       };
 
+      const getGuiseSignatureEntries = (guise) => {
+        if (!guise) return [];
+        const raw = Array.isArray(guise.system?.signaturePerks) ? guise.system.signaturePerks : [];
+        const entries = raw
+          .map((sig, index) => ({
+            id: `signature:${guise.id}:${index}`,
+            _id: `${guise.id}-${index}`,
+            handId: `signature:${guise.id}:${index}`,
+            name: sig?.name ?? "",
+            description: sig?.description ?? "",
+            tags: parseTags(sig?.tags ?? sig?.tagsCsv),
+            guiseSource: guise.id,
+            sourceOrder: index
+          }))
+          .filter(sig => String(sig.name ?? "").trim() || String(sig.description ?? "").trim());
+
+        if (!entries.length && (String(guise.system?.signaturePerk ?? "").trim() || String(guise.system?.signatureDescription ?? "").trim())) {
+          entries.push({
+            id: `signature:${guise.id}`,
+            _id: guise.id,
+            handId: `signature:${guise.id}`,
+            name: guise.system?.signaturePerk ?? guise.name,
+            description: guise.system?.signatureDescription ?? "",
+            tags: parseTags(guise.system?.signatureTags),
+            guiseSource: guise.id,
+            sourceOrder: 0
+          });
+        }
+
+        return entries;
+      };
+
       // PRIMARY signature + basic moves (feeds your original primary HTML block)
       if (context.guise) {
-        const sig = String(context.guise.system?.signatureDescription ?? "");
-        context.signatureHtml = await TextEditor.enrichHTML(sig, { async: true });
-
-        context.signatureTags = parseTags(context.guise.system?.signatureTags);
+        context.enrichedPrimarySignatureMoves = await Promise.all(
+          getGuiseSignatureEntries(context.guise).map(async sig => ({
+            ...sig,
+            html: await TextEditor.enrichHTML(String(sig.description ?? ""), { async: true })
+          }))
+        );
+        const primarySignature = context.enrichedPrimarySignatureMoves[0] ?? null;
+        context.signatureHtml = primarySignature?.html ?? "";
+        context.signatureTags = primarySignature?.tags ?? [];
 
         const rawMoves = Array.isArray(context.guise.system?.moves)
           ? context.guise.system.moves
@@ -491,6 +530,7 @@ export class MidnightGambitActorSheet extends ActorSheet {
       } else {
         context.signatureHtml = "";
         context.signatureTags = [];
+        context.enrichedPrimarySignatureMoves = [];
         context.enrichedMoves = [];
       }
 
@@ -505,15 +545,10 @@ export class MidnightGambitActorSheet extends ActorSheet {
       // SECONDARY signature perks reconstructed directly from guise items
       context.enrichedSecondarySignatureMoves = await Promise.all(
         secondaryGuiseDocs
-          .filter(g => (g.system?.signaturePerk ?? "").trim() || (g.system?.signatureDescription ?? "").trim())
-          .map(async (g) => ({
-            _id: g.id,
-            handId: `signature:${g.id}`,
-            name: g.system?.signaturePerk ?? g.name,
-            description: g.system?.signatureDescription ?? "",
-            html: await TextEditor.enrichHTML(String(g.system?.signatureDescription ?? ""), { async: true }),
-            tags: parseTags(g.system?.signatureTags),
-            guiseSource: g.id
+          .flatMap(g => getGuiseSignatureEntries(g))
+          .map(async sig => ({
+            ...sig,
+            html: await TextEditor.enrichHTML(String(sig.description ?? ""), { async: true })
           }))
       );
 
@@ -559,11 +594,13 @@ export class MidnightGambitActorSheet extends ActorSheet {
         };
 
         if (context.guise) {
-          addMoveControl({
-            id: `signature:${context.guise.id}`,
-            name: context.guise.system?.signaturePerk || context.guise.name,
-            label: "Signature Perk",
-            sourceOrder: 0
+          context.enrichedPrimarySignatureMoves.forEach((move, index) => {
+            addMoveControl({
+              id: move.handId,
+              name: move.name,
+              label: "Signature Perk",
+              sourceOrder: index / 100
+            });
           });
         }
 
@@ -594,8 +631,8 @@ export class MidnightGambitActorSheet extends ActorSheet {
           });
         });
 
-        allMoves
-          .filter(move => move.system?.isSignature === true)
+        this.actor.items
+          .filter(isSignaturePerkItem)
           .forEach((move, index) => {
             addMoveControl({
               id: move.id,
@@ -681,9 +718,7 @@ export class MidnightGambitActorSheet extends ActorSheet {
       );
 
       // Embedded signature perks (from secondary guises OR standalone drops)
-      const embeddedSigItems = this.actor.items.filter(i =>
-        i.type === "move" && i.system?.isSignature === true
-      );
+      const embeddedSigItems = this.actor.items.filter(isSignaturePerkItem);
 
       context.embeddedSignatureMoves = await Promise.all(
         embeddedSigItems.map(async (m) => {
@@ -2357,7 +2392,7 @@ _mgOpenSidebarCropper() {
 
       const chatContent = `
         <div class="chat-move">
-          <h2><i class="fa-solid fa-hand-fist"></i> ${mgEscapeChatHtml(name)}</h2>
+          <h2><i class="fa-kit fa-basic-move"></i> ${mgEscapeChatHtml(name)}</h2>
           ${descHtml ? `<div class="chat-move-desc">${descHtml}</div>` : ""}
           ${tagsHtml}
         </div>
@@ -2384,7 +2419,7 @@ _mgOpenSidebarCropper() {
 
       const chatContent = `
         <div class="chat-move">
-          <h2><i class="fa-solid fa-diamond"></i> Signature Perk: ${mgEscapeChatHtml(name)}</h2>
+          <h2><i class="fa-kit fa-signature-perk"></i>${mgEscapeChatHtml(name)}</h2>
           ${descHtml ? `<div class="chat-move-desc">${descHtml}</div>` : ""}
           ${tagsHtml}
         </div>
@@ -7131,7 +7166,7 @@ async _mgOpenStatPicker({ title, current }) {
   }
 
   _mgCharacterAllowedDropTypes() {
-    return new Set(["weapon", "armor", "misc", "gambit", "guise", "move"]);
+    return new Set(["weapon", "armor", "misc", "gambit", "guise", "move", "signaturePerk"]);
   }
 
   _mgCharacterBlockedDropMessage({ documentName, type, tier } = {}) {
@@ -7864,18 +7899,18 @@ async _mgOpenStatPicker({ title, current }) {
     }
 
 
-    /* Learned Move drop-on-actor
+    /* Learned Move / Signature Perk drop-on-actor
     ---------------------------------------------------------------------*/
-    if (rawType === "move") {
-      console.log("✅ Dropped a Move on actor");
+    if (rawType === "move" || rawType === "signaturePerk") {
+      console.log(rawType === "signaturePerk" ? "MG | Dropped a Signature Perk on actor" : "MG | Dropped a Move on actor");
 
-      // 1) Hydrate move data whether from compendium UUID or raw data
+      // 1) Hydrate item data whether from compendium UUID or raw data
       let moveDoc;
       try {
         if (itemData?.uuid) {
           // From compendium or world via UUID
           const src = await fromUuid(itemData.uuid);
-          if (!src) throw new Error("Could not resolve dropped Move via UUID");
+          if (!src) throw new Error("Could not resolve dropped item via UUID");
           moveDoc = src.toObject();
         } else {
           // From world item or drag payload
@@ -7887,27 +7922,27 @@ async _mgOpenStatPicker({ title, current }) {
 
           const data = candidates.find(d => d?.name && d?.type);
           if (!data) {
-            console.warn("MG | Dropped Move payload missing required fields:", itemData);
-            throw new Error("Dropped Move missing fields");
+            console.warn("MG | Dropped item payload missing required fields:", itemData);
+            throw new Error("Dropped item missing fields");
           }
           moveDoc = foundry.utils.deepClone(data);
         }
       } catch (err) {
-        console.error("Failed to read dropped Move:", err);
-        ui.notifications.error("Could not read the dropped Move.");
+        console.error("Failed to read dropped Move or Signature Perk:", err);
+        ui.notifications.error("Could not read the dropped item.");
         return [];
       }
 
       // Prevent NPC moves from being learned by PCs
       if (moveDoc?.system?.npcMove === true || moveDoc?.system?.npcSignature === true) {
-        ui.notifications.warn("That’s an NPC-only Move. It can’t be learned by player characters.");
+        ui.notifications.warn("That is an NPC-only Move. It cannot be learned by player characters.");
         return [];
       }
 
       // 2) De-dupe prevention: by core sourceId OR by name (case-insensitive)
-      //    (protects against adding the exact same move twice)
+      //    (protects against adding the exact same move/signature twice)
       const existing = this.actor.items.find(i =>
-        i.type === "move" && (
+        i.type === moveDoc.type && (
           (i.flags?.core?.sourceId && i.flags.core.sourceId === moveDoc.flags?.core?.sourceId) ||
           (i.name?.toLowerCase?.() === moveDoc.name?.toLowerCase?.())
         )
@@ -7917,16 +7952,17 @@ async _mgOpenStatPicker({ title, current }) {
         return [];
       }
 
-      // 3) Respect Signature Perk flag
+      // 3) Respect Signature Perk type/flag
       moveDoc.system = moveDoc.system || {};
-      const isSignature = Boolean(moveDoc.system.isSignature);
+      const isSignature = moveDoc.type === "signaturePerk" || Boolean(moveDoc.system.isSignature);
 
       // If it's a Signature Perk, do NOT force learned=true.
       // If it's a normal Move drop, keep your current behavior (learned=true).
       if (!isSignature) {
         moveDoc.system.learned = true;
       } else {
-        moveDoc.system.learned = false; // keeps it out of "Learned Moves"
+        moveDoc.system.learned = false; // keeps it out of Learned Moves
+        moveDoc.system.libraryEnabled = false;
       }
 
       // 4) Create on actor
@@ -7941,7 +7977,6 @@ async _mgOpenStatPicker({ title, current }) {
       this.render(false);
       return [];
     }
-
     // Gate Gambit drops on Character sheets: disallow Crew-tier here
     try {
       const data = TextEditor.getDragEventData(event);
@@ -8431,7 +8466,7 @@ async _mgOpenStatPicker({ title, current }) {
           return false;
         }
 
-        if (type === "move") {
+        if (type === "move" || type === "signaturePerk") {
           return this._onDropItemCreate(src.toObject());
         }
 

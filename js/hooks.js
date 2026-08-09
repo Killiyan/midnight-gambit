@@ -121,8 +121,10 @@ Hooks.once("ready", () => {
 ==============================================================================================================================================*/
 
 //Creating the actor from template.json in root directory
-Hooks.on("createActor", async (actor) => {
+Hooks.on("createActor", async (actor, _options, userId) => {
   if (actor.type !== "character") return;
+  if (userId && game.userId !== userId) return;
+  if (!game.user.isGM && !actor.testUserPermission?.(game.user, "OWNER")) return;
 
   try {
     const response = await fetch("systems/midnight-gambit/template.json");
@@ -135,29 +137,6 @@ Hooks.on("createActor", async (actor) => {
   } catch (err) {
     console.error("❌ Failed to apply template.json:", err);
   }
-});
-
-Hooks.on("createItem", async (item, options, userId) => {
-  const actor = item.actor;
-  if (!actor) return;
-  if (item.type !== "move") return;
-
-  const state = actor.getFlag("midnight-gambit", "state") ?? {};
-  const pendingMoves = Number(state?.pending?.moves ?? 0);
-
-  if (pendingMoves <= 0) return;
-
-  const pending = {
-    ...(state.pending ?? {}),
-    moves: Math.max(0, pendingMoves - 1)
-  };
-
-  await actor.setFlag("midnight-gambit", "state", {
-    ...state,
-    pending
-  });
-
-  ui.notifications.info(`Learned Move added: ${item.name}`);
 });
 
 function mgActorUpdateTouchesGambitHand(changes = {}) {
@@ -941,11 +920,11 @@ function mgGetMoveKindIcon(move) {
     case "team":
       return "fa-people-arrows";
     case "signature":
-      return "fa-diamond";
+      return "fa-kit fa-signature-perk";
     case "learned":
-      return "fa-book";
+      return "fa-kit fa-learned-moves";
     default:
-      return "fa-hand-fist";
+      return "fa-kit fa-basic-move";
   }
 }
 
@@ -1007,6 +986,30 @@ function mgGetGambitCardDesign(actor) {
   return ["pearl", "cobalt", "midnight", "noir"].includes(design) ? design : "midnight";
 }
 
+function mgGetGuiseSignatureMoves(guise) {
+  if (!guise) return [];
+  const raw = Array.isArray(guise.system?.signaturePerks) ? guise.system.signaturePerks : [];
+  const signatures = raw
+    .map((sig, index) => ({
+      id: `signature:${guise.id}:${index}`,
+      name: sig?.name ?? "",
+      description: sig?.description ?? "",
+      sourceOrderOffset: index / 100
+    }))
+    .filter(sig => String(sig.name ?? "").trim() || String(sig.description ?? "").trim());
+
+  if (!signatures.length && (String(guise.system?.signaturePerk ?? "").trim() || String(guise.system?.signatureDescription ?? "").trim())) {
+    signatures.push({
+      id: `signature:${guise.id}`,
+      name: guise.system?.signaturePerk ?? guise.name,
+      description: guise.system?.signatureDescription ?? "",
+      sourceOrderOffset: 0
+    });
+  }
+
+  return signatures;
+}
+
 function mgGetHandMoves(actor) {
   const moves = [];
   const seen = new Set();
@@ -1038,13 +1041,15 @@ function mgGetHandMoves(actor) {
   const addGuiseMoves = (guise, sourceOrder) => {
     if (!guise) return;
 
-    addMove({
-      id: `signature:${guise.id}`,
-      name: guise.system?.signaturePerk ?? guise.name,
-      description: guise.system?.signatureDescription ?? "",
-      kind: "signature",
-      label: "Signature Perk",
-      sourceOrder
+    mgGetGuiseSignatureMoves(guise).forEach(signature => {
+      addMove({
+        id: signature.id,
+        name: signature.name,
+        description: signature.description,
+        kind: "signature",
+        label: "Signature Perk",
+        sourceOrder: sourceOrder + signature.sourceOrderOffset
+      });
     });
 
     const rawMoves = Array.isArray(guise.system?.moves) ? guise.system.moves : [];
@@ -1067,7 +1072,7 @@ function mgGetHandMoves(actor) {
     .forEach((guise, index) => addGuiseMoves(guise, 10 + index));
 
   actor.items
-    .filter(item => item.type === "move" && item.system?.isSignature === true)
+    .filter(item => item.type === "signaturePerk" || (item.type === "move" && item.system?.isSignature === true))
     .forEach((item, index) => {
       addMove({
         id: item.id,

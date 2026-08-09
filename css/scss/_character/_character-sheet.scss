@@ -1655,6 +1655,44 @@ ol li {
 
   .tab-moves,
   .tab {
+    
+    h2.mg-content,
+    h3.mg-content {
+      @include tiller();
+      @include mg-border();
+      background: $mg-blue-main-2;
+      color: $mg-blue-1;
+      font-weight: 700;
+      font-size: 1.5rem;
+      line-height: 1.3;
+      display: flex;
+      gap: 1rem;
+      padding: .5rem 1.25rem .5rem 4rem;
+      overflow: hidden;
+      text-transform: none;
+      position: relative;
+
+      i {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        color: $mg-blue-4;
+        background: $mg-blue-3;
+        padding: .5rem;
+        font-size: 1.25rem;
+        height: 100%;
+        width: auto;
+        aspect-ratio: 1/1;
+        position: absolute;
+        left: 0;
+        top: 0;
+      }        
+    }
+
+    h3.mg-content {
+      font-size: 1rem;
+      text-transform: uppercase;
+    }
 
     .npc-tools {
       display: flex;
@@ -1783,7 +1821,7 @@ ol li {
 
           i {
             display: block;
-            font-size: 1.25rem;
+            font-size: 1.5rem;
             color: $mg-blue-3;
             transition: color .5s ease;
           }
@@ -1802,6 +1840,35 @@ ol li {
             margin: 0;
           }
         }
+
+        .status-buttons {
+          display: flex;
+          gap: 0;
+          border-top: 2px solid $mg-blue-main-2;
+
+          button {
+            background: $mg-blue-main;
+            border-radius: 0;
+            margin: 0;
+
+            i {
+              color: $mg-blue-2;
+            }
+
+            &:first-of-type {
+              border-right: 2px solid $mg-blue-main-2;
+            }
+
+            &:hover,
+            &:focus {
+              background: $mg-blue-main-2;
+
+              i {
+                color: $mg-green;
+              }
+            }
+          }
+        }        
       }
 
       .signature-secondary {
@@ -1874,7 +1941,7 @@ ol li {
 
           i {
             display: block;
-            font-size: 1.25rem;
+            font-size: 1.5rem;
             color: $mg-blue-3;
             transition: color .5s ease;
           }

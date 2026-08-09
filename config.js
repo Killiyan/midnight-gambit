@@ -6,7 +6,7 @@ export const ITEM_TAGS = [
   { id: "single-use", label: "Single Use", description: "Expended after one use unless recovered or preserved." },
   { id: "limited", label: "Limited", description: "Can only be used in specific scenarios (infiltration, combat, etc)" },
   { id: "expendable", label: "Expendable", description: "Degrades with each use - Destroyed on a 1-3 result." },
-  { id: "enchanted", label: "Enchanted", description: "Has magical or arcane effects." },
+  { id: "spark", label: "Spark", description: "Has magical or arcane effects." },
   { id: "repurposed", label: "Repurposed", description: "Clearly modified from original purpose." },
   { id: "cursed", label: "Cursed", description: "Use comes with a cost, consequence, or dark hitch." },
   { id: "upgradeable", label: "Upgradeable", description: "Can be modified with additional Lux for improvements." },
@@ -48,16 +48,16 @@ export const MOVE_TYPES = [
 ];
 
 export const MOVE_SUBTYPES = [
-  { id: "bruiser", label: "Bruiser" },
-  { id: "defensive", label: "Defensive" },
-  { id: "duelist", label: "Duelist" },
-  { id: "improvised-weapons", label: "Improvised Weapons" },
-  { id: "melee", label: "Melee" },
-  { id: "mobility", label: "Mobility" },
-  { id: "ranged", label: "Ranged" },
-  { id: "combat", label: "Combat" },
-  { id: "healing", label: "Healing" },
-  { id: "support", label: "Support" }
+  { id: "bruiser", label: "Bruiser", icon: "fa-solid fa-dumbbell" },
+  { id: "defensive", label: "Defensive", icon: "fa-solid fa-shield-halved" },
+  { id: "duelist", label: "Duelist", icon: "fa-solid fa-dagger" },
+  { id: "improvised-weapons", label: "Improvised Weapons", icon: "fa-solid fa-baseball-bat" },
+  { id: "melee", label: "Melee", icon: "fa-solid fa-hand-fist" },
+  { id: "mobility", label: "Mobility", icon: "fa-solid fa-person-running" },
+  { id: "ranged", label: "Ranged", icon: "fa-solid fa-bow-arrow" },
+  { id: "skirmish", label: "Skirmish", icon: "fa-solid fa-swords" },
+  { id: "healing", label: "Healing", icon: "fa-solid fa-flask-round-potion" },
+  { id: "support", label: "Support", icon: "fa-solid fa-hand-holding-heart" }
 ];
 
 export const GAMBIT_TIER_COSTS = Object.fromEntries(
@@ -112,7 +112,30 @@ export function normalizeMoveType(type) {
 
 export function normalizeMoveSubtype(type) {
   const value = String(type ?? "").trim();
-  return MOVE_SUBTYPE_LABELS[value] ? value : "";
+  const legacy = {
+    combat: "skirmish"
+  };
+  const normalized = legacy[value] ?? value;
+  return MOVE_SUBTYPE_LABELS[normalized] ? normalized : "";
+}
+
+export function normalizeMoveSubtypes(value) {
+  const raw = Array.isArray(value)
+    ? value
+    : String(value ?? "")
+      .split(",")
+      .map(entry => entry.trim())
+      .filter(Boolean);
+
+  const seen = new Set();
+  const normalized = [];
+  for (const entry of raw) {
+    const subtype = normalizeMoveSubtype(entry);
+    if (!subtype || seen.has(subtype)) continue;
+    seen.add(subtype);
+    normalized.push(subtype);
+  }
+  return normalized;
 }
 
 export function getGambitPointsForLevel(level) {
@@ -201,4 +224,3 @@ export const LEVEL_TABLE = {
     notes: "+1 Attribute Point, +1 Learned Move, +1 Spark Slot (casters), +1 Expertise."
   }
 };
-
