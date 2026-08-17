@@ -7,7 +7,7 @@ export const MG_TOKEN_FRAMES = [
 
 export function mgGetTokenFrame(key) {
   return MG_TOKEN_FRAMES.find(frame => frame.key === key) ||
-    MG_TOKEN_FRAMES.find(frame => frame.key === "soul") ||
+    MG_TOKEN_FRAMES.find(frame => frame.key === "filigree") ||
     MG_TOKEN_FRAMES[0];
 }
 

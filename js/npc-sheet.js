@@ -1058,7 +1058,7 @@ export class MidnightGambitNpcSheet extends ActorSheet {
 
   _mgGetImageCropPlacements(html) {
     const sheetSrc = mgGetActorSheetImage(this.actor);
-    const actorSrc = this.actor?.img || sheetSrc;
+    const actorSrc = mgGetActorSheetImage(this.actor);
 
     return [
       {
@@ -1146,7 +1146,7 @@ export class MidnightGambitNpcSheet extends ActorSheet {
     const tokenFrameSelections = Object.fromEntries(
       placements
         .filter(p => p.tokenFrame)
-        .map(p => [p.key, String(savedCrops[p.key]?.tokenFrame || "soul")])
+        .map(p => [p.key, String(savedCrops[p.key]?.tokenFrame || "filigree")])
     );
     let active = byKey[startKey] ? startKey : placements[0].key;
     let dragging = false;
@@ -1264,7 +1264,7 @@ export class MidnightGambitNpcSheet extends ActorSheet {
       if (!placement?.tokenFrame || !img) return;
       const current = values[active];
       if (!current) return;
-      const minScale = mgGetTokenMinScale(tokenFrameSelections[placement.key] || "soul", img);
+      const minScale = mgGetTokenMinScale(tokenFrameSelections[placement.key] || "filigree", img);
       if (current.scale < minScale) {
         current.scale = minScale;
         apply();
@@ -1283,7 +1283,7 @@ export class MidnightGambitNpcSheet extends ActorSheet {
         return;
       }
 
-      const selected = tokenFrameSelections[placement.key] || "soul";
+      const selected = tokenFrameSelections[placement.key] || "filigree";
       const frame = mgGetTokenFrame(selected);
       if (preview) preview.src = frame?.src || "";
       const aperture = frame?.aperture || { x: 0, y: 0, width: 100, height: 100 };
@@ -1407,7 +1407,7 @@ export class MidnightGambitNpcSheet extends ActorSheet {
       const current = values[active];
       if (!current) return;
       const step = ev.shiftKey ? 0.15 : 0.05;
-      const minScale = byKey[active]?.tokenFrame ? mgGetTokenMinScale(tokenFrameSelections[active] || "soul", imgEl) : 0.05;
+      const minScale = byKey[active]?.tokenFrame ? mgGetTokenMinScale(tokenFrameSelections[active] || "filigree", imgEl) : 0.05;
       current.scale = Math.max(minScale, current.scale - (Math.sign(oe.deltaY || 0) * step));
       apply();
     });
@@ -1421,7 +1421,7 @@ export class MidnightGambitNpcSheet extends ActorSheet {
       ev.preventDefault();
       const placement = byKey[active];
       if (!placement?.tokenFrame) return;
-      tokenFrameSelections[placement.key] = ev.currentTarget.dataset.mgTokenFrame || "soul";
+      tokenFrameSelections[placement.key] = ev.currentTarget.dataset.mgTokenFrame || "filigree";
       renderTokenFrameTools(placement);
       enforceTokenCover(placement, imgEl);
     });
@@ -1499,7 +1499,7 @@ export class MidnightGambitNpcSheet extends ActorSheet {
           deleteUpdates[`flags.${ns}.crops.${placement.key}.-=tokenFrame`] = null;
           deleteUpdates[`flags.${ns}.crops.${placement.key}.-=tokenFrameSrc`] = null;
           deleteUpdates[`flags.${ns}.crops.${placement.key}.-=baseSrc`] = null;
-          tokenFrameSelections[placement.key] = "soul";
+          tokenFrameSelections[placement.key] = "filigree";
         }
         crops[placement.key] = crops[placement.key] || {};
         delete crops[placement.key].src;
@@ -1560,7 +1560,7 @@ export class MidnightGambitNpcSheet extends ActorSheet {
         crops[active].css = css;
         const overrideSrc = String(imageOverrides[active] || "").trim();
         if (placement.tokenFrame) {
-          const frame = mgGetTokenFrame(tokenFrameSelections[active] || "soul");
+          const frame = mgGetTokenFrame(tokenFrameSelections[active] || "filigree");
           const previewBox = mgGetActorTokenPreviewBox(imgEl, stage);
           crops[active].tokenFrame = frame.key;
           crops[active].tokenFrameSrc = frame.src;

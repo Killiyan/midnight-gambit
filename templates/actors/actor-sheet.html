@@ -790,12 +790,20 @@
           <div class="inventory-toolbar">
             <div class="currency-field">
               <label for="lux">Lux</label>
-              <input
-                type="number"
-                name="system.currency.lux"
-                value="{{actor.system.currency.lux}}"
-                min="0"
-              />
+              <div class="field-wrapper lux-controls">
+                <button type="button" class="lux-dec" data-step="-1" title="-1">-</button>
+                <input
+                  type="number"
+                  class="lux-value"
+                  name="system.currency.lux"
+                  value="{{actor.system.currency.lux}}"
+                  min="0"
+                  inputmode="numeric"
+                  pattern="[0-9]*"
+                  aria-label="Lux"
+                />
+                <button type="button" class="lux-inc" data-step="1" title="+1">+</button>
+              </div>
             </div>
 
             <div class="inventory-create-wrap">

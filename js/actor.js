@@ -589,7 +589,9 @@ export class MidnightGambitActor extends Actor {
   // v11+ preferred
   async _onCreateDescendantDocuments(parent, collection, documents, data, options, userId) {
     // We only care about embedded Items on this Actor
-    if (collection !== "Item") return;
+    const collectionName = String(collection ?? "");
+    if (collectionName !== "Item" && collectionName !== "items") return;
+    if (options?.mgManualGuiseDrop) return;
 
     const guise = documents.find(doc => doc.type === "guise");
     if (!guise) return;
@@ -663,7 +665,8 @@ export class MidnightGambitActor extends Actor {
   // v11+ preferred — sanitize Multi-Guise derived resources when a Guise is removed.
   // This is what makes "remove Gambler → risk drops" and "remove caster → Spark + schools disappear" work.
   async _onDeleteDescendantDocuments(parent, collection, documents, ids, options, userId) {
-    if (collection !== "Item") return;
+    const collectionName = String(collection ?? "");
+    if (collectionName !== "Item" && collectionName !== "items") return;
 
     const deletedGuises = (documents ?? []).filter(d => d?.type === "guise");
     if (!deletedGuises.length) return;
@@ -724,6 +727,8 @@ export class MidnightGambitActor extends Actor {
 
     if (promotedPrimaryId) {
       updates["system.guise"] = promotedPrimaryId;
+      updates["system.guiseId"] = promotedPrimaryId;
+      updates["system.movesGuiseId"] = promotedPrimaryId;
     }
     updates["system.secondaryGuises"] = workingSecondary;
 
@@ -742,13 +747,5 @@ export class MidnightGambitActor extends Actor {
     }
 
     await this.update(updates, { render: false });
-  }
-
-  // Optional shim: keep for older code paths / modules that might still call it.
-  // You can remove this once you’re confident everything is v11+.
-  async _onCreateEmbeddedDocuments(embeddedName, documents, result, options, userId) {
-    // Route to the new handler format.
-    if (embeddedName !== "Item") return;
-    return this._onCreateDescendantDocuments(this, "Item", documents, result, options, userId);
   }
 }

@@ -1,11 +1,5 @@
-2026/08/08-21:36:18.215 cd54 Recovering log #407
-2026/08/08-21:36:18.215 cd54 Level-0 table #409: started
-2026/08/08-21:36:18.224 cd54 Level-0 table #409: 1424 bytes OK
-2026/08/08-21:36:18.231 cd54 Delete type=0 #407
-2026/08/08-21:36:18.231 cd54 Delete type=3 #406
-2026/08/08-22:08:36.149 ce8c Compacting 1@0 + 1@1 files
-2026/08/08-22:08:36.154 ce8c Generated table #411@0: 216 keys, 63292 bytes
-2026/08/08-22:08:36.154 ce8c Compacted 1@0 + 1@1 files => 63292 bytes
-2026/08/08-22:08:36.156 ce8c compacted to: files[ 0 1 0 0 0 0 0 ]
-2026/08/08-22:08:36.156 ce8c Delete type=2 #399
-2026/08/08-22:08:36.156 ce8c Delete type=2 #409
+2026/08/17-18:27:23.737 10a8 Recovering log #416
+2026/08/17-18:27:23.738 10a8 Level-0 table #419: started
+2026/08/17-18:27:23.742 10a8 Level-0 table #419: 78235 bytes OK
+2026/08/17-18:27:23.747 10a8 Delete type=0 #416
+2026/08/17-18:27:23.748 10a8 Delete type=3 #415

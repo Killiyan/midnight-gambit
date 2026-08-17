@@ -508,7 +508,7 @@ ol li {
         color:$mg-ivory;
 
         // Character sheet button tweak. Remove later if I don't like
-        button:not(.tox-tbtn):not(.inventory-bucket-toggle):not(.mg-card-toggle):not(.post-gambit):not(.status-buttons button):not(.delete-move):not(.mg-hand-order-eye):not(.mg-primary-toggle):not(.mg-seeall-toggle):not(.mg-card-toggle),
+        button:not(.tox-tbtn):not(.inventory-bucket-toggle):not(.mg-card-toggle):not(.post-gambit):not(.status-buttons button):not(.delete-move):not(.mg-hand-order-eye):not(.mg-primary-toggle):not(.mg-seeall-toggle):not(.mg-card-toggle):not(.lux-controls button),
         form button,
         .dialog-button {
           background: $mg-blue-4;
@@ -2269,38 +2269,6 @@ ol li {
   position: relative;
   z-index: 10;
 
-  .currency-field {
-    display: flex;
-    flex-direction: column;
-    padding: 1.125rem;
-    border-radius: .625rem;
-    background: $mg-blue-main;
-    padding: 1.125rem;
-    text-align: center;
-    gap: .625rem;
-    max-width: 10rem;
-    
-    label {
-      @include oswald();
-      font-size: 1rem;
-      text-transform: uppercase;
-      color: $mg-blue-1;
-    }
-
-    input {
-      background: $mg-blue-main-2;
-      border: none;
-      box-shadow: none;
-      @include oswald();
-      font-size: 1rem;
-      text-transform: uppercase;
-      color: $mg-ivory;
-      width: auto;
-      padding: 2.125rem 0;
-      min-height: 3.4375rem;
-    }
-  }
-
   h3 {
     @include oswald();
     font-size: 1rem;
@@ -2547,30 +2515,63 @@ ol li {
       width: calc(28% - 1rem);
       text-align: left;
       gap: 0;
+      display: flex;
+      flex-direction: column;
 
       label {
         margin-bottom: .5rem;
         display: block;
+        @include oswald();
+        font-size: 1rem;
+        text-transform: uppercase;
+        color: $mg-blue-1;        
       }
 
       .lux-controls {
         align-items: center;
         
         button {
-          width: 24px; 
           height: 100%;
+          padding: 0 .25rem;
           margin: 0;
           display: flex;
           align-items: center;
+          justify-content: center;
+          background: $mg-blue-4;
+          color: $mg-ivory;
+          border: 2px solid $mg-blue-main-2;     
+          font-style: normal;
+          font-size: 1rem;     
 
           &:first-of-type {
             border-radius: 0.625rem 0 0 0.625rem;
+            border-right: 0;
           }
           
           &:last-of-type {
             border-radius: 0 0.625rem 0.625rem 0;
+            border-left: 0;
           }
+
+          &:hover,
+          &:focus {
+            background: $mg-blue-5;
+            color: $mg-green;
+
+            i {
+              color: $mg-blue-1;
+            }
+          }          
         }
+
+        input {
+          height: 100%;
+          min-width: 0;
+          width: 100%;
+          text-align: center;
+          border-radius: 0;
+          padding: 1.125rem .5rem;
+        }        
       }
     }
 

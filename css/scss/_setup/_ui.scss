@@ -6266,3 +6266,35 @@ body:not(.mg-hud-enabled) #mg-ui-root {
 		}
 	}
 }
+.tab-inventory {
+	.currency-field {
+		.lux-controls {
+			display: flex;
+			align-items: center;
+			min-height: 3.3125rem;
+
+			button {
+				width: 24px;
+				height: 100%;
+				margin: 0;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+
+				&:first-of-type {
+					border-radius: .625rem 0 0 .625rem;
+				}
+
+				&:last-of-type {
+					border-radius: 0 .625rem .625rem 0;
+				}
+			}
+
+			input {
+				height: 100%;
+				text-align: center;
+				border-radius: 0;
+			}
+		}
+	}
+}

@@ -5,6 +5,7 @@ import { MG_TOKEN_FRAMES, mgComposeAndStoreActorTokenImage, mgGetActorTokenPrevi
 
 const MG_ACTOR_GUISE_IMAGE = "systems/midnight-gambit/assets/images/guise.jpg";
 const MG_ACTOR_DEFAULT_IMAGE = "icons/svg/mystery-man.svg";
+const MG_ATTRIBUTE_KEYS = ["tenacity", "finesse", "resolve", "guile", "instinct", "presence"];
 
 function mgGetActorSheetImage(actor) {
   const img = String(actor?.img ?? "").trim();
@@ -65,6 +66,30 @@ function mgGetPrimaryGuiseAttributeModifier(actor, key) {
   const guise = mgResolvePrimaryGuise(actor);
   const mod = Number(guise?.system?.modifiers?.[key] ?? 0);
   return Number.isFinite(mod) ? mod : 0;
+}
+
+function mgClampAttributeValue(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return 0;
+  return Math.max(-3, Math.min(3, Math.trunc(n)));
+}
+
+function mgBuildBaseAttributesForPrimaryGuiseSwap(actor, currentPrimaryId) {
+  const currentPrimary = currentPrimaryId ? actor?.items?.get(currentPrimaryId) : null;
+  const out = {};
+
+  for (const key of MG_ATTRIBUTE_KEYS) {
+    const displayed = Number(actor?.system?.attributes?.[key]);
+    const storedBase = Number(actor?.system?.baseAttributes?.[key]);
+    const currentMod = Number(currentPrimary?.system?.modifiers?.[key] ?? 0);
+    const source = Number.isFinite(displayed)
+      ? displayed - (Number.isFinite(currentMod) ? currentMod : 0)
+      : storedBase;
+
+    out[key] = mgClampAttributeValue(source);
+  }
+
+  return out;
 }
 
 function mgGetDeckGambitRefs(deck) {
@@ -791,7 +816,7 @@ export class MidnightGambitActorSheet extends ActorSheet {
 
     _mgGetImageCropPlacements(html) {
       const sheetSrc = mgGetActorSheetImage(this.actor);
-      const actorSrc = this.actor?.img || sheetSrc;
+      const actorSrc = mgGetActorSheetImage(this.actor);
 
       return [
         {
@@ -980,7 +1005,7 @@ export class MidnightGambitActorSheet extends ActorSheet {
       const tokenFrameSelections = Object.fromEntries(
         placements
           .filter(p => p.tokenFrame)
-          .map(p => [p.key, String(savedCrops[p.key]?.tokenFrame || "soul")])
+          .map(p => [p.key, String(savedCrops[p.key]?.tokenFrame || "filigree")])
       );
       const cropTargetMarkup = placements
         .flatMap(p => p.cropTargets?.map(t => ({ placement: p, target: t })) || [])
@@ -1117,7 +1142,7 @@ export class MidnightGambitActorSheet extends ActorSheet {
 
       const getTokenMinScale = (placement, img) => {
         if (!placement?.tokenFrame || !img?.naturalWidth || !img?.naturalHeight) return 1;
-        return mgGetTokenMinScale(tokenFrameSelections[placement.key] || "soul", img);
+        return mgGetTokenMinScale(tokenFrameSelections[placement.key] || "filigree", img);
       };
 
       const enforceTokenCover = (placement, targetKey, img) => {
@@ -1143,7 +1168,7 @@ export class MidnightGambitActorSheet extends ActorSheet {
           return;
         }
 
-        const selected = tokenFrameSelections[placement.key] || "soul";
+        const selected = tokenFrameSelections[placement.key] || "filigree";
         const frame = mgGetTokenFrame(selected);
         if (preview) preview.src = frame?.src || "";
         const aperture = frame?.aperture || { x: 0, y: 0, width: 100, height: 100 };
@@ -1304,7 +1329,7 @@ export class MidnightGambitActorSheet extends ActorSheet {
         ev.preventDefault();
         const placement = byKey[active];
         if (!placement?.tokenFrame) return;
-        tokenFrameSelections[placement.key] = ev.currentTarget.dataset.mgTokenFrame || "soul";
+        tokenFrameSelections[placement.key] = ev.currentTarget.dataset.mgTokenFrame || "filigree";
         renderTokenFrameTools(placement);
       });
 
@@ -1410,7 +1435,7 @@ export class MidnightGambitActorSheet extends ActorSheet {
             deleteUpdates[`flags.${ns}.crops.${placement.key}.-=tokenFrame`] = null;
             deleteUpdates[`flags.${ns}.crops.${placement.key}.-=tokenFrameSrc`] = null;
             deleteUpdates[`flags.${ns}.crops.${placement.key}.-=baseSrc`] = null;
-            tokenFrameSelections[placement.key] = "soul";
+            tokenFrameSelections[placement.key] = "filigree";
             if (crops[placement.key]) {
               delete crops[placement.key].tokenFrame;
               delete crops[placement.key].tokenFrameSrc;
@@ -1464,7 +1489,7 @@ export class MidnightGambitActorSheet extends ActorSheet {
             crops[placement.key] = crops[placement.key] || {};
             const overrideSrc = String(imageOverrides[placement.key] || "").trim();
             if (placement.tokenFrame) {
-              const frame = mgGetTokenFrame(tokenFrameSelections[placement.key] || "soul");
+              const frame = mgGetTokenFrame(tokenFrameSelections[placement.key] || "filigree");
               const previewImg = getImgForTarget(placement.key);
               const previewStage = previewImg?.closest?.(".mg-crop-stage") || stage;
               const previewBox = mgGetActorTokenPreviewBox(previewImg, previewStage);
@@ -3380,13 +3405,17 @@ _mgOpenSidebarCropper() {
         await new Promise(resolve => setTimeout(resolve, 160));
 
         try {
+          const nextBaseAttributes = mgBuildBaseAttributesForPrimaryGuiseSwap(this.actor, currentPrimaryId);
+
           await this.actor.update({
+            "system.baseAttributes": nextBaseAttributes,
             "system.guise": newPrimaryId,
             "system.guiseId": newPrimaryId,
+            "system.movesGuiseId": newPrimaryId,
             "system.secondaryGuises": nextSecondary
           });
-          // Do NOT manually call this.render(true) here.
-          // The actor update will refresh the sheet state.
+
+          this.render(true);
         } finally {
           toggles.forEach(btn => btn.disabled = false);
         }
@@ -3755,6 +3784,53 @@ _mgOpenSidebarCropper() {
       this.render(false);
       input.blur();
     });
+
+    {
+      const readLux = () => {
+        const el = html.find(".lux-value")[0];
+        const fromDom = Number(el?.value);
+        if (Number.isFinite(fromDom)) return fromDom;
+        const fromActor = Number(this.actor.system?.currency?.lux);
+        return Number.isFinite(fromActor) ? fromActor : 0;
+      };
+
+      const clampLux = (value) => Math.max(0, Number.isFinite(value) ? value : 0);
+
+      const saveLux = async (value) => {
+        const next = clampLux(value);
+        await this.actor.update({ "system.currency.lux": next }, { render: false });
+        const el = html.find(".lux-value")[0];
+        if (el) {
+          el.value = String(next);
+          el.setAttribute("value", String(next));
+        }
+      };
+
+      html.off("click.mgLuxStep")
+        .on("click.mgLuxStep", ".lux-dec, .lux-inc", async (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          const base = Number(event.currentTarget.dataset.step) || 0;
+          const mult = event.shiftKey ? 10 : (event.altKey ? 5 : 1);
+          await saveLux(readLux() + (base * mult));
+        });
+
+      html.off("change.mgLuxEdit blur.mgLuxEdit")
+        .on("change.mgLuxEdit blur.mgLuxEdit", ".lux-value", async (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          await saveLux(Number(event.currentTarget.value));
+        });
+
+      html.off("keydown.mgLuxEnter")
+        .on("keydown.mgLuxEnter", ".lux-value", async (event) => {
+          if (event.key !== "Enter") return;
+          event.preventDefault();
+          event.stopPropagation();
+          await saveLux(Number(event.currentTarget.value));
+          event.currentTarget.blur();
+        });
+    }
 
     // Create a new Inventory item directly on this actor
     html.find(".mg-create-item").on("click", async (event) => {
@@ -7618,9 +7694,15 @@ async _mgOpenStatPicker({ title, current }) {
   ==============================================================================*/
   async _onDropItemCreate(itemData) {
 
-    const rawType = itemData?.type === "Item"
-      ? (itemData?.data?.type ?? itemData?.system?.type ?? itemData?.system?.system?.type)
-      : (itemData?.type ?? itemData?.data?.type ?? itemData?.system?.type);
+    const isItemDocument = itemData?.documentName === "Item" || itemData instanceof Item;
+    const rawDropData = (!isItemDocument && itemData && typeof itemData === "object")
+      ? Object.getOwnPropertyDescriptor(itemData, "data")?.value
+      : null;
+    const rawType = isItemDocument
+      ? itemData.type
+      : itemData?.type === "Item"
+        ? (itemData?.system?.type ?? itemData?.system?.system?.type ?? rawDropData?.type)
+        : (itemData?.type ?? itemData?.system?.type ?? rawDropData?.type);
     const allowedCharacterTypes = this._mgCharacterAllowedDropTypes();
 
     if (!allowedCharacterTypes.has(rawType)) {
@@ -7696,7 +7778,7 @@ async _mgOpenStatPicker({ title, current }) {
       console.warn("MG | Player Gambit deck cap check failed (non-fatal):", e);
     }
 
-    if (itemData.type === "guise") {
+    if (rawType === "guise") {
       console.log("✅ Dropped a guise item on actor");
 
       // Ensure baseAttributes snapshot exists once
@@ -7707,14 +7789,32 @@ async _mgOpenStatPicker({ title, current }) {
 
       // Helper: load dropped guise (uuid from compendium OR raw data)
       const loadDroppedGuise = async () => {
+        if (isItemDocument) return itemData;
+
         if (itemData?.uuid) {
           const g = await fromUuid(itemData.uuid);
           if (!g) throw new Error("Failed to load item from UUID");
           return g;
         }
 
-        const data = itemData.system?.system ? itemData.system : itemData;
-        if (!data.name || !data.type) throw new Error("Dropped item missing required fields");
+        if (itemData?.pack && itemData?.id) {
+          const pack = game.packs?.get(itemData.pack);
+          const g = await pack?.getDocument(itemData.id);
+          if (g) return g;
+        }
+
+        if (itemData?.id) {
+          const g = game.items?.get(itemData.id);
+          if (g) return g;
+        }
+
+        const candidates = [
+          rawDropData,
+          itemData?.system?.system ? itemData.system : null,
+          itemData
+        ].filter(Boolean);
+        const data = candidates.find(d => d?.name && d?.type && d.type !== "Item");
+        if (!data) throw new Error("Dropped item missing required fields");
         return Item.implementation.create(data, { temporary: true });
       };
 
@@ -7734,7 +7834,9 @@ async _mgOpenStatPicker({ title, current }) {
       }
 
       // Embed the dropped guise onto the actor
-      const [embedded] = await this.actor.createEmbeddedDocuments("Item", [guise.toObject()]);
+      const embeddedData = guise.toObject();
+      delete embeddedData._id;
+      const [embedded] = await this.actor.createEmbeddedDocuments("Item", [embeddedData], { mgManualGuiseDrop: true });
 
       // Primary vs Secondary rules (max 2 total)
       const primaryId = this.actor.system?.guise || null;
@@ -7742,7 +7844,11 @@ async _mgOpenStatPicker({ title, current }) {
 
       // If no primary, set this as primary
       if (!primaryId) {
-        await this.actor.update({ "system.guise": embedded.id });
+        await this.actor.update({
+          "system.guise": embedded.id,
+          "system.guiseId": embedded.id,
+          "system.movesGuiseId": embedded.id
+        });
       } else {
         // Already has a primary; this becomes SECONDARY (if slot available)
         if (secondary.length >= 1) {
@@ -7907,15 +8013,24 @@ async _mgOpenStatPicker({ title, current }) {
       // 1) Hydrate item data whether from compendium UUID or raw data
       let moveDoc;
       try {
-        if (itemData?.uuid) {
+        if (isItemDocument) {
+          moveDoc = itemData.toObject();
+        } else if (itemData?.uuid) {
           // From compendium or world via UUID
           const src = await fromUuid(itemData.uuid);
           if (!src) throw new Error("Could not resolve dropped item via UUID");
           moveDoc = src.toObject();
+        } else if (itemData?.pack && itemData?.id) {
+          const pack = game.packs?.get(itemData.pack);
+          const src = await pack?.getDocument(itemData.id);
+          if (!src) throw new Error("Could not resolve dropped item from pack");
+          moveDoc = src.toObject();
+        } else if (itemData?.id && game.items?.get(itemData.id)) {
+          moveDoc = game.items.get(itemData.id).toObject();
         } else {
           // From world item or drag payload
           const candidates = [
-            itemData?.data,
+            rawDropData,
             itemData?.system?.system ? itemData.system : null,
             itemData
           ].filter(Boolean);
@@ -7927,6 +8042,7 @@ async _mgOpenStatPicker({ title, current }) {
           }
           moveDoc = foundry.utils.deepClone(data);
         }
+        delete moveDoc._id;
       } catch (err) {
         console.error("Failed to read dropped Move or Signature Perk:", err);
         ui.notifications.error("Could not read the dropped item.");
