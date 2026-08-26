@@ -423,7 +423,7 @@ body.mg-hud-enabled {
 		pointer-events: auto;
 
 		//Overriding Button stylings to make them less obnoxious on sidebar
-		button:not(.mg-left-accordion-toggle):not(.sidebar-tab):not(.dot):not(.mg-scene-row):not(.mg-scene-context-button):not(.mg-scene-row-main):not(.mg-active-scene-card):not(.attribute-container):not(.skill-container):not(.open-sheet):not(.mg-playlist-sound-control):not(.mg-difficulty-button):not(.mg-director-aura-pill):not(.capacity-controls button) {
+		button:not(.mg-slide-toggle):not(.mg-left-accordion-toggle):not(.sidebar-tab):not(.dot):not(.mg-scene-row):not(.mg-scene-context-button):not(.mg-scene-row-main):not(.mg-active-scene-card):not(.attribute-container):not(.skill-container):not(.open-sheet):not(.mg-playlist-sound-control):not(.mg-difficulty-button):not(.mg-director-aura-pill):not(.capacity-controls button) {
 			background: $mg-blue-main;
 			border: 1px solid $mg-blue-main-2;
 
@@ -443,7 +443,7 @@ body.mg-hud-enabled {
 			}
 		}
 
-		.attribute-card button:not(.mg-left-accordion-toggle):not(.sidebar-tab):not(.dot) {
+		.attribute-card button:not(.mg-slide-toggle):not(.mg-left-accordion-toggle):not(.sidebar-tab):not(.dot) {
 			background: $mg-blue-main-2;
 
 			&:hover {
@@ -813,145 +813,24 @@ body.mg-hud-enabled {
 		.mg-left-accordion {
 			margin: 0;
 			
-			&:last-of-type .mg-left-accordion-toggle {
+			&:last-of-type .mg-slide-toggle {
 				border-bottom: 2px solid $mg-blue-main-2;
 			}
 
-			&:nth-of-type(even) .mg-left-accordion-toggle {
+			&:nth-of-type(even) .mg-slide-toggle {
 				--mg-accordion-toggle-image: url("../assets/images/accordion-toggle-alt.jpg");
 			}
 
 			&.is-open {
-				.mg-left-accordion-toggle {
+				.mg-slide-toggle {
 					border-color: $mg-blue-3;
 				}
 
-				.mg-left-accordion-chevron {
+				.mg-slide-toggle-chevron {
 					transform: rotate(180deg);
 				}
 			}
 		}
-
-		/* Accordion Left sidebar Globals
-		----------------------------------------------------------------------*/			
-		.mg-left-accordion-toggle {
-			--mg-accordion-toggle-image: url("../assets/images/accordion-toggle.jpg");
-			width: 100%;
-			margin: 0;
-			padding: 1rem;
-			display: flex;
-			align-items: center;
-			justify-content: space-between;
-			border-radius: 0;
-			color: $mg-blue-1;
-			text-align: left;
-			border: 2px solid $mg-blue-main-2;
-			border-left: 0;
-			border-right: 0;
-			@include oswald();
-			font-size: .9rem;
-			font-weight: 700;
-			text-transform: uppercase;
-			position: relative;
-			background:
-				/* subtle pearly sheen (top-center) */
-				radial-gradient(circle at 50% 0%,
-				rgba(197, 212, 236, 0.22) 0%,
-				rgba(197, 212, 236, 0.10) 35%,
-				rgba(18, 33, 55, 0.00) 70%
-				),
-				/* texture */
-				var(--mg-accordion-toggle-image);
-			background-repeat: no-repeat;
-			background-size: cover, auto 115%;
-			background-position: center, 50% 34%;
-			background-blend-mode: soft-light, multiply;
-			background-color: $mg-blue-3;
-			transition:
-				background-color .5s ease,
-				background-position 2.5s cubic-bezier(.2, .8, .2, 1),
-				background-size 2.5s cubic-bezier(.2, .8, .2, 1),
-				color .5s ease,
-				border .5s ease;
-
-			&::after {
-				content: '';
-				width: 100%;
-				height: 100%;
-				background: linear-gradient(
-					270deg,
-					rgba($mg-blue-main, 1) 0%,
-					rgba($mg-blue-main, 0) 25%,
-					rgba($mg-blue-main, 0) 35%,
-					rgba($mg-blue-main, 1) 100%
-				);
-				position: absolute;
-				left: 0;
-				top: 0;
-				opacity: 1;
-				transition: opacity .5s ease, background .5s ease;
-			}
-
-			span {
-				display: flex;
-				align-items: center;
-				gap: 1rem;
-				@include oswald();
-				font-size: 1rem;
-				font-weight: 400;
-				font-style: normal;
-				@include mg-shadow();
-				position: relative;
-				z-index: 2;
-			}
-
-			i {
-				color: $mg-blue-2;
-				font-size: 1.5rem;
-				@include mg-shadow();
-				position: relative;
-				z-index: 3;
-				transition: color .5s ease, transform .5s ease;
-			}
-
-			.mg-left-accordion.is-open &,
-			&:hover {
-				background-color: $mg-blue-main-2;
-				background-size: cover, auto 125%;
-				background-position: center, 50% 66%;
-				color: $mg-ivory;
-
-				i {
-					color: $mg-green;
-				}
-			}
-		}
-
-		.mg-left-accordion-chevron {
-			transition: transform .5s ease, color .5s ease;
-			font-size: 1.15rem !important;
-		}
-
-		.mg-left-accordion-body {
-			display: block;
-			overflow: hidden;
-			opacity: 1;
-			transition:
-			max-height .5s ease,
-			opacity .5s ease;
-
-			&[hidden] {
-				display: none;
-			}
-		}
-
-		.mg-left-accordion-inner {
-			display: grid;
-			gap: .75rem;
-			padding: 1rem;
-			border-bottom: 2px solid $mg-blue-main-2;
-			background: rgba($mg-blue-4, .6);
-		}		
 
 		/* Quick Open sheet global for Actors/Crew
 		----------------------------------------------------------------------*/			
@@ -1079,7 +958,7 @@ body.mg-hud-enabled {
 						border-radius: .5rem;
 						transition: border .5s ease;
 
-						.mg-left-accordion-toggle {
+						.mg-slide-toggle {
 							border: none;
 						}
 					}
@@ -1502,18 +1381,18 @@ body.mg-hud-enabled {
 					min-height: 4rem;
 				}
 
-				.mg-left-accordion.mg-scene-drop-folder > .mg-left-accordion-toggle,
-				.mg-left-accordion.mg-actor-drop-folder > .mg-left-accordion-toggle,
-				.mg-left-accordion.mg-item-drop-folder > .mg-left-accordion-toggle,
-				.mg-left-accordion.mg-journal-drop-folder > .mg-left-accordion-toggle,
-				.mg-left-accordion.mg-compendium-drop-folder > .mg-left-accordion-toggle,
-				.mg-left-accordion.mg-playlist-drop-folder > .mg-left-accordion-toggle,
-				.mg-left-accordion-toggle.mg-scene-drop-folder,
-				.mg-left-accordion-toggle.mg-actor-drop-folder,
-				.mg-left-accordion-toggle.mg-item-drop-folder,
-				.mg-left-accordion-toggle.mg-journal-drop-folder,
-				.mg-left-accordion-toggle.mg-compendium-drop-folder,
-				.mg-left-accordion-toggle.mg-playlist-drop-folder {
+				.mg-left-accordion.mg-scene-drop-folder > .mg-slide-toggle,
+				.mg-left-accordion.mg-actor-drop-folder > .mg-slide-toggle,
+				.mg-left-accordion.mg-item-drop-folder > .mg-slide-toggle,
+				.mg-left-accordion.mg-journal-drop-folder > .mg-slide-toggle,
+				.mg-left-accordion.mg-compendium-drop-folder > .mg-slide-toggle,
+				.mg-left-accordion.mg-playlist-drop-folder > .mg-slide-toggle,
+				.mg-slide-toggle.mg-scene-drop-folder,
+				.mg-slide-toggle.mg-actor-drop-folder,
+				.mg-slide-toggle.mg-item-drop-folder,
+				.mg-slide-toggle.mg-journal-drop-folder,
+				.mg-slide-toggle.mg-compendium-drop-folder,
+				.mg-slide-toggle.mg-playlist-drop-folder {
 					border-color: $mg-green;
 					color: $mg-green;
 				}
@@ -6231,6 +6110,142 @@ body:not(.mg-hud-enabled) #mg-ui-root {
 		margin-top: 2.125rem;
 	}
 }
+
+/* Slide Toggle Globals
+----------------------------------------------------------------------*/			
+.mg-slide-toggle,
+.mg-left-accordion-toggle {
+	--mg-accordion-toggle-image: url("../assets/images/accordion-toggle.jpg");
+	width: 100%;
+	margin: 0;
+	padding: 1rem;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	border-radius: 0;
+	color: $mg-blue-1;
+	text-align: left;
+	border: 2px solid $mg-blue-main-2;
+	border-left: 0;
+	border-right: 0;
+	@include oswald();
+	font-size: .9rem;
+	font-weight: 700;
+	text-transform: uppercase;
+	position: relative;
+	background-image:
+		radial-gradient(circle at 50% 0%,
+		rgba(197, 212, 236, 0.22) 0%,
+		rgba(197, 212, 236, 0.10) 35%,
+		rgba(18, 33, 55, 0.00) 70%
+		),
+		var(--mg-accordion-toggle-image);
+	background-repeat: no-repeat;
+	background-size: cover, auto 115%;
+	background-position: center, 50% 34%;
+	background-blend-mode: soft-light, multiply;
+	background-color: $mg-blue-3;
+	transition:
+		background-color .5s ease,
+		background-position 2.5s cubic-bezier(.2, .8, .2, 1),
+		background-size 2.5s cubic-bezier(.2, .8, .2, 1),
+		color .5s ease,
+		border .5s ease;
+
+	&::after {
+		content: '';
+		width: 100%;
+		height: 100%;
+		background: linear-gradient(
+			270deg,
+			rgba($mg-blue-main, 1) 0%,
+			rgba($mg-blue-main, 0) 25%,
+			rgba($mg-blue-main, 0) 35%,
+			rgba($mg-blue-main, 1) 100%
+		);
+		position: absolute;
+		left: 0;
+		top: 0;
+		opacity: 1;
+		transition: opacity .5s ease, background .5s ease;
+	}
+
+	span {
+		display: flex;
+		align-items: center;
+		gap: 1rem;
+		@include oswald();
+		font-size: 1rem;
+		font-weight: 400;
+		font-style: normal;
+		@include mg-shadow();
+		position: relative;
+		z-index: 2;
+	}
+
+	i {
+		color: $mg-blue-2;
+		font-size: 1.5rem;
+		@include mg-shadow();
+		position: relative;
+		z-index: 3;
+		transition: color .5s ease, transform .5s ease;
+	}
+
+	.mg-slide-toggle-wrap.is-open &,
+	.mg-left-accordion.is-open &,
+	&:hover,
+	&:focus {
+		background-image:
+			radial-gradient(circle at 50% 0%,
+			rgba(197, 212, 236, 0.22) 0%,
+			rgba(197, 212, 236, 0.10) 35%,
+			rgba(18, 33, 55, 0.00) 70%
+			),
+			var(--mg-accordion-toggle-image);
+		background-color: $mg-blue-main-2;
+		background-size: cover, auto 125%;
+		background-position: center, 50% 66%;
+		color: $mg-ivory;
+
+		i {
+			color: $mg-green;
+		}
+	}
+}
+
+.mg-slide-toggle-chevron,
+.mg-left-accordion-chevron {
+	transition: transform .5s ease, color .5s ease;
+	font-size: 1.15rem !important;
+}
+
+.mg-slide-toggle-wrap.is-open .mg-slide-toggle-chevron,
+.mg-left-accordion.is-open .mg-left-accordion-chevron {
+	transform: rotate(180deg);
+}
+
+.mg-left-accordion-body {
+	display: block;
+	overflow: hidden;
+	opacity: 1;
+	transition:
+	max-height .5s ease,
+	opacity .5s ease;
+
+	&[hidden] {
+		display: none;
+	}
+}
+
+.mg-left-accordion-inner {
+	display: grid;
+	gap: .75rem;
+	padding: 1rem;
+	border-bottom: 2px solid $mg-blue-main-2;
+	background: rgba($mg-blue-4, .6);
+}		
+
 
 
 /* Pointer Event Resets

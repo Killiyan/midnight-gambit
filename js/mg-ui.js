@@ -791,13 +791,13 @@ function mgRenderAccordion(actor, { id, title, icon = "", open = true, body = ""
 		>
 			<button
 				type="button"
-				class="mg-left-accordion-toggle"
+				class="mg-slide-toggle"
 				data-mg-accordion-toggle="${id}"
 				aria-expanded="${isOpen ? "true" : "false"}"
 				${toggleAttrs}
 			>
 				<span>${iconHtml}${mgEsc(title)}</span>
-				<i class="fa-solid fa-chevron-down mg-left-accordion-chevron"></i>
+				<i class="fa-solid fa-chevron-down mg-slide-toggle-chevron"></i>
 			</button>
 
 			<div
@@ -4891,13 +4891,13 @@ function mgRenderSceneFolder(node, depth = 0) {
 			data-mg-scene-folder-id="${folder.id}"
 		>
 			<div
-				class="mg-left-accordion-toggle mg-scene-folder-toggle"
+				class="mg-slide-toggle mg-scene-folder-toggle"
 				data-mg-accordion-toggle="${id}"
 				data-mg-scene-folder-drop="${folder.id}"
 				aria-expanded="${isOpen ? "true" : "false"}"
 			>
 				<span><i class="fa-solid fa-folder" data-mg-scene-folder-icon${iconStyle}></i>${mgEsc(folder.name)}</span>
-				<i class="fa-solid fa-chevron-down mg-left-accordion-chevron"></i>
+				<i class="fa-solid fa-chevron-down mg-slide-toggle-chevron"></i>
 			</div>
 
 			<div

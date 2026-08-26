@@ -1259,13 +1259,13 @@ function mgRenderCompendiumFolder(node, depth = 0) {
 			data-mg-compendium-folder-id="${folder.id}"
 		>
 			<div
-				class="mg-left-accordion-toggle mg-scene-folder-toggle mg-compendium-folder-toggle"
+				class="mg-slide-toggle mg-scene-folder-toggle mg-compendium-folder-toggle"
 				data-mg-accordion-toggle="${id}"
 				data-mg-compendium-folder-drop="${folder.id}"
 				aria-expanded="${isOpen ? "true" : "false"}"
 			>
 				<span><i class="fa-solid fa-folder" data-mg-compendium-folder-icon${iconStyle}></i>${mgEsc(folder.name)}</span>
-				<i class="fa-solid fa-chevron-down mg-left-accordion-chevron"></i>
+				<i class="fa-solid fa-chevron-down mg-slide-toggle-chevron"></i>
 			</div>
 			<div class="mg-left-accordion-body" ${isOpen ? "" : "hidden"} style="max-height: ${isOpen ? "none" : "0px"};">
 				<div class="mg-left-accordion-inner">

@@ -250,6 +250,10 @@ h3 {
     }
   }
 
+  #chat {
+    position: relative;
+  }
+
   #chat-log {
     background-image: url("../assets/images/filigree-vert-blue.png");
     background-color: $mg-blue-4;
@@ -283,6 +287,99 @@ h3 {
           background: $mg-blue-4;
         }
       }
+    }
+  }
+
+  .mg-last-roll-tray {
+    background: $mg-blue-6;
+    background: rgba($mg-blue-4, .8);
+    position: absolute;
+      top: 0;
+      left: 0;
+    width: 100%;
+    height: auto;
+    z-index: 20;
+    overflow: hidden;
+    max-height: var(--mg-last-roll-tray-height, 2.5rem);
+    transition: max-height .5s ease;
+
+    .mg-last-roll-toggle {
+      padding: .5rem 1rem;
+      background-size: cover, 100% auto;
+      background-position: center, 50% 34%;
+
+      i {
+        font-size: 1rem;
+      }
+
+      &:hover,
+      &:focus {
+        background-size: cover, 110% auto;
+        background-position: center, 50% 66%;
+      }
+    }
+
+    &.is-empty {
+      display: none;
+    }
+
+    &.is-collapsed {
+      .mg-last-roll-body {
+        max-height: 0;
+        opacity: 0;
+        pointer-events: none;
+      }
+    }
+
+    .mg-last-roll-title {
+      text-transform: uppercase;
+    }
+
+    .mg-last-roll-body {
+      display: grid;
+      gap: .5rem;
+      max-height: var(--mg-last-roll-body-height, 0px);
+      background: $mg-blue-6;
+      border-bottom: 2px solid $mg-blue-main-2;
+      opacity: 1;
+      overflow: hidden;
+      padding: .875rem;
+      transition: max-height .5s ease, opacity .5s ease, padding .5s ease;
+    }
+
+    .mg-last-roll-card {
+      transform: translateY(0);
+      transition: opacity .5s ease, transform .5s ease;
+
+      &.is-entering {
+        opacity: 0;
+        transform: translateY(-.75rem);
+      }
+
+      &.is-leaving {
+        opacity: 0;
+        transform: translateY(.5rem);
+        pointer-events: none;
+      }
+    }
+  }
+
+  .mg-last-roll-chat-scrim {
+    position: absolute;
+    top: var(--mg-last-roll-scrim-top, 0);
+    left: var(--mg-last-roll-scrim-left, 0);
+    width: var(--mg-last-roll-scrim-width, 100%);
+    height: var(--mg-last-roll-scrim-height, 100%);
+    background: rgba($black, .68);
+    backdrop-filter: blur(1px);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .5s ease;
+    z-index: 19;
+
+    &.is-visible {
+      opacity: 1;
+      pointer-events: auto;
     }
   }
 
@@ -624,7 +721,7 @@ h3 {
     margin: 1rem 0;
   }
 
-  &.mg-chat-body {
+  @at-root .message-content.mg-chat-body, .mg-last-roll-body {
     display: flex;
     flex-direction: column;
     gap: .75rem;

@@ -3614,6 +3614,352 @@ function mgBuildRestrictedChatData(sourceMessage, base = {}) {
   return data;
 }
 
+/* Last Roll Tray
+----------------------------------------------------------------------*/
+const MG_LAST_ROLL_TRAY_ID = "mg-last-roll-tray";
+const MG_LAST_ROLL_ACTION_SELECTOR = ".mg-roll-action, .mg-risk-it, .mg-risk-again, .mg-spend-sto";
+let mgLastRollMessageId = null;
+let mgLastRollUpdateTimer = null;
+let mgLastRollResizeObserver = null;
+let mgLastRollHeightTimer = null;
+
+function mgGetMessageRoot(html) {
+  if (!html) return null;
+  if (html instanceof HTMLElement) return html;
+  if (html[0] instanceof HTMLElement) return html[0];
+  return null;
+}
+
+function mgGetLastRollChatContainer() {
+  return document.getElementById("chat");
+}
+
+function mgGetLastRollLog() {
+  return document.getElementById("chat-log");
+}
+
+function mgGetLastRollScrim() {
+  const chat = mgGetLastRollChatContainer();
+  if (!chat) return null;
+
+  let scrim = chat.querySelector(":scope > .mg-last-roll-chat-scrim");
+  if (scrim) return scrim;
+
+  scrim = document.createElement("div");
+  scrim.className = "mg-last-roll-chat-scrim";
+  scrim.setAttribute("aria-hidden", "true");
+  scrim.addEventListener("click", () => {
+    const tray = document.getElementById(MG_LAST_ROLL_TRAY_ID);
+    if (tray) mgSetLastRollExpanded(tray, false);
+  });
+  chat.append(scrim);
+  return scrim;
+}
+
+function mgSyncLastRollScrimBounds() {
+  const chat = mgGetLastRollChatContainer();
+  const log = mgGetLastRollLog();
+  const scrim = mgGetLastRollScrim();
+  if (!chat || !log || !scrim) return;
+
+  const chatRect = chat.getBoundingClientRect();
+  const logRect = log.getBoundingClientRect();
+  scrim.style.setProperty("--mg-last-roll-scrim-top", `${Math.max(0, logRect.top - chatRect.top)}px`);
+  scrim.style.setProperty("--mg-last-roll-scrim-left", `${Math.max(0, logRect.left - chatRect.left)}px`);
+  scrim.style.setProperty("--mg-last-roll-scrim-width", `${logRect.width}px`);
+  scrim.style.setProperty("--mg-last-roll-scrim-height", `${logRect.height}px`);
+}
+
+function mgSyncLastRollTrayHeight(tray) {
+  const toggle = tray?.querySelector("[data-mg-last-roll-toggle]");
+  const body = tray?.querySelector("[data-mg-last-roll-body]");
+  if (!toggle || !body) return;
+
+  const isOpen = !tray.classList.contains("is-collapsed") && !tray.classList.contains("is-empty");
+  const toggleHeight = toggle.offsetHeight;
+  const bodyStyle = globalThis.getComputedStyle?.(body);
+  const paddingTop = Number.parseFloat(bodyStyle?.paddingTop) || 0;
+  const paddingBottom = Number.parseFloat(bodyStyle?.paddingBottom) || 0;
+  const bodyRect = body.getBoundingClientRect();
+  const contentBottom = Array.from(body.children).reduce((bottom, child) => {
+    const childRect = child.getBoundingClientRect();
+    return Math.max(bottom, childRect.bottom - bodyRect.top);
+  }, paddingTop);
+  const measuredHeight = Math.max(body.scrollHeight, Math.ceil(contentBottom + paddingBottom));
+  const bodyHeight = isOpen ? measuredHeight : 0;
+  body.style.setProperty("--mg-last-roll-body-height", `${bodyHeight}px`);
+  tray.style.setProperty("--mg-last-roll-tray-height", `${toggleHeight + bodyHeight}px`);
+  mgSyncLastRollScrimBounds();
+}
+
+function mgScheduleLastRollHeightSync(tray) {
+  if (!tray) return;
+  if (mgLastRollHeightTimer) window.clearTimeout(mgLastRollHeightTimer);
+
+  window.requestAnimationFrame(() => {
+    mgSyncLastRollTrayHeight(tray);
+    window.requestAnimationFrame(() => mgSyncLastRollTrayHeight(tray));
+  });
+
+  mgLastRollHeightTimer = window.setTimeout(() => {
+    mgLastRollHeightTimer = null;
+    mgSyncLastRollTrayHeight(tray);
+  }, 450);
+}
+
+function mgSetLastRollExpanded(tray, expanded) {
+  if (!tray) return;
+
+  const nextExpanded = !!expanded && !tray.classList.contains("is-empty");
+  tray.classList.toggle("is-collapsed", !nextExpanded);
+  tray.classList.toggle("is-open", nextExpanded);
+  tray.querySelector("[data-mg-last-roll-toggle]")?.setAttribute("aria-expanded", nextExpanded ? "true" : "false");
+
+  const scrim = mgGetLastRollScrim();
+  scrim?.classList.toggle("is-visible", nextExpanded);
+
+  mgScheduleLastRollHeightSync(tray);
+}
+
+function mgFindChatMessageRootById(messageId) {
+  return Array.from(document.querySelectorAll(mgChatMessageChildSelector()))
+    .find(el => el.dataset?.messageId === messageId) ?? null;
+}
+
+function mgFindLastRollSourceAction(action) {
+  const sourceId = action?.dataset?.mgLastRollSource;
+  if (!sourceId) return null;
+
+  const source = mgFindChatMessageRootById(sourceId);
+  if (!source) return null;
+
+  const sourceActions = Array.from(source.querySelectorAll(MG_LAST_ROLL_ACTION_SELECTOR));
+  const actionIndex = Number(action.dataset.mgLastRollActionIndex);
+  if (Number.isInteger(actionIndex) && sourceActions[actionIndex]) return sourceActions[actionIndex];
+
+  const selector = action.dataset.mgLastRollSelector;
+  return selector ? source.querySelector(selector) : null;
+}
+
+function mgTriggerLastRollSourceAction(sourceAction) {
+  if (!sourceAction) return false;
+
+  const clickEvent = new MouseEvent("click", {
+    bubbles: true,
+    cancelable: true,
+    view: window
+  });
+  return sourceAction.dispatchEvent(clickEvent);
+}
+
+function mgGetLastRollTray() {
+  const chat = mgGetLastRollChatContainer();
+  const log = mgGetLastRollLog();
+  if (!chat || !log) return null;
+
+  let tray = document.getElementById(MG_LAST_ROLL_TRAY_ID);
+  if (tray) return tray;
+
+  tray = document.createElement("section");
+  tray.id = MG_LAST_ROLL_TRAY_ID;
+  tray.className = "mg-last-roll-tray mg-slide-toggle-wrap is-empty is-collapsed";
+  tray.innerHTML = `
+    <button type="button" class="mg-last-roll-toggle mg-slide-toggle" data-mg-last-roll-toggle aria-expanded="false">
+      <span class="mg-last-roll-title">
+        <i class="fa-kit fa-risk" aria-hidden="true"></i>
+        Last Roll
+      </span>
+      <i class="fa-solid fa-chevron-down mg-last-roll-chevron mg-slide-toggle-chevron" aria-hidden="true"></i>
+    </button>
+    <div class="mg-last-roll-body" data-mg-last-roll-body></div>
+  `;
+
+  log.parentElement?.insertBefore(tray, log);
+  mgGetLastRollScrim();
+
+  if (chat.dataset.mgLastRollResizeBound !== "true") {
+    chat.dataset.mgLastRollResizeBound = "true";
+    window.addEventListener("resize", mgSyncLastRollScrimBounds);
+
+    if (globalThis.ResizeObserver) {
+      mgLastRollResizeObserver = new ResizeObserver(() => mgSyncLastRollScrimBounds());
+      mgLastRollResizeObserver.observe(chat);
+      mgLastRollResizeObserver.observe(log);
+    }
+  }
+
+  tray.querySelector("[data-mg-last-roll-toggle]")?.addEventListener("click", () => {
+    mgSetLastRollExpanded(tray, tray.classList.contains("is-collapsed"));
+  });
+
+  tray.addEventListener("click", (event) => {
+    if (!event.target?.closest?.("[data-mg-last-roll-body]")) return;
+
+    const action = event.target?.closest?.(MG_LAST_ROLL_ACTION_SELECTOR);
+    if (!action) return;
+
+    if (action.disabled || action.classList.contains("is-disabled")) return;
+
+    const sourceAction = mgFindLastRollSourceAction(action);
+    if (!sourceAction || sourceAction.disabled || sourceAction.classList.contains("is-disabled")) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    mgTriggerLastRollSourceAction(sourceAction);
+    window.setTimeout(() => mgScheduleLastRollUpdate(), 150);
+  }, true);
+
+  return tray;
+}
+
+function mgIsOwnRollMessage(message) {
+  if (!message || !game?.user) return false;
+  const userId = message.user?.id ?? message.user;
+  if (userId === game.user.id) return true;
+  if (game.user.isGM) return false;
+
+  const actor = mgGetChatSpeakerActor(message);
+  return !!actor?.isOwner;
+}
+
+function mgGetRollCardFromRoot(root) {
+  if (!root) return null;
+  return root.querySelector(".mg-chat-card.chat-roll.mg-roll-card:not(.mg-roll-card-obscured)");
+}
+
+function mgGetLastRollMessageFromRoot(root) {
+  const messageId = root?.dataset?.messageId;
+  return messageId ? game.messages?.get(messageId) : null;
+}
+
+function mgIsLastRollCandidate(root) {
+  const message = mgGetLastRollMessageFromRoot(root);
+  if (!message || !mgCanViewerSeeRoll(message) || !mgIsOwnRollMessage(message)) return false;
+  return !!mgGetRollCardFromRoot(root);
+}
+
+function mgLastRollActionSelector(action) {
+  const classes = [];
+  if (action.classList.contains("mg-roll-action")) classes.push(".mg-roll-action");
+  if (action.classList.contains("mg-risk-it")) classes.push(".mg-risk-it");
+  if (action.classList.contains("mg-risk-again")) classes.push(".mg-risk-again");
+  if (action.classList.contains("mg-spend-sto")) classes.push(".mg-spend-sto");
+  if (action.classList.contains("sto-complication")) classes.push(".sto-complication");
+  if (action.classList.contains("sto-flourish")) classes.push(".sto-flourish");
+  if (classes.length) return classes.join("");
+
+  const controls = action.closest(".mg-roll-controls");
+  const index = controls ? Array.from(controls.querySelectorAll(MG_LAST_ROLL_ACTION_SELECTOR)).indexOf(action) : -1;
+  return `.mg-roll-controls button:nth-of-type(${Math.max(1, index + 1)})`;
+}
+
+function mgPrepareLastRollCard(card, messageId) {
+  const clone = card.cloneNode(true);
+  clone.classList.add("mg-last-roll-card");
+  clone.querySelectorAll("[id]").forEach(el => el.removeAttribute("id"));
+
+  clone.querySelectorAll(MG_LAST_ROLL_ACTION_SELECTOR).forEach((action, index) => {
+    action.dataset.mgLastRollSource = messageId;
+    action.dataset.mgLastRollActionIndex = String(index);
+    action.dataset.mgLastRollSelector = mgLastRollActionSelector(action);
+  });
+
+  return clone;
+}
+
+function mgRenderLastRollTrayFromRoot(root, { animate = true } = {}) {
+  if (!mgIsLastRollCandidate(root)) return false;
+
+  const messageId = root.dataset.messageId;
+  const card = mgGetRollCardFromRoot(root);
+  const tray = mgGetLastRollTray();
+  const body = tray?.querySelector("[data-mg-last-roll-body]");
+  if (!tray || !body || !card) return false;
+
+  const replace = mgLastRollMessageId && mgLastRollMessageId !== messageId;
+  const wasExpanded = !tray.classList.contains("is-collapsed");
+  mgLastRollMessageId = messageId;
+  tray.classList.remove("is-empty");
+
+  const nextCard = mgPrepareLastRollCard(card, messageId);
+
+  if (!animate || !replace || !body.firstElementChild || !wasExpanded) {
+    body.replaceChildren(nextCard);
+    nextCard.classList.add("is-settled");
+    mgSetLastRollExpanded(tray, wasExpanded);
+    mgScheduleLastRollHeightSync(tray);
+    return true;
+  }
+
+  const oldCard = body.firstElementChild;
+  oldCard.classList.add("is-leaving");
+  nextCard.classList.add("is-entering");
+  body.append(nextCard);
+
+  window.setTimeout(() => {
+    oldCard?.remove();
+    nextCard.classList.remove("is-entering");
+    nextCard.classList.add("is-settled");
+    mgScheduleLastRollHeightSync(tray);
+  }, 420);
+
+  mgSetLastRollExpanded(tray, wasExpanded);
+  mgScheduleLastRollHeightSync(tray);
+  return true;
+}
+
+function mgFindNewestLastRollRoot() {
+  const log = mgGetLastRollLog();
+  if (!log) return null;
+
+  const messages = Array.from(log.querySelectorAll(mgChatMessageChildSelector()));
+  for (let i = messages.length - 1; i >= 0; i--) {
+    if (mgIsLastRollCandidate(messages[i])) return messages[i];
+  }
+
+  return null;
+}
+
+function mgClearLastRollTray() {
+  const tray = mgGetLastRollTray();
+  const body = tray?.querySelector("[data-mg-last-roll-body]");
+  if (!tray || !body) return;
+
+  mgLastRollMessageId = null;
+  body.replaceChildren();
+  tray.classList.add("is-empty");
+  mgSetLastRollExpanded(tray, false);
+}
+
+function mgUpdateLastRollTray({ animate = true } = {}) {
+  const newest = mgFindNewestLastRollRoot();
+  if (!newest) {
+    mgClearLastRollTray();
+    return;
+  }
+
+  mgRenderLastRollTrayFromRoot(newest, { animate });
+}
+
+function mgScheduleLastRollUpdate(options = {}) {
+  if (mgLastRollUpdateTimer) window.clearTimeout(mgLastRollUpdateTimer);
+  mgLastRollUpdateTimer = window.setTimeout(() => {
+    mgLastRollUpdateTimer = null;
+    mgUpdateLastRollTray(options);
+  }, 50);
+}
+
+Hooks.on("renderChatMessage", (message, html) => {
+  const root = mgGetMessageRoot(html);
+  if (!root || !mgIsLastRollCandidate(root)) return;
+  mgRenderLastRollTrayFromRoot(root, { animate: true });
+});
+
+Hooks.on("createChatMessage", () => mgScheduleLastRollUpdate({ animate: true }));
+Hooks.on("updateChatMessage", () => mgScheduleLastRollUpdate({ animate: false }));
+Hooks.on("deleteChatMessage", () => mgScheduleLastRollUpdate({ animate: false }));
+Hooks.once("ready", () => window.setTimeout(() => mgUpdateLastRollTray({ animate: false }), 250));
+
 /* Vanilla Foundry Roll -> MG Structure
 ----------------------------------------------------------------------*/
 
