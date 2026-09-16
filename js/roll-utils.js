@@ -122,6 +122,7 @@ export async function evaluateRoll({
 
   const isAce = kept.length && kept.every(d => d === 6);
   const isCrit = kept.length && kept.every(d => d === 1);
+  const isFinalOutcome = isAce || isCrit;
   const isFail = !isAce && !isCrit && total <= 6;
   const isComp = !isAce && !isCrit && total > 6 && total <= 10;
   const isFlourish = total >= 11;
@@ -168,14 +169,14 @@ export async function evaluateRoll({
 
   const canStoComp =
     usesRiskSto &&
-    !isAce &&
+    !isFinalOutcome &&
     total <= 6 &&
     needComp > 0 &&
     needComp <= stoValue;
 
   const canStoFlourish =
     usesRiskSto &&
-    !isAce &&
+    !isFinalOutcome &&
     total <= 10 &&
     needFlourish > 0 &&
     needFlourish <= stoValue;
@@ -257,7 +258,7 @@ export async function evaluateRoll({
   const sessionId = foundry.utils.randomID();
   const usedRisk = Number(actor?.system?.riskUsed ?? 0);
   const totalRisk = Number(actor?.system?.riskDice ?? 0);
-  const canRisk = usesRiskSto && kept.length >= 2 && usedRisk < totalRisk && !stoRiskLocked;
+  const canRisk = usesRiskSto && kept.length >= 2 && usedRisk < totalRisk && !stoRiskLocked && !isFinalOutcome;
   const strainEffectsJson = esc(JSON.stringify(activeStrainEffects ?? null));
 
   const riskBtn = (usesRiskSto && kept.length >= 2)
@@ -270,7 +271,7 @@ export async function evaluateRoll({
         data-session-id="${sessionId}"
         data-strain-effects='${strainEffectsJson}'
         ${canRisk ? "" : 'disabled aria-disabled="true"'}
-        title="${stoRiskLocked ? "Risk unavailable: Track damage" : "Risk It"}">
+        title="${isFinalOutcome ? "Risk unavailable: Final outcome" : (stoRiskLocked ? "Risk unavailable: Track damage" : "Risk It")}">
         <i class="fa-kit fa-risk"></i>
       </button>
     `
@@ -419,6 +420,7 @@ export async function evaluateRoll({
     <div class="mg-chat-card chat-roll mg-roll-card"
         data-total="${total}"
         data-actor-id="${actor.id}"
+        data-final-outcome="${isFinalOutcome ? "true" : "false"}"
         data-strain-effects='${strainEffectsJson}'>
       <div class="mg-roll-header">
         <div class="mg-roll-label-wrap">

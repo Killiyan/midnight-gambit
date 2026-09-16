@@ -263,6 +263,11 @@
 				padding: 1.125rem;
 				border-radius: .5rem;
 				box-shadow: 5px 5px 10px rgba(0,0,0,0.5);
+
+				.button-wrapper {
+					display: flex;
+					gap: 1rem;
+				}
 			}
 
 			// Resetting the top margin so the banner overlaps the image

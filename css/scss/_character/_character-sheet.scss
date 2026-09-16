@@ -522,7 +522,7 @@ ol li {
         color:$mg-ivory;
 
         // Character sheet button tweak. Remove later if I don't like
-        button:not(.tox-tbtn):not(.inventory-bucket-toggle):not(.crew-inventory-bucket-toggle):not(.mg-card-toggle):not(.post-gambit):not(.status-buttons button):not(.delete-move):not(.mg-hand-order-eye):not(.mg-primary-toggle):not(.mg-seeall-toggle):not(.mg-card-toggle):not(.item-filter-toggle),
+        button:not(.tox-tbtn):not(.inventory-bucket-toggle):not(.crew-inventory-bucket-toggle):not(.mg-card-toggle):not(.post-gambit):not(.status-buttons button):not(.delete-move):not(.mg-hand-order-eye):not(.mg-primary-toggle):not(.mg-seeall-toggle):not(.mg-card-toggle):not(.item-filter-toggle):not(.edge-button),
         form button,
         .dialog-button {
           background: $mg-blue-4;
@@ -792,106 +792,7 @@ ol li {
               }
             }
           }
-
-          .side-controls {
-            z-index: 10;
-            display: flex;
-            flex-direction: column;
-            align-items: flex-start;
-            gap: 1rem;
-
-            .button-wrapper {
-              display: flex;
-              gap: .5rem;
-              width: 100%;
-
-              .edge-button {
-                overflow: hidden;
-                position: relative;
-
-                &.is-active {
-                      background: $mg-blue-4;
-                      border-color: $mg-blue-3;
-                      
-                      &:hover,
-                      &:focus {
-                        background: $mg-blue-1;
-
-                         i {
-                          color: $mg-blue-3;
-                         }
-                      }
-
-                      // Sheen sweep (matches lead initiative member)
-                      &:after {
-                        content: "";
-                        position: absolute;
-                        pointer-events: none;
-
-                        // Keep it mostly top area like your initiative sheen
-                        inset: -40% -20% auto -20%;
-                        height: 200%;
-
-                        // Match the tab shape so it doesn't look like a floating rectangle
-                        border-radius: 0 .5rem .5rem 0;
-                        overflow: hidden;
-
-                        transform: rotate(var(--mg-gleam-tilt, -12deg)) translateX(-120%);
-                        mix-blend-mode: screen;
-                        opacity: var(--mg-gleam-opacity, 0.9);
-                        z-index: 2;
-
-                        background: linear-gradient(
-                          90deg,
-                          transparent 0%,
-                          rgba($mg-blue-4, 0.0) 30%,
-                          rgba($mg-blue-3, 0.35) 45%,
-                          rgba($mg-blue-1, 0.90) 50%,
-                          rgba($mg-blue-3, 0.35) 55%,
-                          rgba($mg-blue-4, 0.0) 70%,
-                          transparent 100%
-                        );
-
-                        filter: blur(0.6px);
-                        animation: mg-gleam var(--mg-gleam-speed, 1.9s) ease-in-out infinite;
-                      }
-
-                      i {
-                        animation: mg-edge-pulse 800ms ease-in-out infinite alternate;
-                        color: $mg-blue-1;
-                      }
-                }
-
-                @keyframes mg-gleam {
-                  0%   { transform: rotate(var(--mg-gleam-tilt, -12deg)) translateX(-120%); opacity: 0; }
-                  10%  { opacity: var(--mg-gleam-opacity, 0.9); }
-                  45%  { transform: rotate(var(--mg-gleam-tilt, -12deg)) translateX(120%); opacity: var(--mg-gleam-opacity, 0.9); }
-                  60%  { opacity: 0; }
-                  100% { transform: rotate(var(--mg-gleam-tilt, -12deg)) translateX(120%); opacity: 0; }
-                }
-
-                i {
-                  color: $mg-blue-3;
-                }
-              }  
-
-              button {
-                width: calc(50% - .25rem);
-                font-size: .85rem;
-                padding: .25rem .5rem;
-                display: flex;
-                align-items: center;
-                gap: .5rem;
-                justify-content: center;
-
-                i {
-                  font-size: .85rem;
-                  margin: 0;
-                }
-              }
-            }
-          }
-
+          
           //Setting consisten styling for the over image toggles
           .long-rest-button,
           .edge-button {
@@ -929,20 +830,6 @@ ol li {
               i {
                 color: $mg-blue-2;
               }
-            }
-          }
-
-          .mg-temp-skill-bonuses {
-            position: absolute;
-            left: 14.5rem;
-            bottom: 4.125rem;
-            font-size: .8rem;
-            padding: 1rem;
-            width: 10rem;
-            justify-content: flex-end;
-
-            i {
-              margin: 0;
             }
           }
 
@@ -1361,10 +1248,81 @@ ol li {
       }
     }
 
+    .button-wrapper {
+      display: flex;
+      gap: 1rem;
+
+      //Giving the Edge button the styling it needs to have a higher contrast
+      .edge-button.mg-edge-toggle {
+        position: relative;
+        overflow: hidden;
+        border: 2px solid $mg-blue-main-2; 
+
+        &:hover,
+        &:focus {
+          background: $mg-blue-5;
+          border-color: $mg-green;
+          color: $mg-green;
+
+          i {
+            color: $mg-blue-1;
+          }
+        }        
+
+        //Resetting Icon style from the default :not cluster
+        i {
+          color: $mg-blue-2;
+        }
+
+        //Active Styles to help with contrast
+        &.is-active {
+          color: $mg-green;
+          border-color: $mg-green;
+          background: $mg-blue-6;
+
+          i {
+            color: $mg-green;
+          }
+
+          //Sheen effect that happens when Edge is toggled on
+          &:after {
+            content: "";
+            position: absolute;
+            pointer-events: none;
+            inset: -81% -20% auto -20%;
+            height: 300%;
+            border-radius: 0 .5rem .5rem 0;
+            overflow: hidden;
+            transform: rotate(var(--mg-gleam-tilt, -12deg)) translateX(-120%);
+            mix-blend-mode: screen;
+            opacity: var(--mg-gleam-opacity, 0.9);
+            z-index: 2;
+            background: linear-gradient(
+            90deg,
+            transparent 0%,
+            rgba($mg-blue-4, 0.0) 30%,
+            rgba($mg-blue-3, 0.35) 45%,
+            rgba($mg-blue-1, 0.90) 50%,
+            rgba($mg-blue-3, 0.35) 55%,
+            rgba($mg-blue-4, 0.0) 70%,
+            transparent 100%
+            );
+            filter: blur(0.6px);
+            animation: mg-gleam var(--mg-gleam-speed, 1.9s) ease-in-out infinite;
+          }
+
+          i {
+            animation: mg-edge-pulse 800ms ease-in-out infinite alternate;
+            color: $mg-blue-1;
+          }
+        }
+      }
+    }
+
     .resource-container {
       display: flex;
       gap: 2.125rem;
-      margin-bottom: 2.125rem;
+      margin: 2.125rem 0;
 
       .sto-container,
       .risk-container {

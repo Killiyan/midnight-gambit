@@ -905,6 +905,45 @@ h3 {
         }
       }
 
+      .edge-label {
+        font-size: .75rem;
+        @include roboto();
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        align-items: center;
+        gap: .5rem;
+        background: $mg-blue-main-2;
+        color: $mg-blue-1;
+        border-radius: .5rem;
+        overflow: hidden;
+        @include mg-border();
+
+        span {
+          padding: .125rem;
+          grid-column: span 4;
+        }
+
+        i {
+          color: $mg-green;
+        }
+
+        .edge-icon {
+          height: 100%;
+          padding: .5rem;
+          background: rgba($black, .75);
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          width: auto;        
+        }
+
+        &.mg-strain-effect-label {
+          i {
+            color: $mg-blue-1;
+          }
+        }
+      }      
+
       .mg-roll-math-wrap.has-edge {
         .mg-roll-tray-group {
           width: 50%;

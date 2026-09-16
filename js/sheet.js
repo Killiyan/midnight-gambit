@@ -2373,6 +2373,33 @@ _mgOpenSidebarCropper() {
       });
     });
 
+    // Return one discarded Gambit to the player's hand.
+    html.find(".return-gambit-to-hand").on("click", async (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+
+      const button = event.currentTarget;
+      const itemId = button.dataset.itemId;
+      if (!itemId) return;
+
+      const gambits = this.actor.system.gambits ?? {};
+      const drawn = Array.isArray(gambits.drawn) ? gambits.drawn : [];
+      const discard = Array.isArray(gambits.discard) ? gambits.discard : [];
+      const handHidden = Array.isArray(gambits.handHidden) ? gambits.handHidden : [];
+      const sameCard = id => String(id) === String(itemId);
+
+      button.disabled = true;
+      try {
+        await this.actor.update({
+          "system.gambits.drawn": drawn.some(sameCard) ? drawn : [...drawn, itemId],
+          "system.gambits.discard": discard.filter(id => !sameCard(id)),
+          "system.gambits.handHidden": handHidden.filter(id => !sameCard(id))
+        });
+      } finally {
+        button.disabled = false;
+      }
+    });
+
     //Remove Card from Hand
     html.find(".remove-from-hand").on("click", async (event) => {
       event.preventDefault();
@@ -2799,7 +2826,6 @@ _mgOpenSidebarCropper() {
         "system.strain.tempBonus.soul": 0,
 
         "system.riskUsed": 0,
-        "system.sto.value": 0,
         "system.flashbackUsed": false
       };
 
@@ -6892,6 +6918,7 @@ _mgOpenSidebarCropper() {
       ".load-icon",
       ".draw-gambit",
       ".discard-card",
+      ".return-gambit-to-hand",
       ".remove-from-hand",
       ".post-move",
       ".post-signature",

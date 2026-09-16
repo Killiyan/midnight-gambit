@@ -55,39 +55,6 @@
           </div>
         </div>
 
-        <div class="side-controls">
-
-          <div class="button-wrapper">
-            <button type="button" class="edge-button mg-edge-toggle {{#if system.edgeNext}}is-active{{/if}}" title="Edge: your next Skill or Attribute roll is rolled twice">
-              <i class="fa-solid fa-scythe"></i>
-              Edge
-            </button>
-
-            <button type="button" data-tooltip="Recover" class="long-rest-button">
-              <i class="fas fa-bed"></i>
-              Recover
-            </button>
-          </div>
-
-          <!--Removing Flashbacks and Load for now until I find their home in the system.
-          <div class="flashback-track">
-            <label data-tooltip="Use this to spend a flashback during a job.">Flashback</label>
-            <span class="flashback-dot {{#unless actor.system.flashbackUsed}}filled{{/unless}}" data-action="flashback">
-              <i class="fa-solid fa-clock-rotate-left"></i>
-            </span>
-          </div>
-
-          <div class="load-toggle">
-            <label>Load</label>
-            <div class="load-options">
-              <span class="load-icon {{#if (eq actor.system.load 'light')}}selected{{/if}}" data-load="light" title="Light Load"><i class="fa-solid fa-feather-pointed"></i></span>
-              <span class="load-icon {{#if (eq actor.system.load 'medium')}}selected{{/if}}" data-load="medium" title="Medium Load"><i class="fa-solid fa-scale-balanced"></i></span>
-              <span class="load-icon {{#if (eq actor.system.load 'heavy')}}selected{{/if}}" data-load="heavy" title="Heavy Load"><i class="fa-solid fa-weight-hanging"></i></span>
-            </div>
-          </div>
-           -->
-        </div>
-
         <div class="strain-container">
 
           <div class="capacity-box">
@@ -160,12 +127,6 @@
           </div>
         </div> 
       </div>
-
-      <button type="button" class="mg-temp-skill-bonuses">
-        Temp Bonuses
-        <i class="fa-solid fa-handshake-angle"></i>
-      </button>   
-
 
       <div class="profile-image">
         <img class="mg-profile-img" src="{{actorDisplayImg}}" data-edit="img" title="{{actor.name}}" />
@@ -251,6 +212,23 @@
 
           {{/each}}
         </div>
+
+        <div class="button-wrapper mg-content">
+          <button type="button" class="edge-button mg-edge-toggle {{#if system.edgeNext}}is-active{{/if}}" title="Edge: your next Skill or Attribute roll is rolled twice">
+            <i class="fa-solid fa-scythe"></i>
+            Edge
+          </button>
+
+          <button type="button" class="mg-temp-skill-bonuses">
+            <i class="fa-solid fa-handshake-angle"></i>
+            Temp Bonuses
+          </button>
+          
+          <button type="button" data-tooltip="Recover" class="long-rest-button">
+            <i class="fas fa-bed"></i>
+            Recover
+          </button>          
+        </div>        
 
         <div class="wrapper resource-container">
 
@@ -784,8 +762,17 @@
             {{#each gambitDiscard}}
               <div class="gambit-card faded" data-source="discard" draggable="false" data-item-id="{{_id}}">
                 <div class="gambit-title">{{name}}</div>
-                <div class="gambit-description">
-                  {{{system.description}}}
+                <div class="gambit-wrapper">
+                  <div class="gambit-description">
+                    {{{system.description}}}
+                  </div>
+
+                  <div class="status-buttons">
+                    <button type="button" class="return-gambit-to-hand" data-item-id="{{_id}}" title="Return to Hand">
+                      <i class="fa-solid fa-arrow-rotate-left"></i>
+                      <span>Return to Hand</span>
+                    </button>
+                  </div>
                 </div>
               </div>
             {{/each}}

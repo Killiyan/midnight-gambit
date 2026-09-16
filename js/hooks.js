@@ -4203,6 +4203,9 @@ Hooks.on("renderChatMessage", (message, html) => {
     return mgGetStrainRollEffects(actor, stored?.tree || "");
   };
 
+  const hasFinalOutcome = (source) =>
+    source?.closest?.(".chat-roll")?.dataset?.finalOutcome === "true";
+
   // Core handler for both the first Risk and "Risk Again"
   const handleRiskClick = async (btn) => {
     const actorId  = btn.dataset.actorId;
@@ -4212,6 +4215,9 @@ Hooks.on("renderChatMessage", (message, html) => {
 
     const actor = game.actors.get(actorId);
     if (!actor) return ui.notifications.warn("Actor not found for Risk.");
+    if (hasFinalOutcome(btn)) {
+      return ui.notifications.warn("Ace and Critical Failure outcomes cannot be risked.");
+    }
     const activeStrainEffects = getRollStrainEffects(actor, btn);
     if (activeStrainEffects.stoRiskLocked) {
       return ui.notifications.warn(`Risk is unavailable on ${activeStrainEffects.tree} rolls at 3 or higher track damage.`);
@@ -4281,11 +4287,15 @@ Hooks.on("renderChatMessage", (message, html) => {
       console.warn("MG | failed to consume a Risk die:", err);
     }
 
+  const isAceNow = newDice.every(d => d === 6);
+  const isCritNow = newDice.every(d => d === 1);
+  const isFinalOutcome = isAceNow || isCritNow;
+
   // Can we risk again? (only show the button if there are dice left)
   const usedNow  = Number(actor.system?.riskUsed ?? 0);
   const totalRD  = Number(actor.system?.riskDice ?? 0);
   const stoRiskLocked = activeStrainEffects.stoRiskLocked;
-  const canAgain = usedNow < totalRD && !stoRiskLocked;
+  const canAgain = usedNow < totalRD && !stoRiskLocked && !isFinalOutcome;
   const strainEffectsJson = JSON.stringify(activeStrainEffects ?? null).replace(/[&<>"']/g, (m) => ({
     "&": "&amp;",
     "<": "&lt;",
@@ -4300,12 +4310,12 @@ Hooks.on("renderChatMessage", (message, html) => {
   let resultIcon = "";
   let resultClass = "";
 
-  if (newDice.every(d => d === 6)) {
+  if (isAceNow) {
     resultLabel = "ACE!";
     resultDesc = "You steal the spotlight.";
     resultIcon = "fa-star text-gold";
     resultClass = "result-ace";
-  } else if (newDice.every(d => d === 1)) {
+  } else if (isCritNow) {
     resultLabel = "Critical Failure";
     resultDesc = "It goes horribly wrong.";
     resultIcon = "fa-skull-crossbones";
@@ -4400,7 +4410,7 @@ Hooks.on("renderChatMessage", (message, html) => {
 
   const stoValue = Number(actor.system?.sto?.value ?? 0);
 
-  if (stoValue > 0 && !stoRiskLocked) {
+  if (stoValue > 0 && !stoRiskLocked && !isFinalOutcome) {
     // From Failure -> Complication or Flourish
     if (newTotal <= 6) {
       const needComp = 7 - newTotal;
@@ -4462,7 +4472,7 @@ Hooks.on("renderChatMessage", (message, html) => {
 
   // --- Compose the follow-up message ---
   const content = `
-    <div class="mg-chat-card chat-roll mg-roll-card mg-risk-result" data-total="${newTotal}" data-strain-effects='${strainEffectsJson}'>
+    <div class="mg-chat-card chat-roll mg-roll-card mg-risk-result" data-total="${newTotal}" data-final-outcome="${isFinalOutcome ? "true" : "false"}" data-strain-effects='${strainEffectsJson}'>
       <div class="mg-roll-header">
         <div class="mg-roll-label-wrap">
           <label class="mg-roll-label">Risk Result</label>
@@ -4519,7 +4529,7 @@ Hooks.on("renderChatMessage", (message, html) => {
     const consumed = message.getFlag("midnight-gambit", "riskConsumed");
     const actor = game.actors.get(riskBtn.dataset.actorId);
     const locked = actor ? getRollStrainEffects(actor, riskBtn).stoRiskLocked : false;
-    if (consumed || locked) disableBtn(riskBtn);
+    if (consumed || locked || hasFinalOutcome(riskBtn)) disableBtn(riskBtn);
     else riskBtn.addEventListener("click", () => handleRiskClick(riskBtn), { once: true });
   }
 
@@ -4529,13 +4539,13 @@ Hooks.on("renderChatMessage", (message, html) => {
     const consumed = message.getFlag("midnight-gambit", "riskConsumed");
     const actor = game.actors.get(riskAgainBtn.dataset.actorId);
     const locked = actor ? getRollStrainEffects(actor, riskAgainBtn).stoRiskLocked : false;
-    if (consumed || locked) disableBtn(riskAgainBtn);
+    if (consumed || locked || hasFinalOutcome(riskAgainBtn)) disableBtn(riskAgainBtn);
     else riskAgainBtn.addEventListener("click", () => handleRiskClick(riskAgainBtn), { once: true });
   }
 
   root.querySelectorAll(".mg-spend-sto").forEach((btn) => {
     const actor = game.actors.get(btn.dataset.actorId);
-    if (actor && getRollStrainEffects(actor, btn).stoRiskLocked) disableBtn(btn);
+    if (hasFinalOutcome(btn) || (actor && getRollStrainEffects(actor, btn).stoRiskLocked)) disableBtn(btn);
   });
 
   html.on("click", ".mg-spend-sto", async (event) => {
@@ -4544,6 +4554,9 @@ Hooks.on("renderChatMessage", (message, html) => {
     const btn = event.currentTarget;
     const actor = game.actors.get(btn.dataset.actorId);
     if (!actor) return;
+    if (hasFinalOutcome(btn)) {
+      return ui.notifications.warn("Ace and Critical Failure outcomes cannot be upgraded with STO.");
+    }
     const activeStrainEffects = getRollStrainEffects(actor, btn);
     if (activeStrainEffects.stoRiskLocked) {
       return ui.notifications.warn(`STO is unavailable on ${activeStrainEffects.tree} rolls at 3 or higher track damage.`);
