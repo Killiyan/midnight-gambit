@@ -133,6 +133,13 @@
           {{#each attributeKeys as |key|}}
 
             <div class="attribute-column" data-attr="{{key}}">
+              {{#with (lookup ../strainAttributeEffects key) as |effect|}}
+                <span class="mg-strain-warning-badge {{effect.tree}}"
+                      data-tooltip="{{effect.title}}">
+                  <i class="fa-solid fa-exclamation"></i>
+                </span>
+              {{/with}}
+
               <label class="attribute-label"><span>{{key}}</span></label>
 
               <div class="attribute-interior">

@@ -337,6 +337,32 @@ export class MidnightGambitActorSheet extends ActorSheet {
           ];
         })
       );
+      const equippedCapacityItems = Array.from(this.actor.items ?? []).filter(item =>
+        ["armor", "misc"].includes(item.type) &&
+        item.system?.equipped &&
+        item.system?.capacityApplied
+      );
+      const capacityLayerData = (type) => {
+        const base = Number(this.actor.system?.baseStrainCapacity?.[type] ?? 0) || 0;
+        const temp = Number(this.actor.system?.strain?.tempBonus?.[type] ?? 0) || 0;
+        const current = Number(this.actor.system?.strain?.[`${type} capacity`] ?? 0) || 0;
+        const armor = equippedCapacityItems.reduce((sum, item) => (
+          sum + (Number(item.system?.remainingCapacity?.[type] ?? 0) || 0)
+        ), 0);
+        const equipped = armor > 0;
+
+        return {
+          armor,
+          equipped,
+          atRisk: current > 0 && armor > 0 && current <= armor,
+          tooltip: `Temp: ${temp} | Base: ${base} | Armor: ${armor}`,
+          armorTooltip: `Armor Capacity: ${armor}`
+        };
+      };
+      context.capacityArmor = {
+        mortal: capacityLayerData("mortal"),
+        soul: capacityLayerData("soul")
+      };
 
       context.skillAttrShort = {
         brawl: "ten", endure: "ten", athletics: "ten",
@@ -401,8 +427,8 @@ export class MidnightGambitActorSheet extends ActorSheet {
       context.casterType = ct;
 
       for (const item of context.actor.items) {
-        const mc = item.system.mortalCapacity || 0;
-        const sc = item.system.soulCapacity || 0;
+        const mc = Number(item.system.mortalCapacity ?? 0) || 0;
+        const sc = Number(item.system.soulCapacity ?? 0) || 0;
 
         // If remaining not set yet, default it to full
         if (!item.system.remainingCapacity) {
@@ -417,9 +443,28 @@ export class MidnightGambitActorSheet extends ActorSheet {
           item.system.remainingCapacity.soul = sc;
         }
 
+        const remainingMortal = Number(item.system.remainingCapacity.mortal ?? mc) || 0;
+        const remainingSoul = Number(item.system.remainingCapacity.soul ?? sc) || 0;
+
         item.system.isFullyRepaired =
-          (!mc || item.system.remainingCapacity.mortal === mc) &&
-          (!sc || item.system.remainingCapacity.soul === sc);
+          (!mc || remainingMortal === mc) &&
+          (!sc || remainingSoul === sc);
+
+        item.system.capacityDisplay = {
+          hasCapacity: mc > 0 || sc > 0,
+          mortal: {
+            hasCapacity: mc > 0,
+            remaining: remainingMortal,
+            max: mc,
+            label: `${remainingMortal}/${mc}`
+          },
+          soul: {
+            hasCapacity: sc > 0,
+            remaining: remainingSoul,
+            max: sc,
+            label: `${remainingSoul}/${sc}`
+          }
+        };
       }
 
       // ----------------------------------------------------------------------
@@ -2771,6 +2816,68 @@ _mgOpenSidebarCropper() {
       ui.notifications.info(`${actor.name} has completed a Long Rest.`);
     });
 
+    const getCapacityLayerInfo = (actor, type) => {
+      const equippedItems = actor.items.filter(item =>
+        ["armor", "misc"].includes(item.type) &&
+        item.system.equipped &&
+        item.system.capacityApplied
+      );
+      const base = Number(actor.system?.baseStrainCapacity?.[type] ?? 0) || 0;
+      const temp = Number(actor.system?.strain?.tempBonus?.[type] ?? 0) || 0;
+      const current = Number(actor.system?.strain?.[`${type} capacity`] ?? 0) || 0;
+      const armor = equippedItems.reduce((sum, item) => (
+        sum + (Number(item.system.remainingCapacity?.[type] ?? 0) || 0)
+      ), 0);
+      const equipped = armor > 0;
+
+      return {
+        armor,
+        equipped,
+        atRisk: current > 0 && armor > 0 && current <= armor,
+        tooltip: `Temp: ${temp} | Base: ${base} | Armor: ${armor}`,
+        armorTooltip: `Armor Capacity: ${armor}`
+      };
+    };
+
+    const patchArmorCapacityBubble = (type) => {
+      const layer = getCapacityLayerInfo(this.actor, type);
+      const labelBox = html[0]?.querySelector(`.capacity-controls[data-type="${type}"]`)?.closest(".label-box");
+      if (!labelBox) return;
+
+      const capEl = labelBox.querySelector(`.capacity-value[data-type="${type}"]`);
+      if (capEl) capEl.dataset.tooltip = layer.tooltip;
+
+      let bubble = labelBox.querySelector(".capacity-armor-bubble");
+      if (!layer.equipped) {
+        bubble?.remove();
+        return;
+      }
+
+      if (!bubble) {
+        bubble = document.createElement("span");
+        bubble.className = "capacity-armor-bubble";
+        bubble.innerHTML = '<i class="fa-solid fa-shield"></i>';
+        labelBox.querySelector("label")?.after(bubble);
+      }
+      bubble.classList.toggle("is-at-risk", layer.atRisk);
+      bubble.dataset.tooltip = layer.armorTooltip;
+    };
+
+    const patchInventoryCapacityBubble = (item, type, remainingOverride = null) => {
+      if (!item || !["mortal", "soul"].includes(type)) return;
+      const max = Number(item.system?.[`${type}Capacity`] ?? 0) || 0;
+      if (max <= 0) return;
+
+      const remaining = Number(
+        remainingOverride ?? item.system?.remainingCapacity?.[type] ?? max
+      ) || 0;
+
+      const card = Array.from(html[0]?.querySelectorAll(".inventory-card[data-item-id]") ?? [])
+        .find(node => node.dataset.itemId === item.id || node.dataset.itemId === item._id);
+      const number = card?.querySelector(`[data-capacity-type="${type}"] .remaining-number`);
+      if (number) number.textContent = `${remaining}/${max}`;
+    };
+
     //Checking if armor is damaged, if so it lowers on inventory
     const checkArmorDamage = async (actor, oldValue, newValue, type) => {
       if (newValue >= oldValue) return; // Only track damage
@@ -2782,6 +2889,11 @@ _mgOpenSidebarCropper() {
         item.system.capacityApplied &&
         item.system.remainingCapacity?.[type] > 0
       );
+      const gearCapacity = getCapacityLayerInfo(actor, type).armor;
+
+      // Capacity above the gear pool is temp/base capacity. Armor only takes damage
+      // once the hit is inside the equipped gear's remaining capacity layer.
+      if (oldValue > gearCapacity) return;
 
       for (const item of capacityItems) {
         const remaining = item.system.remainingCapacity[type];
@@ -2789,6 +2901,7 @@ _mgOpenSidebarCropper() {
           await item.update({
             [`system.remainingCapacity.${type}`]: remaining - 1
           });
+          patchInventoryCapacityBubble(item, type, remaining - 1);
 
           console.log(`🛡️ ${item.name} absorbed 1 ${type} damage (now ${remaining - 1})`);
           break; // Only damage the first item that can take it
@@ -2854,6 +2967,7 @@ _mgOpenSidebarCropper() {
         const maxEl = html[0]?.querySelector(`.capacity-max[data-type='${type}']`);
         if (maxEl) maxEl.textContent = String(getMax());
 
+        patchArmorCapacityBubble(type);
         refreshStrainEffectBadges();
       };
 
@@ -2887,14 +3001,15 @@ _mgOpenSidebarCropper() {
         if (cap > 0) {
           const nextCap = Math.max(0, cap - 1);
 
+          // Spend visible capacity first so the armor-risk badge never flickers through
+          // a temporary old-capacity/new-armor state while Foundry emits updates.
+          await actor.update({ [`system.strain.${capKey}`]: nextCap }, { render: false });
+
           // If an equipped armor/misc item is providing capacity, tick its remainingCapacity down
           await checkArmorDamage(actor, cap, nextCap, type);
 
           // Recompute max from gear AFTER item durability changes (keeps max labels + math correct)
           await recalcStrainFromGear({ resetToMax: false });
-
-          // Now spend the actor’s remaining capacity buffer
-          await actor.update({ [`system.strain.${capKey}`]: nextCap }, { render: false });
 
           patchUI();
           return;
@@ -3936,16 +4051,45 @@ _mgOpenSidebarCropper() {
       }
     });
 
-    html.find(".item-quantity").on("change", async (event) => {
-      const itemId = event.currentTarget
+    const updateInventoryQuantity = async (input, value) => {
+      const itemId = input
         .closest(".inventory-card, .inventory-item")
         ?.dataset?.itemId;
 
       if (!itemId) return;
 
-      const quantity = parseInt(event.currentTarget.value);
+      const quantity = Math.max(0, parseInt(value, 10) || 0);
+      input.value = quantity;
       const item = this.actor.items.get(itemId);
-      if (item) await item.update({ "system.quantity": quantity });
+      if (item) await item.update({ "system.quantity": quantity }, { render: false });
+
+      const card = input.closest(".inventory-item.mg-card-wrap, .inventory-card.mg-card-wrap");
+      if (card?.classList?.contains("expanded")) {
+        card.style.overflow = "visible";
+        card.style.maxHeight = `${card.scrollHeight}px`;
+      }
+    };
+
+    html.find(".item-quantity").on("change", async (event) => {
+      event.stopPropagation();
+      await updateInventoryQuantity(event.currentTarget, event.currentTarget.value);
+    });
+
+    html.find(".quantity-controls").on("click mousedown mouseup", (event) => {
+      event.stopPropagation();
+    });
+
+    html.find(".item-quantity-dec, .item-quantity-inc").on("click", async (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      const input = event.currentTarget
+        .closest(".quantity-controls")
+        ?.querySelector(".item-quantity");
+      if (!input) return;
+
+      const step = parseInt(event.currentTarget.dataset.step, 10) || 0;
+      const current = parseInt(input.value, 10) || 0;
+      await updateInventoryQuantity(input, current + step);
     });
 
     // --- Equip toggle (inventory-card) ---
@@ -3962,6 +4106,9 @@ _mgOpenSidebarCropper() {
       const item = this.actor.items.get(itemId);
       if (!item) return;
 
+      const button = event.currentTarget.matches?.(".item-equipped")
+        ? event.currentTarget
+        : card.querySelector(".item-equipped");
       const cb = card.querySelector("input.item-equipped[type='checkbox']");
       const equipped = cb ? cb.checked : !Boolean(item.system.equipped);
 
@@ -3969,6 +4116,11 @@ _mgOpenSidebarCropper() {
 
       // keep UI synced
       if (cb) cb.checked = equipped;
+      if (button) {
+        button.classList.toggle("selected", equipped);
+        button.setAttribute("aria-pressed", String(equipped));
+        button.title = equipped ? "Unequip Item" : "Equip Item";
+      }
 
       const grantsCapacity =
         ["armor", "misc"].includes(item.type) &&
@@ -3998,7 +4150,7 @@ _mgOpenSidebarCropper() {
     html.on("change", "input.item-equipped[type='checkbox']", handleEquipToggle);
 
     // Fancy equip UI clicks (add/remove selectors as needed):
-    html.on("click", ".item-equip, .item-equip-toggle, .equip-toggle, .item-equipped-label", handleEquipToggle);
+    html.on("click", ".item-equipped, .item-equip, .item-equip-toggle, .equip-toggle, .item-equipped-label", handleEquipToggle);
 
     const getInventoryItems = () => (
       typeof this.actor.items?.filter === "function"
@@ -4055,45 +4207,8 @@ _mgOpenSidebarCropper() {
       syncEmptyInventoryBuckets();
     };
 
-    // Favorite changes (no sheet rerender)
-    html.on("change", ".item-favorite", async (event) => {
-      const card = event.currentTarget.closest(".inventory-card");
-      if (!card) return;
-
-      const itemId = card.dataset.itemId;
-      const item = this.actor.items.get(itemId);
-      if (!item) return;
-
-      const isFav = !!event.currentTarget.checked;
-
-      // Save without rerender
-      await item.update({ "system.favorite": isFav }, { render: false });
-
-      // Live DOM move (only works if you have these containers)
-      const $tab = html.find(".tab-inventory");
-
-      const favBody = $tab.find('.inventory-bucket-body[data-bucket="favorites"]')[0];
-      const bucket =
-        item.type === "weapon" ? "weapons" :
-        item.type === "armor"  ? "armor"   :
-        "misc";
-
-      const targetBody = isFav
-        ? favBody
-        : $tab.find(`.inventory-bucket-body[data-bucket="${bucket}"]`)[0];
-
-      // If we can’t find your bucket bodies, just stop here (state still saves)
-      if (!targetBody) {
-        refreshInventoryBucketCounts();
-        return;
-      }
-
-      targetBody.appendChild(card);
-      refreshInventoryBucketCounts();
-    });
-
-    // Favorite toggle (moves card between buckets, no sheet rerender)
-    html.find(".item-favorite").on("change", async (event) => {
+    html.on("click", ".item-favorite", async (event) => {
+      event.preventDefault();
       const card = event.currentTarget.closest(".inventory-card, .inventory-item");
       const itemId = card?.dataset?.itemId;
       if (!itemId) return;
@@ -4101,7 +4216,11 @@ _mgOpenSidebarCropper() {
       const item = this.actor.items.get(itemId);
       if (!item) return;
 
-      const isFav = !!event.currentTarget.checked;
+      const isFav = !Boolean(item.system?.favorite);
+      const button = event.currentTarget;
+      button.classList.toggle("selected", isFav);
+      button.setAttribute("aria-pressed", String(isFav));
+      button.title = isFav ? "Remove Favorite" : "Favorite";
 
       // Save data without rerender
       await item.update({ "system.favorite": isFav }, { render: false });
@@ -6213,6 +6332,25 @@ _mgOpenSidebarCropper() {
         const capValue = Number(actor.system?.strain?.[capKey] ?? 0);
         const capEl = this.element[0]?.querySelector(`.capacity-value[data-type="${type}"]`);
         if (capEl) capEl.textContent = String(Math.max(0, capValue));
+
+        const layer = getCapacityLayerInfo(actor, type);
+        if (capEl) capEl.dataset.tooltip = layer.tooltip;
+        const labelBox = this.element[0]?.querySelector(`.capacity-controls[data-type="${type}"]`)?.closest(".label-box");
+        if (labelBox) {
+          let bubble = labelBox.querySelector(".capacity-armor-bubble");
+          if (!layer.equipped) {
+            bubble?.remove();
+          } else {
+            if (!bubble) {
+              bubble = document.createElement("span");
+              bubble.className = "capacity-armor-bubble";
+              bubble.innerHTML = '<i class="fa-solid fa-shield"></i>';
+              labelBox.querySelector("label")?.after(bubble);
+            }
+            bubble.classList.toggle("is-at-risk", layer.atRisk);
+            bubble.dataset.tooltip = layer.armorTooltip;
+          }
+        }
       }
 
       refreshStrainEffectBadges();
@@ -6867,11 +7005,13 @@ _mgOpenSidebarCropper() {
     const tagLabels = (tags || [])
       .map(t => CONFIG.MidnightGambit.ITEM_TAGS.find(def => def.id === t)?.label || t)
       .join(", ");
+    const tierLabel = CONFIG.MidnightGambit.GAMBIT_TIERS.find(def => def.id === tier)?.label
+      || tier.charAt(0).toUpperCase() + tier.slice(1);
 
     const html = `
       <div class="gambit-chat-card">
         <h2><i class="fa-solid fa-cards"></i> ${name}</h2>
-        <p><strong>Tier:</strong> ${tier.charAt(0).toUpperCase() + tier.slice(1)}</p>
+        <p><strong>Tier:</strong> ${tierLabel}</p>
         ${tagLabels ? `<p><strong>Tags:</strong> ${tagLabels}</p>` : ""}
         <p>${description}</p>
       </div>

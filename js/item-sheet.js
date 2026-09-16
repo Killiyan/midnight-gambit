@@ -1,4 +1,5 @@
 import {
+	CREW_GAMBIT_TYPES,
 	GAMBIT_TIERS,
 	GAMBIT_TYPES,
 	MOVE_SUBTYPES,
@@ -14,6 +15,8 @@ import {
 const MG_ITEM_CARD_IMAGE = "systems/midnight-gambit/assets/images/items.jpg";
 const MG_ITEM_GUISE_IMAGE = "systems/midnight-gambit/assets/images/guise.jpg";
 const MG_ITEM_DEFAULT_IMAGE = "icons/svg/item-bag.svg";
+const MG_CREW_GAMBIT_TYPE_IDS = new Set(CREW_GAMBIT_TYPES.map(type => type.id));
+const MG_FAVORITE_ITEM_TYPES = new Set(["asset", "weapon", "armor", "misc"]);
 
 function mgGetItemSheetImage(item) {
 	const img = String(item?.img ?? "").trim();
@@ -141,12 +144,19 @@ export class MidnightGambitItemSheet extends ItemSheet {
 			formData["system.libraryEnabled"] = Boolean(formData["system.libraryEnabled"]);
 		}
 
+		if (MG_FAVORITE_ITEM_TYPES.has(this.item?.type)) {
+			formData["system.favorite"] = Boolean(formData["system.favorite"]);
+		}
+
 		if (this.item?.type === "gambit") {
 			const tier = normalizeGambitTier(formData["system.tier"] ?? this.item.system?.tier);
-			formData["system.tier"] = tier;
-			formData["system.gambitType"] = normalizeGambitType(
+			const gambitType = normalizeGambitType(
 				formData["system.gambitType"] ?? this.item.system?.gambitType
 			);
+			formData["system.tier"] = tier;
+			formData["system.gambitType"] = tier === "crew" && !MG_CREW_GAMBIT_TYPE_IDS.has(gambitType)
+				? ""
+				: gambitType;
 			formData["system.gpCost"] = getGambitCostForTier(
 				tier,
 				formData["system.gpCost"] ?? this.item.system?.gpCost
@@ -294,15 +304,20 @@ export class MidnightGambitItemSheet extends ItemSheet {
 		context.system = this.item.system ?? {};
 		context.itemType = this.item.type;
 		context.isSignatureMove = this.item.type === "signaturePerk" || (this.item.type === "move" && this.item.system?.isSignature === true);
-		context.libraryEligible = ["move", "gambit"].includes(this.item.type) && !this.item.parent && !context.isSignatureMove;
+		context.isActorOwnedItem = this.item.parent?.documentName === "Actor" || this.item.actor?.documentName === "Actor";
+		context.libraryEligible = ["move", "gambit"].includes(this.item.type) && !context.isActorOwnedItem && !context.isSignatureMove;
 		context.itemDisplayImg = mgGetItemSheetImage(this.item);
 		context.gambitTiers = GAMBIT_TIERS;
-		context.gambitTypes = GAMBIT_TYPES;
 		context.moveTypes = MOVE_TYPES;
 		context.moveSubtypes = MOVE_SUBTYPES;
 		if (this.item.type === "gambit") {
 			context.system.tier = normalizeGambitTier(context.system.tier);
 			context.system.gambitType = normalizeGambitType(context.system.gambitType);
+			context.isCrewGambit = context.system.tier === "crew";
+			context.gambitTypes = context.isCrewGambit ? CREW_GAMBIT_TYPES : GAMBIT_TYPES;
+			if (context.isCrewGambit && !MG_CREW_GAMBIT_TYPE_IDS.has(context.system.gambitType)) {
+				context.system.gambitType = "";
+			}
 			context.system.gpCost = getGambitCostForTier(context.system.tier, context.system.gpCost);
 			context.isRookieGambit = context.system.tier === "rookie";
 			context.gambitFixedCost = context.isRookieGambit ? null : context.system.gpCost;

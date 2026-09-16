@@ -93,13 +93,18 @@
           <div class="capacity-box">
             <div class="label-box">
               <label data-tooltip="Physical damage affects this pool before your main tracks.">MC</label>
+              {{#if capacityArmor.mortal.equipped}}
+                <span class="capacity-armor-bubble {{#if capacityArmor.mortal.atRisk}}is-at-risk{{/if}}" data-tooltip="{{capacityArmor.mortal.armorTooltip}}">
+                  <i class="fa-solid fa-shield"></i>
+                </span>
+              {{/if}}
               <div class="capacity-controls" data-type="mortal">
                 <button type="button" class="cap-tick" data-dir="-1" aria-label="Decrease Mortal Capacity"><i class="fa-solid fa-minus"></i></button>
 
                 <span
                   class="capacity-value"
                   data-type="mortal"
-                  data-tooltip="Physical damage affects this pool before your main tracks."
+                  data-tooltip="{{capacityArmor.mortal.tooltip}}"
                 >
                   {{lookup actor.system.strain 'mortal capacity'}}
                 </span>
@@ -122,13 +127,18 @@
           <div class="capacity-box soul">
             <div class="label-box">
               <label data-tooltip="Supernatural or emotional damage affects this pool before your main tracks.">SC</label>
+              {{#if capacityArmor.soul.equipped}}
+                <span class="capacity-armor-bubble {{#if capacityArmor.soul.atRisk}}is-at-risk{{/if}}" data-tooltip="{{capacityArmor.soul.armorTooltip}}">
+                  <i class="fa-solid fa-shield"></i>
+                </span>
+              {{/if}}
               <div class="capacity-controls" data-type="soul">
                 <button type="button" class="cap-tick" data-dir="-1" aria-label="Decrease Soul Capacity"><i class="fa-solid fa-minus"></i></button>
 
                 <span
                   class="capacity-value"
                   data-type="soul"
-                  data-tooltip="Supernatural or emotional damage affects this pool before your main tracks."
+                  data-tooltip="{{capacityArmor.soul.tooltip}}"
                 >
                   {{lookup actor.system.strain 'soul capacity'}}
                 </span>
@@ -791,7 +801,7 @@
             <div class="currency-field">
               <label for="lux">Lux</label>
               <div class="field-wrapper lux-controls">
-                <button type="button" class="lux-dec" data-step="-1" title="-1">-</button>
+                <button type="button" class="lux-dec" data-step="-1" title="-1"><i class="fa-solid fa-minus"></i></button>
                 <input
                   type="number"
                   class="lux-value"
@@ -802,7 +812,7 @@
                   pattern="[0-9]*"
                   aria-label="Lux"
                 />
-                <button type="button" class="lux-inc" data-step="1" title="+1">+</button>
+                <button type="button" class="lux-inc" data-step="1" title="+1"><i class="fa-solid fa-plus"></i></button>
               </div>
             </div>
 
@@ -863,8 +873,7 @@
                         (gt item.system.mortalStrainDamage 0)
                         (gt item.system.soulStrainDamage 0)
                         (gt item.system.strainDamage 0)
-                        (gt item.system.remainingCapacity.mortal 0)
-                        (gt item.system.remainingCapacity.soul 0)
+                        item.system.capacityDisplay.hasCapacity
                       )}}
                         <div class="item-capacity" title="Strain Effects">
 
@@ -899,28 +908,24 @@
 
                           </div>
 
-                          <label>Capacity</label>
-                          <div class="bubble-wrapper">
-                            <p class="strain-bubble">
-                              <i class="fa-kit fa-mortal-strain"></i>
-                              <span class="remaining-number">
-                                {{#if (ne item.system.remainingCapacity.mortal undefined)}}
-                                  {{item.system.remainingCapacity.mortal}}
-                                {{else}} -
-                                {{/if}}
-                              </span>
-                            </p>
+                          {{#if item.system.capacityDisplay.hasCapacity}}
+                            <label>Capacity</label>
+                            <div class="bubble-wrapper">
+                              {{#if item.system.capacityDisplay.mortal.hasCapacity}}
+                                <p class="strain-bubble" data-capacity-type="mortal">
+                                  <i class="fa-kit fa-mortal-strain"></i>
+                                  <span class="remaining-number">{{item.system.capacityDisplay.mortal.label}}</span>
+                                </p>
+                              {{/if}}
 
-                            <p class="strain-bubble">
-                              <i class="fa-kit fa-soul-strain"></i>
-                              <span class="remaining-number">
-                                {{#if (ne item.system.remainingCapacity.soul undefined)}}
-                                  {{item.system.remainingCapacity.soul}}
-                                {{else}} -
-                                {{/if}}
-                              </span>
-                            </p>
-                          </div>
+                              {{#if item.system.capacityDisplay.soul.hasCapacity}}
+                                <p class="strain-bubble" data-capacity-type="soul">
+                                  <i class="fa-kit fa-soul-strain"></i>
+                                  <span class="remaining-number">{{item.system.capacityDisplay.soul.label}}</span>
+                                </p>
+                              {{/if}}
+                            </div>
+                          {{/if}}
 
                         </div>
                       {{/if}}
@@ -965,14 +970,30 @@
 
                       <div class="info-wrapper">
                         <label>Quantity</label>
-                        <input type="number" class="item-quantity" value="{{item.system.quantity}}" min="0" />
+                        <div class="quantity-controls">
+                          <button type="button" class="item-quantity-dec" data-step="-1" title="-1"><i class="fa-solid fa-minus"></i></button>
+                          <input type="number" class="item-quantity" value="{{item.system.quantity}}" min="0" />
+                          <button type="button" class="item-quantity-inc" data-step="1" title="+1"><i class="fa-solid fa-plus"></i></button>
+                        </div>
                       </div>
 
-                      <div class="info-wrapper">
-                        <label>Equip Item</label>
-                        <input type="checkbox" class="item-equipped" {{#if item.system.equipped}}checked{{/if}} />
-                        <label>Favorite</label>
-                        <input type="checkbox" class="item-favorite" {{#if item.system.favorite}}checked{{/if}} />
+                      <div class="info-wrapper item-toggle-controls">
+                        <button
+                          type="button"
+                          class="item-equipped item-filter-toggle {{#if item.system.equipped}}selected{{/if}}"
+                          aria-pressed="{{#if item.system.equipped}}true{{else}}false{{/if}}"
+                          title="{{#if item.system.equipped}}Unequip Item{{else}}Equip Item{{/if}}">
+                          <i class="fa-solid fa-shield-check" aria-hidden="true"></i>
+                          <span>Equip</span>
+                        </button>
+                        <button
+                          type="button"
+                          class="item-favorite item-filter-toggle {{#if item.system.favorite}}selected{{/if}}"
+                          aria-pressed="{{#if item.system.favorite}}true{{else}}false{{/if}}"
+                          title="{{#if item.system.favorite}}Remove Favorite{{else}}Favorite{{/if}}">
+                          <i class="fa-solid fa-star" aria-hidden="true"></i>
+                          <span>Favorite</span>
+                        </button>
                         <label>Edit Item</label>
                         <button
                           type="button"
@@ -1101,14 +1122,30 @@
 
                       <div class="info-wrapper">
                         <label>Quantity</label>
-                        <input type="number" class="item-quantity" value="{{item.system.quantity}}" min="0" />
+                        <div class="quantity-controls">
+                          <button type="button" class="item-quantity-dec" data-step="-1" title="-1"><i class="fa-solid fa-minus"></i></button>
+                          <input type="number" class="item-quantity" value="{{item.system.quantity}}" min="0" />
+                          <button type="button" class="item-quantity-inc" data-step="1" title="+1"><i class="fa-solid fa-plus"></i></button>
+                        </div>
                       </div>
 
-                      <div class="info-wrapper">
-                        <label>Equip Item</label>
-                        <input type="checkbox" class="item-equipped" {{#if item.system.equipped}}checked{{/if}} />
-                        <label>Favorite</label>
-                        <input type="checkbox" class="item-favorite" {{#if item.system.favorite}}checked{{/if}} />
+                      <div class="info-wrapper item-toggle-controls">
+                        <button
+                          type="button"
+                          class="item-equipped item-filter-toggle {{#if item.system.equipped}}selected{{/if}}"
+                          aria-pressed="{{#if item.system.equipped}}true{{else}}false{{/if}}"
+                          title="{{#if item.system.equipped}}Unequip Item{{else}}Equip Item{{/if}}">
+                          <i class="fa-solid fa-shield-check" aria-hidden="true"></i>
+                          <span>Equip</span>
+                        </button>
+                        <button
+                          type="button"
+                          class="item-favorite item-filter-toggle {{#if item.system.favorite}}selected{{/if}}"
+                          aria-pressed="{{#if item.system.favorite}}true{{else}}false{{/if}}"
+                          title="{{#if item.system.favorite}}Remove Favorite{{else}}Favorite{{/if}}">
+                          <i class="fa-solid fa-star" aria-hidden="true"></i>
+                          <span>Favorite</span>
+                        </button>
                         <label>Edit Item</label>
                         <button
                           type="button"
@@ -1163,18 +1200,22 @@
                     </div>
 
                     <div class="card-wrapper">
-                      {{#if (or (gt item.system.remainingCapacity.mortal 0) (gt item.system.remainingCapacity.soul 0))}}
+                      {{#if item.system.capacityDisplay.hasCapacity}}
                         <div class="item-capacity" title="Remaining Strain Capacity">
                           <label>Capacity</label>
                           <div class="bubble-wrapper">
-                            <p class="strain-bubble">
-                              <i class="fa-kit fa-mortal-strain"></i>
-                              <span class="remaining-number">{{item.system.remainingCapacity.mortal}}</span>
-                            </p>
-                            <p class="strain-bubble">
-                              <i class="fa-kit fa-soul-strain"></i>
-                              <span class="remaining-number">{{item.system.remainingCapacity.soul}}</span>
-                            </p>
+                            {{#if item.system.capacityDisplay.mortal.hasCapacity}}
+                              <p class="strain-bubble" data-capacity-type="mortal">
+                                <i class="fa-kit fa-mortal-strain"></i>
+                                <span class="remaining-number">{{item.system.capacityDisplay.mortal.label}}</span>
+                              </p>
+                            {{/if}}
+                            {{#if item.system.capacityDisplay.soul.hasCapacity}}
+                              <p class="strain-bubble" data-capacity-type="soul">
+                                <i class="fa-kit fa-soul-strain"></i>
+                                <span class="remaining-number">{{item.system.capacityDisplay.soul.label}}</span>
+                              </p>
+                            {{/if}}
                           </div>
                         </div>
                       {{/if}}
@@ -1221,14 +1262,30 @@
 
                       <div class="info-wrapper">
                         <label>Quantity</label>
-                        <input type="number" class="item-quantity" value="{{item.system.quantity}}" min="0" />
+                        <div class="quantity-controls">
+                          <button type="button" class="item-quantity-dec" data-step="-1" title="-1"><i class="fa-solid fa-minus"></i></button>
+                          <input type="number" class="item-quantity" value="{{item.system.quantity}}" min="0" />
+                          <button type="button" class="item-quantity-inc" data-step="1" title="+1"><i class="fa-solid fa-plus"></i></button>
+                        </div>
                       </div>
 
-                      <div class="info-wrapper">
-                        <label>Equip Item</label>
-                        <input type="checkbox" class="item-equipped" {{#if item.system.equipped}}checked{{/if}} />
-                        <label>Favorite</label>
-                        <input type="checkbox" class="item-favorite" {{#if item.system.favorite}}checked{{/if}} />
+                      <div class="info-wrapper item-toggle-controls">
+                        <button
+                          type="button"
+                          class="item-equipped item-filter-toggle {{#if item.system.equipped}}selected{{/if}}"
+                          aria-pressed="{{#if item.system.equipped}}true{{else}}false{{/if}}"
+                          title="{{#if item.system.equipped}}Unequip Item{{else}}Equip Item{{/if}}">
+                          <i class="fa-solid fa-shield-check" aria-hidden="true"></i>
+                          <span>Equip</span>
+                        </button>
+                        <button
+                          type="button"
+                          class="item-favorite item-filter-toggle {{#if item.system.favorite}}selected{{/if}}"
+                          aria-pressed="{{#if item.system.favorite}}true{{else}}false{{/if}}"
+                          title="{{#if item.system.favorite}}Remove Favorite{{else}}Favorite{{/if}}">
+                          <i class="fa-solid fa-star" aria-hidden="true"></i>
+                          <span>Favorite</span>
+                        </button>
                         <label>Edit Item</label>
                         <button
                           type="button"
@@ -1297,8 +1354,7 @@
                         (gt item.system.mortalStrainDamage 0)
                         (gt item.system.soulStrainDamage 0)
                         (gt item.system.strainDamage 0)
-                        (gt item.system.remainingCapacity.mortal 0)
-                        (gt item.system.remainingCapacity.soul 0)
+                        item.system.capacityDisplay.hasCapacity
                       )}}
                         <div class="item-capacity" title="Strain Effects">
 
@@ -1333,28 +1389,24 @@
 
                           </div>
 
-                          <label>Capacity</label>
-                          <div class="bubble-wrapper">
-                            <p class="strain-bubble">
-                              <i class="fa-kit fa-mortal-strain"></i>
-                              <span class="remaining-number">
-                                {{#if (ne item.system.remainingCapacity.mortal undefined)}}
-                                  {{item.system.remainingCapacity.mortal}}
-                                {{else}} -
-                                {{/if}}
-                              </span>
-                            </p>
+                          {{#if item.system.capacityDisplay.hasCapacity}}
+                            <label>Capacity</label>
+                            <div class="bubble-wrapper">
+                              {{#if item.system.capacityDisplay.mortal.hasCapacity}}
+                                <p class="strain-bubble" data-capacity-type="mortal">
+                                  <i class="fa-kit fa-mortal-strain"></i>
+                                  <span class="remaining-number">{{item.system.capacityDisplay.mortal.label}}</span>
+                                </p>
+                              {{/if}}
 
-                            <p class="strain-bubble">
-                              <i class="fa-kit fa-soul-strain"></i>
-                              <span class="remaining-number">
-                                {{#if (ne item.system.remainingCapacity.soul undefined)}}
-                                  {{item.system.remainingCapacity.soul}}
-                                {{else}} -
-                                {{/if}}
-                              </span>
-                            </p>
-                          </div>
+                              {{#if item.system.capacityDisplay.soul.hasCapacity}}
+                                <p class="strain-bubble" data-capacity-type="soul">
+                                  <i class="fa-kit fa-soul-strain"></i>
+                                  <span class="remaining-number">{{item.system.capacityDisplay.soul.label}}</span>
+                                </p>
+                              {{/if}}
+                            </div>
+                          {{/if}}
 
                         </div>
                       {{/if}}
@@ -1402,14 +1454,30 @@
 
                       <div class="info-wrapper">
                         <label>Quantity</label>
-                        <input type="number" class="item-quantity" value="{{item.system.quantity}}" min="0" />
+                        <div class="quantity-controls">
+                          <button type="button" class="item-quantity-dec" data-step="-1" title="-1"><i class="fa-solid fa-minus"></i></button>
+                          <input type="number" class="item-quantity" value="{{item.system.quantity}}" min="0" />
+                          <button type="button" class="item-quantity-inc" data-step="1" title="+1"><i class="fa-solid fa-plus"></i></button>
+                        </div>
                       </div>
 
-                      <div class="info-wrapper">
-                        <label>Equip Item</label>
-                        <input type="checkbox" class="item-equipped" {{#if item.system.equipped}}checked{{/if}} />
-                        <label>Favorite</label>
-                        <input type="checkbox" class="item-favorite" {{#if item.system.favorite}}checked{{/if}} />
+                      <div class="info-wrapper item-toggle-controls">
+                        <button
+                          type="button"
+                          class="item-equipped item-filter-toggle {{#if item.system.equipped}}selected{{/if}}"
+                          aria-pressed="{{#if item.system.equipped}}true{{else}}false{{/if}}"
+                          title="{{#if item.system.equipped}}Unequip Item{{else}}Equip Item{{/if}}">
+                          <i class="fa-solid fa-shield-check" aria-hidden="true"></i>
+                          <span>Equip</span>
+                        </button>
+                        <button
+                          type="button"
+                          class="item-favorite item-filter-toggle {{#if item.system.favorite}}selected{{/if}}"
+                          aria-pressed="{{#if item.system.favorite}}true{{else}}false{{/if}}"
+                          title="{{#if item.system.favorite}}Remove Favorite{{else}}Favorite{{/if}}">
+                          <i class="fa-solid fa-star" aria-hidden="true"></i>
+                          <span>Favorite</span>
+                        </button>
                         <label>Edit Item</label>
                         <button
                           type="button"

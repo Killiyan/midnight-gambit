@@ -4193,6 +4193,16 @@ Hooks.on("renderChatMessage", (message, html) => {
     setTimeout(() => $tracks.removeClass("mg-strain-flash"), 1200);
   };
 
+  const getRollStrainEffects = (actor, source) => {
+    let stored = null;
+    try {
+      stored = JSON.parse(source?.dataset?.strainEffects || source?.closest?.(".chat-roll")?.dataset?.strainEffects || "null");
+    } catch (e) {
+      stored = null;
+    }
+    return mgGetStrainRollEffects(actor, stored?.tree || "");
+  };
+
   // Core handler for both the first Risk and "Risk Again"
   const handleRiskClick = async (btn) => {
     const actorId  = btn.dataset.actorId;
@@ -4202,8 +4212,9 @@ Hooks.on("renderChatMessage", (message, html) => {
 
     const actor = game.actors.get(actorId);
     if (!actor) return ui.notifications.warn("Actor not found for Risk.");
-    if (mgGetStrainRollEffects(actor).stoRiskLocked) {
-      return ui.notifications.warn("Risk is unavailable while either strain track is at 3 or higher.");
+    const activeStrainEffects = getRollStrainEffects(actor, btn);
+    if (activeStrainEffects.stoRiskLocked) {
+      return ui.notifications.warn(`Risk is unavailable on ${activeStrainEffects.tree} rolls at 3 or higher track damage.`);
     }
 
     disableBtn(btn); // UI first
@@ -4273,8 +4284,15 @@ Hooks.on("renderChatMessage", (message, html) => {
   // Can we risk again? (only show the button if there are dice left)
   const usedNow  = Number(actor.system?.riskUsed ?? 0);
   const totalRD  = Number(actor.system?.riskDice ?? 0);
-  const stoRiskLocked = mgGetStrainRollEffects(actor).stoRiskLocked;
+  const stoRiskLocked = activeStrainEffects.stoRiskLocked;
   const canAgain = usedNow < totalRD && !stoRiskLocked;
+  const strainEffectsJson = JSON.stringify(activeStrainEffects ?? null).replace(/[&<>"']/g, (m) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;"
+  }[m]));
 
   // --- Build resultText to match your original style, but for the NEW result ---
   let resultLabel = "";
@@ -4346,6 +4364,7 @@ Hooks.on("renderChatMessage", (message, html) => {
               data-kept="${newDice.join(",")}"
               data-skill-mod="${skillMod}"
               data-session-id="${sessionId}"
+              data-strain-effects='${strainEffectsJson}'
               title="${stoRiskLocked ? "Risk unavailable: Track damage" : "Risk"}">
         <i class="fa-kit fa-risk"></i>
       </button>`
@@ -4394,6 +4413,7 @@ Hooks.on("renderChatMessage", (message, html) => {
             data-actor-id="${actor.id}"
             data-spend="${needComp}"
             data-total="${newTotal}"
+            data-strain-effects='${strainEffectsJson}'
             title="Upgrade to Complication">
             <i class="fa-solid fa-swords"></i>
           </button>`;
@@ -4406,6 +4426,7 @@ Hooks.on("renderChatMessage", (message, html) => {
             data-actor-id="${actor.id}"
             data-spend="${needFlourish}"
             data-total="${newTotal}"
+            data-strain-effects='${strainEffectsJson}'
             title="Upgrade to Flourish">
             <i class="fa-solid fa-crown"></i>
           </button>`;
@@ -4423,6 +4444,7 @@ Hooks.on("renderChatMessage", (message, html) => {
             data-actor-id="${actor.id}"
             data-spend="${needFlourish}"
             data-total="${newTotal}"
+            data-strain-effects='${strainEffectsJson}'
             title="Upgrade to Flourish">
             <i class="fa-solid fa-crown"></i>
           </button>`;
@@ -4440,7 +4462,7 @@ Hooks.on("renderChatMessage", (message, html) => {
 
   // --- Compose the follow-up message ---
   const content = `
-    <div class="mg-chat-card chat-roll mg-roll-card mg-risk-result" data-total="${newTotal}">
+    <div class="mg-chat-card chat-roll mg-roll-card mg-risk-result" data-total="${newTotal}" data-strain-effects='${strainEffectsJson}'>
       <div class="mg-roll-header">
         <div class="mg-roll-label-wrap">
           <label class="mg-roll-label">Risk Result</label>
@@ -4496,7 +4518,7 @@ Hooks.on("renderChatMessage", (message, html) => {
   if (riskBtn) {
     const consumed = message.getFlag("midnight-gambit", "riskConsumed");
     const actor = game.actors.get(riskBtn.dataset.actorId);
-    const locked = actor ? mgGetStrainRollEffects(actor).stoRiskLocked : false;
+    const locked = actor ? getRollStrainEffects(actor, riskBtn).stoRiskLocked : false;
     if (consumed || locked) disableBtn(riskBtn);
     else riskBtn.addEventListener("click", () => handleRiskClick(riskBtn), { once: true });
   }
@@ -4506,14 +4528,14 @@ Hooks.on("renderChatMessage", (message, html) => {
   if (riskAgainBtn) {
     const consumed = message.getFlag("midnight-gambit", "riskConsumed");
     const actor = game.actors.get(riskAgainBtn.dataset.actorId);
-    const locked = actor ? mgGetStrainRollEffects(actor).stoRiskLocked : false;
+    const locked = actor ? getRollStrainEffects(actor, riskAgainBtn).stoRiskLocked : false;
     if (consumed || locked) disableBtn(riskAgainBtn);
     else riskAgainBtn.addEventListener("click", () => handleRiskClick(riskAgainBtn), { once: true });
   }
 
   root.querySelectorAll(".mg-spend-sto").forEach((btn) => {
     const actor = game.actors.get(btn.dataset.actorId);
-    if (actor && mgGetStrainRollEffects(actor).stoRiskLocked) disableBtn(btn);
+    if (actor && getRollStrainEffects(actor, btn).stoRiskLocked) disableBtn(btn);
   });
 
   html.on("click", ".mg-spend-sto", async (event) => {
@@ -4522,8 +4544,9 @@ Hooks.on("renderChatMessage", (message, html) => {
     const btn = event.currentTarget;
     const actor = game.actors.get(btn.dataset.actorId);
     if (!actor) return;
-    if (mgGetStrainRollEffects(actor).stoRiskLocked) {
-      return ui.notifications.warn("STO is unavailable while either strain track is at 3 or higher.");
+    const activeStrainEffects = getRollStrainEffects(actor, btn);
+    if (activeStrainEffects.stoRiskLocked) {
+      return ui.notifications.warn(`STO is unavailable on ${activeStrainEffects.tree} rolls at 3 or higher track damage.`);
     }
 
     const spend = Number(btn.dataset.spend);

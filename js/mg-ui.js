@@ -586,23 +586,35 @@ function mgRenderSidebarItemDescription(item) {
 }
 
 function mgRenderSidebarStrainBubble(icon, value) {
-	const number = Number(value ?? 0) || 0;
+	const number = Number(value ?? 0);
+	const display = Number.isFinite(number) && String(value).trim?.() !== ""
+		? String(number || 0)
+		: String(value ?? 0);
 	return `
 		<p class="strain-bubble">
 			<i class="${mgAttr(icon)}"></i>
-			<span class="remaining-number">${number}</span>
+			<span class="remaining-number">${mgEsc(display)}</span>
 		</p>
 	`;
+}
+
+function mgRenderSidebarCapacityBubble(icon, remaining, max) {
+	const maxValue = Number(max ?? 0) || 0;
+	if (maxValue <= 0) return "";
+	const remainingValue = Number(remaining ?? maxValue) || 0;
+	return mgRenderSidebarStrainBubble(icon, `${remainingValue}/${maxValue}`);
 }
 
 function mgRenderSidebarItemCapacity(item) {
 	const system = item?.system ?? {};
 	const mortalDamage = Number(system.mortalStrainDamage ?? system.strainDamage ?? 0) || 0;
 	const soulDamage = Number(system.soulStrainDamage ?? 0) || 0;
-	const mortalCapacity = Number(system.remainingCapacity?.mortal ?? system.mortalCapacity ?? 0) || 0;
-	const soulCapacity = Number(system.remainingCapacity?.soul ?? system.soulCapacity ?? 0) || 0;
+	const mortalCapacityMax = Number(system.mortalCapacity ?? 0) || 0;
+	const soulCapacityMax = Number(system.soulCapacity ?? 0) || 0;
+	const mortalCapacity = Number(system.remainingCapacity?.mortal ?? mortalCapacityMax) || 0;
+	const soulCapacity = Number(system.remainingCapacity?.soul ?? soulCapacityMax) || 0;
 	const hasDamage = mortalDamage > 0 || soulDamage > 0;
-	const hasCapacity = mortalCapacity > 0 || soulCapacity > 0;
+	const hasCapacity = mortalCapacityMax > 0 || soulCapacityMax > 0;
 
 	if (!hasDamage && !hasCapacity) return "";
 
@@ -619,8 +631,8 @@ function mgRenderSidebarItemCapacity(item) {
 			${hasCapacity ? `
 				<label>Capacity</label>
 				<div class="bubble-wrapper">
-					${mgRenderSidebarStrainBubble("fa-kit fa-mortal-strain", mortalCapacity)}
-					${mgRenderSidebarStrainBubble("fa-kit fa-soul-strain", soulCapacity)}
+					${mgRenderSidebarCapacityBubble("fa-kit fa-mortal-strain", mortalCapacity, mortalCapacityMax)}
+					${mgRenderSidebarCapacityBubble("fa-kit fa-soul-strain", soulCapacity, soulCapacityMax)}
 				</div>
 			` : ""}
 		</div>
@@ -649,8 +661,10 @@ async function mgPostOwnedInventoryItemToChat(actor, item) {
 
 	const mortalDamage = Number(system?.mortalStrainDamage ?? system?.strainDamage ?? 0) || 0;
 	const soulDamage = Number(system?.soulStrainDamage ?? 0) || 0;
-	const mortalCapacity = Number(system?.remainingCapacity?.mortal ?? system?.mortalCapacity ?? 0) || 0;
-	const soulCapacity = Number(system?.remainingCapacity?.soul ?? system?.soulCapacity ?? 0) || 0;
+	const mortalCapacityMax = Number(system?.mortalCapacity ?? 0) || 0;
+	const soulCapacityMax = Number(system?.soulCapacity ?? 0) || 0;
+	const mortalCapacity = Number(system?.remainingCapacity?.mortal ?? mortalCapacityMax) || 0;
+	const soulCapacity = Number(system?.remainingCapacity?.soul ?? soulCapacityMax) || 0;
 	const damageInfo = mortalDamage || soulDamage
 		? `
 			<label>Strain Damage</label>
@@ -660,12 +674,12 @@ async function mgPostOwnedInventoryItemToChat(actor, item) {
 			</div>
 		`
 		: "";
-	const capacityInfo = mortalCapacity || soulCapacity
+	const capacityInfo = mortalCapacityMax || soulCapacityMax
 		? `
 			<label>Capacity</label>
 			<div class="bubble-wrapper">
-				${mortalCapacity ? mgRenderSidebarStrainBubble("fa-kit fa-mortal-strain", mortalCapacity) : ""}
-				${soulCapacity ? mgRenderSidebarStrainBubble("fa-kit fa-soul-strain", soulCapacity) : ""}
+				${mgRenderSidebarCapacityBubble("fa-kit fa-mortal-strain", mortalCapacity, mortalCapacityMax)}
+				${mgRenderSidebarCapacityBubble("fa-kit fa-soul-strain", soulCapacity, soulCapacityMax)}
 			</div>
 		`
 		: "";
@@ -3562,17 +3576,70 @@ async function mgHandleStrainDot(actor, type, clicked) {
 
 function mgGetActorMaxStrainCapacity(actor, type) {
 	const cached = Number(actor?.system?.strain?.maxCapacity?.[type] ?? NaN);
+	const derived = mgGetActorDerivedStrainCapacity(actor, type);
+
+	return Number.isFinite(cached) ? Math.max(0, cached, derived) : derived;
+}
+
+function mgGetActorDerivedStrainCapacity(actor, type) {
 	const base = Number(actor?.system?.baseStrainCapacity?.[type] ?? 0) || 0;
 	const temp = Number(actor?.system?.strain?.tempBonus?.[type] ?? 0) || 0;
+	return Math.max(0, base + temp + mgGetActorGearStrainCapacity(actor, type));
+}
+
+function mgGetActorGearStrainCapacity(actor, type) {
 	const gear = Array.from(actor?.items ?? []).filter(item =>
 		["armor", "misc"].includes(item.type) &&
 		item.system?.equipped &&
 		item.system?.capacityApplied
 	);
-	const gearSum = gear.reduce((sum, item) => sum + (Number(item.system?.remainingCapacity?.[type] ?? 0) || 0), 0);
-	const derived = Math.max(0, base + temp + gearSum);
+	return gear.reduce((sum, item) => sum + (Number(item.system?.remainingCapacity?.[type] ?? 0) || 0), 0);
+}
 
-	return Number.isFinite(cached) ? Math.max(0, cached, derived) : derived;
+function mgGetActorCapacityLayerInfo(actor, type) {
+	const equippedItems = Array.from(actor?.items ?? []).filter(item =>
+		["armor", "misc"].includes(item.type) &&
+		item.system?.equipped &&
+		item.system?.capacityApplied
+	);
+	const base = Number(actor?.system?.baseStrainCapacity?.[type] ?? 0) || 0;
+	const temp = Number(actor?.system?.strain?.tempBonus?.[type] ?? 0) || 0;
+	const current = mgGetActorCurrentStrainCapacity(actor, type);
+	const armor = equippedItems.reduce((sum, item) => (
+		sum + (Number(item.system?.remainingCapacity?.[type] ?? 0) || 0)
+	), 0);
+	const equipped = armor > 0;
+
+	return {
+		armor,
+		equipped,
+		atRisk: current > 0 && armor > 0 && current <= armor,
+		tooltip: `Temp: ${temp} | Base: ${base} | Armor: ${armor}`,
+		armorTooltip: `Armor Capacity: ${armor}`
+	};
+}
+
+async function mgDamageEquippedCapacityItem(actor, type) {
+	const capacityItems = Array.from(actor?.items ?? []).filter(candidate =>
+		["armor", "misc"].includes(candidate.type) &&
+		candidate.system?.equipped &&
+		candidate.system?.capacityApplied &&
+		(Number(candidate.system?.remainingCapacity?.[type] ?? 0) || 0) > 0
+	);
+	const gearCapacity = mgGetActorGearStrainCapacity(actor, type);
+	const currentCapacity = mgGetActorCurrentStrainCapacity(actor, type);
+
+	if (currentCapacity > gearCapacity) return false;
+
+	const item = capacityItems[0];
+
+	if (!item) return false;
+
+	const remaining = Number(item.system?.remainingCapacity?.[type] ?? 0) || 0;
+	await item.update({
+		[`system.remainingCapacity.${type}`]: Math.max(0, remaining - 1)
+	}, { render: false });
+	return true;
 }
 
 function mgGetActorCurrentStrainCapacity(actor, type) {
@@ -3616,6 +3683,10 @@ async function mgHandleCapacityTick(actor, type, dir) {
 
 	if (dir < 0) {
 		if (current > 0) {
+			const damagedGear = await mgDamageEquippedCapacityItem(actor, type);
+			if (damagedGear) {
+				updates[`system.strain.maxCapacity.${type}`] = mgGetActorDerivedStrainCapacity(actor, type);
+			}
 			updates[`system.strain.${capKey}`] = Math.max(0, current - 1);
 		} else {
 			updates[`system.strain.${type}`] = Math.min(5, track + 1);
@@ -3786,6 +3857,8 @@ function mgRenderCharacterSidebar(actor) {
 	const strain = actor.system?.strain ?? {};
 	const mortalCap = mgGetActorCurrentStrainCapacity(actor, "mortal");
 	const soulCap = mgGetActorCurrentStrainCapacity(actor, "soul");
+	const mortalArmorLayer = mgGetActorCapacityLayerInfo(actor, "mortal");
+	const soulArmorLayer = mgGetActorCapacityLayerInfo(actor, "soul");
 	const mortalTrack = Number(strain.mortal ?? 0) || 0;
 	const soulTrack = Number(strain.soul ?? 0) || 0;
 	const riskDice = Number(actor.system?.riskDice ?? 5) || 0;
@@ -3980,8 +4053,8 @@ function mgRenderCharacterSidebar(actor) {
 			</div>
 
 			<div class="strain-stack">
-				${mgRenderStrainRow("mortal", "MC", mortalCap, mortalTrack)}
-				${mgRenderStrainRow("soul", "SC", soulCap, soulTrack)}
+				${mgRenderStrainRow("mortal", "MC", mortalCap, mortalTrack, mortalArmorLayer)}
+				${mgRenderStrainRow("soul", "SC", soulCap, soulTrack, soulArmorLayer)}
 			</div>
 
 			${mgRenderAccordion(actor, {
@@ -4021,16 +4094,17 @@ function mgRenderCharacterSidebar(actor) {
 
 /* Character sidebar strain rows
 ----------------------------------------------------------------------*/
-function mgRenderStrainRow(type, label, cap, track) {
+function mgRenderStrainRow(type, label, cap, track, armorLayer = null) {
 	return `
 		<div class="strain-row" data-mg-strain-row="${type}">
 			<div class="capacity-badge">
 				<label data-mg-capacity-set="${type}" title="Right-click to set exact ${label}">${label}</label>
+				${armorLayer?.equipped ? `<span class="capacity-armor-bubble ${armorLayer.atRisk ? "is-at-risk" : ""}" title="${mgAttr(armorLayer.armorTooltip)}"><i class="fa-solid fa-shield"></i></span>` : ""}
 				<div class="capacity-controls" data-type="${type}">
 					<button type="button" data-mg-cap-tick="${type}" data-dir="-1" aria-label="Decrease ${label}">
 						<i class="fa-solid fa-minus"></i>
 					</button>
-					<span class="capacity-value" data-type="${type}" data-mg-capacity-set="${type}" title="Right-click to set exact ${label}">${cap}</span>
+					<span class="capacity-value" data-type="${type}" data-mg-capacity-set="${type}" title="${mgAttr(`${armorLayer?.tooltip ?? ""} | Right-click to set exact ${label}`)}">${cap}</span>
 					<button type="button" data-mg-cap-tick="${type}" data-dir="1" aria-label="Increase ${label}">
 						<i class="fa-solid fa-plus"></i>
 					</button>

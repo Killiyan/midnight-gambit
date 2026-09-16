@@ -8,8 +8,8 @@ export function mgGetStrainRollEffects(actor, attrKey = "") {
   const key = String(attrKey ?? "").toLowerCase();
 
   const tree =
-    MG_MORTAL_ATTRS.has(key) ? "mortal" :
-    MG_SOUL_ATTRS.has(key) ? "soul" :
+    key === "mortal" || MG_MORTAL_ATTRS.has(key) ? "mortal" :
+    key === "soul" || MG_SOUL_ATTRS.has(key) ? "soul" :
     "";
 
   const track = tree === "mortal" ? mortalTrack : tree === "soul" ? soulTrack : 0;
@@ -21,7 +21,7 @@ export function mgGetStrainRollEffects(actor, attrKey = "") {
     mortalTrack,
     soulTrack,
     diePenalty,
-    stoRiskLocked: mortalTrack >= 3 || soulTrack >= 3,
+    stoRiskLocked: tree ? track >= 3 : false,
     out: track >= 5
   };
 }
@@ -32,7 +32,7 @@ export function mgApplyStrainAttributePenalty(attrMod, effects) {
   return baseAttrMod + penalty;
 }
 
-export function mgGetStrainEffectBadge(effects, { includeGlobalLock = true } = {}) {
+export function mgGetStrainEffectBadge(effects, { includeGlobalLock = true, showRiskStoLock = true } = {}) {
   const track = Number(effects?.track ?? 0) || 0;
   let tree = String(effects?.tree ?? "");
   let sourceTrack = track;
@@ -41,12 +41,8 @@ export function mgGetStrainEffectBadge(effects, { includeGlobalLock = true } = {
   if (!tree || sourceTrack < 2) {
     if (!includeGlobalLock) return null;
 
-    const mortalTrack = Number(effects?.mortalTrack ?? 0) || 0;
-    const soulTrack = Number(effects?.soulTrack ?? 0) || 0;
-
-    if (mortalTrack >= 3 || soulTrack >= 3) {
-      tree = mortalTrack >= soulTrack ? "mortal" : "soul";
-      sourceTrack = Math.max(mortalTrack, soulTrack);
+    if (tree && effects?.stoRiskLocked) {
+      sourceTrack = track;
     } else {
       return null;
     }
@@ -58,7 +54,7 @@ export function mgGetStrainEffectBadge(effects, { includeGlobalLock = true } = {
     ? "Out"
     : [
         hasTreePenalty ? `${diePenalty} ${Math.abs(diePenalty) === 1 ? "die" : "dice"}` : "",
-        sourceTrack >= 3 ? "no Risk/STO" : ""
+        showRiskStoLock && sourceTrack >= 3 ? "no Risk/STO" : ""
       ].filter(Boolean).join(", ");
 
   return {
@@ -163,21 +159,22 @@ export async function evaluateRoll({
   }
 
   const activeStrainEffects = strainEffects ?? mgGetStrainRollEffects(actor, "");
+  const usesRiskSto = !!actor && actor.type !== "npc";
   const stoRiskLocked = !!activeStrainEffects.stoRiskLocked;
-  const stoValue = stoRiskLocked ? 0 : Number(actor?.system?.sto?.value ?? 0);
+  const stoValue = (!usesRiskSto || stoRiskLocked) ? 0 : Number(actor?.system?.sto?.value ?? 0);
 
   const needComp = total <= 6 ? (7 - total) : 0;
   const needFlourish = total <= 10 ? (11 - total) : 0;
 
   const canStoComp =
-    !!actor &&
+    usesRiskSto &&
     !isAce &&
     total <= 6 &&
     needComp > 0 &&
     needComp <= stoValue;
 
   const canStoFlourish =
-    !!actor &&
+    usesRiskSto &&
     !isAce &&
     total <= 10 &&
     needFlourish > 0 &&
@@ -247,7 +244,7 @@ export async function evaluateRoll({
     `
     : "";
 
-  const strainBadge = mgGetStrainEffectBadge(activeStrainEffects);
+  const strainBadge = mgGetStrainEffectBadge(activeStrainEffects, { showRiskStoLock: usesRiskSto });
   const strainHeader = strainBadge
     ? `
       <div class="edge-label mg-strain-effect-label ${esc(strainBadge.tree)}">
@@ -260,9 +257,10 @@ export async function evaluateRoll({
   const sessionId = foundry.utils.randomID();
   const usedRisk = Number(actor?.system?.riskUsed ?? 0);
   const totalRisk = Number(actor?.system?.riskDice ?? 0);
-  const canRisk = !!actor && kept.length >= 2 && usedRisk < totalRisk && !stoRiskLocked;
+  const canRisk = usesRiskSto && kept.length >= 2 && usedRisk < totalRisk && !stoRiskLocked;
+  const strainEffectsJson = esc(JSON.stringify(activeStrainEffects ?? null));
 
-  const riskBtn = (actor && kept.length >= 2)
+  const riskBtn = (usesRiskSto && kept.length >= 2)
     ? `
       <button type="button"
         class="mg-risk-it ${canRisk ? "" : "is-disabled"}"
@@ -270,6 +268,7 @@ export async function evaluateRoll({
         data-kept="${kept.slice(0, 2).join(",")}"
         data-skill-mod="${skillMod}"
         data-session-id="${sessionId}"
+        data-strain-effects='${strainEffectsJson}'
         ${canRisk ? "" : 'disabled aria-disabled="true"'}
         title="${stoRiskLocked ? "Risk unavailable: Track damage" : "Risk It"}">
         <i class="fa-kit fa-risk"></i>
@@ -395,7 +394,7 @@ export async function evaluateRoll({
     </div>
   `;
 
-  const controlButtons = `
+  const controlButtons = usesRiskSto ? `
     <div class="mg-roll-controls mg-risk-controls">
       ${riskBtn || `
         <button type="button" class="mg-roll-action is-disabled" disabled aria-disabled="true" title="Risk unavailable">
@@ -405,7 +404,7 @@ export async function evaluateRoll({
       ${stoCompBtn}
       ${stoFlourishBtn}
     </div>
-  `;
+  ` : "";
 
   const mathChevron = hasDroppedDice
     ? `
@@ -419,7 +418,8 @@ export async function evaluateRoll({
   const chatContent = `
     <div class="mg-chat-card chat-roll mg-roll-card"
         data-total="${total}"
-        data-actor-id="${actor.id}">
+        data-actor-id="${actor.id}"
+        data-strain-effects='${strainEffectsJson}'>
       <div class="mg-roll-header">
         <div class="mg-roll-label-wrap">
           <label class="mg-roll-label">${esc(label)}</label>
@@ -469,7 +469,7 @@ export async function evaluateRoll({
     stoUndone: false
   };
 
-  if (actor && total <= 6 && !rollData?.fromSTO) {
+  if (usesRiskSto && total <= 6 && !rollData?.fromSTO) {
     const cur = Number(actor.system?.sto?.value ?? 0);
     const next = Math.min(6, cur + 1);
     pendingSTODelta = (next !== cur) ? 1 : 0;
@@ -493,7 +493,7 @@ export async function evaluateRoll({
 
   const msg = await ChatMessage.create(msgData);
 
-  if (actor && pendingSTODelta) {
+  if (usesRiskSto && pendingSTODelta) {
     if (game.dice3d?.waitFor3DAnimationByMessageID) {
       await game.dice3d.waitFor3DAnimationByMessageID(msg.id);
     } else {

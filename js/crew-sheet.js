@@ -5,7 +5,9 @@
 // - Double-click a card to open actor sheet
 // - Initiative tab: full-card drag reorder, persisted to system.initiative.order
 
+import { ASSET_TAGS, ITEM_TAGS } from "../config.js";
 import { MGInitiativeController } from "./initiative-controller.js";
+import { GambitDeckBuilderApplication } from "./gambit-deck-builder.js";
 
 // v11-safe HTML escaper
 const ESC = (s) =>
@@ -13,6 +15,24 @@ const ESC = (s) =>
   String(s ?? "").replace(/[&<>"'`=\/]/g, (c) =>
     ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;","/":"&#x2F;","`":"&#x60;","=":"&#x3D;" }[c])
   );
+
+const MG_CREW_INVENTORY_TYPES = new Set(["asset", "weapon", "armor", "misc"]);
+const MG_CREW_ITEM_TYPES = new Set(["weapon", "armor", "misc"]);
+
+function mgCrewInventoryIcon(type) {
+	if (type === "asset") return "fa-solid fa-vault";
+	if (type === "weapon") return "fa-solid fa-swords";
+	if (type === "armor") return "fa-solid fa-shield-halved";
+	return "fa-solid fa-rectangles-mixed";
+}
+
+function mgCrewInventoryTypeLabel(type) {
+	if (type === "asset") return "Asset";
+	if (type === "weapon") return "Weapon";
+	if (type === "armor") return "Armor";
+	if (type === "misc") return "Misc";
+	return "Item";
+}
 
 function mgGetFilePickerSources() {
 	const sources = FilePicker?.sources;
@@ -43,7 +63,7 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 		classes: ["midnight-gambit", "sheet", "actor", "crew-sheet"],
 		template: "systems/midnight-gambit/templates/actors/crew-sheet.html",
 		width: 900,
-		height: 720,
+		height: 950,
 		tabs: [
 			{ navSelector: ".sheet-tabs", contentSelector: ".sheet-body", initial: "party" },
 			{ navSelector: ".sheet-tabs", contentSelector: ".sheet-body", group: "crew", initial: "gambits" }
@@ -232,36 +252,64 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 		data.gb = gb;
 		data.gambitCounts = gambitCounts;
 
-		// Expose to the template
-		data.assets = this.actor.items.filter(i => i.type === "asset");
 		data.gb = gb;
 		data.isEditable = this.isEditable;
 
-		// Assets for the card grid (sorted) + pretty tag labels
-		const tagDefs  = CONFIG.MidnightGambit?.ASSET_TAGS ?? [];   // [{id,label,description?}, ...]
-		const labelFor = (id) => tagDefs.find(t => t.id === id)?.label || id;
+		const assetTagDefs = CONFIG.MidnightGambit?.ASSET_TAGS ?? ASSET_TAGS;
+		const itemTagDefs = CONFIG.MidnightGambit?.ITEM_TAGS ?? ITEM_TAGS;
+		const labelFor = (id, type) => {
+			const defs = type === "asset" ? assetTagDefs : itemTagDefs;
+			return defs.find(t => t.id === id)?.label || id;
+		};
 
-		data.assets = this.actor.items
-		.filter(i => i.type === "asset")
-		.sort((a, b) => a.name.localeCompare(b.name))
-		.map(i => {
-			const raw = i.system?.tags;
-			const ids = Array.isArray(raw)
-			? raw
-			: (typeof raw === "string" ? raw.split(",").map(s => s.trim()).filter(Boolean) : []);
+		const crewInventory = await Promise.all(this.actor.items
+			.filter(i => MG_CREW_INVENTORY_TYPES.has(i.type))
+			.sort((a, b) => a.name.localeCompare(b.name))
+			.map(async i => {
+				const raw = i.system?.tags;
+				const ids = Array.isArray(raw)
+					? raw
+					: (typeof raw === "string" ? raw.split(",").map(s => s.trim()).filter(Boolean) : []);
+				const v = i.toObject();
+				v.id = i.id || v._id;
+				v.type = i.type;
+				v.typeLabel = mgCrewInventoryTypeLabel(i.type);
+				v.typeIcon = mgCrewInventoryIcon(i.type);
+				v.isAsset = i.type === "asset";
+				v.isRegularItem = MG_CREW_ITEM_TYPES.has(i.type);
+				const quantity = Number(i.system?.qty ?? i.system?.quantity ?? 1);
+				v.quantity = Number.isFinite(quantity) ? Math.max(0, quantity) : 1;
+				v.favorite = Boolean(i.system?.favorite);
+				v._tags = ids.map((id) => ({ id, label: labelFor(id, i.type) }));
+				v.descHtml = await TextEditor.enrichHTML(String(i.system?.description ?? ""), { async: true });
+				return v;
+			}));
 
-			const v = i.toObject();
-			v.id = i.id || v._id;               // keep the id your template expects
-			v._tags = ids.map((id) => ({ id, label: labelFor(id) })); // [{id,label}]
-			return v;
-		});
-
-		for (const it of data.assets) {
-		const rawDesc  = String(it.system?.description ?? "");
-		const rawNotes = String(it.system?.notes ?? "");
-
-		it.descHtml  = await TextEditor.enrichHTML(rawDesc,  { async: true }); // TinyMCE formatting → safe HTML
-		}
+		data.crewInventoryFavorites = crewInventory.filter(i => i.favorite);
+		data.crewInventoryAssets = crewInventory.filter(i => i.isAsset && !i.favorite);
+		data.crewInventoryItems = crewInventory.filter(i => i.isRegularItem && !i.favorite);
+		data.crewInventoryBuckets = [
+			{
+				id: "favorites",
+				title: "Favorites",
+				icon: "fa-solid fa-star",
+				items: data.crewInventoryFavorites
+			},
+			{
+				id: "assets",
+				title: "Assets",
+				icon: "fa-solid fa-vault",
+				items: data.crewInventoryAssets
+			},
+			{
+				id: "items",
+				title: "Items",
+				icon: "fa-solid fa-toolbox",
+				items: data.crewInventoryItems
+			}
+		];
+		data.hasCrewInventory = crewInventory.length > 0;
+		data.assets = data.crewInventoryAssets;
 
 		return data;
 
@@ -472,7 +520,7 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 		}
 
 		if (documentName === "Item") {
-			if (type === "asset") return null;
+			if (MG_CREW_INVENTORY_TYPES.has(type)) return null;
 
 			if (type === "gambit") {
 				return String(tier ?? "").toLowerCase() === "crew"
@@ -480,7 +528,7 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 					: "Only Crew-tier Gambits can be added to the Crew.";
 			}
 
-			return `${type || "That item"} cannot be added to a Crew sheet.`;
+			return `${type || "That item"} cannot be added to Crew inventory.`;
 		}
 
 		return "That cannot be added to a Crew sheet.";
@@ -1251,6 +1299,7 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 
 	activateListeners(html) {
 	super.activateListeners(html);
+	this._mgApplyTemplateStyles(html);
 	this._wirePartyStrainLiveRefresh();
 
 		const $root = html instanceof jQuery ? html : $(html);
@@ -1605,10 +1654,13 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 			// Enrich Description so TinyMCE formatting survives in chat
 			const descHtml = await TextEditor.enrichHTML(String(item.system?.description ?? ""), { async: true });
 			const itemImg = item.img || "icons/svg/item-bag.svg";
+			const tagDefs = item.type === "asset"
+				? (CONFIG.MidnightGambit?.ASSET_TAGS ?? ASSET_TAGS)
+				: (CONFIG.MidnightGambit?.ITEM_TAGS ?? ITEM_TAGS);
 
 			const content = `
 			<div class="chat-item">
-				<h2><i class="fa-solid fa-vault"></i> ${ESC(item.name)}</h2>
+				<h2><i class="${mgCrewInventoryIcon(item.type)}"></i> ${ESC(item.name)}</h2>
 				<figure class="chat-item-image">
 					<img src="${ESC(itemImg)}" alt="${ESC(item.name)}" loading="lazy" />
 				</figure>
@@ -1617,7 +1669,7 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 				? `<strong>Tags:</strong>
 					<div class="asset-tags chat-tags">${
 					item.system.tags.map(t => {
-						const def = CONFIG.MidnightGambit?.ASSET_TAGS?.find(d => d.id === t);
+						const def = tagDefs.find(d => d.id === t);
 						const label = def?.label || t;
 						return `<span class="asset-tag tag" data-tag-id="${ESC(t)}">${ESC(label)}</span>`;
 					}).join(" ")
@@ -1642,7 +1694,11 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 			const card = ev.currentTarget.closest("[data-item-id]") || ev.currentTarget;
 			const itemId = card?.dataset?.itemId;
 			const item = itemId ? this.actor.items.get(itemId) : null;
-			if (!item) return ui.notifications?.warn("Asset not found.");
+			if (!item) return ui.notifications?.warn("Item not found.");
+			if (item.type !== "asset") {
+				item.sheet?.render(true);
+				return;
+			}
 
 			const safeName = (foundry.utils?.escapeHTML?.(item.name) ?? item.name);
 			const qty   = Math.max(0, Number(getProperty(item, "system.qty") ?? 0));
@@ -1674,9 +1730,9 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 			content,
 			buttons: {
 				save: {
-					label: "Finish Level",
-					icon: '<i class="fa-solid fa-flag-checkered"></i>',
-					cssClass: "mg-lvl-save",
+					label: "Save",
+					icon: '<i class="fa-solid fa-floppy-disk"></i>',
+					cssClass: "mg-asset-save",
 					callback: () => true
 				},
 
@@ -1698,10 +1754,8 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 			const $header = $app.find(".window-header");
 			$header.find(`.${hdrKey}`).remove();
 			const $actions = $(`
-				<div class="mg-header-actions ${hdrKey}">
-				<a class="header-button ae-open" title="Open Asset"><i class="fa-regular fa-pen-to-square"></i> Open Asset</a>
-				<a class="header-button ae-delete" title="Delete Asset"><i class="fa-solid fa-trash"></i> Delete Asset</a>
-				</div>
+				<a class="header-button ae-open" title="Open Asset"><i class="fa-regular fa-pen-to-square"></i></a>
+				<a class="header-button ae-delete" title="Delete Asset"><i class="fa-solid fa-trash"></i></a>
 			`);
 			$header.find(".window-title").after($actions);
 
@@ -1757,6 +1811,170 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 				dlg.submit();
 			});
 			});
+		});
+
+		$root.off("click.mgCrewItemFavorite").on("click.mgCrewItemFavorite", ".crew-favorite-toggle", async (ev) => {
+			ev.preventDefault();
+			const card = ev.currentTarget.closest(".asset-card, .inventory-item");
+			const itemId = card?.dataset?.itemId;
+			const item = itemId ? this.actor.items.get(itemId) : null;
+			if (!item || !MG_CREW_INVENTORY_TYPES.has(item.type)) return;
+
+			const favorite = !Boolean(item.system?.favorite);
+			ev.currentTarget.classList.toggle("selected", favorite);
+			ev.currentTarget.setAttribute("aria-pressed", String(favorite));
+			ev.currentTarget.title = favorite ? "Remove Favorite" : "Favorite";
+
+			await item.update({ "system.favorite": favorite }, { render: false });
+
+			const destBucket = favorite ? "favorites" : (item.type === "asset" ? "assets" : "items");
+			const destBody = $root.find(`.crew-inventory-bucket-body[data-bucket="${destBucket}"]`)[0];
+			if (destBody) destBody.appendChild(card);
+
+			$root.find(".crew-inventory-bucket-body").each((_, body) => {
+				const bucket = body.dataset?.bucket;
+				const cards = body.querySelectorAll(".asset-card").length;
+				const title = $root.find(`.crew-inventory-bucket-title[data-bucket="${bucket}"]`)[0];
+				const count = title?.querySelector(".crew-inventory-bucket-count");
+				if (count) count.textContent = `(${cards})`;
+			});
+		});
+
+		const updateCrewInventoryQuantity = async (input, value) => {
+			const itemId = input
+				.closest(".asset-card, .inventory-item")
+				?.dataset?.itemId;
+			const item = itemId ? this.actor.items.get(itemId) : null;
+			if (!item || !MG_CREW_INVENTORY_TYPES.has(item.type)) return;
+
+			const quantity = Math.max(0, parseInt(value, 10) || 0);
+			const path = item.type === "asset" ? "system.qty" : "system.quantity";
+			input.value = quantity;
+			await item.update({ [path]: quantity }, { render: false });
+		};
+
+		$root.off("change.mgCrewItemQuantity").on("change.mgCrewItemQuantity", ".crew-item-quantity", async (ev) => {
+			ev.stopPropagation();
+			await updateCrewInventoryQuantity(ev.currentTarget, ev.currentTarget.value);
+		});
+
+		$root.off("click.mgCrewQuantityControls mousedown.mgCrewQuantityControls mouseup.mgCrewQuantityControls")
+			.on("click.mgCrewQuantityControls mousedown.mgCrewQuantityControls mouseup.mgCrewQuantityControls", ".quantity-controls", (ev) => {
+				ev.stopPropagation();
+			});
+
+		$root.off("click.mgCrewItemQuantityStep").on("click.mgCrewItemQuantityStep", ".crew-item-quantity-dec, .crew-item-quantity-inc", async (ev) => {
+			ev.preventDefault();
+			ev.stopPropagation();
+			const input = ev.currentTarget
+				.closest(".quantity-controls")
+				?.querySelector(".crew-item-quantity");
+			if (!input) return;
+
+			const step = parseInt(ev.currentTarget.dataset.step, 10) || 0;
+			const current = parseInt(input.value, 10) || 0;
+			await updateCrewInventoryQuantity(input, current + step);
+		});
+
+		const setCrewBucketState = (title, collapsed) => {
+			title.classList.toggle("is-collapsed", collapsed);
+			const icon = title.querySelector(".crew-inventory-bucket-toggle i");
+			if (icon) icon.classList.toggle("rotated", !collapsed);
+		};
+
+		const writeCrewBucketState = async (state) => {
+			try {
+				await this.actor.update({
+					"flags.midnight-gambit.crewInventoryBucketCollapsed": state
+				}, { render: false });
+			} catch (_err) {}
+		};
+
+		const animateCrewBucket = (body, expand) => {
+			if (!body) return Promise.resolve();
+
+			return new Promise((resolve) => {
+				if (body.dataset.animating === "1") return resolve();
+				body.dataset.animating = "1";
+
+				const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+				const ms = reduce ? 0 : 500;
+
+				body.style.overflow = "hidden";
+				body.style.transition = `max-height ${ms}ms ease`;
+
+				const finish = () => {
+					body.style.transition = "";
+					body.style.overflow = "";
+					body.dataset.animating = "0";
+					resolve();
+				};
+
+				if (expand) {
+					body.hidden = false;
+					body.style.maxHeight = "0px";
+					body.offsetHeight;
+					body.style.maxHeight = `${body.scrollHeight}px`;
+
+					const onEnd = (e) => {
+						if (e && e.target !== body) return;
+						body.removeEventListener("transitionend", onEnd);
+						body.style.maxHeight = "";
+						finish();
+					};
+
+					if (ms === 0) return onEnd();
+					body.addEventListener("transitionend", onEnd, { once: true });
+					setTimeout(onEnd, ms + 120);
+					return;
+				}
+
+				body.hidden = false;
+				body.style.maxHeight = `${Math.ceil(body.getBoundingClientRect().height)}px`;
+				body.offsetHeight;
+				body.style.maxHeight = "0px";
+
+				const onEnd = (e) => {
+					if (e && e.target !== body) return;
+					body.removeEventListener("transitionend", onEnd);
+					body.hidden = true;
+					body.style.maxHeight = "0px";
+					finish();
+				};
+
+				if (ms === 0) return onEnd();
+				body.addEventListener("transitionend", onEnd, { once: true });
+				setTimeout(onEnd, ms + 120);
+			});
+		};
+
+		$root.off("click.mgCrewInventoryBucket").on("click.mgCrewInventoryBucket", ".crew-inventory-bucket-toggle", async (ev) => {
+			ev.preventDefault();
+			const title = ev.currentTarget.closest(".crew-inventory-bucket-title");
+			const bucket = title?.dataset?.bucket;
+			const body = title?.nextElementSibling;
+			if (!bucket || !body?.classList?.contains("crew-inventory-bucket-body")) return;
+
+			const current = this.actor.getFlag("midnight-gambit", "crewInventoryBucketCollapsed") ?? {};
+			const next = foundry.utils.deepClone(current && typeof current === "object" ? current : {});
+			const collapsed = !title.classList.contains("is-collapsed");
+			next[bucket] = collapsed;
+
+			setCrewBucketState(title, collapsed);
+			await animateCrewBucket(body, !collapsed);
+			await writeCrewBucketState(next);
+		});
+
+		const collapsedBuckets = this.actor.getFlag("midnight-gambit", "crewInventoryBucketCollapsed") ?? {};
+		$root.find(".crew-inventory-bucket-title").each((_, title) => {
+			const collapsed = Boolean(collapsedBuckets?.[title.dataset?.bucket]);
+			const body = title.nextElementSibling;
+			setCrewBucketState(title, collapsed);
+			if (body?.classList?.contains("crew-inventory-bucket-body")) {
+				body.hidden = collapsed;
+				body.style.maxHeight = collapsed ? "0px" : "";
+				body.dataset.animating = "0";
+			}
 		});
 
 		// Search filtering (handles Enter key or button click) — unchanged
@@ -1817,9 +2035,33 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 			empty.style.display = show ? "block" : "none";
 			};
 
+			const restoreBucketCollapse = () => {
+				const collapsedBuckets = this.actor.getFlag("midnight-gambit", "crewInventoryBucketCollapsed") ?? {};
+				$root.find(".crew-inventory-bucket-title").each((_, title) => {
+					const collapsed = Boolean(collapsedBuckets?.[title.dataset?.bucket]);
+					const body = title.nextElementSibling;
+					setCrewBucketState(title, collapsed);
+					if (body?.classList?.contains("crew-inventory-bucket-body")) body.hidden = collapsed;
+				});
+			};
+
+			const openBucketsForSearch = (searching) => {
+				if (!searching) {
+					restoreBucketCollapse();
+					return;
+				}
+
+				$root.find(".crew-inventory-bucket-title").each((_, title) => {
+					const body = title.nextElementSibling;
+					setCrewBucketState(title, false);
+					if (body?.classList?.contains("crew-inventory-bucket-body")) body.hidden = false;
+				});
+			};
+
 			const runSearchNow = () => {
 			const input = $root.find(".asset-search")[0];
 			const q = (input?.value || "").toLowerCase().trim();
+			openBucketsForSearch(Boolean(q));
 			const cards = $root.find(".asset-grid .asset-card").toArray();
 			const matchSet = new Set(cards.filter(el => cardMatches(el, q)));
 
@@ -1850,6 +2092,7 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 			const input = $root.find(".assets .asset-search")[0];
 			if (input) input.value = "";
 			showEmpty(false);
+			restoreBucketCollapse();
 			const cards = $root.find(".asset-grid .asset-card").toArray();
 			for (const el of cards) leaveCard(el);
 			setTimeout(() => { let idx = 0; for (const el of cards) enterCard(el, idx++); }, LEAVE_MS);
@@ -2177,6 +2420,9 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 			card.classList.add("animating");
 
 			if (!isExpanded) {
+				card.classList.add("expanded");
+				setIcon(card);
+
 				// EXPAND: cap -> scrollHeight
 				card.style.maxHeight = `${cap}px`;
 				card.offsetHeight; // reflow
@@ -2185,15 +2431,16 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 
 				const done = () => {
 				card.classList.remove("animating");
-				card.classList.add("expanded");
 				// KEEP px height so collapse animates later
 				card.style.maxHeight = `${card.scrollHeight}px`;
-				setIcon(card);
 				};
 
 				card.addEventListener("transitionend", done, { once: true });
 				setTimeout(done, TRANSITION_MS + 80);
 			} else {
+				card.classList.remove("expanded");
+				setIcon(card);
+
 				// COLLAPSE: current scrollHeight -> cap
 				const start = card.scrollHeight;
 				card.style.maxHeight = `${start}px`;
@@ -2202,9 +2449,7 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 
 				const done = () => {
 				card.classList.remove("animating");
-				card.classList.remove("expanded");
 				card.style.maxHeight = `${cap}px`;
-				setIcon(card);
 				};
 
 				card.addEventListener("transitionend", done, { once: true });
@@ -2413,6 +2658,11 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 			});
 		});
 
+		$root.off("click.mgCrewGambitLibrary").on("click.mgCrewGambitLibrary", ".mg-open-crew-gambit-library", (ev) => {
+			ev.preventDefault();
+			new GambitDeckBuilderApplication(this.actor, { mode: "crew" }).render(true);
+		});
+
 		// Play Gambit: post to chat, then MOVE from hand → discard
 		$root.off("click.mgPlayGambit").on("click.mgPlayGambit", ".play-gambit", async (ev) => {
 		ev.preventDefault();
@@ -2550,6 +2800,14 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 		// --- Render new tabs (Assets / Gambits / Bio)
 		this._bindGambitsTab(html);
 		this._bindBioTab(html);
+	}
+
+	_mgApplyTemplateStyles(html) {
+		const root = html instanceof jQuery ? html[0] : html;
+		root?.querySelectorAll?.("[data-mg-style]").forEach(el => {
+			const styleText = String(el.dataset?.mgStyle ?? "").trim();
+			if (styleText) el.style.cssText = styleText;
+		});
 	}
 
 	/**

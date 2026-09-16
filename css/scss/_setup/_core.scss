@@ -136,7 +136,7 @@ form .form-group .form-fields {
 button,
 form button,
 .dialog-button {
-  background: $mg-blue-3;
+  background: $mg-blue-4;
   border: none;
   line-height: 1.2;
   color: $mg-ivory;
@@ -157,7 +157,7 @@ form button,
 
   &:hover,
   &:focus {
-    background: $mg-blue-4;
+    background: $mg-blue-5;
     border-color: $mg-green;
     color: $mg-green;
     box-shadow: none;
@@ -1127,10 +1127,10 @@ h3 {
           }
 
           &:hover {
-            background: $mg-blue-3;
+            background: $mg-blue-5;
 
             i {
-              color: $mg-blue-4;
+              color: $mg-green;
             }
           }
 

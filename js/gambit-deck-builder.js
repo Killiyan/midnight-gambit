@@ -1,4 +1,5 @@
 import {
+  CREW_GAMBIT_TYPES,
   GAMBIT_TIERS,
   GAMBIT_TYPES,
   GAMBIT_TYPE_LABELS,
@@ -45,6 +46,10 @@ function mgGetRefLibraryKey(actor, ref) {
   return String(embedded?.getFlag?.("midnight-gambit", "libraryUuid") ?? itemId ?? "");
 }
 
+function mgGetActorGambitLibraryKey(item) {
+  return String(item?.getFlag?.("midnight-gambit", "libraryUuid") ?? item?.uuid ?? item?.id ?? "");
+}
+
 function mgGetTierIcon(tier) {
   return MG_GAMBIT_TIER_IMAGES[normalizeGambitTier(tier)] ?? MG_GAMBIT_TIER_IMAGES.rookie;
 }
@@ -57,9 +62,14 @@ function mgIncludesSearch(card, search) {
 
 export class GambitDeckBuilderApplication extends Application {
   constructor(actor, deckId, options = {}) {
+    if (deckId && typeof deckId === "object") {
+      options = deckId;
+      deckId = "";
+    }
     super(options);
     this.actor = actor;
     this.deckId = String(deckId ?? "");
+    this.isCrewLibrary = options?.mode === "crew" || options?.crew === true;
     this.filters = {
       search: "",
       tiers: new Set(),
@@ -90,6 +100,7 @@ export class GambitDeckBuilderApplication extends Application {
   }
 
   get title() {
+    if (this.isCrewLibrary) return `Crew Gambits Library - ${this.actor?.name ?? "Crew"}`;
     const deck = this._getDeck();
     return `Gambit Library - ${deck?.name ?? "Deck"}`;
   }
@@ -97,8 +108,10 @@ export class GambitDeckBuilderApplication extends Application {
   async getData(options = {}) {
     const deck = this._getDeck();
     const cards = await this._getLibraryCards();
-    const deckRefs = mgGetDeckGambitRefs(deck);
-    const selectedRefs = new Set(deckRefs.map(ref => mgGetRefLibraryKey(this.actor, ref)));
+    const deckRefs = this.isCrewLibrary ? this._getCrewGambitRefs() : mgGetDeckGambitRefs(deck);
+    const selectedRefs = this.isCrewLibrary
+      ? new Set(deckRefs.map(item => mgGetActorGambitLibraryKey(item)))
+      : new Set(deckRefs.map(ref => mgGetRefLibraryKey(this.actor, ref)));
     const filteredCards = cards.filter(card => this._cardPassesFilters(card, selectedRefs));
     const gpMax = Number(this.actor?.system?.gambitPoints?.max ?? 4) || 4;
     const gpSpent = deckRefs.reduce((total, ref) => total + mgGetRefCost(this.actor, ref), 0);
@@ -125,15 +138,17 @@ export class GambitDeckBuilderApplication extends Application {
           ...selectedCard,
           cardImage,
           selected: selectedRefs.has(selectedCard.uuid),
-          canAfford: selectedRefs.has(selectedCard.uuid) || selectedCard.gpCost <= gpRemaining,
+          canAfford: this.isCrewLibrary || selectedRefs.has(selectedCard.uuid) || selectedCard.gpCost <= gpRemaining,
           descriptionHtml: await TextEditor.enrichHTML(String(selectedCard.description ?? ""), { async: true })
         }
       : null;
 
     return {
       actor: this.actor,
+      isCrewLibrary: this.isCrewLibrary,
+      titleText: this.isCrewLibrary ? "Crew Gambits Library" : "Gambit Library",
       deck,
-      deckName: deck?.name ?? "Deck",
+      deckName: this.isCrewLibrary ? this.actor?.name ?? "Crew" : deck?.name ?? "Deck",
       gpMax,
       gpSpent,
       gpRemaining,
@@ -144,10 +159,10 @@ export class GambitDeckBuilderApplication extends Application {
       suppressFocusFade: Boolean(selected && this._suppressFocusFade),
       search: this.filters.search,
       equippedOnly: this.filters.equipped,
-      tierFilters: GAMBIT_TIERS
+      tierFilters: (this.isCrewLibrary ? [] : GAMBIT_TIERS)
         .filter(tier => tier.id !== "crew")
         .map(tier => ({ ...tier, checked: this.filters.tiers.has(tier.id) })),
-      typeFilters: GAMBIT_TYPES
+      typeFilters: (this.isCrewLibrary ? CREW_GAMBIT_TYPES : GAMBIT_TYPES)
         .map(type => ({ ...type, checked: this.filters.types.has(type.id) })),
       costFilters: [
         { id: "1-2", label: "1-2", checked: this.filters.costs.has("1-2") },
@@ -178,6 +193,21 @@ export class GambitDeckBuilderApplication extends Application {
       const target = this.filters[group];
       if (!(target instanceof Set)) return;
       ev.currentTarget.checked ? target.add(value) : target.delete(value);
+      this._queueFilterRender(0);
+    });
+
+    html.find("[data-filter-type-pill]").on("click", ev => {
+      ev.preventDefault();
+      const value = String(ev.currentTarget.dataset.filterTypePill ?? "");
+      if (!value) return;
+
+      const selected = this.filters.types.has(value);
+      if (selected) this.filters.types.delete(value);
+      else this.filters.types.add(value);
+
+      ev.currentTarget.classList.toggle("selected", !selected);
+      ev.currentTarget.setAttribute("aria-pressed", String(!selected));
+
       this._queueFilterRender(0);
     });
 
@@ -336,6 +366,19 @@ export class GambitDeckBuilderApplication extends Application {
 
   _syncFocusedCardState(card) {
     if (!card) return;
+
+    if (this.isCrewLibrary) {
+      const selected = this._getCrewGambitRefs()
+        .some(item => mgGetActorGambitLibraryKey(item) === card.uuid);
+
+      this._findLibraryCardElement(card.uuid)?.toggleClass("is-in-deck", selected);
+
+      const $toggle = this._findFocusToggleElement(card.uuid);
+      $toggle.prop("disabled", false);
+      $toggle.find("span").text(selected ? "Remove from Crew" : "Add to Crew");
+      return;
+    }
+
     const deck = this._getDeck();
     const deckRefs = mgGetDeckGambitRefs(deck);
     const selectedRefs = new Set(deckRefs.map(ref => mgGetRefLibraryKey(this.actor, ref)));
@@ -496,7 +539,7 @@ export class GambitDeckBuilderApplication extends Application {
     this._libraryCards = docs
       .filter(item => item?.type === "gambit")
       .map(item => this._cardFromItem(item))
-      .filter(card => card.tier !== "crew")
+      .filter(card => this.isCrewLibrary ? card.tier === "crew" : card.tier !== "crew")
       .sort((a, b) => a.name.localeCompare(b.name));
 
     return this._libraryCards;
@@ -546,6 +589,11 @@ export class GambitDeckBuilderApplication extends Application {
   async _toggleCard(uuid) {
     const card = (await this._getLibraryCards()).find(c => c.uuid === uuid);
     if (!card) return;
+
+    if (this.isCrewLibrary) {
+      await this._toggleCrewGambit(card);
+      return;
+    }
 
     const decks = this._getDecks();
     const index = decks.findIndex(deck => String(deck?.id ?? "") === this.deckId);
@@ -602,5 +650,68 @@ export class GambitDeckBuilderApplication extends Application {
 
     const [created] = await this.actor.createEmbeddedDocuments("Item", [data]);
     return created;
+  }
+
+  _getCrewGambitRefs() {
+    const gambits = this.actor?.system?.gambits ?? {};
+    const ids = new Set([
+      ...(Array.isArray(gambits.deck) ? gambits.deck : []),
+      ...(Array.isArray(gambits.drawn) ? gambits.drawn : []),
+      ...(Array.isArray(gambits.discard) ? gambits.discard : [])
+    ].map(String).filter(Boolean));
+
+    return Array.from(ids)
+      .map(id => this.actor?.items?.get(id))
+      .filter(item => item?.type === "gambit");
+  }
+
+  _findCrewGambit(card) {
+    return this._getCrewGambitRefs()
+      .find(item => mgGetActorGambitLibraryKey(item) === card.uuid) ?? null;
+  }
+
+  async _toggleCrewGambit(card) {
+    const existing = this._findCrewGambit(card);
+
+    if (existing) {
+      const id = existing.id;
+      const gambits = foundry.utils.deepClone(this.actor.system?.gambits ?? {});
+      for (const stack of ["deck", "drawn", "discard"]) {
+        gambits[stack] = (Array.isArray(gambits[stack]) ? gambits[stack] : []).filter(itemId => itemId !== id);
+      }
+
+      await this.actor.deleteEmbeddedDocuments("Item", [id]);
+      await this.actor.update({ "system.gambits": gambits });
+      this._syncFocusedCardState(card);
+      return;
+    }
+
+    const gambits = this.actor.system?.gambits ?? {};
+    const handSize = Number(gambits.handSize ?? 3) || 3;
+    const currentCount = Array.isArray(gambits.deck) ? gambits.deck.length : 0;
+
+    if (currentCount >= handSize) {
+      const ok = await Dialog.confirm({
+        title: "Over Hand Limit?",
+        content: `
+          <p>You're going over your max available Crew Gambits for this level
+          (<strong>${currentCount}/${handSize}</strong>).</p>
+          <p><em>Only add this if your Director approves!</em></p>
+        `,
+        defaultYes: false,
+        yes: () => true,
+        no: () => false
+      });
+
+      if (!ok) return;
+    }
+
+    const created = await this._ensureActorGambit(card);
+    const next = foundry.utils.deepClone(this.actor.system?.gambits ?? {});
+    next.deck = Array.isArray(next.deck) ? next.deck.slice() : [];
+    if (!next.deck.includes(created.id)) next.deck.push(created.id);
+
+    await this.actor.update({ "system.gambits.deck": next.deck });
+    this._syncFocusedCardState(card);
   }
 }

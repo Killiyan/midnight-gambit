@@ -41,6 +41,12 @@ export const GAMBIT_TYPES = [
   { id: "support", label: "Support" }
 ];
 
+export const CREW_GAMBIT_TYPES = [
+  { id: "combat", label: "Combat", icon: "fa-solid fa-swords" },
+  { id: "social", label: "Social", icon: "fa-solid fa-comments" },
+  { id: "support", label: "Support", icon: "fa-solid fa-hand-holding-heart" }
+];
+
 export const MOVE_TYPES = [
   { id: "combat", label: "Combat" },
   { id: "spark", label: "Spark" },

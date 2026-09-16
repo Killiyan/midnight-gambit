@@ -1,7 +1,8 @@
 <section class="mg-gambit-library {{#if hasFocus}}is-focused{{/if}} {{#if suppressFocusFade}}is-focus-refresh{{/if}}">
   <header class="mg-gambit-library-header">
     <div>
-      <h1>Gambit Library</h1>
+      <h1>{{titleText}}</h1>
+      {{#unless isCrewLibrary}}
       <div class="mg-gambit-library-deck">
         <span class="mg-gambit-library-deck-name">{{deckName}}</span>
         <span class="mg-gambit-library-deck-gp"><i class="fa-kit fa-gambit-points"></i>{{gpSpent}}/{{gpMax}}</span>
@@ -9,6 +10,7 @@
           <i class="fa-solid fa-pen-to-square"></i>
         </button>
       </div>
+      {{/unless}}
     </div>
     <button type="button" class="mg-gambit-library-window-close" title="Close Gambit Library">
       <i class="fa-solid fa-xmark"></i>
@@ -28,7 +30,9 @@
                 <img src="{{tierIcon}}" alt="{{tierLabel}}" />
               </span>
               <span class="mg-gambit-library-card-name">{{name}}</span>
+              {{#unless ../isCrewLibrary}}
               <span class="mg-gambit-library-cost"><i class="fa-kit fa-gambit-points"></i> {{gpCost}}</span>
+              {{/unless}}
             </span>
           </button>
         {{/each}}
@@ -56,7 +60,7 @@
               <h2>{{selected.name}}</h2>
               <span>{{selected.tierLabel}}</span>
               <span>{{selected.typeLabel}}</span>
-              <span><i class="fa-kit fa-gambit-points"></i>{{selected.gpCost}}</span>
+              {{#unless isCrewLibrary}}<span><i class="fa-kit fa-gambit-points"></i>{{selected.gpCost}}</span>{{/unless}}
             </div>
 
             <div class="mg-gambit-library-description">
@@ -70,10 +74,10 @@
               <i class="fa-solid fa-dice-d20"></i>
               <span>
                 {{#if selected.selected}}
-                  Remove from Deck
+                  {{#if isCrewLibrary}}Remove from Crew{{else}}Remove from Deck{{/if}}
                 {{else}}
                   {{#if selected.canAfford}}
-                    Add to Deck
+                    {{#if isCrewLibrary}}Add to Crew{{else}}Add to Deck{{/if}}
                   {{else}}
                     Not Enough GP
                   {{/if}}
@@ -91,6 +95,7 @@
         <input type="search" name="search" value="{{search}}" />
       </label>
 
+      {{#unless isCrewLibrary}}
       <div class="mg-gambit-library-filter-group">
         <h3>Deck</h3>
         <label>
@@ -98,7 +103,9 @@
           <span>Equipped</span>
         </label>
       </div>
+      {{/unless}}
 
+      {{#unless isCrewLibrary}}
       <div class="mg-gambit-library-filter-group">
         <h3>Tier</h3>
         {{#each tierFilters}}
@@ -108,17 +115,38 @@
           </label>
         {{/each}}
       </div>
+      {{/unless}}
 
       <div class="mg-gambit-library-filter-group">
         <h3>Type</h3>
-        {{#each typeFilters}}
-          <label>
-            <input type="checkbox" data-filter="types" value="{{id}}" {{#if checked}}checked{{/if}} />
-            <span>{{label}}</span>
-          </label>
-        {{/each}}
+        {{#if isCrewLibrary}}
+          <div class="tag-selector mg-moves-library-subtype-pills">
+            {{#each typeFilters}}
+              <button
+                type="button"
+                class="tag-pill mg-moves-library-subtype-pill {{#if checked}}selected{{/if}}"
+                data-filter-type-pill="{{id}}"
+                aria-pressed="{{#if checked}}true{{else}}false{{/if}}"
+                title="{{label}}"
+              >
+                {{#if icon}}
+                  <i class="{{icon}}" aria-hidden="true"></i>
+                {{/if}}
+                <span>{{label}}</span>
+              </button>
+            {{/each}}
+          </div>
+        {{else}}
+          {{#each typeFilters}}
+            <label>
+              <input type="checkbox" data-filter="types" value="{{id}}" {{#if checked}}checked{{/if}} />
+              <span>{{label}}</span>
+            </label>
+          {{/each}}
+        {{/if}}
       </div>
 
+      {{#unless isCrewLibrary}}
       <div class="mg-gambit-library-filter-group">
         <h3>Cost</h3>
         {{#each costFilters}}
@@ -128,6 +156,7 @@
           </label>
         {{/each}}
       </div>
+      {{/unless}}
     </aside>
   </main>
 </section>

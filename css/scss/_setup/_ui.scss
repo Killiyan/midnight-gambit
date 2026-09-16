@@ -375,6 +375,7 @@ body.mg-hud-enabled {
 					&:focus {
 						background: $mg-blue-4;
 						border-color: $mg-green;
+						text-shadow: none;
 
 						i {
 							color: $mg-green;
@@ -815,6 +816,11 @@ body.mg-hud-enabled {
 			
 			&:last-of-type .mg-slide-toggle {
 				border-bottom: 2px solid $mg-blue-main-2;
+
+				&:hover,
+				&:focus {
+					border-color: $mg-green;
+				}
 			}
 
 			&:nth-of-type(even) .mg-slide-toggle {
@@ -1806,6 +1812,44 @@ body.mg-hud-enabled {
 					@include mg-shadow();
 				}
 
+				.capacity-armor-bubble {
+					right: .875rem;
+					top: -.5rem;
+					position: absolute;
+					display: inline-flex;
+					align-items: center;
+					justify-content: center;
+					width: 1.45rem;
+					height: 1.45rem;
+					min-width: 0;
+					padding: .75rem;
+					aspect-ratio: 1 / 1;
+					background: $mg-blue-5;
+					@include mg-border();
+					border-radius: .5rem;
+					color: $mg-blue-3;
+					font-size: .7rem;
+					font-style: normal;
+					line-height: 1;
+					box-shadow: 0 4px 12px rgba($black, .28);
+					transition: none;
+
+					i {
+						color: $mg-blue-main-2;
+						font-size: .8rem;
+						margin: 0;
+					}
+
+					&.is-at-risk {
+						background: $mg-blue-4;
+						border-color: $mg-blue-2;
+
+						i {
+						color: $mg-blue-2;
+						}
+					}
+				}
+
 				&:after {
 					content: "\f132";
 					font-family: "Font Awesome 6 Pro";
@@ -1900,6 +1944,16 @@ body.mg-hud-enabled {
 				width: calc(100% + 1.75rem);
 				justify-content: space-between;
 				padding-left: 4.5rem;
+
+				.dot {
+					i {
+						color: $mg-blue-2;
+					}
+					
+					&.filled i {
+						color: $mg-blue-main-2;
+					}
+				}
 			}
 
 			.dot {
@@ -5333,12 +5387,12 @@ body:not(.mg-hud-enabled) #mg-ui-root {
 	.tag,
 	.item-tag {
 		background: $mg-blue-main-2;
+		color: $mg-blue-1;
 		@include roboto();
 		text-transform: uppercase;
 		letter-spacing: .05em;
 		font-weight: 700;
 		font-size: .75rem;
-		color: $mg-blue-1;
 		padding: .5rem;
 		border-radius: .5rem;
 		transition: color .5s ease, background .5s ease, filter .5s ease;
@@ -5383,6 +5437,7 @@ body:not(.mg-hud-enabled) #mg-ui-root {
 			font-size: 1rem;
 			font-weight: 700;
 			color: $mg-blue-1;
+			white-space: nowrap;
 		}
 	}
 }
@@ -5493,7 +5548,8 @@ body:not(.mg-hud-enabled) #mg-ui-root {
 		transition: opacity .5s ease;
 	}
 
-	&:hover {
+	&:hover,
+	&:focus {
 		background: $mg-blue-4;
 		color: $mg-green;
 		box-shadow: none;
@@ -5504,17 +5560,9 @@ body:not(.mg-hud-enabled) #mg-ui-root {
 		}
 	}
 
-	&:focus {
-		background: transparent;
-
-		i {
-			color: $mg-ivory;
-		}
-	}	
-
 	i {
 		color: $mg-ivory;
-		transition: transform 0.3s ease, color .5s ease;
+		transition: transform 0.5s ease, color .5s ease;
 	}
 
 	i.rotated {

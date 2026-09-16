@@ -44,6 +44,18 @@
       }}
     </div>
 
+    {{#if (or (eq itemType "weapon") (eq itemType "armor") (eq itemType "misc"))}}
+      <div class="wrapper mg-content">
+        <div class="form-group signature-check">
+          <label>Favorite</label>
+          <div class="form-wrap">
+            <input type="checkbox" name="system.favorite" {{#if system.favorite}}checked{{/if}} />
+            <p>If checked, this item appears in the Favorites bucket.</p>
+          </div>
+        </div>
+      </div>
+    {{/if}}
+
     {{#if (eq item.type "gambit")}}
       <div class="wrapper mg-content">
         <div class="form-group">
@@ -186,45 +198,44 @@
             </div>
           </div>
 
-        {{/if}}
-
-        <div class="form-group">
-          <label>Library Teaser</label>
-          <input
-            type="text"
-            name="system.teaser"
-            value="{{system.teaser}}"
-            placeholder="Disarm resistance"
-            maxlength="64"
-          />
-        </div>
-
-        <div class="form-group">
-          <label>Move Type</label>
-          <select name="system.moveType">
-            <option value="" {{#unless system.moveType}}selected{{/unless}}>Unassigned</option>
-            {{#each moveTypes}}
-              <option value="{{this.id}}" {{#if (eq ../system.moveType this.id)}}selected{{/if}}>{{this.label}}</option>
-            {{/each}}
-          </select>
-        </div>
-
-        <div class="form-group">
-          <label>Sub Types</label>
-          <div class="tag-selector move-subtype-selector" data-move-subtype-selector>
-            <input type="hidden" name="system.moveSubtypesCsv" value="{{system.moveSubtypesCsv}}" />
-            {{#each moveSubtypes}}
-              <button
-                type="button"
-                class="tag-pill move-subtype-pill {{#if (lookup ../moveSubtypeSelected this.id)}}selected{{/if}}"
-                data-subtype-id="{{this.id}}"
-                title="{{this.label}}"
-              >
-                {{this.label}}
-              </button>
-            {{/each}}
+          <div class="form-group">
+            <label>Library Teaser</label>
+            <input
+              type="text"
+              name="system.teaser"
+              value="{{system.teaser}}"
+              placeholder="Disarm resistance"
+              maxlength="64"
+            />
           </div>
-        </div>
+
+          <div class="form-group">
+            <label>Move Type</label>
+            <select name="system.moveType">
+              <option value="" {{#unless system.moveType}}selected{{/unless}}>Unassigned</option>
+              {{#each moveTypes}}
+                <option value="{{this.id}}" {{#if (eq ../system.moveType this.id)}}selected{{/if}}>{{this.label}}</option>
+              {{/each}}
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>Sub Types</label>
+            <div class="tag-selector move-subtype-selector" data-move-subtype-selector>
+              <input type="hidden" name="system.moveSubtypesCsv" value="{{system.moveSubtypesCsv}}" />
+              {{#each moveSubtypes}}
+                <button
+                  type="button"
+                  class="tag-pill move-subtype-pill {{#if (lookup ../moveSubtypeSelected this.id)}}selected{{/if}}"
+                  data-subtype-id="{{this.id}}"
+                  title="{{this.label}}"
+                >
+                  {{this.label}}
+                </button>
+              {{/each}}
+            </div>
+          </div>
+        {{/if}}
       </div>
 
     {{/if}}

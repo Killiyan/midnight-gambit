@@ -1,5 +1,5 @@
 // npc-sheet.js
-import { evaluateRoll } from "./roll-utils.js";
+import { evaluateRoll, mgGetStrainEffectBadge, mgGetStrainRollEffects } from "./roll-utils.js";
 import { MG_TOKEN_FRAMES, mgComposeAndStoreActorTokenImage, mgGetActorTokenPreviewBox, mgGetTokenFrame, mgGetTokenMinScale } from "./token-frame.js";
 
 const MG_ACTOR_GUISE_IMAGE = "systems/midnight-gambit/assets/images/guise.jpg";
@@ -57,6 +57,15 @@ export class MidnightGambitNpcSheet extends ActorSheet {
 
     // Keep the same attribute ordering as the player sheet uses
     context.attributeKeys = ["tenacity", "finesse", "resolve", "guile", "instinct", "presence"];
+    context.strainAttributeEffects = Object.fromEntries(
+      context.attributeKeys.map((key) => [
+        key,
+        mgGetStrainEffectBadge(
+          mgGetStrainRollEffects(this.actor, key),
+          { includeGlobalLock: false, showRiskStoLock: false }
+        )
+      ])
+    );
 
     // NPC moves/signatures live as Item documents and may be old flagged moves
     // or the newer real Signature Perk item type.
@@ -561,6 +570,32 @@ export class MidnightGambitNpcSheet extends ActorSheet {
     // ----------------------------
     // Strain dots (same behavior as character sheet)
     // ----------------------------
+    const refreshStrainEffectBadges = () => {
+      const root = html[0];
+      if (!root) return;
+
+      root.querySelectorAll(".attribute-column[data-attr]").forEach((column) => {
+        column.querySelector(":scope > .mg-strain-warning-badge")?.remove();
+
+        const attrKey = column.dataset.attr;
+        const effect = mgGetStrainEffectBadge(
+          mgGetStrainRollEffects(this.actor, attrKey),
+          { includeGlobalLock: false, showRiskStoLock: false }
+        );
+        if (!effect) return;
+
+        const badge = document.createElement("span");
+        badge.className = `mg-strain-warning-badge ${effect.tree}`;
+        badge.dataset.tooltip = effect.title;
+
+        const icon = document.createElement("i");
+        icon.className = "fa-solid fa-exclamation";
+        badge.appendChild(icon);
+
+        column.prepend(badge);
+      });
+    };
+
     html.find(".strain-dot").on("click", async (event) => {
       event.preventDefault();
       event.stopPropagation();
@@ -592,6 +627,7 @@ export class MidnightGambitNpcSheet extends ActorSheet {
         const v = Number(node.dataset.value);
         node.classList.toggle("filled", v <= newValue);
       });
+      refreshStrainEffectBadges();
     });
 
     // ----------------------------
@@ -655,6 +691,7 @@ export class MidnightGambitNpcSheet extends ActorSheet {
         const v = Number(node.dataset.value);
         node.classList.toggle("filled", v <= nextTrack);
       });
+      refreshStrainEffectBadges();
     });
 
     // ----------------------------
@@ -817,16 +854,23 @@ export class MidnightGambitNpcSheet extends ActorSheet {
     // ----------------------------
     html.find(".attribute-modifier").on("click", async (event) => {
       const attrKey = event.currentTarget.dataset.key;
-      const mod = this.actor.system.attributes?.[attrKey] ?? 0;
+      const mod = Number(this.actor.system.attributes?.[attrKey] ?? 0) || 0;
+      const strainEffects = mgGetStrainRollEffects(this.actor, attrKey);
+      if (strainEffects.out) {
+        ui.notifications?.warn(`${attrKey.toUpperCase()} is unavailable at ${strainEffects.track} ${strainEffects.tree} track.`);
+        return;
+      }
 
-      const pool = 2 + Math.abs(mod);
-      const rollType = mod >= 0 ? "kh2" : "kl2";
+      const strainedMod = mod + strainEffects.diePenalty;
+      const pool = 2 + Math.abs(strainedMod);
+      const rollType = strainedMod >= 0 ? "kh2" : "kl2";
       const formula = `${pool}d6${rollType}`;
 
       await evaluateRoll({
         formula,
         label: `NPC Attribute Roll: ${attrKey.toUpperCase()}`,
-        actor: this.actor
+        actor: this.actor,
+        strainEffects
       });
     });
 

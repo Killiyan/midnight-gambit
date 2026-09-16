@@ -2,6 +2,8 @@
 ==============================================================================================================================================*/
 .crew-sheet {
 
+	/* Global Crew Sheet Styles
+	----------------------------------------------------------------------*/
 	.mg-crew-sheet {
 
 		.mg-crew-header {
@@ -12,6 +14,7 @@
 			position: relative;
 			display: flex;
 
+			// Title of the Crew in the header
 			.mg-crew-title {
 				position: relative;
 				background: $mg-blue-main;
@@ -185,6 +188,8 @@
 			}
 		}
 
+		/* Global Tab Styling
+		----------------------------------------------------------------------*/		
 		.tab {
 			padding: 2.125rem;
 			background: $mg-blue-4;
@@ -260,6 +265,7 @@
 				box-shadow: 5px 5px 10px rgba(0,0,0,0.5);
 			}
 
+			// Resetting the top margin so the banner overlaps the image
 			&.party-tab .mg-content,
 			&.initiative-tab .mg-content,
 			&.settings-tab .mg-crew-settings,
@@ -271,6 +277,8 @@
 			}
 		}
 
+		/* Combined Party and Initiative styles for cards
+		----------------------------------------------------------------------*/		
 		.mg-party-grid,
 		.mg-initiative-list {
 			display: flex;
@@ -479,6 +487,8 @@
 			}
 		}
 
+		/* Party Style overrides
+		----------------------------------------------------------------------*/		
 		.mg-party-grid {
 			flex-direction: row;
 			flex-wrap: wrap;
@@ -595,6 +605,8 @@
 			}
 		}
 
+		/* Start Assets Tab
+		----------------------------------------------------------------------*/		
 		.assets {
 
 			.asset-search-empty,
@@ -630,6 +642,9 @@
 					border-right: 2px solid $mg-blue-main-2;
 					border-radius: .5rem;
 					width: calc(28% - 1rem);
+					gap: 0;
+					display: flex;
+					flex-direction: column;
 
 					label {
 						margin-bottom: .5rem;
@@ -640,20 +655,53 @@
 						align-items: center;
 						
 						button {
-							width: 24px; 
 							height: 100%;
+							width: 24px;
+							padding: 0 .25rem;
 							margin: 0;
 							display: flex;
 							align-items: center;
+							justify-content: center;
+							background: $mg-blue-4;
+							color: $mg-ivory;
+							border: 2px solid $mg-blue-main-2;     
+							font-style: normal;
+							font-size: 1rem;     
 
 							&:first-of-type {
 								border-radius: 0.625rem 0 0 0.625rem;
+								border-right: 0;
 							}
 							
 							&:last-of-type {
 								border-radius: 0 0.625rem 0.625rem 0;
+								border-left: 0;
 							}
+
+							i {
+								font-size: .75rem;
+								margin: 0;
+							}
+
+							&:hover,
+							&:focus {
+								background: $mg-blue-5;
+								color: $mg-green;
+
+								i {
+								color: $mg-blue-1;
+								}
+							}          
 						}
+
+						input {
+							height: 100%;
+							min-width: 0;
+							width: 100%;
+							text-align: center;
+							border-radius: 0;
+							padding: 1.125rem .5rem;
+						}        
 					}
 				}
 
@@ -686,10 +734,101 @@
 				}
 			}
 
+			// Setting Grid for the inventory of Assets
 			.asset-grid {
-				display: grid;
-				grid-template-columns: 1fr 1fr 1fr;
+				display: flex;
+				flex-direction: column;
 				gap: 1.25rem;
+
+				.crew-inventory-bucket-title {
+					width: 100%;
+					min-height: 5.5rem;
+					display: flex;
+					align-items: stretch;
+					gap: 1rem;
+					margin: 0;
+					padding: 0;
+					overflow: hidden;
+					background: rgba($black, .2);
+					@include mg-border();
+					border-radius: .5rem;
+					box-shadow: 5px 5px 10px rgba($black, .5);
+					backdrop-filter: blur(8px);
+
+					h2 {
+						margin: 0;
+						padding: 1.125rem 0;
+						display: flex;
+						align-items: center;
+						gap: .5rem;
+						border-bottom: 0;
+					}
+
+					.crew-inventory-bucket-count {
+						color: $mg-blue-2;
+						font-size: .8em;
+						font-weight: 700;
+					}
+
+					.item-icon {
+						display: flex;
+						align-items: center;
+						justify-content: center;
+						width: 5.5rem;
+						flex: 0 0 5.5rem;
+						background: rgba($black, .2);
+						border-right: 2px solid $mg-blue-main-2;
+
+						i {
+							color: $mg-blue-3;
+							font-size: 1.25rem;
+						}
+					}
+
+					.crew-inventory-bucket-toggle {
+						width: 5.5rem;
+						flex: 0 0 5.5rem;
+						margin: 0 0 0 auto;
+						padding: 0;
+						display: inline-flex;
+						align-items: center;
+						justify-content: center;
+						border-radius: 0;
+						border-left: 2px solid $mg-blue-main-2;
+						background: rgba($black, .2);
+						box-shadow: none;
+
+						&:hover {
+						background: rgba($black, .6);
+
+						i {
+							color: $mg-green;
+						}
+						}						
+
+						i {
+							color: $mg-blue-3;
+							transition: transform .5s ease, color .5s ease;
+							margin: 0;
+						}
+					}
+
+					&.is-collapsed .crew-inventory-bucket-toggle i {
+						transform: rotate(180deg);
+					}
+				}
+
+				.crew-inventory-bucket-body {
+					display: grid;
+					grid-template-columns: repeat(3, minmax(0, 1fr));
+					gap: 1.25rem;
+					overflow: hidden;
+
+					&[hidden] {
+						display: none !important;
+						max-height: 0;
+					}
+				}
 
 				.empty-hint {
 					grid-column-start: 1;
@@ -728,39 +867,7 @@
 						display: none !important; // applied after leave completes
 					}
 
-					h3 {
-						@include oswald();
-						text-transform: uppercase;
-						font-weight: 700;
-						font-style: italic;
-						font-size: 1.25rem;
-						line-height: 1.1;
-						padding:  1.25rem;
-						display: block;
-						background: $mg-blue-main-2;
-						color: $mg-blue-2;
-						transition: color .5s ease, background .5s ease;
-						display: flex;
-						gap: .625rem;
-						align-items: center;
-						margin-bottom: 0;
-
-						&:hover {
-							background: $mg-blue-4;
-							color: $mg-green;
-
-							i {
-								color: $mg-blue-1;
-							}
-						}
-
-						i {
-							display: block;
-							font-size: 1.25rem;
-							color: $mg-blue-4;
-							transition: color .5s ease;
-						}
-					}
+					@include inventory-card-header();
 
 					.card-media img{
 						border: none;
@@ -786,12 +893,17 @@
 							gap: 1rem;
 
 							.desc {
-								padding: 1rem;
+								padding: .5rem;
 								@include mg-border();
-								font-size: 1rem;
+								font-size: .9rem;
 								color: $mg-blue-2;
 								border-radius: .5rem;
 								gap: .5rem;
+								margin: 0;
+								opacity: .9;
+								overflow: hidden;
+								position: relative;
+								transition: max-height .5s ease;
 
 								label {
 									margin-bottom: .5rem;
@@ -803,39 +915,150 @@
 							}
 						}
 
+						.asset-tags,
+						.desc,
+						.card-actions {
+							background: rgba($mg-blue-4, .5);
+						}
+
+						.mg-seeall-wrap:after {
+							margin: 0 2px 0 2px;
+							bottom: 2.25rem;
+						}
+
+						// Setting Card Actions for Assets also
 						.card-actions {
 							display: flex;
+							flex-direction: column;
+							align-items: stretch;
 							gap: .5rem;
 							padding: .5rem;
 							@include mg-border();
 							border-radius: .5rem;
 
-							.qty-badge {
-								background: $mg-blue-main;
-								@include mg-border();
-								border-radius: .5rem;
-								width: auto;
-								gap: .5rem;
-								padding: .5rem;
+							.quantity-controls{
 								display: flex;
+								align-items: stretch;
+								width: 100%;
+								min-height: 2.5rem;
+								
+								button {
+									flex: 0 0 2rem;
+									width: 2rem;
+									margin: 0;
+									padding: 0;
+									display: inline-flex;
+									align-items: center;
+									justify-content: center;
+									background: $mg-blue-main;
+									border: 2px solid $mg-blue-main-2;
+									color: $mg-blue-1;
+
+									i {
+										color: $mg-blue-2;
+										font-size: .75rem;
+										margin: 0;
+									}							
+
+									&:first-of-type {
+										border-radius: 0.625rem 0 0 0.625rem;
+									}
+									
+									&:last-of-type {
+										border-radius: 0 0.625rem 0.625rem 0;
+									}
+
+									&:hover,
+									&:focus {
+										background: $mg-blue-4;
+										border-color: $mg-green;
+										color: $mg-green;
+
+										i {
+										color: $mg-blue-2;
+										}
+									}          
+								}
+
+								input {
+									width: 100%;
+									min-width: 3rem;
+									text-align: center;
+									border-radius: 0;
+								}        
+							}							
+
+							// Setting the Favorite checkbox to be a button like Library
+							.crew-favorite-toggle {
+								background: $mg-blue-main-2;
+								color: $mg-blue-1;
+								width: 100%;
+								min-height: 2.5rem;
+								margin: 0;
+								padding: .45rem .65rem;
+								display: inline-flex;
 								align-items: center;
-								justify-content: center;
+								justify-content: flex-start;
+								gap: .75rem;
+								border-radius: .5rem;
+								border: 2px solid transparent;
+								box-shadow: none;
+								line-height: 1.1;
+								text-align: left;
+								transition: background .5s ease, color .5s ease, border-color .5s ease;
 
-								label {
-									margin: 0;
+								i {
+									width: 1rem;
+									flex: 0 0 1rem;
+									color: $mg-blue-3;
+									font-size: 1.05rem;
+									text-align: center;
+									transition: color .5s ease;
 								}
 
-								p {
-									margin: 0;
-									font-size: 1rem;
+								span {
 									@include oswald();
-									color: $mg-blue-2;
+									color: inherit;
+									font-size: .875rem;
+									font-style: italic;
+									font-weight: 700;
 								}
-							}
+
+								&:hover,
+								&:focus {
+									background: $mg-blue-5;
+									color: $mg-green;
+									border-color: $mg-green;
+
+									i {
+										color: $mg-blue-1;
+									}
+								}
+
+								&.selected {
+									background: $mg-blue-5;
+									border-color: $mg-blue-5;
+									color: $mg-green;
+
+									i {
+										color: $mg-blue-1;
+									}
+
+									&:hover {
+										background: $mg-blue-6;
+										border-color: $mg-green;
+									}
+								}
+							}								
 
 							.asset-edit {
-								width: calc(75% - 1rem);
+								width: 100%;
 								flex-grow: 1;
+								display: flex;
+								justify-content: flex-start;
+								align-items: center;
+								gap: .75rem;
+								padding: .45rem .65rem;
 							}
 						}
 
@@ -844,6 +1067,7 @@
 						}
 					}
 
+					// Tag styling for Assets
 					.tags {
 						max-height: 5rem;
 						overflow: hidden;
@@ -926,6 +1150,8 @@
 			}
 		}
 
+		/* Start Gambit Tab
+		----------------------------------------------------------------------*/
 		.gambits {
 			gap: 2.125rem;
 
@@ -935,6 +1161,8 @@
 			}
 		}
 
+		/* Start Bio Tab
+		----------------------------------------------------------------------*/		
 		.bio-tab {
 
 			.bio-grid {
@@ -981,6 +1209,8 @@
 			}
 		}
 
+		/* Start Crew Settings
+		----------------------------------------------------------------------*/		
 		.mg-crew-settings {
 			display: flex;
 			gap: 2.125rem;
@@ -1035,6 +1265,7 @@
 				}
 			}
 
+			// Directory Icon - the Image that the crew has
 			.mg-diricon-row {
 				display: flex;
 				gap: 1rem;
@@ -1047,6 +1278,7 @@
 				position: relative;
 				z-index: 10;
 
+				// Quick overwrite of MG-Content for this area only
 				.mg-content {
 					display: flex;
 					flex-direction: column;
@@ -1075,6 +1307,7 @@
 					}
 				}
 
+				// Setting buttons below the Image
 				.diricon-settings {
 					width: 65%;
 					gap: 1rem;

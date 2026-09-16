@@ -22,6 +22,14 @@
     </div>
 
     <div class="wrapper mg-content">
+      <div class="form-group signature-check">
+        <label>Favorite</label>
+        <div class="form-wrap">
+          <input type="checkbox" name="system.favorite" {{#if system.favorite}}checked{{/if}} />
+          <p>If checked, this asset appears in the Favorites bucket.</p>
+        </div>
+      </div>
+
       <label>Tags</label>
 
       <div class="tag-selector">

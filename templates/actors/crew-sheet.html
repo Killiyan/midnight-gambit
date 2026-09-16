@@ -3,7 +3,7 @@
 	<nav class="sheet-tabs floating tabs">
 		<a class="item" data-tab="party"><i class="fa-solid fa-users"></i> <span>Party</span></a>
 		<a class="item" data-tab="initiative"><i class="fa-solid fa-list-ol"></i> <span>Initiative</span></a>
-		<a class="item" data-tab="assets"><i class="fa-solid fa-vault"></i> <span>Assets</span></a>
+		<a class="item" data-tab="assets"><i class="fa-solid fa-treasure-chest"></i> <span>Inventory</span></a>
 		<a class="item" data-tab="gambits"><i class="fa-solid fa-cards"></i><span>Gambits</span></a>
 		<a class="item" data-tab="bio"><i class="fa-solid fa-id-card-clip"></i><span>Bio</span></a>
 		<a class="item" data-tab="settings"><i class="fa-solid fa-gear"></i> <span>Settings</span></a>
@@ -56,7 +56,7 @@
 					{{#each partyMembers as |m|}}
 					<article class="mg-member-card" data-uuid="{{m.uuid}}" data-actor-id="{{m.actorId}}">
 						<div class="mg-member-portrait {{#if m.hasCrewSheetCrop}}is-cropped{{/if}}">
-							<img src="{{m.crewSheetImg}}" alt="{{m.name}}" style="{{m.crewSheetCropStyle}}" />
+							<img src="{{m.crewSheetImg}}" alt="{{m.name}}" data-mg-style="{{m.crewSheetCropStyle}}" />
 						</div>
 						<div class="mg-member-info">
 							<div class="mg-member-name">{{m.name}}</div>
@@ -133,7 +133,7 @@
 					{{#each initiativeMembers as |m|}}
 					<article class="mg-init-card {{#if m.hidden}}is-muted{{/if}}" data-uuid="{{m.uuid}}" data-hidden="{{m.hidden}}">
 						<div class="mg-init-portrait {{#if m.hasCrewSheetInitiativeCrop}}is-cropped{{/if}}">
-							<img src="{{m.crewSheetInitiativeImg}}" alt="{{m.name}}" style="{{m.crewSheetInitiativeCropStyle}}" />
+							<img src="{{m.crewSheetInitiativeImg}}" alt="{{m.name}}" data-mg-style="{{m.crewSheetInitiativeCropStyle}}" />
 						</div>
 
 						<div class="mg-init-main">
@@ -178,7 +178,7 @@
 				<div class="crew-lux">
 					<label for="lux">Lux</label>
 					<div class="field-wrapper lux-controls">
-						<button type="button" class="lux-dec" data-step="-1" title="−1">−</button>
+						<button type="button" class="lux-dec" data-step="-1" title="−1"><i class="fa-solid fa-minus"></i></button>
 						<input
 						type="number"
 						class="lux-value"
@@ -189,12 +189,12 @@
 						pattern="[0-9]*"
 						aria-label="Lux"
 						/>
-						<button type="button" class="lux-inc" data-step="1" title="+1">+</button>
+						<button type="button" class="lux-inc" data-step="1" title="+1"><i class="fa-solid fa-plus"></i></button>
 					</div>
 				</div>
 
 				<div class="asset-search-wrap">
-					<label>Search Crew Assets</label>
+					<label>Search Crew Inventory</label>
 					<div class="field-wrapper">
 						<input type="text" class="asset-search" placeholder="Search query here..." />
 						<button type="button" class="asset-search-btn" title="Search">
@@ -209,83 +209,94 @@
 				<!-- Drop zone wraps the grid -->
 				<div class="mg-asset-drop">
 					<div class="asset-grid">
-						{{#each assets as |it|}}
-						
-						<div class="asset-card inventory-item" data-item-id="{{it.id}}">
-							<h3 class="name post-asset" data-item-id="{{it.id}}">
-									<i class="fa-solid fa-messages"></i> {{it.name}}
-							</h3>
-
-							<div class="card-media">
-								<img src="{{it.img}}" alt="{{it.name}}">
+						{{#each crewInventoryBuckets as |bucket|}}
+							<div class="crew-inventory-bucket-title mg-content" data-bucket="{{bucket.id}}">
+								<span class="item-icon"><i class="{{bucket.icon}}"></i></span>
+								<h2>{{bucket.title}} <span class="crew-inventory-bucket-count">({{bucket.items.length}})</span></h2>
+								<button type="button" class="crew-inventory-bucket-toggle" title="Collapse / expand {{bucket.title}}">
+									<i class="fa-solid fa-angle-down"></i>
+								</button>
 							</div>
 
-							<div class="card-wrapper">
+							<div class="crew-inventory-bucket-body" data-bucket="{{bucket.id}}">
+								{{#each bucket.items as |it|}}
+									<div class="asset-card inventory-item" data-item-id="{{it.id}}">
+										<span class="name-wrapper">
+											<span class="item-type"><i class="{{it.typeIcon}}"></i></span>
+											<h3 class="name post-asset" data-item-id="{{it.id}}">
+												<i class="fa-solid fa-messages"></i>
+												<span class="clickable-item">{{it.name}}</span>
+											</h3>
+										</span>
 
-								<div class="card-body">
-
-								{{!-- Tags with overflow + "See all" toggle --}}
-									{{#if it._tags.length}}
-										<div class="tags-wrap" data-item-id="{{it.id}}">
-											<div class="tags asset-tags">
-											{{#each it._tags as |t|}}
-												<span class="asset-tag tag" data-tag-id="{{t.id}}" title="Click for details">
-													{{t.label}}
-												</span>
-											{{/each}}
-											</div>
-											<span class="tags-toggle" hidden>
-												<i class="fa-solid fa-angle-down"></i>
-											</span>
+										<div class="card-media">
+											<img src="{{it.img}}" alt="{{it.name}}">
 										</div>
-									{{/if}}
 
-									{{#if it.descHtml}}
-										<div class="mg-seeall-wrap" data-item-id="{{it.id}}" data-seeall-cap="150">
-											<div class="desc asset-desc">
-											<label>Description</label>
-											<div class="desc-content mg-seeall-content">
-												{{{it.descHtml}}}
-											</div>
+										<div class="card-wrapper">
+											<div class="card-body">
+												{{#if it._tags.length}}
+													<div class="tags-wrap" data-item-id="{{it.id}}">
+														<div class="tags asset-tags">
+															{{#each it._tags as |t|}}
+																<span class="asset-tag tag" data-tag-id="{{t.id}}" title="Click for details">
+																	{{t.label}}
+																</span>
+															{{/each}}
+														</div>
+														<span class="tags-toggle" hidden>
+															<i class="fa-solid fa-angle-down"></i>
+														</span>
+													</div>
+												{{/if}}
+
+												{{#if it.descHtml}}
+													<div class="mg-seeall-wrap" data-item-id="{{it.id}}" data-seeall-cap="140">
+														<div class="desc asset-desc">
+															<label>Description</label>
+															<div class="desc-content mg-seeall-content">
+																{{{it.descHtml}}}
+															</div>
+														</div>
+
+														<button class="mg-seeall-toggle" type="button">
+															<i class="fa-solid fa-angle-down"></i>
+														</button>
+													</div>
+												{{/if}}
 											</div>
 
-											<button class="mg-seeall-toggle" type="button">
+											<div class="card-actions">
+												<button
+													type="button"
+													class="crew-favorite-toggle item-filter-toggle {{#if it.favorite}}selected{{/if}}"
+													aria-pressed="{{#if it.favorite}}true{{else}}false{{/if}}"
+													title="{{#if it.favorite}}Remove Favorite{{else}}Favorite{{/if}}"
+												>
+													<i class="fa-solid fa-star" aria-hidden="true"></i>
+													<span>Favorite</span>
+												</button>
+
+												<div class="quantity-controls" title="Quantity">
+													<button type="button" class="crew-item-quantity-dec" data-step="-1" title="-1"><i class="fa-solid fa-minus"></i></button>
+													<input type="number" class="crew-item-quantity" value="{{it.quantity}}" min="0" />
+													<button type="button" class="crew-item-quantity-inc" data-step="1" title="+1"><i class="fa-solid fa-plus"></i></button>
+												</div>
+
+												<button type="button" class="asset-edit" data-item-id="{{it.id}}" title="Edit">
+													<i class="fa-regular fa-pen-to-square"></i> Edit
+												</button>
+											</div>
+										</div>
+										
+										<button class="mg-card-toggle" type="button" title="Expand / collapse card">
 											<i class="fa-solid fa-angle-down"></i>
-											</button>
-										</div>
-									{{/if}}
-
-								
-								</div>
-
-								<div class="card-actions">
-									{{#if (gt it.system.qty 0)}}
-										<div class="qty-badge" title="Quantity">
-											<label>QTY</label>
-											<p>{{it.system.qty}}</p>
-										</div>
-									{{/if}}
-
-									<button type="button" class="asset-edit" data-item-id="{{it.id}}" title="Edit">
-										<i class="fa-regular fa-pen-to-square"></i> Edit
-									</button>
-								</div>
+										</button>
+									</div>
+								{{/each}}
 
 							</div>
-							
-							<button class="mg-card-toggle" type="button" title="Expand / collapse card">
-								<i class="fa-solid fa-angle-down"></i>
-							</button>
-
-						</div>
 						{{/each}}
-
-						{{#unless assets.length}}
-						<div class="empty-hint">
-							<h3><i class="fa-solid fa-triangle-exclamation"></i> You have no Assets yet!</h3>
-							<p>To get started, drag Assets here from the sidebar.</p>
-						</div>
-						{{/unless}}
 					</div>
 
 					<!-- Empty state for search -->
@@ -305,6 +316,9 @@
 				<div class="gambit-header mg-content">
 					<h2>Crew Gambits</h2>
 					<p>Drag Gambits here from the compendium or your items. The crew can hold up to 3 active Gambits.</p>
+					<button class="mg-open-crew-gambit-library" type="button" title="Open Crew Gambits Library">
+						<i class="fa-solid fa-books"></i> Library
+					</button>
 					<button class="gambit-reset" type="button" title="Return all discarded Gambits to hand">
 						<i class="fa-solid fa-rotate-left"></i> Reset Hand
 					</button>
