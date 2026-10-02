@@ -222,10 +222,9 @@
 								{{#each bucket.items as |it|}}
 									<div class="asset-card inventory-item" data-item-id="{{it.id}}">
 										<span class="name-wrapper">
-											<span class="item-type"><i class="{{it.typeIcon}}"></i></span>
 											<h3 class="name post-asset" data-item-id="{{it.id}}">
-												<i class="fa-solid fa-messages"></i>
 												<span class="clickable-item">{{it.name}}</span>
+												<span class="item-type"><i class="{{it.typeIcon}}"></i></span>
 											</h3>
 										</span>
 
@@ -283,11 +282,22 @@
 													<button type="button" class="crew-item-quantity-inc" data-step="1" title="+1"><i class="fa-solid fa-plus"></i></button>
 												</div>
 
+												{{#if it.isRegularItem}}
+													<button type="button" class="crew-item-send" data-item-id="{{it.id}}" title="Send to a Crew member">
+														<i class="fa-solid fa-paper-plane"></i> Send
+													</button>
+												{{/if}}
+
 												<button type="button" class="asset-edit" data-item-id="{{it.id}}" title="Edit">
-													<i class="fa-regular fa-pen-to-square"></i> Edit
+													<i class="fa-solid fa-pencil"></i> Edit
 												</button>
 											</div>
-										</div>
+
+											<button type="button" class="crew-item-delete" data-item-id="{{it.id}}" title="Remove from Crew Inventory" aria-label="Remove from Crew Inventory">
+												<i class="fa-solid fa-trash"></i>
+											</button>
+																					
+										</div>									
 										
 										<button class="mg-card-toggle" type="button" title="Expand / collapse card">
 											<i class="fa-solid fa-angle-down"></i>

@@ -18,11 +18,63 @@ const MG_ITEM_DEFAULT_IMAGE = "icons/svg/item-bag.svg";
 const MG_CREW_GAMBIT_TYPE_IDS = new Set(CREW_GAMBIT_TYPES.map(type => type.id));
 const MG_FAVORITE_ITEM_TYPES = new Set(["asset", "weapon", "armor", "misc"]);
 
+export function mgSanitizeInventoryItemData(itemData, typeOverride = null) {
+	const data = itemData?.toObject
+		? itemData.toObject()
+		: foundry.utils.deepClone(itemData ?? {});
+	const type = typeOverride ?? data.type;
+
+	if (!["asset", "weapon", "armor", "misc"].includes(type)) return data;
+
+	data.system ??= {};
+	if (type === "asset") data.system.qty = 1;
+	else data.system.quantity = 1;
+	data.system.equipped = false;
+	data.system.favorite = false;
+
+	if (["armor", "misc"].includes(type)) {
+		data.system.capacityApplied = false;
+		data.system.remainingCapacity = {
+			mortal: Math.max(0, Number(data.system.mortalCapacity ?? 0) || 0),
+			soul: Math.max(0, Number(data.system.soulCapacity ?? 0) || 0)
+		};
+	}
+
+	return data;
+}
+
 function mgGetItemSheetImage(item) {
 	const img = String(item?.img ?? "").trim();
 	const fallback = item?.type === "guise" ? MG_ITEM_GUISE_IMAGE : MG_ITEM_CARD_IMAGE;
 	if (!img || img === MG_ITEM_DEFAULT_IMAGE || img.endsWith("/item-bag.svg")) return fallback;
 	return img;
+}
+
+export async function mgGetUniqueGlobalItemName(name) {
+	const baseName = String(name ?? "Item").trim() || "Item";
+	const usedNames = new Set(
+		(game.items?.contents ?? []).map(item => String(item.name ?? "").trim().toLowerCase())
+	);
+
+	for (const pack of (game.packs ?? [])) {
+		const documentName = pack.documentName ?? pack.metadata?.type ?? pack.metadata?.entity;
+		if (documentName !== "Item") continue;
+
+		try {
+			const index = await pack.getIndex({ fields: ["name"] });
+			for (const entry of index) {
+				usedNames.add(String(entry.name ?? "").trim().toLowerCase());
+			}
+		} catch (err) {
+			console.warn(`MG | Could not inspect Item compendium ${pack.collection}:`, err);
+		}
+	}
+
+	if (!usedNames.has(baseName.toLowerCase())) return baseName;
+
+	let suffix = 1;
+	while (usedNames.has(`${baseName} (${suffix})`.toLowerCase())) suffix += 1;
+	return `${baseName} (${suffix})`;
 }
 
 export class MidnightGambitItemSheet extends ItemSheet {
@@ -38,6 +90,20 @@ export class MidnightGambitItemSheet extends ItemSheet {
 			submitOnClose: true,
 			closeOnSubmit: false
 		});
+	}
+
+	get isEditable() {
+		const parentActor = this.item?.actor ?? this.item?.parent;
+		if (
+			this.item?.isEmbedded &&
+			parentActor?.documentName === "Actor" &&
+			parentActor.type === "crew"
+		) {
+			const ownerLevel = CONST.DOCUMENT_OWNERSHIP_LEVELS?.OWNER ?? 3;
+			return parentActor.testUserPermission(game.user, ownerLevel);
+		}
+
+		return super.isEditable;
 	}
 
 	_getHeaderButtons() {
@@ -80,21 +146,6 @@ export class MidnightGambitItemSheet extends ItemSheet {
 		}
 
 		const parentActor = sourceItem.parent;
-		const itemData = sourceItem.toObject();
-
-		// Remove embedded-only ID so Foundry gives the global copy a fresh ID.
-		delete itemData._id;
-
-		// Optional: mark where it came from.
-		itemData.flags ??= {};
-		itemData.flags["midnight-gambit"] ??= {};
-		itemData.flags["midnight-gambit"].promotedFrom = {
-			actorId: parentActor?.id ?? null,
-			actorName: parentActor?.name ?? "",
-			itemId: sourceItem.id,
-			itemName: sourceItem.name,
-			at: Date.now()
-		};
 
 		const confirm = await Dialog.confirm({
 			title: "Make Global Item?",
@@ -106,9 +157,27 @@ export class MidnightGambitItemSheet extends ItemSheet {
 		});
 
 		if (!confirm) return;
+		await this.submit({ preventClose: true });
+
+		const itemData = mgSanitizeInventoryItemData(sourceItem);
+
+		// Remove embedded-only ID so Foundry gives the global copy a fresh ID.
+		delete itemData._id;
+
+		// Mark where the reusable copy came from.
+		itemData.flags ??= {};
+		itemData.flags["midnight-gambit"] ??= {};
+		itemData.flags["midnight-gambit"].promotedFrom = {
+			actorId: parentActor?.id ?? null,
+			actorName: parentActor?.name ?? "",
+			itemId: sourceItem.id,
+			itemName: sourceItem.name,
+			at: Date.now()
+		};
 
 		// GM can create the world item directly.
 		if (game.user.isGM) {
+			itemData.name = await mgGetUniqueGlobalItemName(itemData.name);
 			const created = await Item.create(itemData, { renderSheet: true });
 			ui.notifications?.info(`Created global item: ${created.name}`);
 			return;
@@ -121,13 +190,15 @@ export class MidnightGambitItemSheet extends ItemSheet {
 			return;
 		}
 
+		const requestId = foundry.utils.randomID();
 		game.socket.emit("system.midnight-gambit", {
 			type: "makeGlobalItem",
+			requestId,
 			requestingUserId: game.user.id,
-			itemData
+			sourceItemUuid: sourceItem.uuid
 		});
 
-		ui.notifications?.info(`Asked the GM to make "${sourceItem.name}" global.`);
+		ui.notifications?.info(`Creating global copy of "${sourceItem.name}"...`);
 	}
 
 	_mgRefreshParentActorSheet() {

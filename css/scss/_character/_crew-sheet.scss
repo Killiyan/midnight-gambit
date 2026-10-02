@@ -1,6 +1,96 @@
 /* Crew Style sheet
 ==============================================================================================================================================*/
 .crew-sheet {
+	/* Crew Dialog and Overlay Styles
+	----------------------------------------------------------------------*/
+	&.mg-character-drop-overlay {
+		position: fixed;
+		z-index: 999999;
+		pointer-events: none;
+		display: none;
+		place-items: center;
+		background: rgba($black, .45);
+		backdrop-filter: blur(2px);
+		border: 2px dashed rgba($mg-green, .85);
+		box-shadow: inset 0 0 40px rgba($mg-green, .18);
+
+		&.is-active {
+			display: grid;
+		}
+
+		.mg-character-drop-label {
+			padding: 14px 22px;
+			border-radius: 14px;
+			background: rgba(10, 12, 16, .9);
+			color: $white;
+			font-weight: 900;
+			letter-spacing: .08em;
+			text-transform: uppercase;
+			box-shadow: 0 0 24px rgba($mg-green, .35);
+		}
+	}
+
+	&.mg-level-dialog .mg-level-wizard,
+	&.mg-review-dialog .mg-review {
+		line-height: 1.4;
+
+		.req {
+			display: flex;
+			gap: .5rem;
+			align-items: center;
+			margin: .25rem 0;
+
+			.ok {
+				color: var(--color-text-success, #47c972);
+				display: none;
+			}
+
+			&.done .ok {
+				display: inline;
+			}
+		}
+
+		.hint {
+			opacity: .8;
+			font-size: .95em;
+			margin: .25rem 0 .5rem;
+		}
+
+		.counts {
+			margin-top: .5rem;
+			font-size: .95em;
+			opacity: .9;
+		}
+	}
+
+	&.mg-level-dialog .mg-level-wizard .small {
+		opacity: .75;
+		font-size: .9em;
+	}
+
+	&.mg-bio-tag-dialog {
+		.mg-edit-tag {
+			form {
+				display: grid;
+				gap: .5rem;
+			}
+
+			label {
+				font-weight: 600;
+			}
+
+			input,
+			textarea {
+				width: 100%;
+				box-sizing: border-box;
+				padding: .5rem .6rem;
+			}
+		}
+
+		.mg-tag-description-prompt textarea {
+			width: 100%;
+		}
+	}
 
 	/* Global Crew Sheet Styles
 	----------------------------------------------------------------------*/
@@ -430,11 +520,21 @@
 						padding: .5rem;
 						min-width: 2.25rem;
 						margin: 0;
-						border: 0;
+						border: 0 !important;
 
 						i {
 							margin: 0;
+							color: $mg-blue-2;
 						}
+
+						&:hover,
+						&:focus {
+							background: $mg-blue-5;
+
+							i {
+							color: $mg-green;
+							}
+						}						
 					}
 				}
 
@@ -596,7 +696,14 @@
 						padding: .5rem;
 						min-width: 2.25rem;
 						margin: 0;
-						border: 0;
+						border: 0 !important;
+
+						&:hover,
+						&:focus {
+							i {
+								color: $mg-green !important;
+							}
+						}
 					}
 
 					.mg-member {
@@ -604,8 +711,68 @@
 
 						button {
 							width: 100%;
+						} 
+					}
+				}
+			}
+
+			// Trade recipient overrides
+			&.mg-trade-recipient-grid {
+				display: grid;
+				grid-template-columns: repeat(3, minmax(0, 1fr));
+				gap: .75rem;
+				max-height: 62vh;
+				overflow-y: auto;
+				padding: .125rem;
+
+				.mg-member-card.mg-trade-recipient {
+					width: 100%;
+					min-height: 9.375rem;
+					margin: 0;
+					padding: 1.125rem 1.125rem 3rem 2.125rem;
+					cursor: pointer;
+					outline: none;
+
+					.mg-member-info {
+						position: relative;
+						z-index: 4;
+						text-align: left;
+					}
+
+					.mg-trade-recipient-action {
+						position: absolute;
+						left: 25%;
+						bottom: 0;
+						width: 75%;
+						height: 2.125rem;
+						display: grid;
+						place-items: center;
+						background: $mg-blue-main;
+						border-top: 2px solid $mg-blue-main-2;
+						z-index: 4;
+
+						i {
+							color: $mg-blue-2;
 						}
 					}
+
+					&:hover,
+					&:focus {
+						background: $mg-blue-main;
+						border-color: $mg-green;
+
+						.mg-trade-recipient-action i {
+							color: $mg-green;
+						}
+					}
+				}
+
+				@media (max-width: 800px) {
+					grid-template-columns: repeat(2, minmax(0, 1fr));
+				}
+
+				@media (max-width: 560px) {
+					grid-template-columns: 1fr;
 				}
 			}
 		}
@@ -1056,7 +1223,8 @@
 								}
 							}								
 
-							.asset-edit {
+							.asset-edit,
+							.crew-item-send {
 								width: 100%;
 								flex-grow: 1;
 								display: flex;
@@ -1064,6 +1232,20 @@
 								align-items: center;
 								gap: .75rem;
 								padding: .45rem .65rem;
+							}
+
+							.crew-item-delete {
+								width: 100%;
+								min-height: 2.5rem;
+								display: inline-flex;
+								align-items: center;
+								justify-content: center;
+								margin: 0;
+								padding: .45rem .65rem;
+
+								i {
+									color: $mg-blue-3;
+								}
 							}
 						}
 
@@ -1339,3 +1521,4 @@
 		}
 	}
 }
+

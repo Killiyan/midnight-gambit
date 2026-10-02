@@ -843,18 +843,17 @@
                 {{#if item.system.favorite}}
                   <div class="inventory-card mg-card-wrap" data-item-id="{{item._id}}" data-seeall-cap="375">
                     <span class="name-wrapper">
-                      <span class="item-type"><i class="fa-solid fa-rectangles-mixed"></i></span>
                       <h3 class="item-name post-item" data-item-id="{{item._id}}">
-                        <i class="fa-solid fa-messages"></i>
                         <span class="clickable-item">{{item.name}}</span>
+                        <span class="item-type"><i class="fa-solid fa-rectangles-mixed"></i></span>
                       </h3>
                     </span>
 
-                    <div class="card-media">
-                      <img class="item-card-img" src="{{item.img}}" alt="{{item.name}}" />
-                    </div>
+                    <div class="card-overview">
+                      <div class="card-media">
+                        <img class="item-card-img" src="{{item.img}}" alt="{{item.name}}" />
+                      </div>
 
-                    <div class="card-wrapper">
                       {{!-- Only show this block if any strain/capacity value is actually meaningful --}}
                       {{#if (or
                         (gt item.system.mortalStrainDamage 0)
@@ -864,7 +863,6 @@
                       )}}
                         <div class="item-capacity" title="Strain Effects">
 
-                          <label>Strain Damage</label>
                           <div class="bubble-wrapper">
 
                             {{!-- Mortal strain: prefer new field; fallback to legacy strainDamage --}}
@@ -896,18 +894,17 @@
                           </div>
 
                           {{#if item.system.capacityDisplay.hasCapacity}}
-                            <label>Capacity</label>
                             <div class="bubble-wrapper">
                               {{#if item.system.capacityDisplay.mortal.hasCapacity}}
                                 <p class="strain-bubble" data-capacity-type="mortal">
-                                  <i class="fa-kit fa-mortal-strain"></i>
+                                  <span class="capacity-kind">MC</span>
                                   <span class="remaining-number">{{item.system.capacityDisplay.mortal.label}}</span>
                                 </p>
                               {{/if}}
 
                               {{#if item.system.capacityDisplay.soul.hasCapacity}}
                                 <p class="strain-bubble" data-capacity-type="soul">
-                                  <i class="fa-kit fa-soul-strain"></i>
+                                  <span class="capacity-kind">SC</span>
                                   <span class="remaining-number">{{item.system.capacityDisplay.soul.label}}</span>
                                 </p>
                               {{/if}}
@@ -916,11 +913,13 @@
 
                         </div>
                       {{/if}}
+                    </div>
 
-
+                    <div class="card-wrapper">
                       {{#if item.system.tags.length}}
                         <div class="tags-wrap" data-item-id="{{item._id}}">
                           <div class="item-tags">
+                            <label>Tags</label>
                             {{#each item.system.tags as |tagId|}}
                               {{#with (lookup ../../CONFIG.MidnightGambit.ITEM_TAGS tagId) as |tag|}}
                                 <div class="item-tag tag" data-item-id="{{item._id}}" data-tag-id="{{tagId}}" title="Right-click to remove">
@@ -964,49 +963,50 @@
                         </div>
                       </div>
 
-                      <div class="info-wrapper item-toggle-controls">
-                        <button
-                          type="button"
-                          class="item-equipped item-filter-toggle {{#if item.system.equipped}}selected{{/if}}"
-                          aria-pressed="{{#if item.system.equipped}}true{{else}}false{{/if}}"
-                          title="{{#if item.system.equipped}}Unequip Item{{else}}Equip Item{{/if}}">
-                          <i class="fa-solid fa-shield-check" aria-hidden="true"></i>
-                          <span>Equip</span>
-                        </button>
-                        <button
-                          type="button"
-                          class="item-favorite item-filter-toggle {{#if item.system.favorite}}selected{{/if}}"
-                          aria-pressed="{{#if item.system.favorite}}true{{else}}false{{/if}}"
-                          title="{{#if item.system.favorite}}Remove Favorite{{else}}Favorite{{/if}}">
-                          <i class="fa-solid fa-star" aria-hidden="true"></i>
-                          <span>Favorite</span>
-                        </button>
-                        <label>Edit Item</label>
-                        <button
-                          type="button"
-                          class="item-edit"
-                          data-item-id="{{item.id}}"
-                          title="Edit Item">
-                          <i class="fa-regular fa-pen-to-square"></i>
-                        </button>                           
-                      </div>                      
+                      <div class="item-config-controls">
+                        <div class="info-wrapper item-toggle-controls">
+                          <button
+                            type="button"
+                            class="item-equipped item-filter-toggle {{#if item.system.equipped}}selected{{/if}}"
+                            aria-pressed="{{#if item.system.equipped}}true{{else}}false{{/if}}"
+                            title="{{#if item.system.equipped}}Unequip Item{{else}}Equip Item{{/if}}">
+                            <i class="fa-solid fa-shield-check" aria-hidden="true"></i>
+                            <span>Equip</span>
+                          </button>
+                          <button
+                            type="button"
+                            class="item-favorite item-filter-toggle {{#if item.system.favorite}}selected{{/if}}"
+                            aria-pressed="{{#if item.system.favorite}}true{{else}}false{{/if}}"
+                            title="{{#if item.system.favorite}}Remove Favorite{{else}}Favorite{{/if}}">
+                            <i class="fa-solid fa-star" aria-hidden="true"></i>
+                            <span>Favorite</span>
+                          </button>
+                        </div>
 
-                      <div class="status-buttons">
-                        {{#if (or item.system.mortalCapacity item.system.soulCapacity)}}
-                          {{#if item.system.isFullyRepaired}}
-                            <button class="repair-armor disabled" data-item-id="{{item._id}}" title="Fully Repaired" disabled>
-                              <i class="fa-solid fa-hammer"></i>
-                            </button>
-                          {{else}}
-                            <button class="repair-armor" data-item-id="{{item._id}}" title="Repair Item">
-                              <i class="fa-solid fa-hammer"></i>
+                        <div class="status-buttons">
+                          {{#if (and (or (eq item.type "armor") (eq item.type "misc")) (or item.system.mortalCapacity item.system.soulCapacity))}}
+                            {{#if item.system.isFullyRepaired}}
+                              <button class="repair-armor disabled" data-item-id="{{item._id}}" title="Fully Repaired" disabled>
+                                <i class="fa-solid fa-hammer"></i>
+                              </button>
+                            {{else}}
+                              <button class="repair-armor" data-item-id="{{item._id}}" title="Repair Item">
+                                <i class="fa-solid fa-hammer"></i>
+                              </button>
+                            {{/if}}
+                          {{/if}}
+                          {{#if (and @root.canSendInventoryItems (or (eq item.type "weapon") (eq item.type "armor") (eq item.type "misc")))}}
+                            <button type="button" class="item-send" data-item-id="{{item._id}}" title="Send Item">
+                              <i class="fa-solid fa-paper-plane"></i>
                             </button>
                           {{/if}}
-                        {{/if}}
-
-                        <button class="item-delete" data-item-id="{{item._id}}" title="Delete Item">
-                          <i class="fas fa-trash"></i>
-                        </button>
+                          <button type="button" class="item-edit" data-item-id="{{item.id}}" title="Edit Item">
+                            <i class="fa-solid fa-pencil"></i>
+                          </button>
+                          <button class="item-delete" data-item-id="{{item._id}}" title="Delete Item">
+                            <i class="fas fa-trash"></i>
+                          </button>
+                        </div>
                       </div>
 
                       <button
@@ -1033,22 +1033,19 @@
                 {{#unless item.system.favorite}}
                   <div class="inventory-card mg-card-wrap" data-item-id="{{item._id}}" data-seeall-cap="375">
                     <span class="name-wrapper">
-                      <span class="item-type"><i class="fa-solid fa-sword"></i></span>
                       <h3 class="item-name post-item" data-item-id="{{item._id}}">
-                        <i class="fa-solid fa-messages"></i>
                         <span class="clickable-item">{{item.name}}</span>
+                        <span class="item-type"><i class="fa-solid fa-sword"></i></span>
                       </h3>
                     </span>
 
-                    <div class="card-media">
-                      <img class="item-card-img" src="{{item.img}}" alt="{{item.name}}" />
-                    </div>
+                    <div class="card-overview">
+                      <div class="card-media">
+                        <img class="item-card-img" src="{{item.img}}" alt="{{item.name}}" />
+                      </div>
 
-                    <div class="card-wrapper">
                       {{#if (or (gt item.system.mortalStrainDamage 0) (gt item.system.soulStrainDamage 0))}}
                         <div class="item-capacity" title="Strain Damage">
-                          <label>Strain Damage</label>
-
                           <div class="bubble-wrapper">
                             {{#if (gt item.system.mortalStrainDamage 0)}}
                             <p class="strain-bubble">
@@ -1066,10 +1063,13 @@
                           </div>
                         </div>
                       {{/if}}
+                    </div>
 
+                    <div class="card-wrapper">
                       {{#if item.system.tags.length}}
                         <div class="tags-wrap" data-item-id="{{item._id}}">
                           <div class="item-tags">
+                            <label>Tags</label>
                             {{#each item.system.tags as |tagId|}}
                               {{#with (lookup ../../CONFIG.MidnightGambit.ITEM_TAGS tagId) as |tag|}}
                                 <div class="item-tag tag" data-item-id="{{item._id}}" data-tag-id="{{tagId}}" title="Right-click to remove">
@@ -1116,38 +1116,39 @@
                         </div>
                       </div>
 
-                      <div class="info-wrapper item-toggle-controls">
-                        <button
-                          type="button"
-                          class="item-equipped item-filter-toggle {{#if item.system.equipped}}selected{{/if}}"
-                          aria-pressed="{{#if item.system.equipped}}true{{else}}false{{/if}}"
-                          title="{{#if item.system.equipped}}Unequip Item{{else}}Equip Item{{/if}}">
-                          <i class="fa-solid fa-shield-check" aria-hidden="true"></i>
-                          <span>Equip</span>
-                        </button>
-                        <button
-                          type="button"
-                          class="item-favorite item-filter-toggle {{#if item.system.favorite}}selected{{/if}}"
-                          aria-pressed="{{#if item.system.favorite}}true{{else}}false{{/if}}"
-                          title="{{#if item.system.favorite}}Remove Favorite{{else}}Favorite{{/if}}">
-                          <i class="fa-solid fa-star" aria-hidden="true"></i>
-                          <span>Favorite</span>
-                        </button>
-                        <label>Edit Item</label>
-                        <button
-                          type="button"
-                          class="item-edit"
-                          data-item-id="{{item.id}}"
-                          title="Edit Item">
-                          <i class="fa-regular fa-pen-to-square"></i>
-                        </button>   
-                      </div>
+                      <div class="item-config-controls">
+                        <div class="info-wrapper item-toggle-controls">
+                          <button
+                            type="button"
+                            class="item-equipped item-filter-toggle {{#if item.system.equipped}}selected{{/if}}"
+                            aria-pressed="{{#if item.system.equipped}}true{{else}}false{{/if}}"
+                            title="{{#if item.system.equipped}}Unequip Item{{else}}Equip Item{{/if}}">
+                            <i class="fa-solid fa-shield-check" aria-hidden="true"></i>
+                            <span>Equip</span>
+                          </button>
+                          <button
+                            type="button"
+                            class="item-favorite item-filter-toggle {{#if item.system.favorite}}selected{{/if}}"
+                            aria-pressed="{{#if item.system.favorite}}true{{else}}false{{/if}}"
+                            title="{{#if item.system.favorite}}Remove Favorite{{else}}Favorite{{/if}}">
+                            <i class="fa-solid fa-star" aria-hidden="true"></i>
+                            <span>Favorite</span>
+                          </button>
+                        </div>
 
-                      <div class="status-buttons">
-
-                        <button class="item-delete" data-item-id="{{item._id}}" title="Delete Item">
-                          <i class="fas fa-trash"></i>
-                        </button>
+                        <div class="status-buttons">
+                          {{#if @root.canSendInventoryItems}}
+                            <button type="button" class="item-send" data-item-id="{{item._id}}" title="Send Item">
+                              <i class="fa-solid fa-paper-plane"></i>
+                            </button>
+                          {{/if}}
+                          <button type="button" class="item-edit" data-item-id="{{item.id}}" title="Edit Item">
+                            <i class="fa-solid fa-pencil"></i>
+                          </button>
+                          <button class="item-delete" data-item-id="{{item._id}}" title="Delete Item">
+                            <i class="fas fa-trash"></i>
+                          </button>
+                        </div>
                       </div>
 
                       <button
@@ -1175,41 +1176,42 @@
                 {{#unless item.system.favorite}}
                   <div class="inventory-card mg-card-wrap" data-item-id="{{item._id}}" data-seeall-cap="375">
                     <span class="name-wrapper">
-                      <span class="item-type"><i class="fa-solid fa-shield"></i></span>
                       <h3 class="item-name post-item" data-item-id="{{item._id}}">
-                        <i class="fa-solid fa-messages"></i>
                         <span class="clickable-item">{{item.name}}</span>
+                        <span class="item-type"><i class="fa-solid fa-shield"></i></span>
                       </h3>
                     </span>
 
-                    <div class="card-media">
-                      <img class="item-card-img" src="{{item.img}}" alt="{{item.name}}" />
-                    </div>
+                    <div class="card-overview">
+                      <div class="card-media">
+                        <img class="item-card-img" src="{{item.img}}" alt="{{item.name}}" />
+                      </div>
 
-                    <div class="card-wrapper">
                       {{#if item.system.capacityDisplay.hasCapacity}}
                         <div class="item-capacity" title="Remaining Strain Capacity">
-                          <label>Capacity</label>
                           <div class="bubble-wrapper">
                             {{#if item.system.capacityDisplay.mortal.hasCapacity}}
                               <p class="strain-bubble" data-capacity-type="mortal">
-                                <i class="fa-kit fa-mortal-strain"></i>
+                                <span class="capacity-kind">MC</span>
                                 <span class="remaining-number">{{item.system.capacityDisplay.mortal.label}}</span>
                               </p>
                             {{/if}}
                             {{#if item.system.capacityDisplay.soul.hasCapacity}}
                               <p class="strain-bubble" data-capacity-type="soul">
-                                <i class="fa-kit fa-soul-strain"></i>
+                                <span class="capacity-kind">SC</span>
                                 <span class="remaining-number">{{item.system.capacityDisplay.soul.label}}</span>
                               </p>
                             {{/if}}
                           </div>
                         </div>
                       {{/if}}
+                    </div>
 
+                    <div class="card-wrapper">
                       {{#if item.system.tags.length}}
                         <div class="tags-wrap" data-item-id="{{item._id}}">
                           <div class="item-tags">
+                            <label>Tags</label>
                             {{#each item.system.tags as |tagId|}}
                               {{#with (lookup ../../CONFIG.MidnightGambit.ITEM_TAGS tagId) as |tag|}}
                                 <div class="item-tag tag" data-item-id="{{item._id}}" data-tag-id="{{tagId}}" title="Right-click to remove">
@@ -1256,49 +1258,50 @@
                         </div>
                       </div>
 
-                      <div class="info-wrapper item-toggle-controls">
-                        <button
-                          type="button"
-                          class="item-equipped item-filter-toggle {{#if item.system.equipped}}selected{{/if}}"
-                          aria-pressed="{{#if item.system.equipped}}true{{else}}false{{/if}}"
-                          title="{{#if item.system.equipped}}Unequip Item{{else}}Equip Item{{/if}}">
-                          <i class="fa-solid fa-shield-check" aria-hidden="true"></i>
-                          <span>Equip</span>
-                        </button>
-                        <button
-                          type="button"
-                          class="item-favorite item-filter-toggle {{#if item.system.favorite}}selected{{/if}}"
-                          aria-pressed="{{#if item.system.favorite}}true{{else}}false{{/if}}"
-                          title="{{#if item.system.favorite}}Remove Favorite{{else}}Favorite{{/if}}">
-                          <i class="fa-solid fa-star" aria-hidden="true"></i>
-                          <span>Favorite</span>
-                        </button>
-                        <label>Edit Item</label>
-                        <button
-                          type="button"
-                          class="item-edit"
-                          data-item-id="{{item.id}}"
-                          title="Edit Item">
-                          <i class="fa-regular fa-pen-to-square"></i>
-                        </button>                                               
-                      </div>
+                      <div class="item-config-controls">
+                        <div class="info-wrapper item-toggle-controls">
+                          <button
+                            type="button"
+                            class="item-equipped item-filter-toggle {{#if item.system.equipped}}selected{{/if}}"
+                            aria-pressed="{{#if item.system.equipped}}true{{else}}false{{/if}}"
+                            title="{{#if item.system.equipped}}Unequip Item{{else}}Equip Item{{/if}}">
+                            <i class="fa-solid fa-shield-check" aria-hidden="true"></i>
+                            <span>Equip</span>
+                          </button>
+                          <button
+                            type="button"
+                            class="item-favorite item-filter-toggle {{#if item.system.favorite}}selected{{/if}}"
+                            aria-pressed="{{#if item.system.favorite}}true{{else}}false{{/if}}"
+                            title="{{#if item.system.favorite}}Remove Favorite{{else}}Favorite{{/if}}">
+                            <i class="fa-solid fa-star" aria-hidden="true"></i>
+                            <span>Favorite</span>
+                          </button>
+                        </div>
 
-                      <div class="status-buttons">
-                        {{#if (or item.system.mortalCapacity item.system.soulCapacity)}}
-                          {{#if item.system.isFullyRepaired}}
-                            <button class="repair-armor disabled" data-item-id="{{item._id}}" title="Fully Repaired" disabled>
-                              <i class="fa-solid fa-hammer"></i>
-                            </button>
-                          {{else}}
-                            <button class="repair-armor" data-item-id="{{item._id}}" title="Repair Item">
-                              <i class="fa-solid fa-hammer"></i>
+                        <div class="status-buttons">
+                          {{#if (or item.system.mortalCapacity item.system.soulCapacity)}}
+                            {{#if item.system.isFullyRepaired}}
+                              <button class="repair-armor disabled" data-item-id="{{item._id}}" title="Fully Repaired" disabled>
+                                <i class="fa-solid fa-hammer"></i>
+                              </button>
+                            {{else}}
+                              <button class="repair-armor" data-item-id="{{item._id}}" title="Repair Item">
+                                <i class="fa-solid fa-hammer"></i>
+                              </button>
+                            {{/if}}
+                          {{/if}}
+                          {{#if @root.canSendInventoryItems}}
+                            <button type="button" class="item-send" data-item-id="{{item._id}}" title="Send Item">
+                              <i class="fa-solid fa-paper-plane"></i>
                             </button>
                           {{/if}}
-                        {{/if}}
-
-                        <button class="item-delete" data-item-id="{{item._id}}" title="Delete Item">
-                          <i class="fas fa-trash"></i>
-                        </button>
+                          <button type="button" class="item-edit" data-item-id="{{item.id}}" title="Edit Item">
+                            <i class="fa-solid fa-pencil"></i>
+                          </button>
+                          <button class="item-delete" data-item-id="{{item._id}}" title="Delete Item">
+                            <i class="fas fa-trash"></i>
+                          </button>
+                        </div>
                       </div>
 
                       <button
@@ -1324,18 +1327,17 @@
                 {{#unless item.system.favorite}}
                   <div class="inventory-card mg-card-wrap" data-item-id="{{item._id}}" data-seeall-cap="375">
                     <span class="name-wrapper">
-                      <span class="item-type"><i class="fa-solid fa-rectangles-mixed"></i></span>
                       <h3 class="item-name post-item" data-item-id="{{item._id}}">
-                        <i class="fa-solid fa-messages"></i>
                         <span class="clickable-item">{{item.name}}</span>
+                        <span class="item-type"><i class="fa-solid fa-rectangles-mixed"></i></span>
                       </h3>
                     </span>
 
-                    <div class="card-media">
-                      <img class="item-card-img" src="{{item.img}}" alt="{{item.name}}" />
-                    </div>
+                    <div class="card-overview">
+                      <div class="card-media">
+                        <img class="item-card-img" src="{{item.img}}" alt="{{item.name}}" />
+                      </div>
 
-                    <div class="card-wrapper">
                       {{!-- Only show this block if any strain/capacity value is actually meaningful --}}
                       {{#if (or
                         (gt item.system.mortalStrainDamage 0)
@@ -1345,7 +1347,6 @@
                       )}}
                         <div class="item-capacity" title="Strain Effects">
 
-                          <label>Strain Damage</label>
                           <div class="bubble-wrapper">
 
                             {{!-- Mortal strain: prefer new field; fallback to legacy strainDamage --}}
@@ -1377,18 +1378,17 @@
                           </div>
 
                           {{#if item.system.capacityDisplay.hasCapacity}}
-                            <label>Capacity</label>
                             <div class="bubble-wrapper">
                               {{#if item.system.capacityDisplay.mortal.hasCapacity}}
                                 <p class="strain-bubble" data-capacity-type="mortal">
-                                  <i class="fa-kit fa-mortal-strain"></i>
+                                  <span class="capacity-kind">MC</span>
                                   <span class="remaining-number">{{item.system.capacityDisplay.mortal.label}}</span>
                                 </p>
                               {{/if}}
 
                               {{#if item.system.capacityDisplay.soul.hasCapacity}}
                                 <p class="strain-bubble" data-capacity-type="soul">
-                                  <i class="fa-kit fa-soul-strain"></i>
+                                  <span class="capacity-kind">SC</span>
                                   <span class="remaining-number">{{item.system.capacityDisplay.soul.label}}</span>
                                 </p>
                               {{/if}}
@@ -1397,11 +1397,13 @@
 
                         </div>
                       {{/if}}
+                    </div>
 
-
+                    <div class="card-wrapper">
                       {{#if item.system.tags.length}}
                         <div class="tags-wrap" data-item-id="{{item._id}}">
                           <div class="item-tags">
+                            <label>Tags</label>
                             {{#each item.system.tags as |tagId|}}
                               {{#with (lookup ../../CONFIG.MidnightGambit.ITEM_TAGS tagId) as |tag|}}
                                 <div class="item-tag tag" data-item-id="{{item._id}}" data-tag-id="{{tagId}}" title="Right-click to remove">
@@ -1448,49 +1450,50 @@
                         </div>
                       </div>
 
-                      <div class="info-wrapper item-toggle-controls">
-                        <button
-                          type="button"
-                          class="item-equipped item-filter-toggle {{#if item.system.equipped}}selected{{/if}}"
-                          aria-pressed="{{#if item.system.equipped}}true{{else}}false{{/if}}"
-                          title="{{#if item.system.equipped}}Unequip Item{{else}}Equip Item{{/if}}">
-                          <i class="fa-solid fa-shield-check" aria-hidden="true"></i>
-                          <span>Equip</span>
-                        </button>
-                        <button
-                          type="button"
-                          class="item-favorite item-filter-toggle {{#if item.system.favorite}}selected{{/if}}"
-                          aria-pressed="{{#if item.system.favorite}}true{{else}}false{{/if}}"
-                          title="{{#if item.system.favorite}}Remove Favorite{{else}}Favorite{{/if}}">
-                          <i class="fa-solid fa-star" aria-hidden="true"></i>
-                          <span>Favorite</span>
-                        </button>
-                        <label>Edit Item</label>
-                        <button
-                          type="button"
-                          class="item-edit"
-                          data-item-id="{{item.id}}"
-                          title="Edit Item">
-                          <i class="fa-regular fa-pen-to-square"></i>
-                        </button>                                               
-                      </div>                
+                      <div class="item-config-controls">
+                        <div class="info-wrapper item-toggle-controls">
+                          <button
+                            type="button"
+                            class="item-equipped item-filter-toggle {{#if item.system.equipped}}selected{{/if}}"
+                            aria-pressed="{{#if item.system.equipped}}true{{else}}false{{/if}}"
+                            title="{{#if item.system.equipped}}Unequip Item{{else}}Equip Item{{/if}}">
+                            <i class="fa-solid fa-shield-check" aria-hidden="true"></i>
+                            <span>Equip</span>
+                          </button>
+                          <button
+                            type="button"
+                            class="item-favorite item-filter-toggle {{#if item.system.favorite}}selected{{/if}}"
+                            aria-pressed="{{#if item.system.favorite}}true{{else}}false{{/if}}"
+                            title="{{#if item.system.favorite}}Remove Favorite{{else}}Favorite{{/if}}">
+                            <i class="fa-solid fa-star" aria-hidden="true"></i>
+                            <span>Favorite</span>
+                          </button>
+                        </div>
 
-                      <div class="status-buttons">
-                        {{#if (or item.system.mortalCapacity item.system.soulCapacity)}}
-                          {{#if item.system.isFullyRepaired}}
-                            <button class="repair-armor disabled" data-item-id="{{item._id}}" title="Fully Repaired" disabled>
-                              <i class="fa-solid fa-hammer"></i>
-                            </button>
-                          {{else}}
-                            <button class="repair-armor" data-item-id="{{item._id}}" title="Repair Item">
-                              <i class="fa-solid fa-hammer"></i>
+                        <div class="status-buttons">
+                          {{#if (or item.system.mortalCapacity item.system.soulCapacity)}}
+                            {{#if item.system.isFullyRepaired}}
+                              <button class="repair-armor disabled" data-item-id="{{item._id}}" title="Fully Repaired" disabled>
+                                <i class="fa-solid fa-hammer"></i>
+                              </button>
+                            {{else}}
+                              <button class="repair-armor" data-item-id="{{item._id}}" title="Repair Item">
+                                <i class="fa-solid fa-hammer"></i>
+                              </button>
+                            {{/if}}
+                          {{/if}}
+                          {{#if @root.canSendInventoryItems}}
+                            <button type="button" class="item-send" data-item-id="{{item._id}}" title="Send Item">
+                              <i class="fa-solid fa-paper-plane"></i>
                             </button>
                           {{/if}}
-                        {{/if}}
-
-                        <button class="item-delete" data-item-id="{{item._id}}" title="Delete Item">
-                          <i class="fas fa-trash"></i>
-                        </button>
+                          <button type="button" class="item-edit" data-item-id="{{item.id}}" title="Edit Item">
+                            <i class="fa-solid fa-pencil"></i>
+                          </button>
+                          <button class="item-delete" data-item-id="{{item._id}}" title="Delete Item">
+                            <i class="fas fa-trash"></i>
+                          </button>
+                        </div>
                       </div>
 
                       <button

@@ -522,7 +522,7 @@ ol li {
         color:$mg-ivory;
 
         // Character sheet button tweak. Remove later if I don't like
-        button:not(.tox-tbtn):not(.inventory-bucket-toggle):not(.crew-inventory-bucket-toggle):not(.mg-card-toggle):not(.post-gambit):not(.status-buttons button):not(.delete-move):not(.mg-hand-order-eye):not(.mg-primary-toggle):not(.mg-seeall-toggle):not(.mg-card-toggle):not(.item-filter-toggle):not(.edge-button),
+        button:not(.tox-tbtn):not(.inventory-bucket-toggle):not(.crew-inventory-bucket-toggle):not(.mg-card-toggle):not(.post-gambit):not(.status-buttons button):not(.delete-move):not(.mg-hand-order-eye):not(.mg-primary-toggle):not(.mg-seeall-toggle):not(.mg-card-toggle):not(.item-filter-toggle):not(.edge-button):not(.mg-init-actions button),
         form button,
         .dialog-button {
           background: $mg-blue-4;
@@ -2468,6 +2468,7 @@ ol li {
           height: auto;
           text-align: center;
           border-radius: 0;
+          padding: 0;
         }
 
         button {
@@ -2568,7 +2569,6 @@ ol li {
         .repair-armor.disabled {
           background-color: $mg-blue-4;
           pointer-events: none;
-          border-color: $mg-blue-4;
 
           &:hover {
             box-shadow: none;
@@ -2769,15 +2769,71 @@ ol li {
 
       @include inventory-card-header();
 
-      .card-media img{
-        border: none;
-        background: $mg-blue-4;
-        backdrop-filter: blur(4px);
-        border-radius: 0;
-        aspect-ratio: 1/1;
-        object-fit: cover;
-        max-height: 10rem;
-        width: 100%;
+      .card-overview {
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+
+        .card-media {
+          min-width: 0;
+
+          img {
+            border: none;
+            background: $mg-blue-4;
+            backdrop-filter: blur(4px);
+            border-radius: 0;
+            aspect-ratio: 1/1;
+            object-fit: cover;
+            max-height: 10rem;
+            width: 100%;
+            display: block;
+          }
+        }
+      }
+
+      .item-capacity {
+        font-size: 1rem;
+        color: $mg-blue-2;
+        border-radius: .5rem;
+        display: grid;
+        place-items: stretch;
+        gap: 0;
+
+        p {
+          margin: 0;
+        }
+
+        .bubble-wrapper {
+          gap: 0;
+
+          .strain-bubble {
+            background: $mg-blue-4;
+            border: 2px solid $mg-blue-main-2;
+            width: 100%;
+            border-radius: 0;
+            padding: .5rem 1.125rem;
+
+            i {
+              font-size: 1.15rem;
+            }
+
+            &:first-of-type {
+              border-left: 0;
+              border-right: 0;
+            }
+
+            &:last-of-type {
+              border-right: 0;
+            }
+          }          
+        }
+
+        .capacity-kind {
+          @include oswald();
+          color: $mg-blue-2;
+          font-size: 1rem;
+          font-weight: 700;
+        }
       }
 
       .card-wrapper {
@@ -2788,8 +2844,23 @@ ol li {
         transition: max-height .5s ease;
         padding-bottom: 3.875rem;
 
+        > .mg-seeall-wrap {
+          order: 1;
+        }
+
+        > .tags-wrap {
+          order: 2;
+        }
+
+        > .info-wrapper {
+          order: 3;
+        }
+
+        > .item-config-controls {
+          order: 4;
+        }
+
         .desc,
-        .item-capacity,
         .info-wrapper {
           padding: 1rem;
           @include mg-border();
@@ -2811,8 +2882,7 @@ ol li {
           }
         }
 
-        .info-wrapper,
-        .item-capacity {
+        .info-wrapper {
           display: flex;
           flex-direction: column;
           gap: 0;
@@ -2834,6 +2904,56 @@ ol li {
           .strain-bubble {
             background: $mg-blue-4;
             border: 2px solid $mg-blue-main-2;
+          }
+        }
+
+        .item-config-controls {
+          display: flex;
+          flex-direction: column;
+          gap: .5rem;
+
+          .info-wrapper.item-toggle-controls {
+            padding: 0;
+            border: 0;
+            background: transparent;
+          }
+
+          .status-buttons {
+            display: flex;
+            gap: .5rem;
+
+            button {
+              flex: 1 1 0;
+              min-width: 0;
+              margin: 0;
+              background: $mg-blue-main-2;
+              color: $mg-blue-1;
+              width: 100%;
+              min-height: 2.5rem;
+              padding: .45rem .65rem;
+              display: inline-flex;
+              align-items: center;
+              justify-content: center;
+              box-shadow: none;
+              text-align: center;
+              transition: background .5s ease, color .5s ease, border-color .5s ease;
+
+              i {
+                margin: 0;
+                color: $mg-blue-2;
+              }
+
+              &:hover,
+              &:focus {
+                background: $mg-blue-5;
+                color: $mg-green;
+                border-color: $mg-green;
+
+                i {
+                  color: $mg-blue-1;
+                }
+              }              
+            }
           }
         }
 
@@ -2901,6 +3021,10 @@ ol li {
           border-radius: .5rem;
           @include mg-border();
           padding: .5rem;
+
+          label {
+            width: 100%;
+          }
 
           &:after {
             content: "";

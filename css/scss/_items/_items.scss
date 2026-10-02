@@ -160,9 +160,14 @@
       grid-template-columns: 1fr 1fr 1fr;
       gap: 0.5em;
 
-      .tag-pill.selected {
+      .tag-pill {
         background: $mg-blue-main-2;
-        color: $mg-blue-2;
+        color: $mg-blue-1;
+      }
+
+      .tag-pill.selected {
+        background: $mg-blue-4;
+        color: $mg-ivory;
       }
     }
 

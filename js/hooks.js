@@ -1,4 +1,5 @@
-import { MidnightGambitCrewSheet } from "./crew-sheet.js";
+import { MidnightGambitCrewSheet, mgTransferInventoryItem } from "./crew-sheet.js";
+import { mgGetUniqueGlobalItemName, mgSanitizeInventoryItemData } from "./item-sheet.js";
 import { MGInitiativeBar } from "./initiative-bar.js";
 import { MGInitiativeSidebar } from "./initiative-sidebar.js";
 import { MGInitiativeController } from "./initiative-controller.js";
@@ -68,8 +69,371 @@ Hooks.once("ready", () => {
   mgEnsureCrewInitiativePlayerOwnership();
   renderAssignedGambitHand();
 
+  const pendingInventoryTransfers = new Map();
+  const shownInventoryTransferOffers = new Set();
+  const pendingTransferFlag = "pendingInventoryTransfers";
+  const getPrimaryActiveGM = () => game.users.find(user => user.active && user.isGM);
+  const isPrimaryActiveGM = () => game.user.isGM && getPrimaryActiveGM()?.id === game.user.id;
+
+  const getAssignedCharacterId = user => {
+    const assigned = user?._source?.character ?? user?.character;
+    return typeof assigned === "string" ? assigned : assigned?.id ?? null;
+  };
+
+  const getCharacterCrew = actor => {
+    if (actor?.type !== "character") return null;
+    const linkedCrewId = String(actor.system?.crewId ?? "");
+    const linkedCrew = linkedCrewId ? game.actors.get(linkedCrewId) : null;
+    if (
+      linkedCrew?.type === "crew" &&
+      (linkedCrew.system?.party?.members ?? []).includes(actor.uuid)
+    ) return linkedCrew;
+    return game.actors.find(candidate =>
+      candidate.type === "crew" &&
+      (candidate.system?.party?.members ?? []).includes(actor.uuid)
+    ) ?? null;
+  };
+
+  const getStoredTransfers = actor => {
+    const stored = actor?.getFlag?.("midnight-gambit", pendingTransferFlag);
+    return Array.isArray(stored) ? stored : [];
+  };
+
+  const storeInventoryTransfer = async (request, transfer) => {
+    const record = {
+      ...request,
+      recipientUserId: transfer.recipientUser.id,
+      sourceActorUuid: transfer.sourceActor.uuid,
+      itemName: transfer.sourceItem.name,
+      sourceName: transfer.sourceActor.name,
+      targetName: transfer.targetActor.name,
+      senderName: transfer.requestingUser.name,
+      createdAt: Date.now()
+    };
+    const stored = getStoredTransfers(transfer.sourceActor)
+      .filter(entry => entry?.requestId !== record.requestId);
+    stored.push(record);
+    await transfer.sourceActor.setFlag("midnight-gambit", pendingTransferFlag, stored);
+    pendingInventoryTransfers.set(record.requestId, record);
+    return record;
+  };
+
+  const removeStoredInventoryTransfer = async request => {
+    pendingInventoryTransfers.delete(request?.requestId);
+    const sourceActor = request?.sourceActorUuid
+      ? await fromUuid(request.sourceActorUuid).catch(() => null)
+      : null;
+    if (!sourceActor) return;
+    const remaining = getStoredTransfers(sourceActor)
+      .filter(entry => entry?.requestId !== request.requestId);
+    if (remaining.length) {
+      await sourceActor.setFlag("midnight-gambit", pendingTransferFlag, remaining);
+    } else {
+      await sourceActor.unsetFlag("midnight-gambit", pendingTransferFlag);
+    }
+  };
+
+  const findStoredInventoryTransfer = requestId => {
+    const cached = pendingInventoryTransfers.get(requestId);
+    if (cached) return cached;
+    for (const actor of (game.actors?.contents ?? [])) {
+      const record = getStoredTransfers(actor).find(entry => entry?.requestId === requestId);
+      if (record) return record;
+    }
+    return null;
+  };
+
+  const sendInventoryTransferResult = (request, result) => {
+    game.socket.emit("system.midnight-gambit", {
+      type: "inventoryTransferResult",
+      requestId: request.requestId,
+      requestingUserId: request.requestingUserId,
+      recipientUserId: request.recipientUserId ?? null,
+      ...result
+    });
+  };
+
+  const resolveInventoryTransfer = async (request) => {
+    const requestingUser = game.users.get(request.requestingUserId);
+    const sourceItem = request.sourceItemUuid
+      ? await fromUuid(request.sourceItemUuid).catch(() => null)
+      : null;
+    const targetActor = request.targetActorUuid
+      ? await fromUuid(request.targetActorUuid).catch(() => null)
+      : null;
+    const sourceActor = sourceItem?.parent;
+    const ownerLevel = CONST.DOCUMENT_OWNERSHIP_LEVELS?.OWNER ?? 3;
+
+    const basicValid =
+      requestingUser &&
+      sourceItem?.documentName === "Item" &&
+      sourceItem.isEmbedded &&
+      ["weapon", "armor", "misc"].includes(sourceItem.type) &&
+      sourceActor?.documentName === "Actor" &&
+      ["character", "crew"].includes(sourceActor.type) &&
+      sourceActor.testUserPermission(requestingUser, ownerLevel) &&
+      targetActor?.documentName === "Actor" &&
+      ["character", "crew"].includes(targetActor.type) &&
+      targetActor.id !== sourceActor.id;
+
+    if (!basicValid) throw new Error("The inventory transfer could not be verified.");
+
+    if (targetActor.type === "character") {
+      const requestedRecipient = game.users.get(request.recipientUserId);
+      let recipientUser = (
+        requestedRecipient &&
+        !requestedRecipient.isGM &&
+        getAssignedCharacterId(requestedRecipient) === targetActor.id
+      ) ? requestedRecipient : null;
+
+      recipientUser ??= game.users.find(user =>
+        !user.isGM && getAssignedCharacterId(user) === targetActor.id
+      );
+      recipientUser ??= game.users.find(user =>
+        !user.isGM && targetActor.testUserPermission(user, ownerLevel)
+      );
+
+      if (!recipientUser) {
+        throw new Error("That character has no player assigned or owning it to receive the offer.");
+      }
+
+      if (sourceActor.type === "crew") {
+        const members = new Set(sourceActor.system?.party?.members ?? []);
+        if (!members.has(targetActor.uuid)) {
+          throw new Error("That character is not a member of this Crew.");
+        }
+      } else {
+        const sourceCrew = getCharacterCrew(sourceActor);
+        const members = new Set(sourceCrew?.system?.party?.members ?? []);
+        if (!sourceCrew || !members.has(targetActor.uuid)) {
+          throw new Error("Items can only be offered to another member of this character's Crew.");
+        }
+      }
+
+      return { requestingUser, recipientUser, sourceItem, sourceActor, targetActor };
+    }
+
+    if (sourceActor.type !== "character") {
+      throw new Error("Items can only be sent to a Crew from a player character.");
+    }
+
+    const crewMembers = new Set(targetActor.system?.party?.members ?? []);
+    if (!crewMembers.has(sourceActor.uuid)) {
+      throw new Error("That character is not linked to the selected Crew.");
+    }
+
+    return { requestingUser, recipientUser: null, sourceItem, sourceActor, targetActor };
+  };
+
+  const executeInventoryTransfer = async (request) => {
+    const transfer = await resolveInventoryTransfer(request);
+    const itemName = transfer.sourceItem.name;
+    await mgTransferInventoryItem(transfer.sourceItem, transfer.targetActor);
+    sendInventoryTransferResult(request, {
+      ok: true,
+      itemName,
+      targetName: transfer.targetActor.name
+    });
+  };
+
+  const handleInventoryTransferRequest = async (request) => {
+    try {
+      const transfer = await resolveInventoryTransfer(request);
+
+      if (transfer.targetActor.type === "crew") {
+        await executeInventoryTransfer(request);
+        return;
+      }
+
+      const alreadyPending = getStoredTransfers(transfer.sourceActor)
+        .some(entry => entry?.sourceItemUuid === request.sourceItemUuid);
+      if (alreadyPending) throw new Error("That item already has a pending trade offer.");
+
+      const storedRequest = await storeInventoryTransfer(request, transfer);
+      if (transfer.recipientUser.active) {
+        game.socket.emit("system.midnight-gambit", {
+          ...storedRequest,
+          type: "inventoryTransferOffer"
+        });
+      } else {
+        sendInventoryTransferResult(request, {
+          ok: false,
+          pending: true,
+          itemName: transfer.sourceItem.name,
+          targetName: transfer.targetActor.name
+        });
+      }
+    } catch (err) {
+      console.error("MG | Failed to prepare inventory transfer:", err);
+      sendInventoryTransferResult(request, {
+        ok: false,
+        message: err?.message || "Failed to prepare item transfer."
+      });
+    }
+  };
+
+  const deliverStoredInventoryTransfers = async recipientUser => {
+    if (!recipientUser?.active || recipientUser.isGM) return;
+
+    for (const actor of (game.actors?.contents ?? [])) {
+      for (const request of getStoredTransfers(actor)) {
+        if (request?.recipientUserId !== recipientUser.id) continue;
+        try {
+          const transfer = await resolveInventoryTransfer(request);
+          game.socket.emit("system.midnight-gambit", {
+            ...request,
+            type: "inventoryTransferOffer",
+            itemName: transfer.sourceItem.name,
+            sourceName: transfer.sourceActor.name,
+            targetName: transfer.targetActor.name,
+            senderName: transfer.requestingUser.name
+          });
+        } catch (err) {
+          console.warn("MG | Removing stale inventory transfer:", err);
+          await removeStoredInventoryTransfer(request);
+        }
+      }
+    }
+  };
+
+  game.mgRequestInventoryTransfer = async ({
+    sourceItem,
+    targetActor = null,
+    targetActorUuid = null,
+    targetActorName = null,
+    targetActorType = null,
+    recipientUserId = null
+  }) => {
+    const activeGM = getPrimaryActiveGM();
+    if (!activeGM) {
+      ui.notifications?.warn("A GM must be online to transfer an item.");
+      return false;
+    }
+
+    const resolvedTargetUuid = targetActor?.uuid ?? targetActorUuid;
+    const resolvedTargetName = targetActor?.name ?? targetActorName ?? "the selected recipient";
+    const resolvedTargetType = targetActor?.type ?? targetActorType;
+    if (!resolvedTargetUuid || !["character", "crew"].includes(resolvedTargetType)) {
+      ui.notifications?.error("The selected inventory destination is invalid.");
+      return false;
+    }
+
+    const request = {
+      type: "inventoryTransferRequest",
+      requestId: foundry.utils.randomID(),
+      requestingUserId: game.user.id,
+      recipientUserId,
+      sourceItemUuid: sourceItem.uuid,
+      targetActorUuid: resolvedTargetUuid
+    };
+
+    if (isPrimaryActiveGM()) await handleInventoryTransferRequest(request);
+    else game.socket.emit("system.midnight-gambit", request);
+
+    ui.notifications?.info(
+      resolvedTargetType === "crew"
+        ? `Sending ${sourceItem.name} to ${resolvedTargetName}...`
+        : `Offering ${sourceItem.name} to ${resolvedTargetName}...`
+    );
+    return true;
+  };
+
   game.socket.on("system.midnight-gambit", async (data) => {
     if (!data) return;
+
+    if (data.type === "makeGlobalItemResult") {
+      if (data.requestingUserId !== game.user.id) return;
+
+      if (data.ok) {
+        ui.notifications?.info(`Created global item: ${data.itemName}`);
+      } else {
+        ui.notifications?.error(data.message || "Failed to make global item.");
+      }
+      return;
+    }
+
+    if (data.type === "inventoryTransferResult") {
+      if (data.requestingUserId === game.user.id) {
+        if (data.ok) ui.notifications?.info(`Sent ${data.itemName} to ${data.targetName}.`);
+        else if (data.pending) ui.notifications?.info(`Offer saved for ${data.targetName}.`);
+        else if (data.declined) ui.notifications?.warn(`${data.targetName} declined ${data.itemName}.`);
+        else ui.notifications?.error(data.message || "Failed to send item.");
+      } else if (data.ok && data.recipientUserId === game.user.id) {
+        ui.notifications?.info(`Received ${data.itemName}.`);
+      }
+      return;
+    }
+
+    if (data.type === "inventoryTransferOffer") {
+      if (data.recipientUserId !== game.user.id) return;
+      if (shownInventoryTransferOffers.has(data.requestId)) return;
+      shownInventoryTransferOffers.add(data.requestId);
+
+      const esc = value => Handlebars.escapeExpression(String(value ?? ""));
+      const accepted = await Dialog.confirm({
+        title: "Accept Item?",
+        content: `
+          <p><strong>${esc(data.senderName)}</strong> wants to send you
+          <strong>${esc(data.itemName)}</strong> from <strong>${esc(data.sourceName)}</strong>.</p>
+          <p>Accept it into <strong>${esc(data.targetName)}</strong>'s inventory?</p>
+        `,
+        defaultYes: true
+      });
+
+      game.socket.emit("system.midnight-gambit", {
+        type: "inventoryTransferResponse",
+        requestId: data.requestId,
+        responderUserId: game.user.id,
+        accepted
+      });
+      return;
+    }
+
+    if (data.type === "inventoryTransferRequest") {
+      if (!isPrimaryActiveGM()) return;
+      await handleInventoryTransferRequest(data);
+      return;
+    }
+
+    if (data.type === "inventoryTransferResponse") {
+      if (!isPrimaryActiveGM()) return;
+
+      const request = findStoredInventoryTransfer(data.requestId);
+      if (!request || request.recipientUserId !== data.responderUserId) return;
+
+      if (!data.accepted) {
+        const targetActor = await fromUuid(request.targetActorUuid).catch(() => null);
+        const sourceItem = await fromUuid(request.sourceItemUuid).catch(() => null);
+        sendInventoryTransferResult(request, {
+          ok: false,
+          declined: true,
+          itemName: sourceItem?.name ?? "Item",
+          targetName: targetActor?.name ?? "Recipient"
+        });
+        await removeStoredInventoryTransfer(request);
+        return;
+      }
+
+      try {
+        await executeInventoryTransfer(request);
+        await removeStoredInventoryTransfer(request);
+      } catch (err) {
+        console.error("MG | Failed to complete inventory transfer:", err);
+        await removeStoredInventoryTransfer(request);
+        sendInventoryTransferResult(request, {
+          ok: false,
+          message: err?.message || "Failed to complete item transfer."
+        });
+      }
+      return;
+    }
+
+    if (data.type === "inventoryTransferPendingCheck") {
+      if (!isPrimaryActiveGM()) return;
+      const recipientUser = game.users.get(data.recipientUserId);
+      await deliverStoredInventoryTransfers(recipientUser);
+      return;
+    }
 
     if (data.type === "playClockSfx") {
       const sender = game.users.get(data.userId);
@@ -80,26 +444,59 @@ Hooks.once("ready", () => {
 
     if (data.type !== "makeGlobalItem") return;
 
-    // Only the GM should answer promotion requests.
-    if (!game.user.isGM) return;
+    // Only one active GM should answer each promotion request.
+    const activeGM = game.users.find(user => user.active && user.isGM);
+    if (!game.user.isGM || activeGM?.id !== game.user.id) return;
+
+    const sendResult = (result) => {
+      game.socket.emit("system.midnight-gambit", {
+        type: "makeGlobalItemResult",
+        requestId: data.requestId,
+        requestingUserId: data.requestingUserId,
+        ...result
+      });
+    };
 
     try {
-      const itemData = foundry.utils.deepClone(data.itemData ?? {});
-      if (!itemData.name || !itemData.type) {
-        console.warn("MG | Invalid makeGlobalItem payload:", data);
-        return;
+      const requestingUser = game.users.get(data.requestingUserId);
+      const sourceItem = data.sourceItemUuid
+        ? await fromUuid(data.sourceItemUuid).catch(() => null)
+        : null;
+
+      const ownerLevel = CONST.DOCUMENT_OWNERSHIP_LEVELS?.OWNER ?? 3;
+      const validSource =
+        requestingUser &&
+        sourceItem?.documentName === "Item" &&
+        sourceItem.isEmbedded &&
+        sourceItem.parent?.documentName === "Actor" &&
+        sourceItem.parent.testUserPermission(requestingUser, ownerLevel);
+
+      if (!validSource) {
+        throw new Error("The source inventory item could not be verified.");
       }
 
+      const itemData = mgSanitizeInventoryItemData(sourceItem);
       delete itemData._id;
+
+      itemData.flags ??= {};
+      itemData.flags["midnight-gambit"] ??= {};
+      itemData.flags["midnight-gambit"].promotedFrom = {
+        actorId: sourceItem.parent.id,
+        actorName: sourceItem.parent.name,
+        itemId: sourceItem.id,
+        itemName: sourceItem.name,
+        at: Date.now()
+      };
+
+      itemData.ownership ??= {};
+      itemData.ownership[requestingUser.id] = ownerLevel;
+      itemData.name = await mgGetUniqueGlobalItemName(itemData.name);
 
       const created = await Item.create(itemData, { renderSheet: false });
 
-      const requestingUser = game.users.get(data.requestingUserId);
-      const whisperTargets = requestingUser ? [requestingUser.id] : [];
-
       await ChatMessage.create({
         user: game.user.id,
-        whisper: whisperTargets,
+        whisper: [requestingUser.id],
         content: `
           <div class="chat-item">
             <h2><i class="fa-solid fa-globe"></i> Global Item Created</h2>
@@ -109,11 +506,36 @@ Hooks.once("ready", () => {
       });
 
       ui.notifications?.info(`Created global item: ${created.name}`);
+      sendResult({ ok: true, itemName: created.name, itemId: created.id });
     } catch (err) {
       console.error("MG | Failed to make global item:", err);
       ui.notifications?.error("Failed to make global item. See console.");
+      sendResult({
+        ok: false,
+        message: err?.message || "Failed to make global item."
+      });
     }
   });
+
+  if (!game.user.isGM) {
+    window.setTimeout(() => {
+      game.socket.emit("system.midnight-gambit", {
+        type: "inventoryTransferPendingCheck",
+        recipientUserId: game.user.id
+      });
+    }, 750);
+  } else if (isPrimaryActiveGM()) {
+    window.setTimeout(() => {
+      for (const user of game.users.filter(candidate => candidate.active && !candidate.isGM)) {
+        deliverStoredInventoryTransfers(user);
+      }
+    }, 750);
+
+    Hooks.on("updateUser", (user, changes) => {
+      if (changes?.active !== true || user.isGM) return;
+      window.setTimeout(() => deliverStoredInventoryTransfers(user), 250);
+    });
+  }
 });
 
 
@@ -4839,6 +5261,29 @@ function mgRenderOpenActorSheets(actor) {
   }
 }
 
+function mgRenderOpenCrewSheets(actor, options = {}, userId = null) {
+  if (actor?.type !== "crew" || !mgCanViewActorSheet(actor)) return;
+
+  // Crew controls that suppress a render update their own DOM immediately.
+  // Other clients still need an explicit refresh because Foundry forwards that option.
+  if (options?.render === false && userId === game.user.id) return;
+
+  for (const app of Object.values(actor.apps ?? {})) {
+    app?.render?.(false);
+  }
+}
+
+function mgItemTouchesCrewInventory(item) {
+  return ["asset", "weapon", "armor", "misc"].includes(item?.type);
+}
+
+function mgActorUpdateTouchesCrewInventory(changes = {}) {
+  return (
+    foundry.utils.hasProperty(changes, "system.currency") ||
+    foundry.utils.hasProperty(changes, "system.currency.lux")
+  );
+}
+
 function mgItemTouchesCharacterSheet(item) {
   return ["weapon", "armor", "misc", "item", "asset", "gambit", "move", "guise"].includes(item?.type);
 }
@@ -4907,6 +5352,47 @@ Hooks.on("updateItem", (item, changes, options, userId) => {
     mgRenderOpenActorSheets(actor);
   } catch (err) {
     console.warn("MG | updateItem inventory sync failed:", err);
+  }
+});
+
+/* Crew Inventory Live Sync
+------------------------------------------------------------------*/
+Hooks.on("updateActor", (actor, changes, options, userId) => {
+  try {
+    if (!mgActorUpdateTouchesCrewInventory(changes)) return;
+    mgRenderOpenCrewSheets(actor, options, userId);
+  } catch (err) {
+    console.warn("MG | Crew currency live sync failed:", err);
+  }
+});
+
+Hooks.on("createItem", (item, options, userId) => {
+  try {
+    const actor = item?.parent;
+    if (actor?.type !== "crew" || !mgItemTouchesCrewInventory(item)) return;
+    mgRenderOpenCrewSheets(actor, options, userId);
+  } catch (err) {
+    console.warn("MG | Crew inventory create sync failed:", err);
+  }
+});
+
+Hooks.on("updateItem", (item, _changes, options, userId) => {
+  try {
+    const actor = item?.parent;
+    if (actor?.type !== "crew" || !mgItemTouchesCrewInventory(item)) return;
+    mgRenderOpenCrewSheets(actor, options, userId);
+  } catch (err) {
+    console.warn("MG | Crew inventory update sync failed:", err);
+  }
+});
+
+Hooks.on("deleteItem", (item, options, userId) => {
+  try {
+    const actor = item?.parent;
+    if (actor?.type !== "crew" || !mgItemTouchesCrewInventory(item)) return;
+    mgRenderOpenCrewSheets(actor, options, userId);
+  } catch (err) {
+    console.warn("MG | Crew inventory delete sync failed:", err);
   }
 });
 

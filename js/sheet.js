@@ -2,6 +2,7 @@ import { evaluateRoll, mgApplyStrainAttributePenalty, mgGetStrainEffectBadge, mg
 import { GambitDeckBuilderApplication } from "./gambit-deck-builder.js";
 import { MovesLibraryApplication } from "./moves-library.js";
 import { MG_TOKEN_FRAMES, mgComposeAndStoreActorTokenImage, mgGetActorTokenPreviewBox, mgGetTokenFrame, mgGetTokenMinScale } from "./token-frame.js";
+import { mgSanitizeInventoryItemData } from "./item-sheet.js";
 
 const MG_ACTOR_GUISE_IMAGE = "systems/midnight-gambit/assets/images/guise.jpg";
 const MG_ACTOR_DEFAULT_IMAGE = "icons/svg/mystery-man.svg";
@@ -16,6 +17,47 @@ function mgGetActorSheetImage(actor) {
 function mgGetActorPlacementImage(actor, key, fallback = mgGetActorSheetImage(actor)) {
   const src = String(actor?.getFlag?.("midnight-gambit", "crops")?.[key]?.src ?? "").trim();
   return src || fallback;
+}
+
+function mgFindActorCrew(actor) {
+  if (actor?.type !== "character") return null;
+
+  const linkedCrewId = String(actor.system?.crewId ?? "");
+  const linkedCrew = linkedCrewId ? game.actors.get(linkedCrewId) : null;
+  if (
+    linkedCrew?.type === "crew" &&
+    (linkedCrew.system?.party?.members ?? []).includes(actor.uuid)
+  ) return linkedCrew;
+
+  return game.actors.find(candidate =>
+    candidate.type === "crew" &&
+    (candidate.system?.party?.members ?? []).includes(actor.uuid)
+  ) ?? null;
+}
+
+function mgGetCrewTradePortrait(actor, fallbackImg) {
+  const crop = actor?.getFlag?.("midnight-gambit", "crops")?.crewSheet ?? {};
+  const css = crop.css ?? null;
+  const hasCrop = Boolean(css && Object.keys(css).length);
+  const x = Number.isFinite(css?.x) ? css.x : 50;
+  const y = Number.isFinite(css?.y) ? css.y : 50;
+  const scale = Number.isFinite(css?.scale) ? css.scale : 1;
+  const height = Number.isFinite(css?.height) && css.height > 0
+    ? ` --mg-crop-h: ${css.height}%;`
+    : "";
+
+  return {
+    img: String(crop.src ?? "").trim() || fallbackImg,
+    hasCrop,
+    cropStyle: hasCrop
+      ? `--mg-crop-x: ${x}; --mg-crop-y: ${y}; --mg-crop-scale: ${scale};${height}`
+      : ""
+  };
+}
+
+function mgGetAssignedCharacterId(user) {
+  const assigned = user?._source?.character ?? user?.character;
+  return typeof assigned === "string" ? assigned : assigned?.id ?? null;
 }
 
 function mgGetFilePickerSources() {
@@ -159,6 +201,7 @@ export class MidnightGambitActorSheet extends ActorSheet {
       context.actor = this.actor;
       context.system = this.actor.system;
       context.actorDisplayImg = mgGetActorPlacementImage(this.actor, "profile");
+      context.canSendInventoryItems = Boolean(mgFindActorCrew(this.actor));
 
       context.sparkAttribute = this.actor.system.sparkAttribute ?? "guile";
 
@@ -4342,6 +4385,138 @@ _mgOpenSidebarCropper() {
       item.sheet?.render(true);
     });
 
+    // Send a regular inventory item to this character's Crew or another Crew member.
+    html.find(".item-send").on("click", async (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+
+      const itemId =
+        event.currentTarget.dataset.itemId ||
+        event.currentTarget.closest(".inventory-item")?.dataset?.itemId;
+      const item = itemId ? this.actor.items.get(itemId) : null;
+
+      if (!item || !["weapon", "armor", "misc"].includes(item.type)) return;
+      if (!this.actor.isOwner) {
+        return ui.notifications?.warn("You do not have permission to send this item.");
+      }
+
+      const crew = mgFindActorCrew(this.actor);
+      if (!crew) {
+        ui.notifications?.warn("This character is not in a Crew.");
+        this.render(false);
+        return;
+      }
+
+      const esc = value => Handlebars.escapeExpression(String(value ?? ""));
+      const ownerLevel = CONST.DOCUMENT_OWNERSHIP_LEVELS?.OWNER ?? 3;
+      const cache = crew.system?.party?.cache ?? {};
+      const destinations = [{
+        actorUuid: crew.uuid,
+        actorName: crew.name,
+        actorImg: crew.img || MG_ACTOR_DEFAULT_IMAGE,
+        hasCrop: false,
+        cropStyle: "",
+        className: "Crew Inventory",
+        levelText: "",
+        actorType: "crew",
+        recipientUserId: null
+      }];
+
+      for (const memberUuid of (crew.system?.party?.members ?? [])) {
+        if (memberUuid === this.actor.uuid) continue;
+
+        const member = await fromUuid(memberUuid).catch(() => null);
+        const cached = cache?.[memberUuid] ?? {};
+        const memberType = member?.type ?? cached.type ?? "character";
+        if (memberType !== "character") continue;
+
+        const actorId = member?.id ?? String(memberUuid).match(/^Actor\.([^.]+)$/)?.[1] ?? null;
+        const recipientUser = actorId
+          ? game.users.find(user => !user.isGM && mgGetAssignedCharacterId(user) === actorId)
+            ?? game.users.find(user => !user.isGM && member?.testUserPermission?.(user, ownerLevel))
+          : null;
+        const fallbackImg = member?.img ?? cached.img ?? MG_ACTOR_DEFAULT_IMAGE;
+        const portrait = mgGetCrewTradePortrait(member, fallbackImg);
+        const guise = member ? mgResolvePrimaryGuise(member) : null;
+        const level = Number(member?.system?.level ?? guise?.system?.level);
+
+        destinations.push({
+          actorUuid: memberUuid,
+          actorName: member?.name ?? cached.name ?? "Unknown",
+          actorImg: portrait.img,
+          hasCrop: portrait.hasCrop,
+          cropStyle: portrait.cropStyle,
+          className: guise?.name ?? member?.system?.class ?? cached.className ?? "—",
+          levelText: Number.isFinite(level) ? String(level) : String(cached.level ?? "—"),
+          actorType: "character",
+          recipientUserId: recipientUser?.id ?? null
+        });
+      }
+
+      destinations.sort((a, b) => {
+        if (a.actorType !== b.actorType) return a.actorType === "crew" ? -1 : 1;
+        return a.actorName.localeCompare(b.actorName);
+      });
+
+      const cards = destinations.map(destination => (
+        `<article class="mg-member-card mg-trade-recipient" data-target-uuid="${esc(destination.actorUuid)}" role="button" tabindex="0">
+          <div class="mg-member-portrait ${destination.hasCrop ? "is-cropped" : ""}">
+            <img src="${esc(destination.actorImg)}" alt="${esc(destination.actorName)}" style="${esc(destination.cropStyle)}" />
+          </div>
+          <div class="mg-member-info">
+            <div class="mg-member-name">${esc(destination.actorName)}</div>
+            <div class="mg-member-meta">
+              <span class="mg-member-class">${esc(destination.className)}</span>
+              ${destination.levelText ? `<span class="mg-member-level">Lv ${esc(destination.levelText)}</span>` : ""}
+            </div>
+          </div>
+          <div class="mg-trade-recipient-action"><i class="fa-solid fa-paper-plane"></i></div>
+        </article>`
+      )).join("");
+
+      const targetUuid = await new Promise(resolve => {
+        let settled = false;
+        const finish = value => {
+          if (settled) return;
+          settled = true;
+          resolve(value);
+        };
+        const dialog = new Dialog({
+          title: `Send ${esc(item.name)}`,
+          content: `<div class="mg-crew-sheet"><div class="mg-party-grid mg-trade-recipient-grid">${cards}</div></div>`,
+          buttons: {
+            cancel: { label: "Cancel", callback: () => finish(null) }
+          },
+          render: dialogHtml => {
+            const chooseRecipient = recipientEvent => {
+              if (recipientEvent.type === "keydown" && !["Enter", " "].includes(recipientEvent.key)) return;
+              recipientEvent.preventDefault();
+              finish(String(recipientEvent.currentTarget.dataset.targetUuid ?? ""));
+              dialog.close();
+            };
+            dialogHtml.find(".mg-trade-recipient").on("click keydown", chooseRecipient);
+          },
+          close: () => finish(null)
+        }, { classes: ["midnight-gambit", "dialog", "crew-sheet", "mg-trade-dialog"], width: 900 });
+        dialog.render(true);
+      });
+
+      if (!targetUuid) return;
+      const destination = destinations.find(entry => entry.actorUuid === targetUuid);
+      if (!destination) return ui.notifications?.warn("Destination not found.");
+      if (!game.mgRequestInventoryTransfer) {
+        return ui.notifications?.error("Item transfers are not ready. Refresh Foundry and try again.");
+      }
+
+      await game.mgRequestInventoryTransfer({
+        sourceItem: item,
+        targetActorUuid: destination.actorUuid,
+        targetActorName: destination.actorName,
+        targetActorType: destination.actorType,
+        recipientUserId: destination.recipientUserId
+      });
+    });
+
     //Repair Armor
     html.find(".repair-armor").on("click", async (event) => {
       const itemId = event.currentTarget.dataset.itemId;
@@ -8279,12 +8454,18 @@ async _mgOpenStatPicker({ title, current }) {
     } catch (_) {}
 
 
+    // Inventory instances always start neutral, even if the directory source was
+    // created from a previously equipped, favorited, damaged, or stacked copy.
+    const dropItemData = ["weapon", "armor", "misc"].includes(rawType)
+      ? mgSanitizeInventoryItemData(itemData, rawType)
+      : itemData;
+
     // Normal inventory items: let Foundry create them, then refresh the sheet
-    const created = await super._onDropItemCreate(itemData);
+    const created = await super._onDropItemCreate(dropItemData);
 
     // Only force refresh for regular inventory items that fall through here.
     // Guises, Gambits, and Moves return earlier and manage their own refresh.
-    if (["weapon", "armor", "misc", "item"].includes(itemData.type)) {
+    if (["weapon", "armor", "misc", "item"].includes(rawType)) {
       this.render(false);
     }
 

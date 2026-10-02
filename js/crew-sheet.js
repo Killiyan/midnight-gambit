@@ -8,6 +8,7 @@
 import { ASSET_TAGS, ITEM_TAGS } from "../config.js";
 import { MGInitiativeController } from "./initiative-controller.js";
 import { GambitDeckBuilderApplication } from "./gambit-deck-builder.js";
+import { mgSanitizeInventoryItemData } from "./item-sheet.js";
 
 // v11-safe HTML escaper
 const ESC = (s) =>
@@ -32,6 +33,48 @@ function mgCrewInventoryTypeLabel(type) {
 	if (type === "armor") return "Armor";
 	if (type === "misc") return "Misc";
 	return "Item";
+}
+
+function mgAssignedCharacterId(user) {
+	const assigned = user?._source?.character ?? user?.character;
+	return typeof assigned === "string" ? assigned : assigned?.id ?? null;
+}
+
+export async function mgTransferInventoryItem(sourceItem, targetActor) {
+	if (!sourceItem?.isEmbedded || !MG_CREW_ITEM_TYPES.has(sourceItem.type)) {
+		throw new Error("Only inventory items can be sent.");
+	}
+	if (
+		targetActor?.documentName !== "Actor" ||
+		!["character", "crew"].includes(targetActor.type)
+	) {
+		throw new Error("The selected inventory destination is invalid.");
+	}
+
+	const itemData = sourceItem.toObject();
+	delete itemData._id;
+	itemData.system ??= {};
+	itemData.system.favorite = false;
+	itemData.flags ??= {};
+	itemData.flags["midnight-gambit"] ??= {};
+	itemData.flags["midnight-gambit"].inventoryTransfer = {
+		actorId: sourceItem.parent?.id ?? null,
+		actorName: sourceItem.parent?.name ?? "",
+		itemId: sourceItem.id,
+		at: Date.now()
+	};
+
+	let created = null;
+	try {
+		[created] = await targetActor.createEmbeddedDocuments("Item", [itemData]);
+		await sourceItem.delete();
+		return created;
+	} catch (err) {
+		if (created) {
+			await targetActor.deleteEmbeddedDocuments("Item", [created.id], { render: false }).catch(() => {});
+		}
+		throw err;
+	}
 }
 
 function mgGetFilePickerSources() {
@@ -466,42 +509,6 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 		return out;
 	}
 
-	_mgEnsureCrewDropCSS() {
-		if (document.getElementById("mg-crew-drop-css")) return;
-
-		const style = document.createElement("style");
-		style.id = "mg-crew-drop-css";
-		style.textContent = `
-			.mg-character-drop-overlay {
-				position: fixed;
-				z-index: 999999;
-				pointer-events: none;
-				display: none;
-				place-items: center;
-				background: rgba(0, 0, 0, 0.45);
-				backdrop-filter: blur(2px);
-				border: 2px dashed rgba(162, 215, 41, 0.85);
-				box-shadow: inset 0 0 40px rgba(162, 215, 41, 0.18);
-			}
-
-			.mg-character-drop-overlay.is-active {
-				display: grid;
-			}
-
-			.mg-character-drop-label {
-				padding: 14px 22px;
-				border-radius: 14px;
-				background: rgba(10, 12, 16, 0.9);
-				color: white;
-				font-weight: 900;
-				letter-spacing: 0.08em;
-				text-transform: uppercase;
-				box-shadow: 0 0 24px rgba(162, 215, 41, 0.35);
-			}
-		`;
-		document.head.appendChild(style);
-	}
-
 	_mgIsCrewInternalDrag(event) {
 		const types = Array.from(event?.dataTransfer?.types ?? []);
 		const path = event?.composedPath?.() ?? [];
@@ -696,8 +703,6 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 	}
 
 	_mgBindCrewWideDrop(html) {
-		this._mgEnsureCrewDropCSS();
-
 		const root = html?.[0];
 		const app = root?.closest?.(".window-app");
 		if (!app) return;
@@ -719,7 +724,7 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 		if (!overlay) {
 			overlay = document.createElement("div");
 			overlay.id = `mg-crew-drop-overlay-${this.actor.id}`;
-			overlay.className = "mg-character-drop-overlay";
+			overlay.className = "crew-sheet mg-character-drop-overlay";
 			overlay.innerHTML = `<div class="mg-character-drop-label">Drop Here</div>`;
 			document.body.appendChild(overlay);
 		}
@@ -959,7 +964,7 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 					return false;
 				}
 
-				const obj = src.toObject ? src.toObject() : foundry.utils.deepClone(src);
+				const obj = mgSanitizeInventoryItemData(src, type);
 				delete obj._id;
 
 				const isGambit = type === "gambit";
@@ -1685,131 +1690,146 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 			});
 		});
 
-		// Crew → Asset card "Edit": Quantity + Description (TinyMCE); OPEN/DELETE in header
+		// Open the embedded Item sheet so edits stay local to this Crew Inventory copy.
 		$root.off("click.mgCrewAssetEdit").on("click.mgCrewAssetEdit", ".asset-edit", async (ev) => {
 			ev.preventDefault();
 			ev.stopPropagation();
 
-			// Resolve item id from button or ancestor card
-			const card = ev.currentTarget.closest("[data-item-id]") || ev.currentTarget;
-			const itemId = card?.dataset?.itemId;
+			const itemId = ev.currentTarget.dataset.itemId
+				|| ev.currentTarget.closest(".asset-card, .inventory-item")?.dataset?.itemId;
 			const item = itemId ? this.actor.items.get(itemId) : null;
 			if (!item) return ui.notifications?.warn("Item not found.");
-			if (item.type !== "asset") {
-				item.sheet?.render(true);
-				return;
+			if (!MG_CREW_INVENTORY_TYPES.has(item.type)) return;
+			if (!this.actor.isOwner) {
+				return ui.notifications?.warn("You do not have permission to edit this Crew Inventory.");
 			}
 
-			const safeName = (foundry.utils?.escapeHTML?.(item.name) ?? item.name);
-			const qty   = Math.max(0, Number(getProperty(item, "system.qty") ?? 0));
-			const desc  = String(getProperty(item, "system.description") ?? "");
+			item.sheet?.render(true, { editable: true });
+		});
 
-			// Safe IDs that won't break querySelector
-			const descId  = `desc-${randomID()}`;
+		$root.off("click.mgCrewItemDelete").on("click.mgCrewItemDelete", ".crew-item-delete", async (ev) => {
+			ev.preventDefault();
+			ev.stopPropagation();
 
-			const content = `
-			<form class="mg-asset-edit" style="margin:0;">
-				<div class="input-wrapper" style="margin-bottom:8px;">
-				<label>Quantity</label>
-				<input type="number" class="ae-qty" min="0" value="${qty}" style="width:100px;" />
-				</div>
+			const itemId = ev.currentTarget.dataset.itemId
+				|| ev.currentTarget.closest(".asset-card, .inventory-item")?.dataset?.itemId;
+			const item = itemId ? this.actor.items.get(itemId) : null;
+			if (!item || !MG_CREW_INVENTORY_TYPES.has(item.type)) return;
 
-				<div class="input-wrapper" style="margin-bottom:10px;">
-				<label>Description</label>
-				<div class="mg-editor-wrap">
-					<textarea id="${descId}" name="system.description" class="mg-rich ae-desc" style="width:100%;"></textarea>
-				</div>
-				</div>
-			</form>
-			`;
+			const safeName = ESC(item.name);
+			const confirmed = await Dialog.confirm({
+				title: `Remove ${safeName}?`,
+				content: `<p>Remove <strong>${safeName}</strong> from the Crew Inventory?</p>`
+			});
+			if (!confirmed) return;
 
-			const hdrKey = `mg-hdr-${randomID()}`;
+			await item.delete();
+			this.render(false);
+		});
 
-			const dlg = new Dialog({
-			title: `Edit: ${safeName}`,
-			content,
-			buttons: {
-				save: {
-					label: "Save",
-					icon: '<i class="fa-solid fa-floppy-disk"></i>',
-					cssClass: "mg-asset-save",
-					callback: () => true
-				},
+		$root.off("click.mgCrewItemSend").on("click.mgCrewItemSend", ".crew-item-send", async (ev) => {
+			ev.preventDefault();
+			ev.stopPropagation();
 
-				cancel: { label: "Cancel" }
-			},
-			default: "save",
-			close: () => { $(`.${hdrKey}`).remove(); }
-			}, { classes: ["midnight-gambit", "dialog", "asset-description-editor"], width: 560 });
+			const itemId = ev.currentTarget.dataset.itemId
+				|| ev.currentTarget.closest(".asset-card, .inventory-item")?.dataset?.itemId;
+			const item = itemId ? this.actor.items.get(itemId) : null;
+			if (!item || !MG_CREW_ITEM_TYPES.has(item.type)) return;
+			if (!this.actor.isOwner) {
+				return ui.notifications?.warn("You do not have permission to send Crew Inventory items.");
+			}
 
-			dlg.render(true);
+			const memberUuids = new Set(this.actor.system?.party?.members ?? []);
+			const memberCache = this.actor.system?.party?.cache ?? {};
+			const resolvedMembers = await this._resolveMembers(Array.from(memberUuids), memberCache);
+			const recipients = resolvedMembers
+				.filter(member => member.type === "character")
+				.map(member => {
+					const uuid = member.uuid;
+					const actorId = String(uuid).match(/^Actor\.([^.]+)$/)?.[1] ?? null;
+					if (!actorId) return null;
 
-			// Initialize TinyMCE + inject header buttons when THIS dialog renders
-			Hooks.once("renderDialog", async (_app, html) => {
-			if (_app !== dlg) return;
-			const $html = html instanceof jQuery ? html : $(html);
+					const user = game.users.find(candidate =>
+						!candidate.isGM &&
+						mgAssignedCharacterId(candidate) === actorId
+					);
 
-			// ----- Header buttons (Open / Delete) -----
-			const $app = $html.closest(".app.window-app.dialog");
-			const $header = $app.find(".window-header");
-			$header.find(`.${hdrKey}`).remove();
-			const $actions = $(`
-				<a class="header-button ae-open" title="Open Asset"><i class="fa-regular fa-pen-to-square"></i></a>
-				<a class="header-button ae-delete" title="Delete Asset"><i class="fa-solid fa-trash"></i></a>
-			`);
-			$header.find(".window-title").after($actions);
+					return {
+						actorId,
+						actorUuid: uuid,
+						actorName: member.name,
+						actorImg: member.crewSheetImg || member.img || "icons/svg/mystery-man.svg",
+						hasCrewSheetCrop: member.hasCrewSheetCrop,
+						crewSheetCropStyle: member.crewSheetCropStyle,
+						className: member.className,
+						levelText: member.levelText,
+						user
+					};
+				})
+				.filter(Boolean)
+				.sort((a, b) => a.actorName.localeCompare(b.actorName));
 
-			$actions.find(".ae-open").on("click", (e) => {
-				e.preventDefault(); e.stopPropagation();
-				item.sheet?.render(true);
+			if (!recipients.length) {
+				return ui.notifications?.warn("This Crew has no player characters available to receive the item.");
+			}
+
+			const cards = recipients
+				.map(recipient => (
+					`<article class="mg-member-card mg-trade-recipient" data-target-uuid="${ESC(recipient.actorUuid)}" role="button" tabindex="0">
+						<div class="mg-member-portrait ${recipient.hasCrewSheetCrop ? "is-cropped" : ""}">
+							<img src="${ESC(recipient.actorImg)}" alt="${ESC(recipient.actorName)}" style="${ESC(recipient.crewSheetCropStyle)}" />
+						</div>
+						<div class="mg-member-info">
+							<div class="mg-member-name">${ESC(recipient.actorName)}</div>
+							<div class="mg-member-meta">
+								<span class="mg-member-class">${ESC(recipient.className)}</span>
+								<span class="mg-member-level">Lv ${ESC(recipient.levelText)}</span>
+							</div>
+						</div>
+						<div class="mg-trade-recipient-action"><i class="fa-solid fa-paper-plane"></i></div>
+					</article>`
+				))
+				.join("");
+			const targetUuid = await new Promise(resolve => {
+				let settled = false;
+				const finish = value => {
+					if (settled) return;
+					settled = true;
+					resolve(value);
+				};
+				const dialog = new Dialog({
+					title: `Send ${ESC(item.name)}`,
+					content: `<div class="mg-crew-sheet"><div class="mg-party-grid mg-trade-recipient-grid">${cards}</div></div>`,
+					buttons: {
+						cancel: { label: "Cancel", callback: () => finish(null) }
+					},
+					render: html => {
+						const chooseRecipient = ev => {
+							if (ev.type === "keydown" && !["Enter", " "].includes(ev.key)) return;
+							ev.preventDefault();
+							finish(String(ev.currentTarget.dataset.targetUuid ?? ""));
+							dialog.close();
+						};
+						html.find(".mg-trade-recipient").on("click keydown", chooseRecipient);
+					},
+					close: () => finish(null)
+				}, { classes: ["midnight-gambit", "dialog", "crew-sheet", "mg-trade-dialog"], width: 900 });
+				dialog.render(true);
 			});
 
-			$actions.find(".ae-delete").on("click", async (e) => {
-				e.preventDefault(); e.stopPropagation();
-				const ok = await Dialog.confirm({
-				title: `Delete ${safeName}?`,
-				content: `<p>Remove <strong>${safeName}</strong> from the Crew?</p>`
-				});
-				if (!ok) return;
-				await item.delete();
-				dlg.close({});
-				this.render(true);
-			});
+			if (!targetUuid) return;
+			const recipient = recipients.find(entry => entry.actorUuid === targetUuid);
+			if (!recipient) return ui.notifications?.warn("Recipient not found.");
+			if (!game.mgRequestInventoryTransfer) {
+				return ui.notifications?.error("Item transfers are not ready. Refresh Foundry and try again.");
+			}
 
-			Hooks.once("closeDialog", (app) => { if (app === dlg) $(`.${hdrKey}`).remove(); });
-
-			// ----- Mount TinyMCE: Description -----
-			const descTarget = $html.find(`[id='${descId}']`)[0];
-			if (!descTarget) return;
-
-			// Seed existing HTML before init (so first paint matches)
-			descTarget.value  = desc;
-
-			// Clone your global config, give comfy caps, and allow internal scroll at cap
-			const mkCfg = (maxH) => {
-				const t = foundry.utils.deepClone(CONFIG.TinyMCE);
-				t.max_height = maxH;
-				t.min_height = t.min_height ?? 140;
-				t.content_style = (t.content_style ?? "") + `
-				body.mce-content-body { overflow-y: auto; overscroll-behavior: contain; }
-				`;
-				return t;
-			};
-
-			await TextEditor.create({
-				target: descTarget,
-				name: "system.description",
-				content: desc,
-				tinymce: mkCfg(440),
-				height: null
-			});
-
-			// Enter on qty submits the dialog (save)
-			$html.find(".ae-qty").on("keydown", (e) => {
-				if (e.key !== "Enter") return;
-				e.preventDefault();
-				dlg.submit();
-			});
+			await game.mgRequestInventoryTransfer({
+				sourceItem: item,
+				targetActorUuid: recipient.actorUuid,
+				targetActorName: recipient.actorName,
+				targetActorType: "character",
+				recipientUserId: recipient.user?.id ?? null
 			});
 		});
 
@@ -3079,15 +3099,6 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 
 		const wrapId = `lvl-${randomID()}`;
 		const content = `
-		<style>
-			.mg-level-wizard { line-height:1.4; }
-			.mg-level-wizard .req { display:flex; gap:.5rem; align-items:center; margin:.25rem 0; }
-			.mg-level-wizard .req .ok { color:var(--color-text-success, #47c972); display:none; }
-			.mg-level-wizard .req.done .ok { display:inline; }
-			.mg-level-wizard .hint { opacity:.8; font-size:.95em; margin:.25rem 0 .5rem; }
-			.mg-level-wizard .counts { margin-top:.5rem; font-size:.95em; opacity:.9; }
-			.mg-level-wizard .small { opacity:.75; font-size:.9em; }
-		</style>
 		<div id="${wrapId}" class="mg-level-wizard">
 			<p><strong>Tier ${currentTier} → Tier ${nextTier}</strong></p>
 			<p class="hint">Drag required items onto the Crew sheet as usual. This wizard auto-detects when you’ve added them.</p>
@@ -3163,7 +3174,7 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 			},
 			default: "save",
 			close: async () => { try { Hooks.off("createItem", hookId); } catch {} }
-		}, { classes: ["midnight-gambit","dialog","mg-level-dialog"], width: 520 });
+		}, { classes: ["midnight-gambit", "dialog", "crew-sheet", "mg-level-dialog"], width: 520 });
 
 		dlgRef.render(true);
 		setTimeout(() => {
@@ -3343,14 +3354,6 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 		const fmt = (n, w) => n === 1 ? `1 ${w}` : `${n} ${w}s`;
 
 		const content = `
-			<style>
-			.mg-review { line-height:1.4; }
-			.mg-review .req { display:flex; gap:.5rem; align-items:center; margin:.25rem 0; }
-			.mg-review .req .ok { color:var(--color-text-success,#47c972); display:none; }
-			.mg-review .req.done .ok { display:inline; }
-			.mg-review .hint { opacity:.8; font-size:.95em; margin:.25rem 0 .5rem; }
-			.mg-review .counts { margin-top:.5rem; font-size:.95em; opacity:.9; }
-			</style>
 			<div id="${wrapId}" class="mg-review">
 			<p><strong>Tier ${tier} requirements</strong></p>
 			<p class="hint">Drag the required items onto the Crew sheet. This checklist updates automatically.</p>
@@ -3405,7 +3408,7 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 			},
 			default: "close",
 			close: async () => { try { Hooks.off("createItem", hookId); } catch {} }
-		}, { classes: ["midnight-gambit","dialog","mg-review-dialog"], width: 520 });
+		}, { classes: ["midnight-gambit", "dialog", "crew-sheet", "mg-review-dialog"], width: 520 });
 
 		dlgRef.render(true);
 		setTimeout(() => updateUI(dlgRef), 30);
@@ -3607,10 +3610,11 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 		try {
 		desc = await Dialog.prompt({
 			title: "Add Tag Description",
-			content: `<p>Describe “${esc(label)}”:</p><textarea rows="3" style="width:100%"></textarea>`,
+			content: `<div class="mg-tag-description-prompt"><p>Describe “${esc(label)}”:</p><textarea rows="3"></textarea></div>`,
 			label: "Save",
 			// html is jQuery in v11 — use [0] or .find()
-			callback: (html) => (html?.[0]?.querySelector("textarea")?.value || "").trim()
+			callback: (html) => (html?.[0]?.querySelector("textarea")?.value || "").trim(),
+			options: { classes: ["midnight-gambit", "dialog", "crew-sheet", "mg-bio-tag-dialog"] }
 		}) || "";
 		} finally {
 		this._bioTagPromptOpen = false;
@@ -3725,13 +3729,6 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 
 			const curr = tags[idx];
 			const dlgHtml = `
-				<style>
-				.mg-edit-tag form { display: grid; gap: .5rem; }
-				.mg-edit-tag label { font-weight: 600; }
-				.mg-edit-tag input, .mg-edit-tag textarea {
-					width: 100%; box-sizing: border-box; padding: .5rem .6rem;
-				}
-				</style>
 				<div class="mg-edit-tag">
 				<form>
 					<label>Label</label>
@@ -3757,7 +3754,8 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 					const newLabel = normalize(root?.querySelector('input[name="label"]')?.value || "");
 					const newDesc  = (root?.querySelector('textarea[name="desc"]')?.value || "").trim();
 					return { newLabel, newDesc };
-				}
+				},
+				options: { classes: ["midnight-gambit", "dialog", "crew-sheet", "mg-bio-tag-dialog"] }
 				});
 			} finally {
 				this._bioTagPromptOpen = false;
