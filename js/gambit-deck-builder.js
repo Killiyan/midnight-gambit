@@ -74,7 +74,6 @@ export class GambitDeckBuilderApplication extends Application {
       search: "",
       tiers: new Set(),
       types: new Set(),
-      costs: new Set(),
       equipped: false
     };
     this.selectedUuid = "";
@@ -163,13 +162,7 @@ export class GambitDeckBuilderApplication extends Application {
         .filter(tier => tier.id !== "crew")
         .map(tier => ({ ...tier, checked: this.filters.tiers.has(tier.id) })),
       typeFilters: (this.isCrewLibrary ? CREW_GAMBIT_TYPES : GAMBIT_TYPES)
-        .map(type => ({ ...type, checked: this.filters.types.has(type.id) })),
-      costFilters: [
-        { id: "1-2", label: "1-2", checked: this.filters.costs.has("1-2") },
-        { id: "3", label: "3", checked: this.filters.costs.has("3") },
-        { id: "4", label: "4", checked: this.filters.costs.has("4") },
-        { id: "5", label: "5", checked: this.filters.costs.has("5") }
-      ]
+        .map(type => ({ ...type, checked: this.filters.types.has(type.id) }))
     };
   }
 
@@ -196,6 +189,28 @@ export class GambitDeckBuilderApplication extends Application {
       this._queueFilterRender(0);
     });
 
+    html.find("[data-filter-tier-toggle]").on("click", ev => {
+      ev.preventDefault();
+      const value = String(ev.currentTarget.dataset.filterTierToggle ?? "");
+      if (!value) return;
+
+      const wasSelected = this.filters.tiers.has(value);
+      if (wasSelected) {
+        this.filters.tiers.clear();
+      } else {
+        this.filters.tiers = new Set([value]);
+      }
+
+      html.find("[data-filter-tier-toggle]").each((_, el) => {
+        const selected = !wasSelected && String(el.dataset.filterTierToggle ?? "") === value;
+        el.classList.toggle("is-on", selected);
+        el.classList.toggle("is-off", !selected);
+        el.setAttribute("aria-pressed", String(selected));
+      });
+
+      this._queueFilterRender(0);
+    });
+
     html.find("[data-filter-type-pill]").on("click", ev => {
       ev.preventDefault();
       const value = String(ev.currentTarget.dataset.filterTypePill ?? "");
@@ -207,6 +222,20 @@ export class GambitDeckBuilderApplication extends Application {
 
       ev.currentTarget.classList.toggle("selected", !selected);
       ev.currentTarget.setAttribute("aria-pressed", String(!selected));
+
+      this._queueFilterRender(0);
+    });
+
+    html.find("[data-filter-toggle-button]").on("click", ev => {
+      ev.preventDefault();
+      const group = String(ev.currentTarget.dataset.filterToggleButton ?? "");
+      if (!Object.prototype.hasOwnProperty.call(this.filters, group)) return;
+
+      const selected = !Boolean(this.filters[group]);
+      this.filters[group] = selected;
+      ev.currentTarget.classList.toggle("is-on", selected);
+      ev.currentTarget.classList.toggle("is-off", !selected);
+      ev.currentTarget.setAttribute("aria-pressed", String(selected));
 
       this._queueFilterRender(0);
     });
@@ -570,14 +599,7 @@ export class GambitDeckBuilderApplication extends Application {
     if (this.filters.equipped && !selectedRefs.has(card.uuid)) return false;
     if (this.filters.tiers.size && !this.filters.tiers.has(card.tier)) return false;
     if (this.filters.types.size && !this.filters.types.has(card.gambitType)) return false;
-    if (this.filters.costs.size && !this._costMatches(card.gpCost)) return false;
     return true;
-  }
-
-  _costMatches(cost) {
-    const value = Number(cost);
-    if (this.filters.costs.has("1-2") && (value === 1 || value === 2)) return true;
-    return this.filters.costs.has(String(value));
   }
 
   _findDeckRef(deck, card) {

@@ -320,6 +320,30 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 				v.typeIcon = mgCrewInventoryIcon(i.type);
 				v.isAsset = i.type === "asset";
 				v.isRegularItem = MG_CREW_ITEM_TYPES.has(i.type);
+				const mortalCapacity = Math.max(0, Number(i.system?.mortalCapacity ?? 0) || 0);
+				const soulCapacity = Math.max(0, Number(i.system?.soulCapacity ?? 0) || 0);
+				const remainingMortal = Math.max(0, Number(i.system?.remainingCapacity?.mortal ?? mortalCapacity) || 0);
+				const remainingSoul = Math.max(0, Number(i.system?.remainingCapacity?.soul ?? soulCapacity) || 0);
+				const rawMortalStrain = i.system?.mortalStrainDamage ?? i.system?.strainDamage;
+				const rawSoulStrain = i.system?.soulStrainDamage;
+				const mortalStrain = Number(rawMortalStrain ?? 0) || 0;
+				const soulStrain = Number(rawSoulStrain ?? 0) || 0;
+				const miscShowsStats = i.type === "misc" && (
+					mortalStrain > 0 ||
+					soulStrain > 0 ||
+					mortalCapacity > 0 ||
+					soulCapacity > 0
+				);
+
+				v.showMortalStrain = (i.type === "weapon" && mortalStrain > 0) || miscShowsStats;
+				v.showSoulStrain = (i.type === "weapon" && soulStrain > 0) || miscShowsStats;
+				v.mortalStrainLabel = rawMortalStrain === undefined ? "-" : mortalStrain;
+				v.soulStrainLabel = rawSoulStrain === undefined ? "-" : soulStrain;
+				v.showMortalCapacity = ["armor", "misc"].includes(i.type) && mortalCapacity > 0;
+				v.showSoulCapacity = ["armor", "misc"].includes(i.type) && soulCapacity > 0;
+				v.mortalCapacityLabel = `${remainingMortal}/${mortalCapacity}`;
+				v.soulCapacityLabel = `${remainingSoul}/${soulCapacity}`;
+				v.showItemCapacity = v.showMortalStrain || v.showSoulStrain || v.showMortalCapacity || v.showSoulCapacity;
 				const quantity = Number(i.system?.qty ?? i.system?.quantity ?? 1);
 				v.quantity = Number.isFinite(quantity) ? Math.max(0, quantity) : 1;
 				v.favorite = Boolean(i.system?.favorite);
@@ -2133,7 +2157,7 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 		/* Tag overflow: clamp to two rows with "See all / See less"
 		------------------------------------------------------------*/
 		{
-		const COLLAPSED_MAX = 80;   // px ≈ two rows of chips in your theme
+		const COLLAPSED_MAX = 44;   // match the Character inventory tag clamp
 		const TRANSITION_MS = 500;  // must match CSS transition
 
 		// Measure one wrapper and set classes/affordances

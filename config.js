@@ -35,16 +35,16 @@ export const GAMBIT_TIERS = [
 ];
 
 export const GAMBIT_TYPES = [
-  { id: "social", label: "Social" },
-  { id: "combat", label: "Combat" },
-  { id: "infiltration", label: "Infiltration" },
-  { id: "support", label: "Support" }
+  { id: "social", label: "Social", icon: "fa-solid fa-user-group" },
+  { id: "combat", label: "Combat", icon: "fa-solid fa-sword" },
+  { id: "infiltration", label: "Infiltration", icon: "fa-solid fa-lock-keyhole-open" },
+  { id: "support", label: "Support", icon: "fa-solid fa-handshake-angle" }
 ];
 
 export const CREW_GAMBIT_TYPES = [
-  { id: "combat", label: "Combat", icon: "fa-solid fa-swords" },
-  { id: "social", label: "Social", icon: "fa-solid fa-comments" },
-  { id: "support", label: "Support", icon: "fa-solid fa-hand-holding-heart" }
+  { id: "combat", label: "Combat", icon: "fa-solid fa-sword" },
+  { id: "social", label: "Social", icon: "fa-solid fa-user-group" },
+  { id: "support", label: "Support", icon: "fa-solid fa-handshake-angle" }
 ];
 
 export const MOVE_TYPES = [

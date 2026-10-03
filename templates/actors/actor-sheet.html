@@ -845,7 +845,15 @@
                     <span class="name-wrapper">
                       <h3 class="item-name post-item" data-item-id="{{item._id}}">
                         <span class="clickable-item">{{item.name}}</span>
-                        <span class="item-type"><i class="fa-solid fa-rectangles-mixed"></i></span>
+                        <span class="item-type">
+                          {{#if (eq item.type "weapon")}}
+                            <i class="fa-solid fa-sword"></i>
+                          {{else if (eq item.type "armor")}}
+                            <i class="fa-solid fa-shield"></i>
+                          {{else}}
+                            <i class="fa-solid fa-rectangles-mixed"></i>
+                          {{/if}}
+                        </span>
                       </h3>
                     </span>
 

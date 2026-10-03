@@ -98,65 +98,64 @@
       {{#unless isCrewLibrary}}
       <div class="mg-gambit-library-filter-group">
         <h3>Deck</h3>
-        <label>
-          <input type="checkbox" data-filter-toggle="equipped" value="1" {{#if equippedOnly}}checked{{/if}} />
-          <span>Equipped</span>
-        </label>
+        <div class="mg-moves-library-toggle-list">
+          <button
+            type="button"
+            class="mg-moves-library-filter-toggle {{#if equippedOnly}}is-on{{else}}is-off{{/if}}"
+            data-filter-toggle-button="equipped"
+            aria-pressed="{{#if equippedOnly}}true{{else}}false{{/if}}"
+            title="Equipped"
+          >
+            <span class="mg-moves-library-toggle-label">Equipped</span>
+            <span class="mg-primary-toggle-track" aria-hidden="true">
+              <span class="mg-primary-toggle-knob"></span>
+            </span>
+          </button>
+        </div>
       </div>
       {{/unless}}
 
       {{#unless isCrewLibrary}}
       <div class="mg-gambit-library-filter-group">
         <h3>Tier</h3>
-        {{#each tierFilters}}
-          <label>
-            <input type="checkbox" data-filter="tiers" value="{{id}}" {{#if checked}}checked{{/if}} />
-            <span>{{label}}</span>
-          </label>
-        {{/each}}
+        <div class="mg-moves-library-toggle-list">
+          {{#each tierFilters}}
+            <button
+              type="button"
+              class="mg-moves-library-filter-toggle {{#if checked}}is-on{{else}}is-off{{/if}}"
+              data-filter-tier-toggle="{{id}}"
+              aria-pressed="{{#if checked}}true{{else}}false{{/if}}"
+              title="{{label}}"
+            >
+              <span class="mg-moves-library-toggle-label">{{label}}</span>
+              <span class="mg-primary-toggle-track" aria-hidden="true">
+                <span class="mg-primary-toggle-knob"></span>
+              </span>
+            </button>
+          {{/each}}
+        </div>
       </div>
       {{/unless}}
 
       <div class="mg-gambit-library-filter-group">
         <h3>Type</h3>
-        {{#if isCrewLibrary}}
-          <div class="tag-selector mg-moves-library-subtype-pills">
-            {{#each typeFilters}}
-              <button
-                type="button"
-                class="tag-pill mg-moves-library-subtype-pill {{#if checked}}selected{{/if}}"
-                data-filter-type-pill="{{id}}"
-                aria-pressed="{{#if checked}}true{{else}}false{{/if}}"
-                title="{{label}}"
-              >
-                {{#if icon}}
-                  <i class="{{icon}}" aria-hidden="true"></i>
-                {{/if}}
-                <span>{{label}}</span>
-              </button>
-            {{/each}}
-          </div>
-        {{else}}
+        <div class="tag-selector mg-moves-library-subtype-pills">
           {{#each typeFilters}}
-            <label>
-              <input type="checkbox" data-filter="types" value="{{id}}" {{#if checked}}checked{{/if}} />
+            <button
+              type="button"
+              class="tag-pill mg-moves-library-subtype-pill {{#if checked}}selected{{/if}}"
+              data-filter-type-pill="{{id}}"
+              aria-pressed="{{#if checked}}true{{else}}false{{/if}}"
+              title="{{label}}"
+            >
+              {{#if icon}}
+                <i class="{{icon}}" aria-hidden="true"></i>
+              {{/if}}
               <span>{{label}}</span>
-            </label>
+            </button>
           {{/each}}
-        {{/if}}
+        </div>
       </div>
-
-      {{#unless isCrewLibrary}}
-      <div class="mg-gambit-library-filter-group">
-        <h3>Cost</h3>
-        {{#each costFilters}}
-          <label>
-            <input type="checkbox" data-filter="costs" value="{{id}}" {{#if checked}}checked{{/if}} />
-            <span>{{label}}</span>
-          </label>
-        {{/each}}
-      </div>
-      {{/unless}}
     </aside>
   </main>
 </section>

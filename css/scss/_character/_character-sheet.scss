@@ -2033,7 +2033,7 @@ ol li {
     .tags-wrap {
       position: relative;
 
-      --seeall-toggle-h: 2.65rem;
+      --seeall-toggle-h: 1.9rem;
       --seeall-gap: 0.25rem;
 
         // Gradient overlay (same idea as your mg-seeall-wrap:after)
@@ -3063,7 +3063,11 @@ ol li {
 
         .tags-toggle {
           opacity: .85;
+          height: auto;
+          min-height: 0;
           padding: .5rem;
+          font-size: .9rem;
+          line-height: 1.2;
           border-radius: 8px;
           background: $mg-blue-main;
           transition: background .5s ease, opacity .5s ease, color .5s ease;
@@ -3075,7 +3079,8 @@ ol li {
           cursor: pointer;
 
           i {
-            font-size: 0.9rem;
+            font-size: inherit;
+            line-height: 1;
             transition: transform 0.3s ease, opacity 0.25s ease, color .5s ease;
 
             &.rotated {

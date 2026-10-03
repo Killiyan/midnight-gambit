@@ -1041,15 +1041,66 @@
 
 					@include inventory-card-header();
 
-					.card-media img{
-						border: none;
-						background: $mg-blue-4;
-						backdrop-filter: blur(4px);
-						border-radius: 0;
-						aspect-ratio: 1/1;
-						object-fit: cover;
-						max-height: 8rem;
-						width: 100%;
+					.card-overview {
+						display: flex;
+						flex-direction: column;
+						align-items: stretch;
+
+						.card-media img{
+							border: none;
+							background: $mg-blue-4;
+							backdrop-filter: blur(4px);
+							border-radius: 0;
+							aspect-ratio: 1/1;
+							object-fit: cover;
+							max-height: 8rem;
+							width: 100%;
+							display: block;
+						}
+					}
+
+					.item-capacity {
+						font-size: 1rem;
+						color: $mg-blue-2;
+						display: grid;
+						place-items: stretch;
+						gap: 0;
+
+						p {
+							margin: 0;
+						}
+
+						.bubble-wrapper {
+							gap: 0;
+
+							.strain-bubble {
+								background: $mg-blue-4;
+								border: 2px solid $mg-blue-main-2;
+								width: 100%;
+								border-radius: 0;
+								padding: .5rem 1.125rem;
+
+								i {
+									font-size: 1.15rem;
+								}
+
+								&:first-of-type {
+									border-left: 0;
+									border-right: 0;
+								}
+
+								&:last-of-type {
+									border-right: 0;
+								}
+							}
+						}
+
+						.capacity-kind {
+							@include oswald();
+							color: $mg-blue-2;
+							font-size: 1rem;
+							font-weight: 700;
+						}
 					}
 
 					.card-wrapper {
@@ -1089,7 +1140,7 @@
 
 						.asset-tags,
 						.desc,
-						.card-actions {
+						.quantity-wrapper {
 							background: rgba($mg-blue-4, .5);
 						}
 
@@ -1098,15 +1149,17 @@
 							bottom: 2.25rem;
 						}
 
-						// Setting Card Actions for Assets also
-						.card-actions {
+						.quantity-wrapper {
 							display: flex;
 							flex-direction: column;
-							align-items: stretch;
 							gap: .5rem;
-							padding: .5rem;
+							padding: 1rem;
 							@include mg-border();
 							border-radius: .5rem;
+
+							label {
+								margin: 0;
+							}
 
 							.quantity-controls{
 								display: flex;
@@ -1158,7 +1211,15 @@
 									text-align: center;
 									border-radius: 0;
 								}        
-							}							
+							}
+						}
+
+						// Setting Card Actions for Assets also
+						.card-actions {
+							display: flex;
+							flex-direction: column;
+							align-items: stretch;
+							gap: .5rem;
 
 							// Setting the Favorite checkbox to be a button like Library
 							.crew-favorite-toggle {
@@ -1223,28 +1284,26 @@
 								}
 							}								
 
-							.asset-edit,
-							.crew-item-send {
-								width: 100%;
-								flex-grow: 1;
+							.status-buttons {
 								display: flex;
-								justify-content: flex-start;
-								align-items: center;
-								gap: .75rem;
-								padding: .45rem .65rem;
-							}
+								gap: .5rem;
 
-							.crew-item-delete {
-								width: 100%;
-								min-height: 2.5rem;
-								display: inline-flex;
-								align-items: center;
-								justify-content: center;
-								margin: 0;
-								padding: .45rem .65rem;
+								button {
+									background: $mg-blue-main-2;
+									color: $mg-blue-1;						
+									flex: 1 1 0;
+									min-width: 0;
+									min-height: 2.5rem;
+									margin: 0;
+									padding: .45rem .65rem;
+									display: inline-flex;
+									align-items: center;
+									justify-content: center;
 
-								i {
-									color: $mg-blue-3;
+									i {
+										margin: 0;
+										color: $mg-blue-2;
+									}
 								}
 							}
 						}
@@ -1256,13 +1315,17 @@
 
 					// Tag styling for Assets
 					.tags {
-						max-height: 5rem;
+						max-height: 44px;
 						overflow: hidden;
 						transition: max-height .5s ease;
 						position: relative;
 						border-radius: .5rem;
 						@include mg-border();
 						padding: .5rem;
+
+						label {
+							width: 100%;
+						}
 
 						&:after {
 							content: "";

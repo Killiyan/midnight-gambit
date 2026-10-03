@@ -228,27 +228,52 @@
 											</h3>
 										</span>
 
-										<div class="card-media">
-											<img src="{{it.img}}" alt="{{it.name}}">
+										<div class="card-overview">
+											<div class="card-media">
+												<img src="{{it.img}}" alt="{{it.name}}">
+											</div>
+
+											{{#if it.showItemCapacity}}
+												<div class="item-capacity" title="Strain Effects">
+													{{#if (or it.showMortalStrain it.showSoulStrain)}}
+														<div class="bubble-wrapper">
+															{{#if it.showMortalStrain}}
+																<p class="strain-bubble">
+																	<i class="fa-kit fa-mortal-strain"></i>
+																	<span class="remaining-number">{{it.mortalStrainLabel}}</span>
+																</p>
+															{{/if}}
+															{{#if it.showSoulStrain}}
+																<p class="strain-bubble">
+																	<i class="fa-kit fa-soul-strain"></i>
+																	<span class="remaining-number">{{it.soulStrainLabel}}</span>
+																</p>
+															{{/if}}
+														</div>
+													{{/if}}
+
+													{{#if (or it.showMortalCapacity it.showSoulCapacity)}}
+														<div class="bubble-wrapper">
+															{{#if it.showMortalCapacity}}
+																<p class="strain-bubble" data-capacity-type="mortal">
+																	<span class="capacity-kind">MC</span>
+																	<span class="remaining-number">{{it.mortalCapacityLabel}}</span>
+																</p>
+															{{/if}}
+															{{#if it.showSoulCapacity}}
+																<p class="strain-bubble" data-capacity-type="soul">
+																	<span class="capacity-kind">SC</span>
+																	<span class="remaining-number">{{it.soulCapacityLabel}}</span>
+																</p>
+															{{/if}}
+														</div>
+													{{/if}}
+												</div>
+											{{/if}}
 										</div>
 
 										<div class="card-wrapper">
 											<div class="card-body">
-												{{#if it._tags.length}}
-													<div class="tags-wrap" data-item-id="{{it.id}}">
-														<div class="tags asset-tags">
-															{{#each it._tags as |t|}}
-																<span class="asset-tag tag" data-tag-id="{{t.id}}" title="Click for details">
-																	{{t.label}}
-																</span>
-															{{/each}}
-														</div>
-														<span class="tags-toggle" hidden>
-															<i class="fa-solid fa-angle-down"></i>
-														</span>
-													</div>
-												{{/if}}
-
 												{{#if it.descHtml}}
 													<div class="mg-seeall-wrap" data-item-id="{{it.id}}" data-seeall-cap="140">
 														<div class="desc asset-desc">
@@ -263,6 +288,31 @@
 														</button>
 													</div>
 												{{/if}}
+
+												{{#if it._tags.length}}
+													<div class="tags-wrap" data-item-id="{{it.id}}">
+														<div class="tags asset-tags">
+															<label>Tags</label>
+															{{#each it._tags as |t|}}
+																<span class="asset-tag tag" data-tag-id="{{t.id}}" title="Click for details">
+																	{{t.label}}
+																</span>
+															{{/each}}
+														</div>
+														<span class="tags-toggle" hidden>
+															<i class="fa-solid fa-angle-down"></i>
+														</span>
+													</div>
+												{{/if}}
+											</div>
+
+											<div class="quantity-wrapper">
+												<label>Quantity</label>
+												<div class="quantity-controls" title="Quantity">
+													<button type="button" class="crew-item-quantity-dec" data-step="-1" title="-1"><i class="fa-solid fa-minus"></i></button>
+													<input type="number" class="crew-item-quantity" value="{{it.quantity}}" min="0" />
+													<button type="button" class="crew-item-quantity-inc" data-step="1" title="+1"><i class="fa-solid fa-plus"></i></button>
+												</div>
 											</div>
 
 											<div class="card-actions">
@@ -276,26 +326,22 @@
 													<span>Favorite</span>
 												</button>
 
-												<div class="quantity-controls" title="Quantity">
-													<button type="button" class="crew-item-quantity-dec" data-step="-1" title="-1"><i class="fa-solid fa-minus"></i></button>
-													<input type="number" class="crew-item-quantity" value="{{it.quantity}}" min="0" />
-													<button type="button" class="crew-item-quantity-inc" data-step="1" title="+1"><i class="fa-solid fa-plus"></i></button>
-												</div>
+												<div class="status-buttons">
+													{{#if it.isRegularItem}}
+														<button type="button" class="crew-item-send" data-item-id="{{it.id}}" title="Send to a Crew member" aria-label="Send to a Crew member">
+															<i class="fa-solid fa-paper-plane"></i>
+														</button>
+													{{/if}}
 
-												{{#if it.isRegularItem}}
-													<button type="button" class="crew-item-send" data-item-id="{{it.id}}" title="Send to a Crew member">
-														<i class="fa-solid fa-paper-plane"></i> Send
+													<button type="button" class="asset-edit" data-item-id="{{it.id}}" title="Edit" aria-label="Edit">
+														<i class="fa-solid fa-pencil"></i>
 													</button>
-												{{/if}}
 
-												<button type="button" class="asset-edit" data-item-id="{{it.id}}" title="Edit">
-													<i class="fa-solid fa-pencil"></i> Edit
-												</button>
+													<button type="button" class="crew-item-delete" data-item-id="{{it.id}}" title="Remove from Crew Inventory" aria-label="Remove from Crew Inventory">
+														<i class="fa-solid fa-trash"></i>
+													</button>
+												</div>
 											</div>
-
-											<button type="button" class="crew-item-delete" data-item-id="{{it.id}}" title="Remove from Crew Inventory" aria-label="Remove from Crew Inventory">
-												<i class="fa-solid fa-trash"></i>
-											</button>
 																					
 										</div>									
 										
