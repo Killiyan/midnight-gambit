@@ -2297,16 +2297,77 @@ ol li {
 
     .inventory-bucket-title.mg-content {
       width: 100%;
-      background: rgba($black, .2);
-      backdrop-filter: blur(8px);
       display: flex;
       gap: 1rem;
       padding: 0;
       overflow: hidden;
       align-items: center;
       margin: 0;
-      transition: opacity 0.5s ease, transform 0.5s ease;
+      transition: opacity 0.5s ease, transform 0.5s ease, border-color .5s ease;
       will-change: opacity, transform;
+      position: relative;
+
+      --mg-accordion-toggle-image: url("../assets/images/accordion-toggle.jpg");
+      background-image:
+        radial-gradient(circle at 50% 0%,
+        rgba(197, 212, 236, 0.22) 0%,
+        rgba(197, 212, 236, 0.10) 35%,
+        rgba(18, 33, 55, 0.00) 70%
+        ),
+        var(--mg-accordion-toggle-image); 
+
+      background-blend-mode: multiply;
+        
+      background-repeat: no-repeat;
+      background-size: cover;
+      background-color: $mg-blue-4;
+      transition:
+        background-color .5s ease,
+        background-position 2.5s cubic-bezier(.2, .8, .2, 1),
+        background-size 2.5s cubic-bezier(.2, .8, .2, 1),
+        color .5s ease,
+        border .5s ease;
+
+      &::after {
+        content: '';
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(
+          90deg,
+          rgba(#1A2E4C, 1) 10%,
+          rgba(#1A2E4C, 0) 40%,
+          rgba(#1A2E4C, 0) 60%,
+          rgba(#1A2E4C, 1) 90%
+        );
+        position: absolute;
+        left: 0;
+        top: 0;
+        opacity: 1;
+        transition: opacity .5s ease, background .5s ease;
+        z-index: 1;
+        pointer-events: none;
+      }
+
+      &.active {
+        border-color: $mg-green;
+        background-color: $mg-blue-5;
+
+        .item-icon i,
+        .inventory-bucket-toggle i {
+          color: $mg-green;
+        }        
+
+        &::after {
+          background: linear-gradient(
+            90deg,
+            rgba(#1A2E4C, 1) 10%,
+            rgba(#1A2E4C, 0) 40%,
+            rgba(#1A2E4C, 0) 60%,
+            rgba(#1A2E4C, 1) 90%
+          );
+          opacity: .25;
+        }
+      }
 
       &.pre-enter {
         opacity: 0;
@@ -2331,45 +2392,58 @@ ol li {
         align-items: center;
         margin: 0;
         padding: 1.125rem 0;
+        @include tiller();
+        text-transform: none;
+        color: $mg-blue-1;
+        line-height: 1;
+        position: relative;
+        z-index: 2;
       }
 
       .inventory-bucket-count {
         color: $mg-blue-2;
-        font-size: .8em;
+        font-size: 1rem;
         font-weight: 700;
+        @include oswald();
+        text-transform: none;
+        line-height: 1;
+        position: relative;
+        z-index: 2;        
       }
 
       .item-icon {
         display: flex;
         justify-content: center;
         align-items: center;
-        background: rgba(black, .2);
         height: auto;
         width: auto;
         padding: 2rem;
-        border-right: 2px solid $mg-blue-main-2;
+        position: relative;
+        z-index: 2;        
 
         i {
           color: $mg-blue-3;
           font-size: 1.25rem;
+          transition: color .5s ease;
         }
       }
 
-      button {
+      .inventory-bucket-toggle {
         box-shadow: none;
         display: flex;
         justify-content: center;
         align-items: center;
-        background: rgba($black, .2);
+        background: rgba($black, 0);
         height: auto;
         width: auto;
         padding: 2.25rem;
-        border-left: 2px solid $mg-blue-main-2;    
         border-top: 0;
         border-right: 0;
         border-bottom: 0;
         border-radius: 0;
         margin: 0 0 0 auto;
+        position: relative;
+        z-index: 2;        
 
         &:hover {
           background: rgba($black, .6);
@@ -2381,7 +2455,8 @@ ol li {
         
         i {
           transition: transform .5s ease, color .5s ease;
-          color: $mg-blue-3;
+          color: $mg-blue-1;
+          font-size: 1rem;
         }
       }
       
@@ -3554,6 +3629,242 @@ ol li {
     @include mg-border();
     border-radius: .625rem;
     box-shadow: 5px 5px 10px rgba(0,0,0,0.5);
+  }
+
+  .gambit-accordion-section {
+    .inventory-bucket-body[hidden] {
+      display: none !important;
+    }
+
+    .inventory-bucket-title.mg-content {
+      width: 100%;
+      display: flex;
+      gap: 1rem;
+      padding: 0;
+      overflow: hidden;
+      align-items: center;
+      margin: 0;
+      transition: opacity 0.5s ease, transform 0.5s ease, border-color .5s ease;
+      will-change: opacity, transform;
+      position: relative;
+
+      --mg-accordion-toggle-image: url("../assets/images/accordion-toggle.jpg");
+      background-image:
+        radial-gradient(circle at 50% 0%,
+        rgba(197, 212, 236, 0.22) 0%,
+        rgba(197, 212, 236, 0.10) 35%,
+        rgba(18, 33, 55, 0.00) 70%
+        ),
+        var(--mg-accordion-toggle-image); 
+
+      background-blend-mode: multiply;
+        
+      background-repeat: no-repeat;
+      background-size: cover;
+      background-color: $mg-blue-4;
+      transition:
+        background-color .5s ease,
+        background-position 2.5s cubic-bezier(.2, .8, .2, 1),
+        background-size 2.5s cubic-bezier(.2, .8, .2, 1),
+        color .5s ease,
+        border .5s ease;
+
+      &::after {
+        content: '';
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(
+          90deg,
+          rgba(#1A2E4C, 1) 10%,
+          rgba(#1A2E4C, 0) 40%,
+          rgba(#1A2E4C, 0) 60%,
+          rgba(#1A2E4C, 1) 90%
+        );
+        position: absolute;
+        left: 0;
+        top: 0;
+        opacity: 1;
+        transition: opacity .5s ease, background .5s ease;
+        z-index: 1;
+        pointer-events: none;
+      }
+
+      &.active {
+        border-color: $mg-green;
+        background-color: $mg-blue-5;
+
+        .item-icon i,
+        .inventory-bucket-toggle i {
+          color: $mg-green;
+        }
+
+        &::after {
+          background: linear-gradient(
+            90deg,
+            rgba(#1A2E4C, 1) 10%,
+            rgba(#1A2E4C, 0) 40%,
+            rgba(#1A2E4C, 0) 60%,
+            rgba(#1A2E4C, 1) 90%
+          );
+          opacity: .25;
+        }
+      }
+
+      &.pre-enter {
+        opacity: 0;
+        transform: translateY(6px);
+      }
+
+      &.is-entering {
+        opacity: 1;
+        transform: translateY(0);
+      }
+
+      &.is-leaving {
+        opacity: 0;
+        transform: translateY(6px);
+        pointer-events: none;
+      }
+
+      h2 {
+        border: none;
+        display: flex;
+        flex-direction: column;
+        gap: .5rem;
+        margin: 0;
+        padding: 1.125rem 0;
+        @include tiller();
+        text-transform: none;
+        color: $mg-blue-1;
+        line-height: 1;
+        position: relative;
+        z-index: 2;
+      }
+
+      .inventory-bucket-count {
+        color: $mg-blue-2;
+        font-size: 1rem;
+        font-weight: 700;
+        @include oswald();
+        text-transform: none;
+        line-height: 1;
+        position: relative;
+        z-index: 2;        
+      }
+
+      .item-icon {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: auto;
+        width: auto;
+        padding: 2rem;
+        position: relative;
+        z-index: 2;        
+
+        i {
+          color: $mg-blue-3;
+          font-size: 1.25rem;
+          transition: color .5s ease;
+        }
+      }
+
+      .inventory-bucket-toggle {
+        box-shadow: none;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        background: rgba($black, 0);
+        height: auto;
+        width: auto;
+        padding: 2.25rem;
+        border-top: 0;
+        border-right: 0;
+        border-bottom: 0;
+        border-radius: 0;
+        margin: 0 0 0 auto;
+        position: relative;
+        z-index: 2;        
+
+        &:hover {
+          background: rgba($black, .6);
+
+          i {
+            color: $mg-green;
+          }
+        }
+        
+        i {
+          transition: transform .5s ease, color .5s ease;
+          color: $mg-blue-1;
+          font-size: 1rem;
+        }
+      }
+      
+      &.is-collapsed {
+        button i {
+          transform: rotate(180deg);
+        }
+      }
+    }
+
+  }
+
+  .gambit-accordion-list,
+  .gambit-accordion-body {
+    display: flex;
+    gap: 1rem;
+    width: 100%;
+  }
+
+  .gambit-accordion-list {
+    flex-direction: column;
+  }
+
+  .gambit-accordion-body {
+    display: block;
+    margin-bottom: 1rem;
+
+    &.is-bucket-animating {
+      will-change: max-height;
+
+      .gambit-hand,
+      .gambit-discard,
+      .mg-deck-builder-panel,
+      .mg-hand-order-panel,
+      .gambit-card {
+        transition: none !important;
+      }
+    }
+  }
+
+  .gambit-accordion-body .gambit-hand,
+  .gambit-accordion-body .gambit-discard {
+    min-height: 0;
+    padding: 1.25rem;
+    grid-template-columns: 1fr 1fr;
+    flex: 0 0 auto;
+  }
+
+  .gambit-accordion-body .mg-deck-builder-panel {
+    position: relative;
+    min-height: 0;
+    padding: 1.25rem;
+    background: $mg-blue-4;
+    border-radius: .5rem;
+    @include mg-border();
+    box-shadow: 4px 4px 10px rgba($black, .5);
+    flex: 0 0 auto;
+  }
+
+  .gambit-accordion-body .mg-hand-order-panel {
+    margin: 0;
+    padding: 1.25rem;
+    background: $mg-blue-4;
+    border-radius: .5rem;
+    @include mg-border();
+    box-shadow: 4px 4px 10px rgba($black, .5);
+    flex: 0 0 auto;
   }
 }
 

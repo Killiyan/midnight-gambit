@@ -50,6 +50,15 @@
         border-radius: .5rem;
         @include mg-shadow();
 
+        &.is-equipped {
+          opacity: .8;
+          border: 2px solid $mg-green;
+
+          &:before {
+            background: rgba($mg-blue-5, .8);
+          }
+        }
+
         &:before {
           content: "";
           position: absolute;

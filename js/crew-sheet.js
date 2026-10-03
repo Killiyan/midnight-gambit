@@ -1822,7 +1822,7 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 					resolve(value);
 				};
 				const dialog = new Dialog({
-					title: `Send ${ESC(item.name)}`,
+					title: `Send ${item.name}`,
 					content: `<div class="mg-crew-sheet"><div class="mg-party-grid mg-trade-recipient-grid">${cards}</div></div>`,
 					buttons: {
 						cancel: { label: "Cancel", callback: () => finish(null) }
@@ -1922,6 +1922,7 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 
 		const setCrewBucketState = (title, collapsed) => {
 			title.classList.toggle("is-collapsed", collapsed);
+			title.classList.toggle("active", !collapsed);
 			const icon = title.querySelector(".crew-inventory-bucket-toggle i");
 			if (icon) icon.classList.toggle("rotated", !collapsed);
 		};

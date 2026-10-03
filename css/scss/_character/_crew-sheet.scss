@@ -914,18 +914,80 @@
 
 				.crew-inventory-bucket-title {
 					width: 100%;
-					min-height: 5.5rem;
 					display: flex;
-					align-items: stretch;
 					gap: 1rem;
-					margin: 0;
 					padding: 0;
 					overflow: hidden;
-					background: rgba($black, .2);
+					align-items: center;
+					margin: 0;
 					@include mg-border();
 					border-radius: .5rem;
 					box-shadow: 5px 5px 10px rgba($black, .5);
 					backdrop-filter: blur(8px);
+					transition: 
+						background-color .5s ease,
+						background-position 2.5s cubic-bezier(.2, .8, .2, 1),
+						background-size 2.5s cubic-bezier(.2, .8, .2, 1),
+						color .5s ease,
+						border .5s ease,
+						opacity .5s ease,
+						transform .5s ease;
+					will-change: opacity, transform;
+					position: relative;
+
+					--mg-accordion-toggle-image: url("../assets/images/accordion-toggle.jpg");
+					background-image:
+						radial-gradient(circle at 50% 0%,
+						rgba(197, 212, 236, 0.22) 0%,
+						rgba(197, 212, 236, 0.10) 35%,
+						rgba(18, 33, 55, 0.00) 70%
+						),
+						var(--mg-accordion-toggle-image);
+					background-blend-mode: multiply;
+					background-repeat: no-repeat;
+					background-size: cover;
+					background-color: $mg-blue-4;
+
+					&::after {
+						content: '';
+						width: 100%;
+						height: 100%;
+						background: linear-gradient(
+							90deg,
+							rgba(#1A2E4C, 1) 10%,
+							rgba(#1A2E4C, 0) 40%,
+							rgba(#1A2E4C, 0) 60%,
+							rgba(#1A2E4C, 1) 90%
+						);
+						position: absolute;
+						left: 0;
+						top: 0;
+						opacity: 1;
+						transition: opacity .5s ease, background .5s ease;
+						z-index: 1;
+						pointer-events: none;
+					}
+
+					&.active {
+						border-color: $mg-green;
+						background-color: $mg-blue-5;
+
+						.item-icon i,
+						.crew-inventory-bucket-toggle i {
+							color: $mg-green;
+						}       						
+
+						&::after {
+							background: linear-gradient(
+								90deg,
+								rgba(#1A2E4C, 1) 10%,
+								rgba(#1A2E4C, 0) 40%,
+								rgba(#1A2E4C, 0) 60%,
+								rgba(#1A2E4C, 1) 90%
+							);
+							opacity: .25;
+						}
+					}
 
 					h2 {
 						margin: 0;
@@ -934,53 +996,71 @@
 						align-items: center;
 						gap: .5rem;
 						border-bottom: 0;
+						@include tiller();
+						text-transform: none;
+						color: $mg-blue-1;
+						line-height: 1;
+						position: relative;
+						z-index: 2;
 					}
 
 					.crew-inventory-bucket-count {
 						color: $mg-blue-2;
-						font-size: .8em;
+						font-size: 1rem;
 						font-weight: 700;
+						@include oswald();
+						text-transform: none;
+						line-height: 1;
+						position: relative;
+						z-index: 2;
 					}
 
 					.item-icon {
 						display: flex;
-						align-items: center;
 						justify-content: center;
-						width: 5.5rem;
-						flex: 0 0 5.5rem;
-						background: rgba($black, .2);
-						border-right: 2px solid $mg-blue-main-2;
+						align-items: center;
+						height: auto;
+						width: auto;
+						padding: 2rem;
+						position: relative;
+						z-index: 2;
 
 						i {
 							color: $mg-blue-3;
 							font-size: 1.25rem;
+							transition: color .5s ease;
 						}
 					}
 
 					.crew-inventory-bucket-toggle {
-						width: 5.5rem;
-						flex: 0 0 5.5rem;
-						margin: 0 0 0 auto;
-						padding: 0;
-						display: inline-flex;
-						align-items: center;
-						justify-content: center;
-						border-radius: 0;
-						border-left: 2px solid $mg-blue-main-2;
-						background: rgba($black, .2);
 						box-shadow: none;
+						display: flex;
+						justify-content: center;
+						align-items: center;
+						background: rgba($black, 0);
+						height: auto;
+						width: auto;
+						padding: 2.25rem;
+						border-top: 0;
+						border-right: 0;
+						border-bottom: 0;
+						border-radius: 0;
+						margin: 0 0 0 auto;
+						position: relative;
+						z-index: 2;
 
 						&:hover {
-						background: rgba($black, .6);
+							background: rgba($black, .6);
 
-						i {
-							color: $mg-green;
+							i {
+								color: $mg-green;
+							}
 						}
-						}						
 
 						i {
-							color: $mg-blue-3;
 							transition: transform .5s ease, color .5s ease;
+							color: $mg-blue-1;
+							font-size: 1rem;
 							margin: 0;
 						}
 					}

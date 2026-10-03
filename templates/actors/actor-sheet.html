@@ -652,130 +652,151 @@
             <button type="button" class="reset-gambit-deck"><i class="fa-solid fa-arrows-spin"></i> Reset Deck</button>
           </div>
 
-          <!--Gambit Hand-->
-          <div class="gambit-hand">
-            
-            <span class="hand-size gambit-counter" title="Cards in hand">
-              Hand: {{gambitCounts.handCount}}
-            </span>
+          <div class="inventory-section gambit-accordion-section">
+            <div class="inventory-list gambit-accordion-list">
 
-            <h2 class="gambit-banner">Hand</h2>
-            {{#each gambitDrawn}}
-              <div class="gambit-card drawn" data-source="drawn" draggable="true" data-item-id="{{_id}}">
-
-                <div class="gambit-title">
-                  <button type="button" class="post-gambit" data-item-id="{{_id}}" title="Post to Chat">
-                    <i class="fa-solid fa-messages"></i>
-                    {{name}}
-                  </button>
-                </div>
-
-                <div class="gambit-wrapper">
-                  <div class="gambit-description">
-                    {{{system.description}}}
-                  </div>
-
-                  <div class="status-buttons">
-                    <button type="button" class="play-gambit" data-item-id="{{_id}}" title="Play Gambit">
-                      <i class="fa-solid fa-play"></i>
-                    </button>
-                  </div>
-                </div>
+              <div class="inventory-bucket-title mg-content" data-bucket-title="gambit-hand" data-bucket="gambit-hand">
+                <span class="item-icon"><i class="fa-solid fa-hand"></i></span>
+                <h2>Hand <span class="inventory-bucket-count">{{gambitCounts.handCount}}</span></h2>
+                <button type="button" class="inventory-bucket-toggle" aria-label="Collapse Hand">
+                  <i class="fa-solid fa-angle-down"></i>
+                </button>
               </div>
-            {{/each}}
+              <div class="inventory-bucket-body gambit-accordion-body">
+                <div class="gambit-hand">
+                  {{#each gambitDrawn}}
+                    <div class="gambit-card drawn" data-source="drawn" draggable="true" data-item-id="{{_id}}">
 
-            {{#if gambitHandControls.length}}
-              <div class="mg-hand-order-panel">
-                <h3 class="mg-content"><i class="fa-solid fa-layer-group"></i> Hand Order</h3>
-
-                <div class="mg-hand-order-list" data-mg-order-list="gambit-hand">
-                  {{#each gambitHandControls as |card|}}
-                    <article class="mg-hand-order-card {{#if card.hidden}}is-muted{{/if}}" data-item-id="{{card.id}}" data-hidden="{{card.hidden}}" draggable="true">
-                      <div class="mg-hand-order-main">
-                        <div class="mg-hand-order-name">{{card.name}}</div>
+                      <div class="gambit-title">
+                        <button type="button" class="post-gambit" data-item-id="{{_id}}" title="Post to Chat">
+                          <i class="fa-solid fa-messages"></i>
+                          {{name}}
+                        </button>
                       </div>
 
-                      <div class="mg-hand-order-actions">
-                        <button type="button"
-                                class="mg-hand-order-eye"
-                                title="{{#if card.hidden}}Show in Hand{{else}}Hide from Hand{{/if}}"
-                                aria-pressed="{{#unless card.hidden}}true{{/unless}}">
-                          {{#if card.hidden}}
-                            <i class="fa-regular fa-eye-slash"></i>
-                          {{else}}
-                            <i class="fa-regular fa-eye"></i>
-                          {{/if}}
-                        </button>
+                      <div class="gambit-wrapper">
+                        <div class="gambit-description">
+                          {{{system.description}}}
+                        </div>
 
-                        <div class="mg-hand-order-grip" aria-hidden="true">
-                          <i class="fa-solid fa-grip-lines"></i>
+                        <div class="status-buttons">
+                          <button type="button" class="play-gambit" data-item-id="{{_id}}" title="Play Gambit">
+                            <i class="fa-solid fa-play"></i>
+                          </button>
                         </div>
                       </div>
-                    </article>
+                    </div>
                   {{/each}}
                 </div>
               </div>
-            {{/if}}
-          </div>
 
-          <!--Gambit Deck-->
-          <section class="mg-deck-builder-panel mg-deck-design-{{gambitDeckDesign}}">
-            <h2 class="gambit-banner">Deck</h2>
+              <div class="inventory-bucket-title mg-content" data-bucket-title="gambit-decks" data-bucket="gambit-decks">
+                <span class="item-icon"><i class="fa-solid fa-cards"></i></span>
+                <h2>Decks <span class="inventory-bucket-count">Deck Slots: {{gambitCounts.deckBuildCount}}/{{gambitCounts.deckSlots}}</span></h2>
+                <button type="button" class="inventory-bucket-toggle" aria-label="Collapse Decks">
+                  <i class="fa-solid fa-angle-down"></i>
+                </button>
+              </div>
+              <div class="inventory-bucket-body gambit-accordion-body">
+                <section class="mg-deck-builder-panel mg-deck-design-{{gambitDeckDesign}}">
+                  <div class="mg-deck-slot-grid">
+                    {{#each gambitDeckCards as |deck|}}
+                      <article class="mg-deck-slot-card {{#if deck.isEmpty}}is-empty{{/if}} {{#if deck.isEquipped}}is-equipped active{{/if}} {{#if deck.isOverBudget}}is-over-budget{{/if}}" data-deck-id="{{deck.id}}" data-deck-slot="{{deck.slot}}">
+                        <div class="mg-deck-card-name">{{deck.name}}</div>
 
-            <span class="mg-deck-slots-label">
-              Deck Slots: {{gambitCounts.deckBuildCount}}/{{gambitCounts.deckSlots}}
-            </span>
+                        <span class="mg-deck-gp-badge"><i class="fa-kit fa-gambit-points"></i> {{deck.gpSpent}}/{{deck.gpMax}}</span>
 
-            <div class="mg-deck-slot-grid">
-              {{#each gambitDeckCards as |deck|}}
-                <article class="mg-deck-slot-card {{#if deck.isEmpty}}is-empty{{/if}} {{#if deck.isEquipped}}is-equipped{{/if}} {{#if deck.isOverBudget}}is-over-budget{{/if}}" data-deck-id="{{deck.id}}" data-deck-slot="{{deck.slot}}">
-                  <div class="mg-deck-card-name">{{deck.name}}</div>
+                        <div class="mg-deck-card-footer">
 
-                  <span class="mg-deck-gp-badge"><i class="fa-kit fa-gambit-points"></i> {{deck.gpSpent}}/{{deck.gpMax}}</span>
+                          {{#if deck.isEmpty}}
+                            <button type="button" class="mg-create-gambit-deck" data-deck-slot="{{deck.slot}}" title="Create Deck">
+                              <i class="fa-solid fa-dice-d20"></i>
+                              <span>Create Deck</span>
+                            </button>
+                          {{else}}
+                            <button type="button" class="mg-equip-gambit-deck" data-deck-id="{{deck.id}}" data-deck-slot="{{deck.slot}}" title="Set Active Deck">
+                              <i class="fa-solid fa-hand"></i>
+                            </button>
 
-                  <div class="mg-deck-card-footer">
-
-                    {{#if deck.isEmpty}}
-                      <button type="button" class="mg-create-gambit-deck" data-deck-slot="{{deck.slot}}" title="Create Deck">
-                        <i class="fa-solid fa-dice-d20"></i>
-                        <span>Create Deck</span>
-                      </button>
-                    {{else}}
-                      <button type="button" class="mg-equip-gambit-deck" data-deck-id="{{deck.id}}" data-deck-slot="{{deck.slot}}" title="Equip Deck">
-                        <i class="fa-solid fa-hand"></i>
-                        <span>{{#if deck.isEquipped}}Equipped{{else}}Equip{{/if}}</span>
-                      </button>
-
-                      <button type="button" class="mg-edit-gambit-deck" data-deck-id="{{deck.id}}" data-deck-slot="{{deck.slot}}" title="Edit Deck">
-                        <i class="fa-solid fa-cards"></i>
-                        <span>Edit Deck</span>
-                      </button>
-                    {{/if}}
+                            <button type="button" class="mg-edit-gambit-deck" data-deck-id="{{deck.id}}" data-deck-slot="{{deck.slot}}" title="Edit Deck">
+                              <i class="fa-solid fa-pencil"></i>
+                            </button>
+                          {{/if}}
+                        </div>
+                      </article>
+                    {{/each}}
                   </div>
-                </article>
-              {{/each}}
-            </div>
-          </section>          
+                </section>
+              </div>
 
-          <div class="gambit-discard">
-            <h2 class="gambit-banner">Discard</h2>
-            {{#each gambitDiscard}}
-              <div class="gambit-card faded" data-source="discard" draggable="false" data-item-id="{{_id}}">
-                <div class="gambit-title">{{name}}</div>
-                <div class="gambit-wrapper">
-                  <div class="gambit-description">
-                    {{{system.description}}}
-                  </div>
+              <div class="inventory-bucket-title mg-content" data-bucket-title="gambit-discard" data-bucket="gambit-discard">
+                <span class="item-icon"><i class="fa-solid fa-skull"></i></span>
+                <h2>Discard <span class="inventory-bucket-count">{{gambitCounts.discardCount}}</span></h2>
+                <button type="button" class="inventory-bucket-toggle" aria-label="Collapse Discard">
+                  <i class="fa-solid fa-angle-down"></i>
+                </button>
+              </div>
+              <div class="inventory-bucket-body gambit-accordion-body">
+                <div class="gambit-discard">
+                  {{#each gambitDiscard}}
+                    <div class="gambit-card faded" data-source="discard" draggable="false" data-item-id="{{_id}}">
+                      <div class="gambit-title">{{name}}</div>
+                      <div class="gambit-wrapper">
+                        <div class="gambit-description">
+                          {{{system.description}}}
+                        </div>
 
-                  <div class="status-buttons">
-                    <button type="button" class="return-gambit-to-hand" data-item-id="{{_id}}" title="Return to Hand">
-                      <i class="fa-solid fa-arrow-rotate-left"></i>
-                      <span>Return to Hand</span>
-                    </button>
+                        <div class="status-buttons">
+                          <button type="button" class="return-gambit-to-hand" data-item-id="{{_id}}" title="Return to Hand">
+                            <i class="fa-solid fa-arrow-rotate-left"></i>
+                            <span>Return to Hand</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  {{/each}}
+                </div>
+              </div>
+
+              <div class="inventory-bucket-title mg-content" data-bucket-title="gambit-hand-order" data-bucket="gambit-hand-order">
+                <span class="item-icon"><i class="fa-solid fa-layer-group"></i></span>
+                <h2>Gambit Hand Order <span class="inventory-bucket-count">{{gambitHandControls.length}}</span></h2>
+                <button type="button" class="inventory-bucket-toggle" aria-label="Collapse Gambit Hand Order">
+                  <i class="fa-solid fa-angle-down"></i>
+                </button>
+              </div>
+              <div class="inventory-bucket-body gambit-accordion-body">
+                <div class="mg-hand-order-panel">
+                  <div class="mg-hand-order-list" data-mg-order-list="gambit-hand">
+                    {{#each gambitHandControls as |card|}}
+                      <article class="mg-hand-order-card {{#if card.hidden}}is-muted{{/if}}" data-item-id="{{card.id}}" data-hidden="{{card.hidden}}" draggable="true">
+                        <div class="mg-hand-order-main">
+                          <div class="mg-hand-order-name">{{card.name}}</div>
+                        </div>
+
+                        <div class="mg-hand-order-actions">
+                          <button type="button"
+                                  class="mg-hand-order-eye"
+                                  title="{{#if card.hidden}}Show in Hand{{else}}Hide from Hand{{/if}}"
+                                  aria-pressed="{{#unless card.hidden}}true{{/unless}}">
+                            {{#if card.hidden}}
+                              <i class="fa-regular fa-eye-slash"></i>
+                            {{else}}
+                              <i class="fa-regular fa-eye"></i>
+                            {{/if}}
+                          </button>
+
+                          <div class="mg-hand-order-grip" aria-hidden="true">
+                            <i class="fa-solid fa-grip-lines"></i>
+                          </div>
+                        </div>
+                      </article>
+                    {{/each}}
                   </div>
                 </div>
               </div>
-            {{/each}}
+
+            </div>
           </div>
         </div>
       </div>

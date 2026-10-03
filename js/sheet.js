@@ -4482,7 +4482,7 @@ _mgOpenSidebarCropper() {
           resolve(value);
         };
         const dialog = new Dialog({
-          title: `Send ${esc(item.name)}`,
+          title: `Send ${item.name}`,
           content: `<div class="mg-crew-sheet"><div class="mg-party-grid mg-trade-recipient-grid">${cards}</div></div>`,
           buttons: {
             cancel: { label: "Cancel", callback: () => finish(null) }
@@ -5057,7 +5057,10 @@ _mgOpenSidebarCropper() {
             body.hidden = false;
             body.style.maxHeight = ""; // let it size naturally for search
           }
-          for (const t of bucketTitles) t.classList.remove("is-collapsed");
+          for (const t of bucketTitles) {
+            t.classList.remove("is-collapsed");
+            t.classList.add("active");
+          }
         }
 
         const titles = $tab.find(".inventory-bucket-title").toArray();
@@ -5168,6 +5171,7 @@ _mgOpenSidebarCropper() {
 
                 if (st.title) {
                   st.title.classList.toggle("is-collapsed", !!st.titleCollapsed);
+                  st.title.classList.toggle("active", !st.titleCollapsed);
                   st.title.style.display = st.titleDisplay || "";
                 }
               }
@@ -5224,8 +5228,8 @@ _mgOpenSidebarCropper() {
         // ------------------------------------------------------------
         {
           const $root = html instanceof jQuery ? html : $(html);
-          const $tab  = $root.find(".tab-inventory");
-          if (!$tab.length) return;
+          const $tabs = $root.find(".tab-inventory, .tab-gambits");
+          if (!$tabs.length) return;
 
           const BUCKET_MS = 500; // keep in sync with your other inventory transitions
 
@@ -5237,7 +5241,10 @@ _mgOpenSidebarCropper() {
             if (!titleEl) return null;
 
             // 1) Prefer an explicit stable key if present
-            const explicit = titleEl.dataset?.bucketKey || titleEl.getAttribute?.("data-bucket-key");
+            const explicit = titleEl.dataset?.bucketKey
+              || titleEl.getAttribute?.("data-bucket-key")
+              || titleEl.dataset?.bucket
+              || titleEl.getAttribute?.("data-bucket");
             if (explicit) {
               const k = String(explicit).trim().toLowerCase();
               titleEl.dataset.bucketKey = k; // lock it in for future calls
@@ -5275,42 +5282,44 @@ _mgOpenSidebarCropper() {
 
           // Turn: [Title][Cards...][Next Title] into [Title][Body{Cards...}][Next Title]
           const ensureBucketBodies = () => {
-            const root = $tab[0];
-            if (!root) return;
+            const tabRoots = $tabs.toArray();
 
-            const titles = Array.from(root.querySelectorAll(".inventory-bucket-title"));
-            for (const title of titles) {
-              let next = title.nextElementSibling;
+            for (const root of tabRoots) {
+              const titles = Array.from(root.querySelectorAll(".inventory-bucket-title"));
+              for (const title of titles) {
+                let next = title.nextElementSibling;
 
-              // already normalized
-              if (next && next.classList?.contains("inventory-bucket-body")) continue;
+                // already normalized
+                if (next && next.classList?.contains("inventory-bucket-body")) continue;
 
-              const body = document.createElement("div");
+                const body = document.createElement("div");
 
-              // IMPORTANT: keep your existing grid layout so cards don’t get weird
-              body.classList.add("inventory-bucket-body", "inventory-grid");
-              body.style.width = "100%";
-              body.style.overflow = "hidden";
+                // IMPORTANT: keep your existing grid layout so cards don’t get weird
+                body.classList.add("inventory-bucket-body", "inventory-grid");
+                body.style.width = "100%";
+                body.style.overflow = "hidden";
 
-              title.insertAdjacentElement("afterend", body);
+                title.insertAdjacentElement("afterend", body);
 
-              // Move everything until the next title into the body
-              while (next && !next.classList.contains("inventory-bucket-title")) {
-                const move = next;
-                next = next.nextElementSibling;
-                body.appendChild(move);
+                // Move everything until the next title into the body
+                while (next && !next.classList.contains("inventory-bucket-title")) {
+                  const move = next;
+                  next = next.nextElementSibling;
+                  body.appendChild(move);
+                }
               }
             }
           };
 
           const setChevronState = (titleEl, collapsed) => {
             titleEl.classList.toggle("is-collapsed", collapsed);
+            titleEl.classList.toggle("active", !collapsed);
             const icon = titleEl.querySelector(".inventory-bucket-toggle i");
             if (icon) icon.classList.toggle("rotated", !collapsed); // rotated = expanded
           };
 
           const bucketHasItems = (body) =>
-            !!body?.querySelector?.(".inventory-card, .inventory-item");
+            !!body?.querySelector?.(".inventory-card, .inventory-item, .gambit-card, .mg-deck-slot-card, .mg-hand-order-card");
 
           // Smooth max-height animation + stable end state (hidden=true when collapsed)
           const animateBucket = (body, expand) => {
@@ -5320,6 +5329,7 @@ _mgOpenSidebarCropper() {
               // prevent double clicks during animation
               if (body.dataset.animating === "1") return resolve();
               body.dataset.animating = "1";
+              body.classList.toggle("is-bucket-animating", true);
 
               const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
               const ms = reduce ? 0 : BUCKET_MS;
@@ -5331,6 +5341,7 @@ _mgOpenSidebarCropper() {
                 body.style.transition = "";
                 body.style.overflow = "";
                 body.dataset.animating = "0";
+                body.classList.toggle("is-bucket-animating", false);
                 resolve();
               };
 
@@ -5389,7 +5400,7 @@ _mgOpenSidebarCropper() {
 
           {
             const state = readState();
-            const titles = Array.from($tab[0].querySelectorAll(".inventory-bucket-title"));
+            const titles = $tabs.toArray().flatMap(tab => Array.from(tab.querySelectorAll(".inventory-bucket-title")));
 
             for (const title of titles) {
               const body = title.nextElementSibling;
@@ -5411,12 +5422,15 @@ _mgOpenSidebarCropper() {
           // Click handler
           $root
             .off("click.mgInvBucketToggle")
-            .on("click.mgInvBucketToggle", ".tab-inventory .inventory-bucket-toggle", async (ev) => {
+            .on("click.mgInvBucketToggle", ".tab-inventory .inventory-bucket-toggle, .tab-gambits .inventory-bucket-toggle", async (ev) => {
               ev.preventDefault();
               ev.stopPropagation();
 
               // Ignore toggles while searching (your search mode hides titles anyway)
-              const q = ($tab.find(".item-search")[0]?.value || "").trim();
+              const tab = ev.currentTarget.closest(".tab-inventory, .tab-gambits");
+              const q = tab?.classList?.contains("tab-inventory")
+                ? (tab.querySelector(".item-search")?.value || "").trim()
+                : "";
               if (q.length) return;
 
               const title = ev.currentTarget.closest(".inventory-bucket-title");
