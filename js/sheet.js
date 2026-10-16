@@ -497,12 +497,14 @@ export class MidnightGambitActorSheet extends ActorSheet {
           hasCapacity: mc > 0 || sc > 0,
           mortal: {
             hasCapacity: mc > 0,
+            needsRepair: ["armor", "misc"].includes(item.type) && mc > 0 && remainingMortal < mc,
             remaining: remainingMortal,
             max: mc,
             label: `${remainingMortal}/${mc}`
           },
           soul: {
             hasCapacity: sc > 0,
+            needsRepair: ["armor", "misc"].includes(item.type) && sc > 0 && remainingSoul < sc,
             remaining: remainingSoul,
             max: sc,
             label: `${remainingSoul}/${sc}`

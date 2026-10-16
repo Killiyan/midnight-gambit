@@ -927,6 +927,9 @@
                               {{#if item.system.capacityDisplay.mortal.hasCapacity}}
                                 <p class="strain-bubble" data-capacity-type="mortal">
                                   <span class="capacity-kind">MC</span>
+                                  {{#if item.system.capacityDisplay.mortal.needsRepair}}
+                                    <span class="mg-strain-warning-badge mg-repair-warning" data-tooltip="Repair available" aria-label="Repair available"><i class="fa-solid fa-hammer-crash"></i></span>
+                                  {{/if}}                                  
                                   <span class="remaining-number">{{item.system.capacityDisplay.mortal.label}}</span>
                                 </p>
                               {{/if}}
@@ -934,6 +937,9 @@
                               {{#if item.system.capacityDisplay.soul.hasCapacity}}
                                 <p class="strain-bubble" data-capacity-type="soul">
                                   <span class="capacity-kind">SC</span>
+                                  {{#if item.system.capacityDisplay.soul.needsRepair}}
+                                    <span class="mg-strain-warning-badge mg-repair-warning" data-tooltip="Repair available" aria-label="Repair available"><i class="fa-solid fa-hammer-crash"></i></span>
+                                  {{/if}}                                  
                                   <span class="remaining-number">{{item.system.capacityDisplay.soul.label}}</span>
                                 </p>
                               {{/if}}
@@ -1222,12 +1228,18 @@
                             {{#if item.system.capacityDisplay.mortal.hasCapacity}}
                               <p class="strain-bubble" data-capacity-type="mortal">
                                 <span class="capacity-kind">MC</span>
+                                {{#if item.system.capacityDisplay.mortal.needsRepair}}
+                                  <span class="mg-strain-warning-badge mg-repair-warning" data-tooltip="Repair available" aria-label="Repair available"><i class="fa-solid fa-hammer-crash"></i></span>
+                                {{/if}}                                
                                 <span class="remaining-number">{{item.system.capacityDisplay.mortal.label}}</span>
                               </p>
                             {{/if}}
                             {{#if item.system.capacityDisplay.soul.hasCapacity}}
                               <p class="strain-bubble" data-capacity-type="soul">
                                 <span class="capacity-kind">SC</span>
+                                {{#if item.system.capacityDisplay.soul.needsRepair}}
+                                  <span class="mg-strain-warning-badge mg-repair-warning" data-tooltip="Repair available" aria-label="Repair available"><i class="fa-solid fa-hammer-crash"></i></span>
+                                {{/if}}                                
                                 <span class="remaining-number">{{item.system.capacityDisplay.soul.label}}</span>
                               </p>
                             {{/if}}
@@ -1411,6 +1423,9 @@
                               {{#if item.system.capacityDisplay.mortal.hasCapacity}}
                                 <p class="strain-bubble" data-capacity-type="mortal">
                                   <span class="capacity-kind">MC</span>
+                                  {{#if item.system.capacityDisplay.mortal.needsRepair}}
+                                    <span class="mg-strain-warning-badge mg-repair-warning" data-tooltip="Repair available" aria-label="Repair available"><i class="fa-solid fa-hammer-crash"></i></span>
+                                  {{/if}}                                  
                                   <span class="remaining-number">{{item.system.capacityDisplay.mortal.label}}</span>
                                 </p>
                               {{/if}}
@@ -1418,6 +1433,9 @@
                               {{#if item.system.capacityDisplay.soul.hasCapacity}}
                                 <p class="strain-bubble" data-capacity-type="soul">
                                   <span class="capacity-kind">SC</span>
+                                  {{#if item.system.capacityDisplay.soul.needsRepair}}
+                                    <span class="mg-strain-warning-badge mg-repair-warning" data-tooltip="Repair available" aria-label="Repair available"><i class="fa-solid fa-hammer-crash"></i></span>
+                                  {{/if}}                                  
                                   <span class="remaining-number">{{item.system.capacityDisplay.soul.label}}</span>
                                 </p>
                               {{/if}}

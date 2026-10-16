@@ -42,7 +42,8 @@
 			"system": {
 				"npc": {
 				"signatureName": "",
-				"signatureText": ""
+				"signatureText": "",
+				"baseCapacity": { "mortal": null, "soul": null }
 				},
 				"baseAttributes": {
 				"tenacity": 0,

@@ -2879,7 +2879,9 @@ ol li {
         }
 
         .bubble-wrapper {
-          gap: 0;
+            gap: 0;
+            position: relative;
+          }          
 
           .strain-bubble {
             background: $mg-blue-4;
@@ -2900,7 +2902,20 @@ ol li {
             &:last-of-type {
               border-right: 0;
             }
-          }          
+
+          .mg-repair-warning {
+              width: 1.25rem;
+              height: 1.25rem;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              z-index: 2;
+
+              i { 
+                font-size: .875rem; 
+                color: $mg-alert-2; 
+              }
+          }            
         }
 
         .capacity-kind {
@@ -3180,6 +3195,7 @@ ol li {
         bottom: 0;
         left: 0;
         background: $mg-blue-main;
+        z-index: 2;
         border-radius: 0 0 .5rem .5rem;
         border: 0;
 
@@ -3441,10 +3457,6 @@ ol li {
           i {
             color: $mg-blue-2;
             opacity: .6;
-          }
-
-          &:first-of-type {
-            border-right: 2px solid $mg-blue-main-2;
           }
 
           &:hover,

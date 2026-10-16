@@ -828,11 +828,11 @@ body.mg-hud-enabled {
 			}
 
 			&.is-open {
-				.mg-slide-toggle {
+				> .mg-slide-toggle {
 					border-color: $mg-blue-3;
 				}
 
-				.mg-slide-toggle-chevron {
+				> .mg-slide-toggle .mg-slide-toggle-chevron {
 					transform: rotate(180deg);
 				}
 			}
@@ -6294,8 +6294,8 @@ body:not(.mg-hud-enabled) #mg-ui-root {
 	font-size: 1.15rem !important;
 }
 
-.mg-slide-toggle-wrap.is-open .mg-slide-toggle-chevron,
-.mg-left-accordion.is-open .mg-left-accordion-chevron {
+.mg-slide-toggle-wrap.is-open > .mg-slide-toggle .mg-slide-toggle-chevron,
+.mg-left-accordion.is-open > .mg-left-accordion-toggle .mg-left-accordion-chevron {
 	transform: rotate(180deg);
 }
 

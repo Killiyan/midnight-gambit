@@ -53,6 +53,7 @@ export class MidnightGambitNpcSheet extends ActorSheet {
     const context = await super.getData(options);
     context.actor = this.actor;
     context.system = this.actor.system ?? {};
+    context.canRecoverCapacity = this._mgCanRecoverCapacity();
     context.actorDisplayImg = mgGetActorPlacementImage(this.actor, "profile");
 
     // Keep the same attribute ordering as the player sheet uses
@@ -474,6 +475,26 @@ export class MidnightGambitNpcSheet extends ActorSheet {
       game.user.isGM;
 
     if (!isOwner) return;
+
+    html.find('input[name^="system.npc.baseCapacity."]').on("input", () => {
+      html.find(".mg-npc-recover").prop("disabled", !this._mgCanRecoverCapacity(this._mgReadBaseCapacity()));
+    });
+
+    html.find(".mg-npc-recover").on("click", async (event) => {
+      event.preventDefault();
+      const base = this._mgReadBaseCapacity();
+      if (!this.isEditable || !this._mgCanRecoverCapacity(base)) return;
+      const updates = {};
+      for (const type of ["mortal", "soul"]) {
+        updates[`system.npc.baseCapacity.${type}`] = Number(base[type]);
+        updates[`system.strain.${type}`] = 0;
+        updates[`system.strain.${type} capacity`] = Number(base[type]);
+        updates[`system.strain.manualOverride.${type} capacity`] = true;
+        updates[`system.strain.tempBonus.${type}`] = 0;
+        updates[`system.strain.maxCapacity.${type}`] = Number(base[type]);
+      }
+      await this._mgQueueCapacityUpdate(updates);
+    });
 
     // Settings: Change Profile Image
     html.off("click.mgPickAvatarNpc").on("click.mgPickAvatarNpc", ".mg-change-profile-image", async (ev) => {
@@ -2378,7 +2399,54 @@ export class MidnightGambitNpcSheet extends ActorSheet {
   }
 
   async _updateObject(event, formData) {
-    // Nothing fancy: Foundry will update system.npc.signatureName / signatureText directly from input names
+    for (const type of ["mortal", "soul"]) {
+      const path = `system.npc.baseCapacity.${type}`;
+      if (!(path in formData)) continue;
+      const raw = this.form?.elements.namedItem(path)?.value ?? formData[path];
+      if (raw == null || String(raw).trim() === "") {
+        formData[path] = null;
+      } else {
+        const value = Number(raw);
+        if (!Number.isSafeInteger(value) || value < 0) return;
+        formData[path] = value;
+      }
+    }
     return super._updateObject(event, formData);
+  }
+
+  _mgReadBaseCapacity() {
+    return Object.fromEntries(["mortal", "soul"].map(type => [
+      type,
+      this.form?.elements.namedItem(`system.npc.baseCapacity.${type}`)?.value
+        ?? this.actor.system?.npc?.baseCapacity?.[type]
+    ]));
+  }
+
+  _mgQueueCapacityUpdate(updates, options = {}) {
+    // Finish a pending base edit before applying recovery, without replacing the
+    // clicked button between the input's blur and the button's click.
+    const pending = this._mgCapacityUpdate ?? Promise.resolve();
+    this._mgCapacityUpdate = pending.catch(() => {}).then(() => this.actor.update(updates, options));
+    return this._mgCapacityUpdate;
+  }
+
+  async _onChangeInput(event) {
+    const input = event.target;
+    if (["system.npc.baseCapacity.mortal", "system.npc.baseCapacity.soul"].includes(input?.name)) {
+      if (!this.isEditable) return;
+      const raw = input.value.trim();
+      const value = raw === "" ? null : Number(raw);
+      if (value !== null && (!Number.isSafeInteger(value) || value < 0)) return;
+      return this._mgQueueCapacityUpdate({ [input.name]: value }, { render: false });
+    }
+    return super._onChangeInput(event);
+  }
+
+  _mgCanRecoverCapacity(base = this.actor.system?.npc?.baseCapacity) {
+    return ["mortal", "soul"].every(type => {
+      const value = base?.[type];
+      return value != null && String(value).trim() !== ""
+        && Number.isSafeInteger(Number(value)) && Number(value) >= 0;
+    });
   }
 }

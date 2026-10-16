@@ -71,7 +71,8 @@
 		border-right: 0;
 		border-top: 0;
         padding: 1.25rem .5rem 1.25rem 1rem;
-        border: 0;		
+        border: 0;
+		word-break: break-all;
 
 		.item-type {
 			display: flex;

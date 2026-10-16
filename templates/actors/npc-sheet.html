@@ -417,6 +417,29 @@
       <!-- SETTINGS TAB (mirrors your character sheet settings structure) -->
       <div class="tab settings-tab" data-group="main" data-tab="settings">
 
+        <div class="actor-settings">
+          <section class="mg-setting-section mg-npc-base-capacity">
+            <h3>Base Capacity</h3>
+            <div class="wrapper">
+              <div class="mg-settings-grid">
+                <div class="mg-setting-card">
+                  <div class="mg-setting-row">
+                    <label for="npc-base-mc-{{actor._id}}"><i class="fa-kit fa-mortal-strain"></i> Base MC</label>
+                    <input id="npc-base-mc-{{actor._id}}" type="number" name="system.npc.baseCapacity.mortal" min="0" step="1" value="{{system.npc.baseCapacity.mortal}}">
+                  </div>
+                </div>
+                <div class="mg-setting-card">
+                  <div class="mg-setting-row">
+                    <label for="npc-base-sc-{{actor._id}}"><i class="fa-kit fa-soul-strain"></i> Base SC</label>
+                    <input id="npc-base-sc-{{actor._id}}" type="number" name="system.npc.baseCapacity.soul" min="0" step="1" value="{{system.npc.baseCapacity.soul}}">
+                  </div>
+                </div>
+              </div>
+              <button type="button" class="mg-npc-recover" {{#unless canRecoverCapacity}}disabled{{/unless}}>Recover</button>
+            </div>
+          </section>
+        </div>
+
         <div class="mg-content">
           <h2>Profile Image</h2>
 
