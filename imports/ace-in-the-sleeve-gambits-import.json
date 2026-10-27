@@ -5,6 +5,7 @@
     "img": "systems/midnight-gambit/assets/images/gambit-ace.png",
     "system": {
       "description": "You vanish in a flash or flourish, leaving behind a decoy, illusion, or sound. Instant escape or switcheroo.",
+      "teaser": "Vanish behind a decoy",
       "tier": "ace",
       "gambitType": "infiltration",
       "gpCost": 3,
@@ -18,6 +19,7 @@
     "img": "systems/midnight-gambit/assets/images/gambit-ace.png",
     "system": {
       "description": "Retcon a small but crucial detail of the scene. A door was unlocked. You had the item all along. That guard? Paid off.",
+      "teaser": "Rewrite a crucial scene detail",
       "tier": "ace",
       "gambitType": "infiltration",
       "gpCost": 3,
@@ -31,6 +33,7 @@
     "img": "systems/midnight-gambit/assets/images/gambit-ace.png",
     "system": {
       "description": "Instantly unlock any mundane lock or bypass a single piece of security tech or magical barrier.",
+      "teaser": "Bypass a lock or barrier",
       "tier": "ace",
       "gambitType": "infiltration",
       "gpCost": 3,
@@ -44,6 +47,7 @@
     "img": "systems/midnight-gambit/assets/images/gambit-ace.png",
     "system": {
       "description": "Immediately remove an enemy’s tactical advantage—cover crumbles, the floor collapses, the power cuts. The terrain shifts in your favor.",
+      "teaser": "Destroy an enemy advantage",
       "tier": "ace",
       "gambitType": "combat",
       "gpCost": 3,
@@ -57,6 +61,7 @@
     "img": "systems/midnight-gambit/assets/images/gambit-ace.png",
     "system": {
       "description": "Once per Job, declare you placed a marker or escape plan earlier — a grappling hook, unlocked grate, prepped ladder, etc.",
+      "teaser": "Reveal a prepared escape route",
       "tier": "ace",
       "gambitType": "support",
       "gpCost": 3,
@@ -70,6 +75,7 @@
     "img": "systems/midnight-gambit/assets/images/gambit-ace.png",
     "system": {
       "description": "Automatically dodge a single attack or trap. Works even if the hit would’ve dropped you.",
+      "teaser": "Automatically dodge one attack or trap",
       "tier": "ace",
       "gambitType": "combat",
       "gpCost": 3,
@@ -83,6 +89,7 @@
     "img": "systems/midnight-gambit/assets/images/gambit-ace.png",
     "system": {
       "description": "Once per Job, instantly flash back to reveal a minor prep action you took before this scene. Examples: stealing a key, bribing a guard, planting a tool, etc.",
+      "teaser": "Reveal an earlier preparation",
       "tier": "ace",
       "gambitType": "infiltration",
       "gpCost": 3,
@@ -96,6 +103,7 @@
     "img": "systems/midnight-gambit/assets/images/gambit-ace.png",
     "system": {
       "description": "Reveal that an NPC in the scene is someone you know well enough to call on. They will help you once in a meaningful way, but doing so exposes them, costs them, or creates a future obligation.",
+      "teaser": "Call on a familiar NPC",
       "tier": "ace",
       "gambitType": "social",
       "gpCost": 3,
@@ -109,6 +117,7 @@
     "img": "systems/midnight-gambit/assets/images/gambit-ace.png",
     "system": {
       "description": "Choose one sealed, guarded, blocked, or forbidden point of access. Reveal why it can be opened right now: a copied key, old code, loose hinge, bribed attendant, forgotten ritual, maintenance flaw, or insider mark.",
+      "teaser": "Open a forbidden entrance",
       "tier": "ace",
       "gambitType": "infiltration",
       "gpCost": 3,
@@ -122,6 +131,7 @@
     "img": "systems/midnight-gambit/assets/images/gambit-ace.png",
     "system": {
       "description": "Reveal that you planted or arranged a hidden cache earlier. It contains one significant item, message, tool, weapon, disguise, document, or resource needed for the current problem.",
+      "teaser": "Reveal a hidden supply cache",
       "tier": "ace",
       "gambitType": "support",
       "gpCost": 3,
@@ -135,6 +145,7 @@
     "img": "systems/midnight-gambit/assets/images/gambit-ace.png",
     "system": {
       "description": "When you are struck, trapped, or restrained, reveal that the impact also broke something useful: a wall, chain, seal, door, machine, spell circle, window, floorboard, or enemy formation. You suffer the consequence, but create an immediate way forward.",
+      "teaser": "Turn a hit into an escape",
       "tier": "ace",
       "gambitType": "combat",
       "gpCost": 3,
@@ -148,6 +159,7 @@
     "img": "systems/midnight-gambit/assets/images/gambit-ace.png",
     "system": {
       "description": "Remove one ongoing control, restraint, charm, or binding from yourself or one ally. Describe the sharp, risky, or clever way you sever it.",
+      "teaser": "Sever a control or binding",
       "tier": "ace",
       "gambitType": "support",
       "gpCost": 3,
@@ -161,6 +173,7 @@
     "img": "systems/midnight-gambit/assets/images/gambit-ace.png",
     "system": {
       "description": "Reveal why the crowd, witnesses, servants, guards, locals, or onlookers turn against the opposition for a moment. They block, shout, misdirect, shield, or overwhelm just long enough to change the scene.",
+      "teaser": "Turn the crowd against opposition",
       "tier": "ace",
       "gambitType": "social",
       "gpCost": 3,
@@ -174,6 +187,7 @@
     "img": "systems/midnight-gambit/assets/images/gambit-ace.png",
     "system": {
       "description": "Before or after making an attack, declare the real target was not the enemy’s body, but something they depend on: a weapon, focus, engine, footing, armor strap, spell line, mount, exit, or source of command. On a hit, disable or remove that advantage.",
+      "teaser": "On a hit, disable something the enemy depends on",
       "tier": "ace",
       "gambitType": "combat",
       "gpCost": 3,
@@ -187,6 +201,7 @@
     "img": "systems/midnight-gambit/assets/images/gambit-ace.png",
     "system": {
       "description": "Reveal the flaw in a repeating danger: patrol, ritual, beast behavior, trap cycle, storm pulse, machine rhythm, combat style, or social routine. For the rest of the scene, you and your allies can act against it with Edge once each.",
+      "teaser": "Reveal a danger pattern; everyone gains Edge once",
       "tier": "ace",
       "gambitType": "support",
       "gpCost": 3,
@@ -200,6 +215,7 @@
     "img": "systems/midnight-gambit/assets/images/gambit-ace.png",
     "system": {
       "description": "Reveal a second identity, disguise, alias, uniform, or social role prepared for this exact kind of trouble. You may immediately escape suspicion, shift blame, or enter a new social position in the scene.",
+      "teaser": "Reveal a prepared second identity",
       "tier": "ace",
       "gambitType": "infiltration",
       "gpCost": 3,
@@ -213,6 +229,7 @@
     "img": "systems/midnight-gambit/assets/images/gambit-ace.png",
     "system": {
       "description": "Pause one major threat long enough for the crew to take one round of action.",
+      "teaser": "Delay a major threat for one round",
       "tier": "ace",
       "gambitType": "support",
       "gpCost": 3,
@@ -226,6 +243,7 @@
     "img": "systems/midnight-gambit/assets/images/gambit-ace.png",
     "system": {
       "description": "When an ally would suffer a major consequence, reveal how you intercept, redirect, substitute, or absorb it. You take the consequence in their place, but reduce its severity by one step or create an opening from the sacrifice.",
+      "teaser": "Intercept an ally's consequence and soften its impact",
       "tier": "ace",
       "gambitType": "support",
       "gpCost": 3,
@@ -239,6 +257,7 @@
     "img": "systems/midnight-gambit/assets/images/gambit-ace.png",
     "system": {
       "description": "Reveal a dangerous old path. It bypasses one travel obstacle.",
+      "teaser": "Bypass a travel obstacle",
       "tier": "ace",
       "gambitType": "support",
       "gpCost": 3,
@@ -252,6 +271,7 @@
     "img": "systems/midnight-gambit/assets/images/gambit-ace.png",
     "system": {
       "description": "When an enemy, or hazard closes in, reveal why their attention is fixed in the wrong place. They commit to the mistake before they realize the truth.",
+      "teaser": "Send danger toward the wrong target",
       "tier": "ace",
       "gambitType": "combat",
       "gpCost": 3,
@@ -265,6 +285,7 @@
     "img": "systems/midnight-gambit/assets/images/gambit-ace.png",
     "system": {
       "description": "Call in a serious favor from an NPC, faction, spirit, contact, rival, or old friend. They provide a major piece of help right now, but afterward, they name what you owe.",
+      "teaser": "Call in a serious favor",
       "tier": "ace",
       "gambitType": "social",
       "gpCost": 3,
@@ -278,6 +299,7 @@
     "img": "systems/midnight-gambit/assets/images/gambit-ace.png",
     "system": {
       "description": "Reveal the one detail everyone else missed: The GM tells you what it is.",
+      "teaser": "Discover the overlooked detail",
       "tier": "ace",
       "gambitType": "infiltration",
       "gpCost": 3,
@@ -291,6 +313,7 @@
     "img": "systems/midnight-gambit/assets/images/gambit-ace.png",
     "system": {
       "description": "When the crew has gathered clues but cannot connect them, reveal the pattern that links them. Ask the GM what one assumption the crew has wrong.",
+      "teaser": "Connect clues and question assumptions",
       "tier": "ace",
       "gambitType": "infiltration",
       "gpCost": 3,
@@ -304,6 +327,7 @@
     "img": "systems/midnight-gambit/assets/images/gambit-ace.png",
     "system": {
       "description": "Choose one person, object, clue, or location tied to the current problem. Reveal the next place, person, or sign it points toward.",
+      "teaser": "Find the next lead",
       "tier": "ace",
       "gambitType": "infiltration",
       "gpCost": 3,
@@ -317,6 +341,7 @@
     "img": "systems/midnight-gambit/assets/images/gambit-ace.png",
     "system": {
       "description": "Reveal why the crew can pass through a hostile area without immediately triggering its worst danger: old markings, local custom, timing, scent masking, terrain knowledge, or a hidden rhythm. The danger remains, but it does not strike first.",
+      "teaser": "Pass before danger strikes",
       "tier": "ace",
       "gambitType": "infiltration",
       "gpCost": 3,
@@ -330,6 +355,7 @@
     "img": "systems/midnight-gambit/assets/images/gambit-ace.png",
     "system": {
       "description": "Reveal a place sturdy enough to survive the current danger. The crew can regroup and clear Track Strain.",
+      "teaser": "Shelter and clear Track Strain",
       "tier": "ace",
       "gambitType": "support",
       "gpCost": 3,

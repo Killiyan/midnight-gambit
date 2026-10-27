@@ -148,6 +148,101 @@ body {
 ----------------------------------------------------------------------*/
 body.mg-hud-enabled {
 
+	/* Notification Overrides
+	----------------------------------------------------------------------*/
+	#notifications {
+		// Sidebar width + its outer margin + a gap between chat and popups.
+		--mg-notification-right: calc(var(--sidebar-width, 300px) + 6rem);
+		position: fixed;
+		top: 1rem;
+		left: auto;
+		right: var(--mg-notification-right);
+		width: min(22rem, calc(100vw - var(--mg-notification-right) - 1rem));
+		max-height: calc(100vh - 2rem);
+		max-height: calc(100dvh - 2rem);
+		margin: 0;
+		padding: 0;
+		box-sizing: border-box;
+		display: flex;
+		flex-direction: column;
+		align-items: stretch;
+		gap: .5rem;
+		overflow-y: auto;
+		overflow-x: hidden;
+
+		.notification {
+			width: 100%;
+			min-width: 0;
+			box-sizing: border-box;
+			margin: 0;
+			flex-shrink: 0;
+			overflow-wrap: anywhere;
+			box-shadow: none;
+			background: rgba($mg-blue-4, .7);
+			color: $mg-blue-1;
+			@include mg-border();
+			position: relative;
+			overflow: hidden;
+			padding: 1rem 2.5rem;
+			transition: color .5s ease, background .5s ease, transform .5s ease;
+
+			&:hover {
+				background: $mg-blue-6;
+				color: $mg-green;
+				transform: scale(.99);
+			}
+
+			.close {
+				float: none;
+				position: absolute;
+				right: .4rem;
+				top: .4rem;
+			}
+
+			&:before {
+				color: $mg-blue-5;
+				position: absolute;
+				left: .5rem;
+				z-index: 2;
+				text-shadow: none;
+				margin-right: 1.5rem;
+			}
+
+			&:after {
+				position: absolute;
+				left: 0;
+				top: 0;
+				width: 8.5%;
+				height: 100%;
+				content: '';
+				z-index: 1;
+				opacity: 1;
+			}
+
+			&.error {
+				&:after {
+					background: $mg-alert;				
+				}
+			}
+
+			&.warning {
+				&:after {
+					background: $mg-ivory;		
+				}
+			}
+			
+			&.info {
+				&:after {
+					background: $mg-blue-2;
+				}
+			}				
+		}
+	}
+
+	&.mg-right-sidebar-collapsed #notifications {
+		--mg-notification-right: 4rem;
+	}
+
 	/* Left canvas controls */
 	#controls {
 		opacity: 0;
@@ -3376,6 +3471,7 @@ body.mg-hud-enabled {
 
 					button {
 						border-radius: 0;
+						margin: 0;
 						height: 100%;
 						width: 100%;
 					}
@@ -3500,16 +3596,16 @@ body.mg-hud-enabled {
 								}
 							}
 						}
-					}					
-				}				
 
-				.mg-playlist-repeat-control.is-active {
-					color: $mg-green;
+						.mg-playlist-repeat-control.is-active {
+							color: $mg-green;
 
-					i {
-						color: $mg-green;
-					}
-				}				
+							i {
+								color: $mg-green;
+							}
+						}				
+					}			
+				}							
 			}
 		}
 
@@ -5603,6 +5699,29 @@ body:not(.mg-hud-enabled) #mg-ui-root {
 	gap: .5rem;
 }
 
+/* Adding Modal Padding / Styling
+----------------------------------------------------------------------*/
+.sheet {
+	.window-content {
+		form {
+
+			.form-group .form-fields button {
+				i {
+					color: $mg-blue-2;
+					margin: 0;
+				}
+
+				&:hover,
+				&:focus {
+					i {
+						color: $mg-green;
+					}
+				}
+			}
+		}
+	}
+}
+
 /* Foundry Override Styling
 ----------------------------------------------------------------------*/
 
@@ -6182,6 +6301,45 @@ body:not(.mg-hud-enabled) #mg-ui-root {
 
 	button[type="submit"] {
 		margin-top: 2.125rem;
+		background: $mg-blue-main;
+		border: 2px solid $mg-blue-main-2;
+
+		i {
+			color: $mg-blue-2;
+		}
+	}
+}
+
+/* Small Playlist Modal tweaks
+----------------------------------------------------------------------*/
+
+.sheet.playlist-edit .window-content form {
+	padding: 1.125rem;
+	display: flex;
+	flex-direction: column;
+	gap: .5rem;
+
+	label {
+		font-size: .875rem;
+	}
+
+	.form-group {
+		display: grid;
+		grid-template-columns: 1fr;
+
+		.form-fields {
+			justify-content: flex-start;
+		}
+	}
+
+	.mg-playlist-config-image {
+		flex-direction: column;
+		grid-area: .5rem;
+		align-items: flex-start;
+
+		.hint {
+			flex: 0;
+		}
 	}
 }
 

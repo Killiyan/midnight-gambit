@@ -5,6 +5,7 @@
     "img": "systems/midnight-gambit/assets/images/gambit-trick-deck.png",
     "system": {
       "description": "Invoke a powerful name (real or forged) to gain instant audience, delay violence, or stop someone in their tracks.",
+      "teaser": "Invoke a powerful name",
       "tier": "trick-deck",
       "gambitType": "social",
       "gpCost": 2,
@@ -18,6 +19,7 @@
     "img": "systems/midnight-gambit/assets/images/gambit-trick-deck.png",
     "system": {
       "description": "Reveal that you wanted to get caught. You gain leverage: maybe they say something they shouldn’t, or you escape with key info.",
+      "teaser": "Turn getting caught into leverage",
       "tier": "trick-deck",
       "gambitType": "social",
       "gpCost": 2,
@@ -31,6 +33,7 @@
     "img": "systems/midnight-gambit/assets/images/gambit-trick-deck.png",
     "system": {
       "description": "Disable or jam any form of communication, surveillance, or alarm system for a short time. Security loses track.",
+      "teaser": "Jam communication or surveillance",
       "tier": "trick-deck",
       "gambitType": "infiltration",
       "gpCost": 2,
@@ -44,6 +47,7 @@
     "img": "systems/midnight-gambit/assets/images/gambit-trick-deck.png",
     "system": {
       "description": "Redirect suspicion to someone else in the scene. Guards, bystanders, or enemies assume they’re the culprit for a brief moment.",
+      "teaser": "Redirect suspicion to someone else",
       "tier": "trick-deck",
       "gambitType": "social",
       "gpCost": 2,
@@ -57,6 +61,7 @@
     "img": "systems/midnight-gambit/assets/images/gambit-trick-deck.png",
     "system": {
       "description": "Retroactively declare you swapped or planted an item earlier.",
+      "teaser": "Reveal an earlier item swap",
       "tier": "trick-deck",
       "gambitType": "infiltration",
       "gpCost": 2,
@@ -70,6 +75,7 @@
     "img": "systems/midnight-gambit/assets/images/gambit-trick-deck.png",
     "system": {
       "description": "Reveal that the obvious obstacle is not the only thing that matters. The GM tells you one related pressure, weak point, or opportunity that was not obvious at first glance.",
+      "teaser": "Discover a related weak point",
       "tier": "trick-deck",
       "gambitType": "infiltration",
       "gpCost": 2,
@@ -83,6 +89,7 @@
     "img": "systems/midnight-gambit/assets/images/gambit-trick-deck.png",
     "system": {
       "description": "Reveal that you heard a rumor about this place, person, creature, faction, or danger. Ask the GM whether it is mostly true, partly true, or dangerously wrong.",
+      "teaser": "Check a useful rumor",
       "tier": "trick-deck",
       "gambitType": "infiltration",
       "gpCost": 2,
@@ -96,6 +103,7 @@
     "img": "systems/midnight-gambit/assets/images/gambit-trick-deck.png",
     "system": {
       "description": "Reveal that someone present knows you, respects you, fears you, or owes you a minor favor. They will help briefly, but not risk everything.",
+      "teaser": "Get brief help from a familiar NPC",
       "tier": "trick-deck",
       "gambitType": "social",
       "gpCost": 2,
@@ -109,6 +117,7 @@
     "img": "systems/midnight-gambit/assets/images/gambit-trick-deck.png",
     "system": {
       "description": "Notice what someone in the scene cannot afford to lose: reputation, time, secrecy, safety, money, status, or control. Gain Edge when you press on it.",
+      "teaser": "Press a vulnerability with Edge",
       "tier": "trick-deck",
       "gambitType": "social",
       "gpCost": 2,
@@ -122,6 +131,7 @@
     "img": "systems/midnight-gambit/assets/images/gambit-trick-deck.png",
     "system": {
       "description": "Reveal that the crowd, bystanders, servants, guards, or witnesses are not fully loyal to the opposition. They hesitate, whisper, misdirect, or fail to help for a moment.",
+      "teaser": "Make the opposing crowd hesitate",
       "tier": "trick-deck",
       "gambitType": "social",
       "gpCost": 2,
@@ -135,6 +145,7 @@
     "img": "systems/midnight-gambit/assets/images/gambit-trick-deck.png",
     "system": {
       "description": "Ask one loaded question that someone in the scene must answer, dodge, or react to visibly.",
+      "teaser": "Force a revealing reaction",
       "tier": "trick-deck",
       "gambitType": "social",
       "gpCost": 2,
@@ -148,6 +159,7 @@
     "img": "systems/midnight-gambit/assets/images/gambit-trick-deck.png",
     "system": {
       "description": "Reveal that this confrontation is happening where someone important can see, hear, record, remember, or judge it. Hostile action becomes costly for a short time.",
+      "teaser": "Make hostile action publicly costly",
       "tier": "trick-deck",
       "gambitType": "social",
       "gpCost": 2,
@@ -161,6 +173,7 @@
     "img": "systems/midnight-gambit/assets/images/gambit-trick-deck.png",
     "system": {
       "description": "Reveal a brief gap in patrols, attention, staffing, guard rotations, or watchful eyes. One character can slip through, hide, or reposition before the gap closes.",
+      "teaser": "Slip through a gap in patrols",
       "tier": "trick-deck",
       "gambitType": "infiltration",
       "gpCost": 2,
@@ -174,6 +187,7 @@
     "img": "systems/midnight-gambit/assets/images/gambit-trick-deck.png",
     "system": {
       "description": "Reveal a blind spot in the scene: a dead angle, crowd pocket, broken sensor, shadowed wall, noisy machine, or distracted observer. You or one ally may act there unnoticed once.",
+      "teaser": "Act unnoticed in a blind spot",
       "tier": "trick-deck",
       "gambitType": "infiltration",
       "gpCost": 2,
@@ -187,6 +201,7 @@
     "img": "systems/midnight-gambit/assets/images/gambit-trick-deck.png",
     "system": {
       "description": "Leave behind a misleading sign, scent, footprint, rumor, signal, or clue. Pursuers, investigators, or suspicious NPCs follow the wrong lead for a short time.",
+      "teaser": "Send pursuers down a false trail",
       "tier": "trick-deck",
       "gambitType": "infiltration",
       "gpCost": 2,
@@ -200,6 +215,7 @@
     "img": "systems/midnight-gambit/assets/images/gambit-trick-deck.png",
     "system": {
       "description": "Reveal forged paperwork, a planted record, a fake order, or a plausible bureaucratic excuse. It gets you through one layer of scrutiny, but deeper inspection will expose it.",
+      "teaser": "Pass scrutiny with forged paperwork",
       "tier": "trick-deck",
       "gambitType": "infiltration",
       "gpCost": 2,
@@ -213,6 +229,7 @@
     "img": "systems/midnight-gambit/assets/images/gambit-trick-deck.png",
     "system": {
       "description": "Redirect someone searching for you, chasing you, or expecting you into the wrong place. They lose time, but they are not gone forever.",
+      "teaser": "Misdirect someone into the wrong room",
       "tier": "trick-deck",
       "gambitType": "infiltration",
       "gpCost": 2,
@@ -226,6 +243,7 @@
     "img": "systems/midnight-gambit/assets/images/gambit-trick-deck.png",
     "system": {
       "description": "Reveal that an enemy pushed too far, reached too wide, stepped wrong, or left something exposed. The next character to act against them gains Edge and may reposition.",
+      "teaser": "The next character gains Edge and may reposition",
       "tier": "trick-deck",
       "gambitType": "combat",
       "gpCost": 2,
@@ -239,6 +257,7 @@
     "img": "systems/midnight-gambit/assets/images/gambit-trick-deck.png",
     "system": {
       "description": "An enemy, hazard, or creature catches and sticks for a moment. It buys time, but does not stop the threat permanently.",
+      "teaser": "Snag a threat to buy time",
       "tier": "trick-deck",
       "gambitType": "combat",
       "gpCost": 2,
@@ -252,6 +271,7 @@
     "img": "systems/midnight-gambit/assets/images/gambit-trick-deck.png",
     "system": {
       "description": "Reveal a quick swap, misdirection, or perfectly timed movement. You and one nearby ally exchange positions or attention without the enemy immediately realizing it.",
+      "teaser": "Swap places with a nearby ally",
       "tier": "trick-deck",
       "gambitType": "support",
       "gpCost": 2,
@@ -265,6 +285,7 @@
     "img": "systems/midnight-gambit/assets/images/gambit-trick-deck.png",
     "system": {
       "description": "Reveal an old sign that points toward the safest available route. It does not reveal what waits there.",
+      "teaser": "Find the safest available route",
       "tier": "trick-deck",
       "gambitType": "support",
       "gpCost": 2,
@@ -278,6 +299,7 @@
     "img": "systems/midnight-gambit/assets/images/gambit-trick-deck.png",
     "system": {
       "description": "Temporarily blend into an opposing faction or group. You and one ally are treated as friendly for a scene unless you blow your cover.",
+      "teaser": "Blend in with an opposing faction",
       "tier": "trick-deck",
       "gambitType": "infiltration",
       "gpCost": 2,
@@ -291,6 +313,7 @@
     "img": "systems/midnight-gambit/assets/images/gambit-trick-deck.png",
     "system": {
       "description": "Reveal a secondary route nearby: a service hall, rooftop path, drainage line, crawlspace, side entrance, broken gate, or hidden stairs.",
+      "teaser": "Reveal a secondary route",
       "tier": "trick-deck",
       "gambitType": "infiltration",
       "gpCost": 2,
@@ -304,6 +327,7 @@
     "img": "systems/midnight-gambit/assets/images/gambit-trick-deck.png",
     "system": {
       "description": "Reveal that you learned one useful habit, route, or weakness related to this location. Ask the GM one direct question about it, then gain Edge when you act on the answer.",
+      "teaser": "Learn a weakness and exploit it",
       "tier": "trick-deck",
       "gambitType": "infiltration",
       "gpCost": 2,
@@ -317,6 +341,7 @@
     "img": "systems/midnight-gambit/assets/images/gambit-trick-deck.png",
     "system": {
       "description": "Coordinate with one ally. You both act at the same time this round—synchronize attacks, movements, or tricks seamlessly. (You can also act at the same time during a clock, only taking one segment.)",
+      "teaser": "Act together with an ally; share one clock segment",
       "tier": "trick-deck",
       "gambitType": "support",
       "gpCost": 2,
@@ -330,6 +355,7 @@
     "img": "systems/midnight-gambit/assets/images/gambit-trick-deck.png",
     "system": {
       "description": "Reveal that someone important is early, late, distracted, missing, or briefly out of position. You have a short window before the scene corrects itself.",
+      "teaser": "Reveal a brief scheduling gap",
       "tier": "trick-deck",
       "gambitType": "infiltration",
       "gpCost": 2,
@@ -343,6 +369,7 @@
     "img": "systems/midnight-gambit/assets/images/gambit-trick-deck.png",
     "system": {
       "description": "Reveal that an NPC or faction here owes your crew a small debt. They will provide access, cover, information, or delay, but they expect the debt to be settled later.",
+      "teaser": "Call in a small debt owed the crew",
       "tier": "trick-deck",
       "gambitType": "social",
       "gpCost": 2,
@@ -356,6 +383,7 @@
     "img": "systems/midnight-gambit/assets/images/gambit-trick-deck.png",
     "system": {
       "description": "You instinctively bypass a single non-magical lock, trap, or security system. No tools, no fuss.",
+      "teaser": "Bypass mundane security instantly",
       "tier": "trick-deck",
       "gambitType": "infiltration",
       "gpCost": 2,
@@ -369,6 +397,7 @@
     "img": "systems/midnight-gambit/assets/images/gambit-trick-deck.png",
     "system": {
       "description": "Create a sudden shift in the scene: lights cut, footing slips, music stops, crowd surges, engine coughs, weather snaps, or something heavy falls. One enemy or group loses its current advantage.",
+      "teaser": "Strip an enemy's current advantage",
       "tier": "trick-deck",
       "gambitType": "combat",
       "gpCost": 2,
@@ -382,6 +411,7 @@
     "img": "systems/midnight-gambit/assets/images/gambit-trick-deck.png",
     "system": {
       "description": "Reveal that the enemy’s current position is worse than it looked: poor footing, exposed flank, glare, cramped space, or blocked retreat. You or an allies react or action has Edge.",
+      "teaser": "Gain Edge from an enemy's poor position",
       "tier": "trick-deck",
       "gambitType": "combat",
       "gpCost": 2,
@@ -395,6 +425,7 @@
     "img": "systems/midnight-gambit/assets/images/gambit-trick-deck.png",
     "system": {
       "description": "Reveal stronger cover or a defensive position large enough for two characters to use briefly. It will not hold forever.",
+      "teaser": "Find brief cover for two",
       "tier": "trick-deck",
       "gambitType": "combat",
       "gpCost": 2,
@@ -408,6 +439,7 @@
     "img": "systems/midnight-gambit/assets/images/gambit-trick-deck.png",
     "system": {
       "description": "Reveal that you and one ally agreed on a signal before things went bad. That ally may immediately reposition, hide, take cover, draw attention, or prepare.",
+      "teaser": "Signal an ally to prepare or move",
       "tier": "trick-deck",
       "gambitType": "support",
       "gpCost": 2,
@@ -421,6 +453,7 @@
     "img": "systems/midnight-gambit/assets/images/gambit-trick-deck.png",
     "system": {
       "description": "Create an opening specifically for one ally: a stumble, distraction, exposed mechanism, softened target, or social pause. If they act immediately, they gain Edge and ignore one minor obstacle.",
+      "teaser": "Give an ally immediate Edge past a minor obstacle",
       "tier": "trick-deck",
       "gambitType": "support",
       "gpCost": 2,
@@ -434,6 +467,7 @@
     "img": "systems/midnight-gambit/assets/images/gambit-trick-deck.png",
     "system": {
       "description": "When you succeed with a roll, one ally who follows your method or timing may gain Edge on their next related roll.",
+      "teaser": "Your success gives a following ally Edge",
       "tier": "trick-deck",
       "gambitType": "support",
       "gpCost": 2,
@@ -447,6 +481,7 @@
     "img": "systems/midnight-gambit/assets/images/gambit-trick-deck.png",
     "system": {
       "description": "Reveal a stronger pocket of safety. You and one ally may each clear 2 Mortal Strain.",
+      "teaser": "You and one ally each clear 2 Mortal Strain",
       "tier": "trick-deck",
       "gambitType": "support",
       "gpCost": 2,
@@ -460,6 +495,7 @@
     "img": "systems/midnight-gambit/assets/images/gambit-trick-deck.png",
     "system": {
       "description": "Reveal a shared ritual, phrase, or song that steadies the moment. You and one ally may each clear 2 Soul Strain.",
+      "teaser": "You and one ally each clear 2 Soul Strain",
       "tier": "trick-deck",
       "gambitType": "support",
       "gpCost": 2,
@@ -473,6 +509,7 @@
     "img": "systems/midnight-gambit/assets/images/gambit-trick-deck.png",
     "system": {
       "description": "When a Failure makes the situation worse, reveal the one thing it also knocked loose, exposed, or opened. Gain 1 STO and give one ally Edge if they act on it immediately.",
+      "teaser": "A Failure grants 1 STO and immediate Edge for an ally",
       "tier": "trick-deck",
       "gambitType": "support",
       "gpCost": 2,
@@ -486,6 +523,7 @@
     "img": "systems/midnight-gambit/assets/images/gambit-trick-deck.png",
     "system": {
       "description": "Reveal the pattern in a trap, storm, patrol, beast movement, magical pulse, collapsing structure, or natural danger. One character can cross or act through it with Edge.",
+      "teaser": "Cross a patterned hazard with Edge",
       "tier": "trick-deck",
       "gambitType": "support",
       "gpCost": 2,
@@ -499,6 +537,7 @@
     "img": "systems/midnight-gambit/assets/images/gambit-trick-deck.png",
     "system": {
       "description": "You may ask the director one yes or no question and they MUST answer.",
+      "teaser": "Ask one yes-or-no question",
       "tier": "trick-deck",
       "gambitType": "infiltration",
       "gpCost": 2,
@@ -512,6 +551,7 @@
     "img": "systems/midnight-gambit/assets/images/gambit-trick-deck.png",
     "system": {
       "description": "You roll 5 Risk dice. Keep the highest to use as a replacement die, or a plus to your next action.",
+      "teaser": "Keep the highest of 5 Risk Dice to replace or add",
       "tier": "trick-deck",
       "gambitType": "support",
       "gpCost": 2,

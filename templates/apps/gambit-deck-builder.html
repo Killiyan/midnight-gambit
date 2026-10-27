@@ -30,9 +30,14 @@
                 <img src="{{tierIcon}}" alt="{{tierLabel}}" />
               </span>
               <span class="mg-gambit-library-card-name">{{name}}</span>
+              <span class="mg-gambit-library-card-footer">
+              {{#if teaser}}
+                <span class="mg-gambit-library-card-teaser">{{teaser}}</span>
+              {{/if}}
               {{#unless ../isCrewLibrary}}
               <span class="mg-gambit-library-cost"><i class="fa-kit fa-gambit-points"></i> {{gpCost}}</span>
               {{/unless}}
+              </span>
             </span>
           </button>
         {{/each}}
@@ -90,14 +95,14 @@
     </section>
 
     <aside class="mg-gambit-library-filters">
-      <label class="mg-gambit-library-search">
-        <span>Search</span>
+      <div class="mg-gambit-library-search">
+        <label>Search</label>
         <input type="search" name="search" value="{{search}}" />
-      </label>
+      </div>
 
       {{#unless isCrewLibrary}}
       <div class="mg-gambit-library-filter-group">
-        <h3>Deck</h3>
+        <label>Deck</label>
         <div class="mg-moves-library-toggle-list">
           <button
             type="button"
@@ -117,7 +122,7 @@
 
       {{#unless isCrewLibrary}}
       <div class="mg-gambit-library-filter-group">
-        <h3>Tier</h3>
+        <label>Tier</label>
         <div class="mg-moves-library-toggle-list">
           {{#each tierFilters}}
             <button
@@ -138,7 +143,7 @@
       {{/unless}}
 
       <div class="mg-gambit-library-filter-group">
-        <h3>Type</h3>
+        <label>Type</label>
         <div class="tag-selector mg-moves-library-subtype-pills">
           {{#each typeFilters}}
             <button

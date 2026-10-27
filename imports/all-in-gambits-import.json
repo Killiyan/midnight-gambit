@@ -5,6 +5,7 @@
     "img": "systems/midnight-gambit/assets/images/gambit-all-in.png",
     "system": {
       "description": "The primary threat stepped into your trap. They lose their next action or become fully exposed for one round.",
+      "teaser": "Trap the threat: lose an action or become exposed",
       "tier": "all-in",
       "gambitType": "combat",
       "gpCost": 4,
@@ -18,6 +19,7 @@
     "img": "systems/midnight-gambit/assets/images/gambit-all-in.png",
     "system": {
       "description": "When one ally lands an Ace against a target, the crew joins the assault. Everyone who can act against that target may strike immediately.",
+      "teaser": "An ally's Ace lets the crew strike immediately",
       "tier": "all-in",
       "gambitType": "combat",
       "gpCost": 4,
@@ -31,6 +33,7 @@
     "img": "systems/midnight-gambit/assets/images/gambit-all-in.png",
     "system": {
       "description": "Declare one target, obstacle, or defense fully exposed. The next successful action against it is treated as an Ace.",
+      "teaser": "Expose a target; the next success becomes an Ace",
       "tier": "all-in",
       "gambitType": "combat",
       "gpCost": 4,
@@ -44,6 +47,7 @@
     "img": "systems/midnight-gambit/assets/images/gambit-all-in.png",
     "system": {
       "description": "When you or an ally would be removed from the scene, captured, killed, or completely overwhelmed, prevent it.",
+      "teaser": "Prevent capture, death, or removal from the scene",
       "tier": "all-in",
       "gambitType": "support",
       "gpCost": 4,
@@ -57,6 +61,7 @@
     "img": "systems/midnight-gambit/assets/images/gambit-all-in.png",
     "system": {
       "description": "When the crew would be split, trapped, or forced to abandon someone, reveal the move that keeps everyone together.",
+      "teaser": "Keep the crew together",
       "tier": "all-in",
       "gambitType": "support",
       "gpCost": 4,
@@ -70,6 +75,7 @@
     "img": "systems/midnight-gambit/assets/images/gambit-all-in.png",
     "system": {
       "description": "Fill your STO to maximum.",
+      "teaser": "Fill STO to maximum",
       "tier": "all-in",
       "gambitType": "support",
       "gpCost": 4,
@@ -83,6 +89,7 @@
     "img": "systems/midnight-gambit/assets/images/gambit-all-in.png",
     "system": {
       "description": "Restore all spent Spark Slots.",
+      "teaser": "Restore all Spark Slots",
       "tier": "all-in",
       "gambitType": "support",
       "gpCost": 4,
@@ -96,6 +103,7 @@
     "img": "systems/midnight-gambit/assets/images/gambit-all-in.png",
     "system": {
       "description": "Recover all spent Risk Dice.",
+      "teaser": "Recover all Risk Dice",
       "tier": "all-in",
       "gambitType": "support",
       "gpCost": 4,
@@ -109,6 +117,7 @@
     "img": "systems/midnight-gambit/assets/images/gambit-all-in.png",
     "system": {
       "description": "Roll 5d6. Choose one die. Add it to your current roll as a bonus, or replace one die in the roll with it.",
+      "teaser": "Roll 5d6; add one die to your roll or replace a die",
       "tier": "all-in",
       "gambitType": "support",
       "gpCost": 4,
@@ -122,6 +131,7 @@
     "img": "systems/midnight-gambit/assets/images/gambit-all-in.png",
     "system": {
       "description": "You and the crew vanish from the immediate scene, leaving behind confusion, decoys, false trails, or a perfect blind spot.",
+      "teaser": "Escape with the whole crew",
       "tier": "all-in",
       "gambitType": "infiltration",
       "gpCost": 4,
@@ -135,6 +145,7 @@
     "img": "systems/midnight-gambit/assets/images/gambit-all-in.png",
     "system": {
       "description": "Before danger lands, every crew member may move, take cover, draw, hide, or reposition once.",
+      "teaser": "The crew repositions before danger lands",
       "tier": "all-in",
       "gambitType": "support",
       "gpCost": 4,
@@ -148,6 +159,7 @@
     "img": "systems/midnight-gambit/assets/images/gambit-all-in.png",
     "system": {
       "description": "Choose one enemy. For the rest of the scene, they cannot command allies, call reinforcements, or coordinate a group.",
+      "teaser": "Cut off enemy coordination",
       "tier": "all-in",
       "gambitType": "combat",
       "gpCost": 4,
@@ -161,6 +173,7 @@
     "img": "systems/midnight-gambit/assets/images/gambit-all-in.png",
     "system": {
       "description": "Stop one enemy, hazard, or hostile force from escalating for one round. They cannot attack, flee, trigger a prepared move, or worsen the scene until the pause breaks.",
+      "teaser": "Stop a threat from acting or escalating for a round",
       "tier": "all-in",
       "gambitType": "combat",
       "gpCost": 4,
@@ -174,6 +187,7 @@
     "img": "systems/midnight-gambit/assets/images/gambit-all-in.png",
     "system": {
       "description": "Ask the GM for the crucial clue, true cause, real target, hidden route, or next step tied to the current problem. The answer appears in the scene.",
+      "teaser": "Reveal the crucial answer",
       "tier": "all-in",
       "gambitType": "infiltration",
       "gpCost": 4,

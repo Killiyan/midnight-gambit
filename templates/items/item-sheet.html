@@ -109,6 +109,15 @@
       </div>
     {{/if}}
 
+    {{#if (eq itemType "gambit")}}
+      <div class="wrapper mg-content">
+        <div class="form-group">
+          <label>Library Teaser</label>
+          <input type="text" name="system.teaser" value="{{system.teaser}}" placeholder="Briefly describe this Gambit’s effect" maxlength="64" />
+        </div>
+      </div>
+    {{/if}}
+
     {{#if (eq itemType "weapon")}}
       <div class="wrapper mg-content">
         <label>Strain Damage</label>

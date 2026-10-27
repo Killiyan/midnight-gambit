@@ -3,6 +3,22 @@ const MG_PLAYLIST_USER_ORDER_FLAG = "playlistSidebarOrder";
 const MG_PLAYLIST_IMAGE_FLAG = "sidebarImage";
 const MG_DEFAULT_AUDIO_INPUT = 0.5;
 
+// Preserve filename formatting when Foundry names a selected sound or imports a folder.
+function mgGetDefaultSoundName(src) {
+	const path = String(src ?? "").split(/[?#]/, 1)[0];
+	let name = path.split(/[\\/]/).pop() ?? "";
+	try {
+		name = decodeURIComponent(name);
+	} catch (_err) {
+		// A literal percent sign in a local filename need not be valid URL encoding.
+	}
+	return name.replace(/\.[^.]+$/, "");
+}
+
+Hooks.once("init", () => {
+	AudioHelper.getDefaultSoundName = mgGetDefaultSoundName;
+});
+
 function mgShared() {
 	return globalThis.MGSidebarShared ?? {};
 }
@@ -403,6 +419,64 @@ function mgCollapsePlaylistFolders(panel) {
 /* Playlist drag and drop
 ----------------------------------------------------------------------*/
 function mgBindPlaylistSidebarDrag(panel) {
+	// Sound cards own their drag events; never let them start a parent playlist drag.
+	let draggingSound = null;
+	panel.querySelectorAll("[data-mg-playlist-sound-row]").forEach(card => {
+		card.draggable = Boolean(game.user?.isGM);
+		let pressedVolume = false;
+		card.addEventListener("pointerdown", event => {
+			pressedVolume = Boolean(event.target.closest("input, button, .mg-playlist-active-volume"));
+		}, { capture: true });
+		card.addEventListener("pointerup", () => { pressedVolume = false; }, { capture: true });
+		card.addEventListener("pointercancel", () => { pressedVolume = false; }, { capture: true });
+		card.addEventListener("dragstart", event => {
+			event.stopPropagation();
+			if (!game.user?.isGM || pressedVolume || event.target.closest("input, button")) {
+				event.preventDefault();
+				return;
+			}
+			draggingSound = card;
+			card.classList.add("mg-dragging");
+			event.dataTransfer.setData("application/x-mg-playlist-sound-id", card.dataset.mgPlaylistSoundId);
+			event.dataTransfer.effectAllowed = "move";
+		});
+		card.addEventListener("dragend", event => {
+			event.stopPropagation();
+			card.classList.remove("mg-dragging");
+			draggingSound = null;
+		});
+	});
+	panel.querySelectorAll(".mg-playlist-sounds-list").forEach(list => {
+		const acceptsSound = () => draggingSound && draggingSound.parentElement === list && game.user?.isGM;
+		list.addEventListener("dragover", event => {
+			if (!acceptsSound()) return;
+			event.preventDefault();
+			event.stopPropagation();
+			event.dataTransfer.dropEffect = "move";
+		});
+		list.addEventListener("drop", async event => {
+			if (!acceptsSound()) return;
+			event.preventDefault();
+			event.stopPropagation();
+			const card = draggingSound;
+			const playlist = game.playlists?.get(card.dataset.mgPlaylistId);
+			if (!playlist) return;
+			const target = event.target.closest("[data-mg-playlist-sound-row]");
+			if (target === card) return;
+			const after = target && event.clientY > target.getBoundingClientRect().top + target.getBoundingClientRect().height / 2;
+			const cards = Array.from(list.children).filter(el => el.matches("[data-mg-playlist-sound-row]") && el !== card);
+			const index = target ? cards.indexOf(target) + (after ? 1 : 0) : cards.length;
+			cards.splice(index, 0, card);
+			try {
+				await playlist.updateEmbeddedDocuments("PlaylistSound", cards.map((el, i) => ({ _id: el.dataset.mgPlaylistSoundId, sort: (i + 1) * 100000 })));
+				await playlist.update({ sorting: CONST.PLAYLIST_SORT_MODES.MANUAL });
+			} catch (error) {
+				console.error("MG | Could not reorder playlist sounds", error);
+				ui.notifications?.error("Could not reorder playlist sounds.");
+			}
+		});
+	});
+
 	let dragging = null;
 
 	const getDragPlaylistId = event =>
@@ -517,8 +591,25 @@ function mgBindPlaylistSidebarDrag(panel) {
 
 	panel.querySelectorAll(".mg-playlist-row-wrap[data-mg-playlist-id]").forEach(row => {
 		row.setAttribute("draggable", "true");
+		// Drag events can target the draggable ancestor rather than the range input.
+		// Remember where the press began so slider gestures never start a card drag.
+		const controls = ".mg-playlist-active-volume, [data-mg-playlist-sound-volume]";
+		let pressedControls = false;
+		row.addEventListener("pointerdown", event => {
+			pressedControls = Boolean(event.target.closest?.(controls));
+		}, { capture: true });
+		row.addEventListener("pointerup", () => { pressedControls = false; }, { capture: true });
+		row.addEventListener("pointercancel", () => { pressedControls = false; }, { capture: true });
 		row.addEventListener("dragstart", event => {
 			event.stopPropagation();
+			if (event.target.closest?.("[data-mg-playlist-sound-row]")) {
+				event.preventDefault();
+				return;
+			}
+			if (pressedControls || event.target.closest?.(controls)) {
+				event.preventDefault();
+				return;
+			}
 			dragging = row;
 			dragging.dataset.mgPlaylistDisplayContainer = dragging.parentElement?.dataset?.mgPlaylistContainer || "";
 			row.classList.add("mg-dragging");
@@ -1414,3 +1505,13 @@ globalThis.MGPlaylistSidebar = {
 };
 
 Hooks.on("renderPlaylistConfig", mgBindPlaylistConfigImageField);
+
+function mgMarkPlaylistEditWindow(app, html) {
+	const root = html?.[0] ?? html;
+	const element = app?.element?.[0] ?? app?.element;
+	const window = root?.closest?.(".window-app") ?? element?.closest?.(".window-app");
+	window?.classList.add("playlist-edit");
+}
+
+Hooks.on("renderPlaylistConfig", mgMarkPlaylistEditWindow);
+Hooks.on("renderPlaylistSoundConfig", mgMarkPlaylistEditWindow);

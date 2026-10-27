@@ -80,13 +80,13 @@
     </section>
 
     <aside class="mg-gambit-library-filters">
-      <label class="mg-gambit-library-search">
-        <span>Search</span>
+      <div class="mg-gambit-library-search">
+        <label>Search</label>
         <input type="search" name="search" value="{{search}}" />
-      </label>
+      </div>
 
       <div class="mg-gambit-library-filter-group">
-        <h3>Status</h3>
+        <label>Status</label>
         <div class="mg-moves-library-toggle-list">
           <button
             type="button"
@@ -110,7 +110,7 @@
       </div>
 
       <div class="mg-gambit-library-filter-group">
-        <h3>Type</h3>
+        <label>Type</label>
         <div class="mg-moves-library-toggle-list">
           {{#each typeFilters}}
             <button
@@ -130,7 +130,7 @@
       </div>
 
       <div class="mg-gambit-library-filter-group">
-        <h3>Sub Type</h3>
+        <label>Sub Type</label>
         <div class="tag-selector mg-moves-library-subtype-pills">
           {{#each subtypeFilters}}
             <button

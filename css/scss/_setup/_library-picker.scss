@@ -547,7 +547,7 @@
         background-position: center;
         background-size: cover;
         border: none;
-        border-radius: .35rem;
+        border-radius: .35rem .35rem .5rem .5rem;
         box-shadow: 5px 6px 0 rgba($black, .35);
         transition: opacity .5s ease;
 
@@ -585,6 +585,44 @@
           text-shadow: 5px 5px 10px $black;
           filter: drop-shadow(0 0 0.75rem $black);
           pointer-events: none;
+        }
+
+        .mg-gambit-library-card-footer {
+          position: absolute;
+          inset: auto 0 0;
+          z-index: 3;
+          display: flex;
+          flex-direction: column;
+          border-radius: 0 0 .35rem .35rem;
+          overflow: hidden;
+          pointer-events: none;
+
+          .mg-gambit-library-cost {
+            position: static;
+            inset: auto;
+            width: 100%;
+            box-sizing: border-box;
+            flex-shrink: 0;
+          }
+
+          .mg-gambit-library-card-teaser {
+            display: block;
+            width: 100%;
+            padding: .5rem;
+            box-sizing: border-box;
+            overflow-wrap: anywhere;
+            white-space: normal;
+            background: rgba($mg-blue-4, .68);
+            color: $mg-blue-1;
+            @include roboto();
+            font-size: .75rem;
+            font-weight: 800;
+            font-style: normal;
+            line-height: 1.2;
+            text-align: center;
+            text-transform: none;
+            text-shadow: 2px 2px 4px $black;
+          }
         }
 
         .mg-gambit-library-tier {
@@ -891,9 +929,9 @@
           display: flex;
           align-items: center;
           gap: .5rem;
-          @include roboto();
+          @include oswald();
           color: $mg-blue-1;
-          font-size: .95rem;
+          font-size: 1rem;
           font-weight: 700;
           margin: 0;
         }
@@ -930,21 +968,21 @@
 
           &:hover,
           &:focus {
-            background: $mg-blue-4;
-            border-color: $mg-blue-1;
-            color: $mg-blue-1;
+            background: $mg-blue-5;
+            border-color: $mg-green;
+            color: $mg-green;
             box-shadow: none;
 
             .mg-moves-library-toggle-label {
-              color: $mg-blue-1;
+              color: $mg-green;
             }
 
             .mg-primary-toggle-track {
-              background: $mg-blue-main-2;
-              border-color: $mg-blue-1;
+              background: $mg-blue-4;
+              border-color: $mg-green;
 
               .mg-primary-toggle-knob {
-                background: $mg-blue-1;
+                background: $mg-green;
               }
             }
           }
@@ -1048,11 +1086,11 @@
             }
 
             &:hover {
-              background: $mg-blue-main-2;
+              background: $mg-blue-5;
               color: $mg-green;
 
               span {
-                color: $mg-blue-1;
+                color: $mg-green;
               }
 
               i {

@@ -4521,6 +4521,7 @@ _mgOpenSidebarCropper() {
 
     //Repair Armor
     html.find(".repair-armor").on("click", async (event) => {
+      event.preventDefault();
       const itemId = event.currentTarget.dataset.itemId;
       const item = this.actor.items.get(itemId);
 
@@ -4538,26 +4539,70 @@ _mgOpenSidebarCropper() {
       const remainingMC = Number(item.system.remainingCapacity?.mortal ?? 0);
       const remainingSC = Number(item.system.remainingCapacity?.soul ?? 0);
 
-      const deltaMC = Math.max(0, mortalCapacity - remainingMC);
-      const deltaSC = Math.max(0, soulCapacity - remainingSC);
-
-      const isDamaged = deltaMC > 0 || deltaSC > 0;
+      const isDamaged = remainingMC < mortalCapacity || remainingSC < soulCapacity;
       if (!isDamaged) {
         ui.notifications.info(`${item.name} is already fully repaired.`);
         return;
       }
 
-      // 1) Restore the item's own durability
+      const pools = [
+        { key: "mortal", label: "MC", current: remainingMC, max: mortalCapacity },
+        { key: "soul", label: "SC", current: remainingSC, max: soulCapacity }
+      ].filter(pool => pool.max > 0);
+      const result = await Dialog.wait({
+        title: `Repair ${item.name}`,
+        content: `<form class="mg-form">${pools.map(pool => `
+          <div class="form-group">
+            <label for="mg-repair-${item.id}-${pool.key}">Repair ${pool.label} to</label>
+            <div class="form-fields">
+              <input id="mg-repair-${item.id}-${pool.key}" type="number" name="${pool.key}"
+                value="${pool.current}" min="${pool.current}" max="${pool.max}" step="1" required>
+              <span>/ ${pool.max}</span>
+            </div>
+          </div>`).join("")}</form>`,
+        buttons: {
+          repair: {
+            label: "Repair",
+            callback: dialogHtml => {
+              const form = dialogHtml.find("form")[0];
+              if (!form.reportValidity()) return null;
+              return Object.fromEntries(pools.map(pool => [pool.key, Number(form.elements.namedItem(pool.key).value)]));
+            }
+          },
+          cancel: { label: "Cancel", callback: () => null }
+        },
+        default: "repair"
+      });
+      if (!result) return;
+
+      // Do not apply a stale repair if the gear changed while the dialog was open.
+      const liveItem = this.actor.items.get(itemId);
+      if (!liveItem?.system.equipped) return;
+      if (pools.some(pool =>
+        Number(liveItem.system[`${pool.key}Capacity`] ?? 0) !== pool.max ||
+        Number(liveItem.system.remainingCapacity?.[pool.key] ?? 0) !== pool.current
+      )) {
+        ui.notifications.info("This item's Capacity changed. Open Repair again to use its current values.");
+        return;
+      }
+      if (pools.some(pool => !Number.isSafeInteger(result[pool.key]) || result[pool.key] < pool.current || result[pool.key] > pool.max)) return;
+      const targetMC = result.mortal ?? remainingMC;
+      const targetSC = result.soul ?? remainingSC;
+      const deltaMC = targetMC - remainingMC;
+      const deltaSC = targetSC - remainingSC;
+      if (deltaMC <= 0 && deltaSC <= 0) return;
+
+      // 1) Restore only the selected amount of item durability.
       await item.update(
         {
-          "system.remainingCapacity.mortal": mortalCapacity,
-          "system.remainingCapacity.soul": soulCapacity,
+          "system.remainingCapacity.mortal": targetMC,
+          "system.remainingCapacity.soul": targetSC,
           "system.capacityApplied": true
         },
         { render: false }
       );
 
-      ui.notifications.info(`${item.name} repaired. Durability restored.`);
+      ui.notifications.info(`${item.name} repaired. ${deltaMC + deltaSC} Capacity restored.`);
 
       // 2) Recalculate derived capacity (base + CURRENT equipped remainingCapacity)
       // NOTE: This should NOT heal track; it only updates maxCapacity bookkeeping.

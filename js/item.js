@@ -37,6 +37,7 @@ export class MidnightGambitItem extends Item {
     // Future-proof logic per type if needed
     switch (this.type) {
       case "gambit": {
+        if (typeof sys.teaser !== "string") sys.teaser = "";
         sys.tier = normalizeGambitTier(sys.tier);
         sys.gambitType = normalizeGambitType(sys.gambitType);
         sys.gpCost = getGambitCostForTier(sys.tier, sys.gpCost);

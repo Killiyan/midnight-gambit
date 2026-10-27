@@ -366,76 +366,88 @@
 			</div>
 		</div>
 
-		<!-- GAMBITS TAB -->
-		<div class="tab gambits tab-gambits" data-tab="gambits">
-			<div class="gambit-tab">
-				<div class="gambit-header mg-content">
-					<h2>Crew Gambits</h2>
-					<p>Drag Gambits here from the compendium or your items. The crew can hold up to 3 active Gambits.</p>
-					
-					<div class="button-wrapper">
-						<button class="mg-open-crew-gambit-library" type="button" title="Open Crew Gambits Library">
-							<i class="fa-solid fa-books"></i> Library
-						</button>
+    <!-- GAMBITS TAB -->
+    <div class="tab gambits tab-gambits" data-tab="gambits">
+      <div class="gambit-tab">
+        <div class="gambit-header mg-content">
+          <h2>Crew Gambits</h2>
+          <p>Drag Gambits here from the compendium or your items. The crew can hold up to {{gambitCounts.deckMax}} active Gambits.</p>
 
-						<button class="gambit-reset" type="button" title="Return all discarded Gambits to hand">
-							<i class="fa-solid fa-rotate-left"></i> Reset Hand
-						</button>
-					</div>
-				</div>
+          <div class="button-wrapper">
+            <button class="mg-open-crew-gambit-library" type="button" title="Open Crew Gambits Library">
+              <i class="fa-solid fa-books"></i> Library
+            </button>
 
-				<div class="gambit-hand">
-					<h2 class="gambit-banner">Hand</h2>
+            <button class="gambit-reset" type="button" title="Return all discarded Gambits to hand">
+              <i class="fa-solid fa-rotate-left"></i> Reset Hand
+            </button>
+          </div>
+        </div>
 
-					<span class="deck-size gambit-counter" title="Cards in hand / hand capacity">
-						Deck Size: {{gambitCounts.deckCount}}/{{gambitCounts.deckMax}}
-					</span>
+        <div class="inventory-section gambit-accordion-section">
+          <div class="inventory-list gambit-accordion-list">
+            <div class="inventory-bucket-title crew-inventory-bucket-title mg-content" data-bucket-title="crew-gambit-hand" data-bucket="crew-gambit-hand">
+              <span class="item-icon"><i class="fa-solid fa-hand"></i></span>
+              <h2>Hand <span class="inventory-bucket-count">{{gambitCounts.deckCount}}/{{gambitCounts.deckMax}}</span></h2>
+              <button type="button" class="inventory-bucket-toggle crew-inventory-bucket-toggle" aria-label="Collapse Hand"><i class="fa-solid fa-angle-down"></i></button>
+            </div>
+            <div class="inventory-bucket-body crew-inventory-bucket-body gambit-accordion-body">
+              <div class="gambit-hand">
+                {{#each gb.deck}}
+                  <div class="gambit-card" data-item-id="{{this.id}}">
+                    <div class="gambit-title">
+                      <button type="button" class="post-gambit" data-item-id="{{_id}}" title="Post to Chat">
+                        <i class="fa-solid fa-messages"></i>
+                        {{this.name}}
+                      </button>
+                    </div>
+                    <div class="gambit-wrapper">
+                      <div class="gambit-description">
+                        {{{this.system.description}}}
+                      </div>
 
-					{{#each gb.deck}}
-					<div class="gambit-card" data-item-id="{{this.id}}">
-						<div class="gambit-title">
-						<button type="button" class="post-gambit" data-item-id="{{_id}}" title="Post to Chat">
-							<i class="fa-solid fa-messages"></i>
-							{{this.name}}
-						</button>
-						</div>
-						<div class="gambit-wrapper">
-							<div class="gambit-desc">
-								{{{this.system.description}}}
-							</div>
+                      <div class="status-buttons">
+                        <button class="play-gambit" title="Play Gambit"><i class="fa-solid fa-play"></i></button>
+                        <button class="discard-gambit" title="Move to Discard"><i class="fa-solid fa-recycle"></i></button>
+                        <button class="remove-gambit" title="Remove from Crew"><i class="fa-solid fa-delete-left"></i></button>
+                      </div>
+                    </div>
+                  </div>
+                {{/each}}
 
-							<div class="status-buttons">
-								<button class="play-gambit" title="Play Gambit"><i class="fa-solid fa-play"></i></button>
-								<button class="discard-gambit" title="Move to Discard"><i class="fa-solid fa-recycle"></i></button>
-								<button class="remove-gambit" title="Remove from Crew"><i class="fa-solid fa-delete-left"></i></button>
-							</div>
-						</div>
-					</div>
-					{{/each}}
+                {{#unless gb.deck.length}}
+                  {{#if gb.hasAny}}
+                    <h3 class="empty mg-content">Hand is empty. Use <strong>Reset Hand</strong> to recover from Discard.</h3>
+                  {{else}}
+                    <h3 class="empty mg-content">No Crew Gambits yet. Open the Library or drag some in from the Compendium.</h3>
+                  {{/if}}
+                {{/unless}}
+              </div>
+            </div>
+            <div class="inventory-bucket-title crew-inventory-bucket-title mg-content" data-bucket-title="crew-gambit-discard" data-bucket="crew-gambit-discard">
+              <span class="item-icon"><i class="fa-solid fa-skull"></i></span>
+              <h2>Discard <span class="inventory-bucket-count">{{gambitCounts.discardCount}}</span></h2>
+              <button type="button" class="inventory-bucket-toggle crew-inventory-bucket-toggle" aria-label="Collapse Discard"><i class="fa-solid fa-angle-down"></i></button>
+            </div>
+            <div class="inventory-bucket-body crew-inventory-bucket-body gambit-accordion-body">
+              <div class="gambit-discard">
+                {{#each gb.discard}}
+                  <div class="gambit-card faded" data-source="discard" draggable="false" data-item-id="{{id}}">
+                    <div class="gambit-title">{{name}}</div>
+                    <div class="gambit-wrapper">
+                      <div class="gambit-description">
+                        {{{system.description}}}
+                      </div>
+                    </div>
+                  </div>
+                {{/each}}
 
-					{{!-- Empty states --}}
-					{{#unless gb.deck.length}}
-						{{#if gb.hasAny}}
-						<h3 class="empty mg-content">Hand is empty. Use <strong>Reset Hand</strong> to recover from Discard.</h3>
-						{{else}}
-						<h3 class="empty mg-content">No Crew Gambits yet. Drag some in from the Compendium.</h3>
-						{{/if}}
-					{{/unless}}
-				</div>
-
-				<div class="gambit-discard">
-					<h2 class="gambit-banner">Discard</h2>
-					{{#each gb.discard}}
-						<div class="gambit-card faded" data-source="discard" draggable="false" data-item-id="{{id}}">
-						<div class="gambit-title">{{name}}</div>
-						<div class="gambit-description">
-							{{{system.description}}}
-						</div>
-						</div>
-					{{/each}}
-				</div>
-			</div>
-		</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
 
 		<!-- BIO TAB -->
 		<div class="tab bio-tab" data-tab="bio">

@@ -6469,6 +6469,18 @@ function mgResolveTokenActor(tokenDoc, data = {}) {
   return null;
 }
 
+// New scenes start with the Midnight Gambit background and no visible grid or padding.
+// Preserve explicit values when duplicating, importing, or creating a configured scene.
+Hooks.on("preCreateScene", (scene, data) => {
+  const updates = {};
+  if (typeof data.backgroundColor === "undefined") updates.backgroundColor = "#122137";
+  if (typeof data.padding === "undefined") updates.padding = 0;
+  if (typeof data.grid?.alpha === "undefined" && typeof data["grid.alpha"] === "undefined") {
+    updates["grid.alpha"] = 0;
+  }
+  if (Object.keys(updates).length) scene.updateSource(updates);
+});
+
 // Ensure newly-created Actors default to a linked Prototype Token
 Hooks.on("preCreateActor", (actor, data, options, userId) => {
   // Only set if not explicitly defined

@@ -1923,6 +1923,7 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 		const setCrewBucketState = (title, collapsed) => {
 			title.classList.toggle("is-collapsed", collapsed);
 			title.classList.toggle("active", !collapsed);
+			title.querySelector(".crew-inventory-bucket-toggle")?.setAttribute("aria-expanded", String(!collapsed));
 			const icon = title.querySelector(".crew-inventory-bucket-toggle i");
 			if (icon) icon.classList.toggle("rotated", !collapsed);
 		};

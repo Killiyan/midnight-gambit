@@ -347,7 +347,8 @@
 				z-index: 10;
 			}
 
-			.mg-content {
+			// Accordion headers use the shared Gambit styles, not the plain panel background.
+			.mg-content:not(.inventory-bucket-title) {
 				@include mg-border();
 				background: $mg-blue-main;
 				padding: 1.125rem;
@@ -358,6 +359,18 @@
 					display: flex;
 					gap: 1rem;
 				}
+			}
+
+			// Keep Gambit content above the tab's decorative color-dodge overlay.
+			&.gambits > .gambit-tab {
+				position: relative;
+				z-index: 2;
+				isolation: isolate;
+			}
+
+			// Use the exact character accordion rules at crew-sheet specificity.
+			&.gambits .gambit-accordion-section {
+				@include mg-gambit-accordion-section();
 			}
 
 			// Resetting the top margin so the banner overlaps the image

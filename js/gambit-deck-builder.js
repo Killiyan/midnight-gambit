@@ -56,7 +56,7 @@ function mgGetTierIcon(tier) {
 
 function mgIncludesSearch(card, search) {
   if (!search) return true;
-  const haystack = `${card.name} ${card.description}`.toLowerCase();
+  const haystack = `${card.name} ${card.teaser} ${card.description}`.toLowerCase();
   return haystack.includes(search.toLowerCase());
 }
 
@@ -584,6 +584,7 @@ export class GambitDeckBuilderApplication extends Application {
       uuid: item.uuid,
       item,
       name: item.name,
+      teaser: String(item.system?.teaser ?? ""),
       description: String(item.system?.description ?? ""),
       tier,
       tierLabel: tierConfig?.label ?? "Rookie",
