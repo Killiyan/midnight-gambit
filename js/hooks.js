@@ -178,6 +178,13 @@ Hooks.once("ready", () => {
 
     if (!basicValid) throw new Error("The inventory transfer could not be verified.");
 
+    const available = Math.max(0, Math.trunc(Number(sourceItem.system?.quantity ?? 1)));
+    const quantity = request.quantity ?? available;
+    if (!Number.isSafeInteger(quantity) || quantity < 1 || quantity > available) {
+      throw new Error("The requested quantity is no longer available. Please send a new offer.");
+    }
+
+
     if (targetActor.type === "character") {
       const requestedRecipient = game.users.get(request.recipientUserId);
       let recipientUser = (
@@ -193,8 +200,8 @@ Hooks.once("ready", () => {
         !user.isGM && targetActor.testUserPermission(user, ownerLevel)
       );
 
-      if (!recipientUser) {
-        throw new Error("That character has no player assigned or owning it to receive the offer.");
+      if (!recipientUser && request.confirmUnownedTransfer !== true) {
+        throw new Error("Confirm the direct transfer to this character before sending the item.");
       }
 
       if (sourceActor.type === "crew") {
@@ -228,7 +235,7 @@ Hooks.once("ready", () => {
   const executeInventoryTransfer = async (request) => {
     const transfer = await resolveInventoryTransfer(request);
     const itemName = transfer.sourceItem.name;
-    await mgTransferInventoryItem(transfer.sourceItem, transfer.targetActor);
+    await mgTransferInventoryItem(transfer.sourceItem, transfer.targetActor, request.quantity);
     sendInventoryTransferResult(request, {
       ok: true,
       itemName,
@@ -240,7 +247,7 @@ Hooks.once("ready", () => {
     try {
       const transfer = await resolveInventoryTransfer(request);
 
-      if (transfer.targetActor.type === "crew") {
+      if (transfer.targetActor.type === "crew" || !transfer.recipientUser) {
         await executeInventoryTransfer(request);
         return;
       }
@@ -318,11 +325,74 @@ Hooks.once("ready", () => {
       return false;
     }
 
+    const available = Math.max(0, Math.trunc(Number(sourceItem.system?.quantity ?? 1)));
+    if (!Number.isSafeInteger(available) || available < 1) {
+      ui.notifications?.warn("There are no items in this stack to send.");
+      return false;
+    }
+    let quantity = 1;
+    if (available > 1) {
+      const esc = value => Handlebars.escapeExpression(String(value ?? ""));
+      quantity = await new Promise(resolve => {
+        const clamp = value => Math.max(1, Math.min(available, Math.trunc(Number(value)) || 1));
+        const read = html => clamp(html.find('[name="transferQuantity"]').val());
+        new Dialog({
+          title: "How Many to Send?",
+          content: `<p>Send how many <strong>${esc(sourceItem.name)}</strong>? Available: ${available}.</p>
+            <div class="form-group quantity-controls">
+              <button type="button" data-transfer-step="-1" aria-label="Decrease quantity"><i class="fa-solid fa-minus"></i></button>
+              <input type="number" name="transferQuantity" value="1" min="1" max="${available}" step="1" aria-label="Quantity to send" />
+              <button type="button" data-transfer-step="1" aria-label="Increase quantity"><i class="fa-solid fa-plus"></i></button>
+            </div>`,
+          buttons: {
+            send: { label: "Send", callback: html => resolve(read(html)) },
+            all: { label: "All", callback: () => resolve(available) },
+            cancel: { label: "Cancel", callback: () => resolve(null) }
+          },
+          default: "send",
+          render: html => {
+            const input = html.find('[name="transferQuantity"]');
+            input.on("change", () => input.val(clamp(input.val())));
+            html.find('[data-transfer-step]').on("click", event => {
+              input.val(clamp(read(html) + Number(event.currentTarget.dataset.transferStep)));
+            });
+          },
+          close: () => resolve(null)
+        }, { classes: ["midnight-gambit", "mg-inventory-transfer-quantity"] }).render(true);
+      });
+      if (quantity === null) return false;
+    }
+
+    let confirmUnownedTransfer = false;
+    if (resolvedTargetType === "character") {
+      const destination = targetActor ?? await fromUuid(resolvedTargetUuid).catch(() => null);
+      if (!destination) {
+        ui.notifications?.error("The selected character could not be found.");
+        return false;
+      }
+      const ownerLevel = CONST.DOCUMENT_OWNERSHIP_LEVELS?.OWNER ?? 3;
+      const recipient = game.users.find(user => !user.isGM && (
+        getAssignedCharacterId(user) === destination.id || destination.testUserPermission(user, ownerLevel)
+      ));
+      if (!recipient) {
+        const esc = value => Handlebars.escapeExpression(String(value ?? ""));
+        confirmUnownedTransfer = await Dialog.confirm({
+          title: "Send Item Without a Player?",
+          content: `<p><strong>${esc(resolvedTargetName)}</strong> has no player assigned to accept the trade request.</p>
+            <p>Send <strong>${esc(sourceItem.name)}</strong> directly to this character's inventory? Quantity: ${quantity}.</p>`,
+          defaultYes: false
+        });
+        if (!confirmUnownedTransfer) return false;
+      }
+    }
+
     const request = {
       type: "inventoryTransferRequest",
       requestId: foundry.utils.randomID(),
       requestingUserId: game.user.id,
       recipientUserId,
+      confirmUnownedTransfer,
+      quantity,
       sourceItemUuid: sourceItem.uuid,
       targetActorUuid: resolvedTargetUuid
     };
@@ -331,7 +401,7 @@ Hooks.once("ready", () => {
     else game.socket.emit("system.midnight-gambit", request);
 
     ui.notifications?.info(
-      resolvedTargetType === "crew"
+      (resolvedTargetType === "crew" || confirmUnownedTransfer)
         ? `Sending ${sourceItem.name} to ${resolvedTargetName}...`
         : `Offering ${sourceItem.name} to ${resolvedTargetName}...`
     );
@@ -374,7 +444,7 @@ Hooks.once("ready", () => {
         title: "Accept Item?",
         content: `
           <p><strong>${esc(data.senderName)}</strong> wants to send you
-          <strong>${esc(data.itemName)}</strong> from <strong>${esc(data.sourceName)}</strong>.</p>
+          <strong>${esc(data.itemName)}</strong>${data.quantity ? ` (quantity: ${esc(data.quantity)})` : ""} from <strong>${esc(data.sourceName)}</strong>.</p>
           <p>Accept it into <strong>${esc(data.targetName)}</strong>'s inventory?</p>
         `,
         defaultYes: true
@@ -6468,6 +6538,35 @@ function mgResolveTokenActor(tokenDoc, data = {}) {
   if (actorUuid) return globalThis.fromUuidSync?.(actorUuid) ?? null;
   return null;
 }
+
+// Chime when a notification actually appears, including messages released from the queue.
+Hooks.once("ready", () => {
+  const notifications = ui.notifications;
+  if (!notifications || typeof notifications.fetch !== "function") return;
+  const fetchNotification = notifications.fetch;
+  notifications.fetch = function (...args) {
+    const previous = this.active?.at(-1);
+    const result = fetchNotification.apply(this, args);
+    const current = this.active?.at(-1);
+    if (current && current !== previous) {
+      const sound = current.hasClass("error") ? "Alert.mp3"
+        : current.hasClass("warning") ? "warning.mp3" : "info.mp3";
+      const path = `systems/midnight-gambit/assets/sounds/${sound}`;
+      try {
+        // AudioHelper applies the listener's Interface volume; false keeps it local.
+        Promise.resolve(AudioHelper.play({
+          src: foundry.utils.getRoute?.(path) ?? path,
+          volume: 1,
+          autoplay: true,
+          loop: false
+        }, false)).catch(() => {});
+      } catch (_) {
+        // Audio failure must not interrupt notifications or produce another alert.
+      }
+    }
+    return result;
+  };
+});
 
 // New scenes start with the Midnight Gambit background and no visible grid or padding.
 // Preserve explicit values when duplicating, importing, or creating a configured scene.

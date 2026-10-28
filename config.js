@@ -90,7 +90,6 @@ export function normalizeGambitTier(tier) {
     ace: "aceInTheSleeve",
     "ace-in-the-sleeve": "aceInTheSleeve",
     final: "allIn",
-    "final-hand": "allIn",
     "all-in": "allIn"
   };
   const normalized = legacy[value] ?? value;
@@ -158,74 +157,74 @@ export function getGambitDeckSlotsForLevel(level) {
 ==============================================================================================================================================*/
 export const LEVEL_TABLE = {
   1: {
-    caps: { drawPool: 3, equipMax: 3, gambitPoints: 4, deckSlots: 1, tier: "rookie-only" },
-    unlocks: { trickDeck: false, aceInSleeve: false, signaturePerk: false, finalHand: false, allTiers: false, dualClass: false },
+    caps: { drawPool: 3, equipMax: 3, gambitPoints: 4, deckSlots: 1 },
+    unlocks: { signaturePerk: false, dualClass: false },
     grants: { attributePoints: 0, moves: 2, sparkSlots: 0 },
     notes: "Choose your Guise, +2 Learned Moves."
   },
   2: {
-    caps: { drawPool: 4, equipMax: 4, gambitPoints: 5, deckSlots: 1, tier: "rookie" },
-    unlocks: { trickDeck: false, aceInSleeve: false, signaturePerk: false, finalHand: false, allTiers: false, dualClass: false },
+    caps: { drawPool: 4, equipMax: 4, gambitPoints: 5, deckSlots: 1 },
+    unlocks: { signaturePerk: false, dualClass: false },
     grants: { attributePoints: 0, moves: 1, sparkSlots: 1 },
     notes: "+1 Learned Move, +1 Spark Slot (casters)."
   },
   3: {
-    caps: { drawPool: 4, equipMax: 4, gambitPoints: 5, deckSlots: 2, tier: "trick-deck-unlocked" },
-    unlocks: { trickDeck: true, aceInSleeve: false, signaturePerk: false, finalHand: false, allTiers: false, dualClass: false },
+    caps: { drawPool: 4, equipMax: 4, gambitPoints: 5, deckSlots: 2 },
+    unlocks: { signaturePerk: false, dualClass: false },
     grants: { attributePoints: 1, moves: 1, sparkSlots: 0, expertise: 1 },
-    notes: "+1 Attribute Point, may begin utilizing Trick Deck Gambits, +1 Learned Move, +1 Deck Slot, +1 Expertise."
+    notes: "+1 Attribute Point, +1 Learned Move, +1 Deck Slot, +1 Expertise."
   },
   4: {
-    caps: { drawPool: 4, equipMax: 4, gambitPoints: 6, deckSlots: 2, tier: "trick-deck" },
-    unlocks: { trickDeck: true, aceInSleeve: false, signaturePerk: false, finalHand: false, allTiers: false, dualClass: false },
+    caps: { drawPool: 4, equipMax: 4, gambitPoints: 6, deckSlots: 2 },
+    unlocks: { signaturePerk: false, dualClass: false },
     grants: { attributePoints: 0, moves: 1, sparkSlots: 1 },
     notes: "+1 Learned Move, +1 Spark Slot (casters)."
   },
   5: {
-    caps: { drawPool: 5, equipMax: 5, gambitPoints: 6, deckSlots: 2, tier: "trick-deck" },
-    unlocks: { trickDeck: true, aceInSleeve: false, signaturePerk: false, finalHand: false, allTiers: false, dualClass: false },
+    caps: { drawPool: 5, equipMax: 5, gambitPoints: 6, deckSlots: 2 },
+    unlocks: { signaturePerk: false, dualClass: false },
     grants: { attributePoints: 0, moves: 1, sparkSlots: 0 },
     notes: "+1 Learned Move."
   },
   6: {
-    caps: { drawPool: 5, equipMax: 5, gambitPoints: 7, deckSlots: 3, tier: "ace-in-the-sleeve-unlocked" },
-    unlocks: { trickDeck: true, aceInSleeve: true, signaturePerk: false, finalHand: false, allTiers: false, dualClass: true },
+    caps: { drawPool: 5, equipMax: 5, gambitPoints: 7, deckSlots: 3 },
+    unlocks: { signaturePerk: false, dualClass: true },
     grants: { attributePoints: 1, moves: 1, sparkSlots: 1, expertise: 1 },
-    notes: "Dual Guise or +1 Attribute Point, +1 Learned Move, +1 Spark Slot (casters), may begin utilizing Ace in the Sleeve Gambits, +1 Deck Slot, +1 Expertise."
+    notes: "Dual Guise or +1 Attribute Point, +1 Learned Move, +1 Spark Slot (casters), +1 Deck Slot, +1 Expertise."
   },
   7: {
-    caps: { drawPool: 5, equipMax: 5, gambitPoints: 7, deckSlots: 3, tier: "ace" },
-    unlocks: { trickDeck: true, aceInSleeve: true, signaturePerk: true, finalHand: false, allTiers: false, dualClass: true },
+    caps: { drawPool: 5, equipMax: 5, gambitPoints: 7, deckSlots: 3 },
+    unlocks: { signaturePerk: true, dualClass: true },
     grants: { attributePoints: 0, moves: 1, sparkSlots: 0 },
     notes: "+1 Learned Move."
   },
   8: {
-    caps: { drawPool: 6, equipMax: 6, gambitPoints: 8, deckSlots: 3, tier: "ace" },
-    unlocks: { trickDeck: true, aceInSleeve: true, signaturePerk: true, finalHand: false, allTiers: false, dualClass: true },
+    caps: { drawPool: 6, equipMax: 6, gambitPoints: 8, deckSlots: 3 },
+    unlocks: { signaturePerk: true, dualClass: true },
     grants: { attributePoints: 0, moves: 1, sparkSlots: 1 },
     notes: "+1 Learned Move, +1 Spark Slot (casters)."
   },
   9: {
-    caps: { drawPool: 6, equipMax: 6, gambitPoints: 8, deckSlots: 4, tier: "all-in-unlocked" },
-    unlocks: { trickDeck: true, aceInSleeve: true, signaturePerk: true, finalHand: false, allTiers: false, dualClass: true },
+    caps: { drawPool: 6, equipMax: 6, gambitPoints: 8, deckSlots: 4 },
+    unlocks: { signaturePerk: true, dualClass: true },
     grants: { attributePoints: 1, moves: 1, sparkSlots: 0, expertise: 1 },
-    notes: "May utilize All In Gambits, +1 Attribute Point, +1 Learned Move, +1 Deck Slot, +1 Expertise."
+    notes: "+1 Attribute Point, +1 Learned Move, +1 Deck Slot, +1 Expertise."
   },
   10: {
-    caps: { drawPool: 6, equipMax: 6, gambitPoints: 9, deckSlots: 4, tier: "all-in" },
-    unlocks: { trickDeck: true, aceInSleeve: true, signaturePerk: true, finalHand: true, allTiers: false, dualClass: true },
+    caps: { drawPool: 6, equipMax: 6, gambitPoints: 9, deckSlots: 4 },
+    unlocks: { signaturePerk: true, dualClass: true },
     grants: { attributePoints: 0, moves: 1, sparkSlots: 1 },
     notes: "+1 Learned Move, +1 Spark Slot (casters)."
   },
   11: {
-    caps: { drawPool: 6, equipMax: 6, gambitPoints: 9, deckSlots: 4, tier: "all-in" },
-    unlocks: { trickDeck: true, aceInSleeve: true, signaturePerk: true, finalHand: true, allTiers: true, dualClass: true },
+    caps: { drawPool: 6, equipMax: 6, gambitPoints: 9, deckSlots: 4 },
+    unlocks: { signaturePerk: true, dualClass: true },
     grants: { attributePoints: 0, moves: 1, sparkSlots: 0 },
     notes: "+1 Learned Move."
   },
   12: {
-    caps: { drawPool: 6, equipMax: 6, gambitPoints: 10, deckSlots: 4, tier: "all-in" },
-    unlocks: { trickDeck: true, aceInSleeve: true, signaturePerk: true, finalHand: true, allTiers: true, dualClass: true },
+    caps: { drawPool: 6, equipMax: 6, gambitPoints: 10, deckSlots: 4 },
+    unlocks: { signaturePerk: true, dualClass: true },
     grants: { attributePoints: 1, moves: 1, sparkSlots: 1, expertise: 1 },
     notes: "+1 Attribute Point, +1 Learned Move, +1 Spark Slot (casters), +1 Expertise."
   }

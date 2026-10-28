@@ -1,7 +1,14 @@
 import {
+	MG_COMPENDIUM_CATEGORIES,
+	mgGetCompendiumCategory,
+	mgGetCompendiumLabel,
+	mgGetCompendiumLibraryConfig,
+	mgSaveCompendiumLibraryConfig,
+	mgSaveCompendiumAppearance,
+	mgIsItemLibraryPack,
 	mgCanShowLibraryPackAction,
+	mgGetCompendiumCardImage,
 	mgCanToggleLibraryPack,
-	mgIsBuiltinLibraryPack,
 	mgIsLibraryCompendium,
 	mgSetCompendiumLibraryItems,
 	mgSetLibraryCompendium
@@ -9,26 +16,8 @@ import {
 
 const MG_UI_NS = "midnight-gambit";
 const MG_COMPENDIUM_USER_ORDER_FLAG = "compendiumSidebarOrder";
-const MG_COMPENDIUM_DEFAULT_IMAGE = "systems/midnight-gambit/assets/images/items.jpg";
+
 const MG_COMPENDIUM_HEADER_IMAGE = "systems/midnight-gambit/assets/images/items.jpg";
-
-const MG_COMPENDIUM_IMAGES = {
-  "midnight-gambit.guises": "systems/midnight-gambit/assets/images/compendium-guises.png",
-  "midnight-gambit.gambits": "systems/midnight-gambit/assets/images/compendium-gambits.png",
-  "midnight-gambit.moves": "systems/midnight-gambit/assets/images/compendium-moves.png",
-  "midnight-gambit.items": "systems/midnight-gambit/assets/images/compendium-items.png"
-};
-
-function mgGetCompendiumCardImage(pack) {
-	const metadata = pack?.metadata ?? {};
-	const ids = [
-		pack?.collection,
-		metadata.id,
-		metadata.package && metadata.name ? `${metadata.package}.${metadata.name}` : null
-	].map(id => String(id ?? ""));
-
-	return ids.map(id => MG_COMPENDIUM_IMAGES[id]).find(Boolean) || MG_COMPENDIUM_DEFAULT_IMAGE;
-}
 
 function mgGetCompendiumPackFromApp(app) {
 	const candidates = [
@@ -59,6 +48,9 @@ function mgGetCompendiumPackFromApp(app) {
 const MG_COMPENDIUM_TYPES = [
 	["Actor", "Actors"],
 	["Item", "Items"],
+	["shop", "Shops"],
+	["moves", "Moves"],
+	["gambits", "Gambits"],
 	["JournalEntry", "Journals"],
 	["Scene", "Scenes"],
 	["RollTable", "Roll Tables"],
@@ -198,7 +190,7 @@ async function mgCreateCompendiumPack(metadata, folderId = null, options = {}) {
 }
 
 function mgGetPackLabel(pack) {
-	return pack?.metadata?.label || pack?.title || pack?.collection || "Compendium";
+	return mgGetCompendiumLabel(pack);
 }
 
 function mgGetPackType(pack) {
@@ -755,7 +747,9 @@ async function mgCreateCompendium(folderId = null) {
 			if (!form) return;
 
 			const label = form.elements?.label?.value?.trim() || "New Compendium";
-			const type = form.elements?.type?.value || "Actor";
+			const selection = form.elements?.type?.value || "Actor";
+			const category = MG_COMPENDIUM_CATEGORIES.find(entry => entry.id === selection);
+			const type = category ? "Item" : selection;
 			const name = mgSlug(label);
 			const pack = await mgCreateCompendiumPack({
 				label,
@@ -764,6 +758,7 @@ async function mgCreateCompendium(folderId = null) {
 				package: "world",
 				private: false
 			}, folderId || null);
+			if (pack && type === "Item") await mgSaveCompendiumLibraryConfig(pack, { category: category?.id ?? "general" });
 			if (folderId && pack) mgSetAccordionOpen(null, `compendium-folder-${folderId}`, true);
 			globalThis.mgRefreshCompendiumSidebarContent?.();
 		},
@@ -808,17 +803,16 @@ function mgOpenCompendiumContextMenu(packId, anchor, row, event = null) {
 	const locked = mgIsPackLocked(pack);
 	const canDelete = canManage && mgIsWorldCompendium(pack);
 	const canShowLibraryAction = canManage && mgCanShowLibraryPackAction(pack);
-	const isBuiltinLibrary = mgIsBuiltinLibraryPack(pack);
 	const inLibrary = mgIsLibraryCompendium(pack);
-	const libraryLabel = isBuiltinLibrary
-		? "Show in Library"
-		: (inLibrary ? "Hide from Library" : "Show in Library");
+	const libraryLabel = `${inLibrary ? "Exclude from" : "Include in"} ${mgGetCompendiumCategory(pack).library}`;
 	const menu = document.createElement("nav");
 	menu.className = "mg-scene-context-menu mg-compendium-context-menu";
 	menu.dataset.mgCompendiumContextMenu = mgGetPackId(pack);
 	menu.innerHTML = `
 		${canManage ? `<button type="button" data-mg-compendium-action="ownership"><i class="fa-solid fa-user-shield"></i> Configure Ownership</button>` : ""}
 		${canManage ? `<button type="button" data-mg-compendium-action="lock"><i class="fa-solid ${locked ? "fa-lock-open" : "fa-lock"}"></i> ${locked ? "Unlock Editing" : "Lock Editing"}</button>` : ""}
+		${canManage ? `<button type="button" data-mg-compendium-action="edit"><i class="fa-solid fa-pen"></i> Edit Compendium</button>` : ""}
+		${canManage && mgIsItemLibraryPack(pack) && mgGetCompendiumLibraryConfig(pack).category === "shop" ? `<button type="button" data-mg-compendium-action="icon"><i class="fa-solid fa-icons"></i> Change Library Icon</button>` : ""}
 		${canShowLibraryAction ? `<button type="button" data-mg-compendium-action="library"><i class="fa-solid fa-books"></i> ${libraryLabel}</button>` : ""}
 		${canManage ? `<button type="button" data-mg-compendium-action="duplicate"><i class="fa-regular fa-copy"></i> Duplicate Compendium</button>` : ""}
 		${canManage ? `<button type="button" data-mg-compendium-action="import-all"><i class="fa-solid fa-file-import"></i> Import All Content</button>` : ""}
@@ -894,6 +888,10 @@ function mgOpenCompendiumFolderContextMenu(folderId, anchor, event = null) {
 async function mgRunCompendiumAction(pack, action) {
 	try {
 		switch (action) {
+			case "edit":
+			case "icon":
+				await mgEditCompendium(pack, action === "icon");
+				break;
 			case "ownership":
 				await mgOpenCompendiumOwnershipConfig(pack);
 				break;
@@ -901,14 +899,11 @@ async function mgRunCompendiumAction(pack, action) {
 				await mgConfigurePack(pack, { locked: !mgIsPackLocked(pack) });
 				break;
 			case "library":
-				if (mgIsBuiltinLibraryPack(pack)) {
-					const updated = await mgSetCompendiumLibraryItems(pack, true);
-					ui.notifications?.info(`${mgGetPackLabel(pack)} repaired for Library use.${updated ? ` Updated ${updated} item(s).` : ""}`);
-				} else if (mgCanToggleLibraryPack(pack)) {
+				if (mgCanToggleLibraryPack(pack)) {
 					const nextEnabled = !mgIsLibraryCompendium(pack);
 					if (nextEnabled) await mgSetCompendiumLibraryItems(pack, true);
 					await mgSetLibraryCompendium(pack, nextEnabled);
-					ui.notifications?.info(`${mgGetPackLabel(pack)} ${mgIsLibraryCompendium(pack) ? "shown in" : "hidden from"} the Library.`);
+					ui.notifications?.info(`${mgGetPackLabel(pack)} ${mgIsLibraryCompendium(pack) ? "shown in" : "hidden from"} the ${mgGetCompendiumCategory(pack).library}.`);
 				}
 				globalThis.mgRefreshCompendiumSidebarContent?.();
 				break;
@@ -925,6 +920,63 @@ async function mgRunCompendiumAction(pack, action) {
 	} catch (err) {
 		ui.notifications?.error("Compendium action failed.");
 		console.warn("MG UI | Compendium action failed.", { pack: pack?.collection, action, err });
+	}
+}
+
+// Edit the compendium image, with an additional icon field for shops.
+async function mgEditCompendium(pack, iconOnly = false) {
+	const current = mgGetCompendiumLibraryConfig(pack);
+	const isShop = mgIsItemLibraryPack(pack) && current.category === "shop";
+	const result = await Dialog.wait({
+		title: iconOnly ? "Change Library Icon" : "Edit Compendium",
+		content: `<form>
+			<div class="form-group">
+				<label>Name</label>
+				<div class="form-fields">
+					<input name="label" value="${mgAttr(mgGetPackLabel(pack))}" />
+				</div>
+			</div>
+			<div class="form-group">
+				<label>Image</label>
+				<div class="form-fields">
+					<input name="image" value="${mgAttr(mgGetCompendiumCardImage(pack))}" />
+					<button type="button" data-compendium-image-picker title="Choose Image"><i class="fa-solid fa-file-import"></i></button>
+				</div>
+			</div>
+			${isShop ? `<div class="form-group">
+				<label>Shop Icon</label>
+				<div class="form-fields">
+					<input name="icon" value="${mgAttr(current.icon)}" />
+				</div>
+			</div>
+			<p>Font Awesome classes, for example: fa-solid fa-store, fa-solid fa-sword, or fa-solid fa-gem.</p>` : ""}
+		</form>`,
+		render: html => {
+			html.find("[data-compendium-image-picker]").on("click", () => {
+				const input = html.find('[name="image"]');
+				new FilePicker({ type: "image", current: input.val(), callback: path => input.val(path) }).browse();
+			});
+		},
+		buttons: {
+			save: {
+				label: "Save",
+				icon: '<i class="fa-solid fa-check"></i>',
+				callback: html => ({ label: html.find('[name="label"]').val(), image: html.find('[name="image"]').val(), icon: isShop ? html.find('[name="icon"]').val() : undefined })
+			},
+			cancel: { label: "Cancel", callback: () => null }
+		},
+		default: "save",
+		close: () => null
+	});
+	if (!result) return;
+	try {
+		await mgSaveCompendiumAppearance(pack, result);
+		globalThis.mgRefreshCompendiumSidebarContent?.();
+		for (const app of Object.values(ui.windows ?? {})) {
+			if (app.rendered && mgGetCompendiumPackFromApp(app) === pack) app.render(false);
+		}
+	} catch (error) {
+		ui.notifications.warn(error.message);
 	}
 }
 
@@ -991,6 +1043,10 @@ async function mgDuplicateCompendium(pack) {
 	if (typeof pack.getDocuments === "function" && typeof duplicate?.importDocument === "function") {
 		const docs = await pack.getDocuments();
 		for (const doc of docs) await duplicate.importDocument(doc);
+	}
+	if (duplicate) {
+		if (mgIsItemLibraryPack(pack)) await mgSaveCompendiumLibraryConfig(duplicate, mgGetCompendiumLibraryConfig(pack));
+		await mgSaveCompendiumAppearance(duplicate, { image: mgGetCompendiumCardImage(pack), icon: mgGetCompendiumLibraryConfig(pack).icon });
 	}
 	globalThis.mgRefreshCompendiumSidebarContent?.();
 }
@@ -1315,7 +1371,7 @@ function mgRenderCompendiumRow(pack) {
 				<span class="mg-scene-row-scrim"></span>
 				<span class="mg-scene-row-title mg-compendium-row-title">
 					${mgEsc(label)}
-					<small>${mgEsc(type)}</small>
+					<small>${mgEsc(mgIsItemLibraryPack(pack) ? mgGetCompendiumCategory(pack).label : type === "JournalEntry" ? "Journal Entry" : type)}</small>
 				</span>
 				<span class="mg-scene-row-badges mg-compendium-row-badges">
 					${locked ? `<i class="fa-solid fa-lock" title="Locked"></i>` : `<i class="fa-solid fa-box-archive" title="Compendium"></i>`}

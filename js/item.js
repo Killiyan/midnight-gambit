@@ -1,3 +1,4 @@
+import { mgGetCompendiumCategory } from "./library-sources.js";
 import {
   getGambitCostForTier,
   normalizeGambitTier,
@@ -8,6 +9,39 @@ import {
 } from "../config.js";
 
 export class MidnightGambitItem extends Item {
+  // Compendium creation uses only the item types allowed by its content type.
+  static async createDialog(data = {}, { parent = null, pack = null, ...options } = {}) {
+    const collection = pack ? game.packs.get(pack) : null;
+    const types = collection ? mgGetCompendiumCategory(collection).types : null;
+    if (!types) return super.createDialog(data, { parent, pack, ...options });
+
+    const type = types.includes(data.type) ? data.type : types[0];
+    const labels = types.reduce((labels, type) => {
+      const key = CONFIG.Item.typeLabels?.[type] ?? type;
+      labels[type] = game.i18n.has(key) ? game.i18n.localize(key) : type.charAt(0).toUpperCase() + type.slice(1);
+      return labels;
+    }, {});
+    const folders = collection._formatFolderSelectOptions();
+    const title = game.i18n.format("DOCUMENT.Create", { type: game.i18n.localize(this.metadata.label) });
+    const html = await renderTemplate("templates/sidebar/document-create.html", {
+      name: data.name || this.defaultName(), folder: data.folder, folders,
+      hasFolders: folders.length > 0, type, types: labels, hasTypes: types.length > 1
+    });
+    return Dialog.prompt({
+      title, content: html, label: title,
+      callback: html => {
+        const form = html[0].querySelector("form");
+        const fields = new FormDataExtended(form).object;
+        const creation = { ...data, ...fields, type: types.length === 1 ? type : fields.type };
+        if (!types.includes(creation.type)) throw new Error("Choose a type allowed by this compendium.");
+        if (!creation.folder) delete creation.folder;
+        if (!creation.name?.trim()) creation.name = this.defaultName();
+        return this.create(creation, { parent, pack, renderSheet: true });
+      },
+      rejectClose: false, options
+    });
+  }
+
   prepareDerivedData() {
     super.prepareDerivedData();
 

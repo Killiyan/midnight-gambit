@@ -1,0 +1,239 @@
+<section class="mg-gambit-library mg-items-library {{#if showingShops}}is-shop-selection{{/if}} {{#if hasFocus}}is-focused{{/if}} {{#if suppressFocusFade}}is-focus-refresh{{/if}}">
+  <!--This is our library heading with shop navigation and window controls-->
+  <header class="mg-gambit-library-header">
+    <div class="mg-items-library-heading">
+      <div>
+        <h1>
+          {{#if shop}}
+            {{shop.name}}
+          {{else}}
+            Items Library
+          {{/if}}
+        </h1>
+        <p>
+          {{#if shop}}
+            {{shop.count}} items · Items Library
+          {{else}}
+            Choose a shop
+          {{/if}}
+        </p>
+      </div>
+    </div>
+
+    <div class="mg-items-library-heading">
+      <button type="button" class="mg-items-library-back" data-refresh-shops title="Refresh shops and items">
+        <i class="fa-solid fa-arrows-rotate"></i>
+      </button>
+      <button type="button" class="mg-gambit-library-window-close" title="Close Items Library">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+  </header>
+
+  <main class="mg-gambit-library-main">
+    <section class="mg-gambit-library-stage">
+
+      <!--This is our shop selection, using the compendium artwork-->
+      {{#if showingShops}}
+        <div class="mg-items-library-shops">
+          {{#each shops}}
+            <button type="button" class="mg-items-library-shop" data-open-shop="{{id}}">
+              <img src="{{image}}" alt="" />
+              <i class="{{icon}}" aria-hidden="true"></i>
+              <h2>{{name}} <i class="fa-solid fa-angle-right"></i></h2>
+            </button>
+          {{else}}
+            <div class="mg-gambit-library-empty">
+              No shops are available. A GM can enable an Item compendium with “Show in Library”
+              in the Compendium directory. Players also need permission to view it.
+            </div>
+          {{/each}}
+        </div>
+
+      {{else}}
+        <!--These are the item previews for the selected shop-->
+        <div class="mg-gambit-library-grid">
+          {{#each cards}}
+            <div
+              class="mg-gambit-library-card {{#if focused}}is-focused{{/if}} {{#if animateEnter}}pre-enter{{/if}}"
+              tabindex="0"
+              role="button"
+              data-uuid="{{uuid}}"
+              aria-label="View {{name}}"
+              {{#if animateEnter}}style="--mg-card-enter-delay: {{enterDelay}};"{{/if}}
+            >
+              <h3>
+                {{name}}
+                <i class="{{icon}}" aria-label="{{typeLabel}}"></i>
+              </h3>
+
+              <!--This is the item image and description teaser before opening the lightbox-->
+              <div class="mg-items-library-card-overview">
+                <img src="{{img}}" alt="" />
+                <!--This is the Lux banner beneath the item image-->
+                {{#if luxCost}}
+                  <div class="mg-items-library-stats">
+                    <p title="Lux">
+                      <i class="fa-solid fa-coins" aria-label="Lux"></i>
+                      <strong>{{luxCost}}</strong>
+                    </p>
+                  </div>
+                {{/if}}
+                {{#if teaser}}
+                  <p>{{teaser}}</p>
+                {{/if}}
+              </div>
+
+              <!--These are the item damage and capacity values, when available-->
+              {{#if strain}}
+                <div class="mg-items-library-stats">
+                  {{#each strain}}
+                    <p title="{{label}}">
+                      <i class="{{icon}}" aria-label="{{label}}"></i>
+                      <strong>{{value}}</strong>
+                    </p>
+                  {{/each}}
+                </div>
+              {{/if}}
+              {{#if capacity}}
+                <div class="mg-items-library-stats">
+                  {{#each capacity}}
+                    <p title="{{title}}">
+                      <label>{{label}}</label>
+                      <strong>{{value}}</strong>
+                    </p>
+                  {{/each}}
+                </div>
+              {{/if}}
+            </div>
+          {{else}}
+            <div class="mg-gambit-library-empty">
+              {{#if shopError}}
+                This shop could not be loaded. Try Refresh.
+              {{else}}
+                No items match those filters.
+              {{/if}}
+            </div>
+          {{/each}}
+        </div>
+
+        <!--This is our selected item lightbox with details and inventory controls-->
+        {{#if selected}}
+          <div class="mg-gambit-library-focus-backdrop"></div>
+          <div class="mg-gambit-library-focus">
+            <button type="button" class="mg-gambit-library-focus-close" title="Close Preview">
+              <i class="fa-solid fa-xmark"></i>
+            </button>
+
+            <div class="mg-items-library-preview-image">
+              <img src="{{selected.img}}" alt="{{selected.name}}" />
+            </div>
+
+            <div class="mg-gambit-library-focus-copy">
+              <div class="mg-gambit-library-focus-title">
+                <h2>{{selected.name}}</h2>
+                {{selected.typeLabel}}
+              </div>
+
+              {{#if selected.hasStats}}
+                <div class="mg-items-library-stats">
+                  {{#each selected.strain}}
+                    <p title="{{label}}">
+                      <i class="{{icon}}" aria-label="{{label}}"></i>
+                      <strong>{{value}}</strong>
+                    </p>
+                  {{/each}}
+                  {{#each selected.capacity}}
+                    <p title="{{title}}">
+                      <label>{{label}}</label>
+                      <strong>{{value}}</strong>
+                    </p>
+                  {{/each}}
+                  {{#if selected.luxCost}}
+                    <p title="Lux">
+                      <i class="fa-solid fa-coins" aria-label="Lux"></i>
+                      <strong>{{selected.luxCost}}</strong>
+                    </p>
+                  {{/if}}
+                </div>
+              {{/if}}
+
+              {{#if selected.tags}}
+                <div class="mg-items-library-tags">
+                  {{#each selected.tags}}
+                    <span>{{this}}</span>
+                  {{/each}}
+                </div>
+              {{/if}}
+
+              <div class="mg-gambit-library-description">
+                {{{selected.descriptionHtml}}}
+              </div>
+
+              <!--These are the quantity and Add to Inventory controls-->
+              {{#if canAdd}}
+                <div class="mg-items-library-acquire">
+                  <label>
+                    Quantity
+                    <input type="number" name="itemQuantity" value="{{quantity}}" min="1" step="1" />
+                  </label>
+                  <button type="button" class="mg-gambit-library-toggle-card" data-add-library-item>
+                    <i class="fa-solid fa-circle-plus"></i>
+                    Add to Inventory
+                  </button>
+                </div>
+              {{/if}}
+            </div>
+          </div>
+        {{/if}}
+      {{/if}}
+    </section>
+
+    <!--These are our shop selector, search, and item type filters-->
+    {{#unless showingShops}}
+      <aside class="mg-gambit-library-filters">
+        {{#if canChooseShop}}
+          <button type="button" class="mg-items-library-back" data-choose-shop>
+            <i class="fa-solid fa-arrow-left"></i>
+            Back to Shops
+          </button>
+
+          <div class="mg-gambit-library-filter-group">
+            <label for="mg-item-shop-{{shop.id}}">Shop</label>
+            <select id="mg-item-shop-{{shop.id}}" data-shop-select>
+              {{#each shops}}
+                <option value="{{id}}" {{#if (eq id ../shop.id)}}selected{{/if}}>
+                  {{name}}
+                </option>
+              {{/each}}
+            </select>
+          </div>
+        {{/if}}
+
+        <!--This is our item search-->
+        <div class="mg-gambit-library-search">
+          <label>Search</label>
+          <input type="search" name="search" value="{{search}}" placeholder="Search items…" />
+        </div>
+
+        <div class="mg-gambit-library-filter-group">
+          <label>Type</label>
+          <div class="tag-selector mg-moves-library-subtype-pills">
+            {{#each typeFilters}}
+              <button
+                type="button"
+                class="tag-pill mg-moves-library-subtype-pill {{#if checked}}selected{{/if}}"
+                data-item-type-filter="{{id}}"
+                aria-pressed="{{#if checked}}true{{else}}false{{/if}}"
+                title="{{label}}"
+              >
+                <i class="{{icon}}" aria-hidden="true"></i>
+                <span>{{label}}</span>
+              </button>
+            {{/each}}
+          </div>
+        </div>
+      </aside>
+    {{/unless}}
+  </main>
+</section>

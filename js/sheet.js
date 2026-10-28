@@ -1,8 +1,9 @@
 import { evaluateRoll, mgApplyStrainAttributePenalty, mgGetStrainEffectBadge, mgGetStrainRollEffects } from "./roll-utils.js";
 import { GambitDeckBuilderApplication } from "./gambit-deck-builder.js";
 import { MovesLibraryApplication } from "./moves-library.js";
+import { ItemsLibraryApplication } from "./items-library.js";
 import { MG_TOKEN_FRAMES, mgComposeAndStoreActorTokenImage, mgGetActorTokenPreviewBox, mgGetTokenFrame, mgGetTokenMinScale } from "./token-frame.js";
-import { mgSanitizeInventoryItemData } from "./item-sheet.js";
+import { mgCreateInventoryItem, mgSanitizeInventoryItemData } from "./item-sheet.js";
 
 const MG_ACTOR_GUISE_IMAGE = "systems/midnight-gambit/assets/images/guise.jpg";
 const MG_ACTOR_DEFAULT_IMAGE = "icons/svg/mystery-man.svg";
@@ -550,7 +551,6 @@ export class MidnightGambitActorSheet extends ActorSheet {
         sparkSlots: Number(p.sparkSlots || 0),
         expertise: Number(p.expertise || 0),
         signaturePerk: Number(p.signaturePerk || 0),
-        finalHandDiscoverable: Number(p.finalHandDiscoverable || 0)
       };
       context.hasPending = Object.values(context.pending).some(n => Number(n) > 0);
 
@@ -2050,6 +2050,11 @@ _mgOpenSidebarCropper() {
       }
 
       new GambitDeckBuilderApplication(this.actor, deckId).render(true);
+    });
+
+    html.find(".mg-open-items-library").off("click.mgItemsLibrary").on("click.mgItemsLibrary", ev => {
+      ev.preventDefault();
+      new ItemsLibraryApplication(this.actor).render(true);
     });
 
     html.find(".mg-open-moves-library").off("click.mgMovesLibrary").on("click.mgMovesLibrary", (ev) => {
@@ -4018,108 +4023,13 @@ _mgOpenSidebarCropper() {
         });
     }
 
-    // Create a new Inventory item directly on this actor
-    html.find(".mg-create-item").on("click", async (event) => {
+    // Create a new inventory item using the shared character/crew dialog.
+    html.find(".mg-create-item").on("click", async event => {
       event.preventDefault();
       event.stopPropagation();
-
-      const result = await Dialog.wait({
-        title: "Create Inventory Item",
-        content: `
-          <form class="mg-create-item-dialog">
-            <div class="form-group">
-              <label>Item Name</label>
-              <input type="text" name="itemName" value="New Item" autofocus />
-            </div>
-
-            <div class="form-group">
-              <label>Item Type</label>
-              <select name="itemType">
-                <option value="misc">Misc</option>
-                <option value="weapon">Weapon</option>
-                <option value="armor">Armor</option>
-              </select>
-            </div>
-          </form>
-        `,
-        buttons: {
-          create: {
-            label: this._mgBtn ? this._mgBtn("Create", "fa-plus") : "Create",
-            callback: (html) => {
-              const name = html.find('[name="itemName"]').val()?.trim();
-              const type = html.find('[name="itemType"]').val();
-
-              if (!name) return null;
-
-              return {
-                name,
-                type
-              };
-            }
-          },
-          cancel: {
-            label: this._mgBtn ? this._mgBtn("Cancel", "fa-circle-xmark") : "Cancel",
-            callback: () => null
-          }
-        },
-        default: "create"
+      await mgCreateInventoryItem(this.actor, {
+        buttonLabel: (text, icon) => this._mgBtn ? this._mgBtn(text, icon) : text
       });
-
-      if (!result) return;
-
-      const baseSystem = {
-        description: "",
-        tags: [],
-        quantity: 1,
-        equipped: false
-      };
-
-      if (result.type === "weapon") {
-        baseSystem.mortalStrainDamage = 0;
-        baseSystem.soulStrainDamage = 0;
-        baseSystem.strainDamage = 0;
-      }
-
-      if (result.type === "armor") {
-        baseSystem.mortalCapacity = 0;
-        baseSystem.soulCapacity = 0;
-        baseSystem.remainingCapacity = {
-          mortal: 0,
-          soul: 0
-        };
-      }
-
-      if (result.type === "misc") {
-        baseSystem.mortalStrainDamage = 0;
-        baseSystem.soulStrainDamage = 0;
-        baseSystem.strainDamage = 0;
-
-        baseSystem.mortalCapacity = 0;
-        baseSystem.soulCapacity = 0;
-        baseSystem.remainingCapacity = {
-          mortal: 0,
-          soul: 0
-        };
-      }
-
-      const created = await this.actor.createEmbeddedDocuments("Item", [{
-        name: result.name,
-        type: result.type,
-        system: baseSystem,
-        flags: {
-          "midnight-gambit": {
-            inventoryCreated: true
-          }
-        }
-      }]);
-
-      const item = created?.[0];
-
-      this.render(false);
-
-      if (item?.sheet) {
-        item.sheet.render(true);
-      }
     });
 
     const updateInventoryQuantity = async (input, value) => {
@@ -6753,6 +6663,8 @@ _mgOpenSidebarCropper() {
       spark: "Spark"
     };
 
+    const isCaster = ["full", "half", "caster"].includes(this.actor.system?.casterType);
+
     const current = this.actor.system?.tempSkillBonuses ?? {};
     const currentAttrBonuses = this.actor.system?.tempAttributeBonuses ?? {};
 
@@ -6819,6 +6731,14 @@ _mgOpenSidebarCropper() {
               Set temporary bonuses or penalties that apply automatically when a skill is rolled.
             </p>
             ${columnsHtml}
+            ${isCaster ? `
+              <div class="spark-container">
+                <label class="spark-label" for="temp-spark">Sparks</label>
+                <div class="spark-skill-row">
+                  <input class="skill-value mg-temp-skill-input" id="temp-spark" name="temp-spark" type="number" value="${Number(current.spark ?? 0)}" step="1" />
+                </div>
+              </div>
+            ` : ""}
           </div>
         `,
         buttons: {
@@ -6835,6 +6755,8 @@ _mgOpenSidebarCropper() {
                   skillOut[skillKey] = Number(html.find(`input[name="temp-${skillKey}"]`).val() ?? 0) || 0;
                 }
               }
+
+              if (isCaster) skillOut.spark = Number(html.find('input[name="temp-spark"]').val() ?? 0) || 0;
 
               resolve({
                 skillBonuses: skillOut,
@@ -7429,7 +7351,6 @@ async _mgOpenStatPicker({ title, current }) {
       p.deckSlots ? `${p.deckSlots} Deck Slot` : null,
       p.expertise ? `${p.expertise} Expertise` : null,
       p.signaturePerk ? `Signature Perk` : null,
-      p.finalHandDiscoverable ? `Final Hands discoverable` : null
     ].filter(Boolean).join(", ");
 
     const readPending = async () => {
@@ -7441,7 +7362,6 @@ async _mgOpenStatPicker({ title, current }) {
         sparkSlots: Number(p.sparkSlots||0),
         expertise: Number(p.expertise||0),
         signaturePerk: Number(p.signaturePerk||0),
-        finalHandDiscoverable: Number(p.finalHandDiscoverable||0)
       };
     };
 
@@ -7522,7 +7442,7 @@ async _mgOpenStatPicker({ title, current }) {
       try { await actor.mgSpendPending("spark"); } catch (e) { ui.notifications.error(e.message); break; }
     }
 
-    // 5) Signature Perk / Final Hand acknowledgements (real pickers later)
+    // 5) Expertise and Signature Perk acknowledgements (real pickers later)
     if ((pending = await readPending()).expertise > 0) {
       const ok = await Dialog.wait({
         title: "Expertise",
@@ -7553,21 +7473,6 @@ async _mgOpenStatPicker({ title, current }) {
       });
 
       if (ok) { try { await actor.mgSpendPending("ack-signature"); } catch (e) {} }
-    }
-
-    if ((pending = await readPending()).finalHandDiscoverable > 0) {
-      const ok = await Dialog.wait({
-        title: "Final Hand",
-        content: `
-          <p><strong>Final Hands</strong> are now discoverable. Mark this as acknowledged?</p>
-        `,
-        buttons: {
-          yes: { label: this._mgBtn("Acknowledge", "fa-check-double"), callback: () => true },
-          no:  { label: this._mgBtn("Later", "fa-clock"), callback: () => false }
-        },
-        default: "yes"
-      });
-      if (ok) { try { await actor.mgSpendPending("ack-finalhand"); } catch (e) {} }
     }
 
     // 6) Moves (we’ll do a picker later — for now just nudge them)

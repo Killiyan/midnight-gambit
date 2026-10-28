@@ -810,7 +810,6 @@
 			}	
 
 			.assets-toolbar {
-				margin-top: -4.5rem;
 				position: relative;
 				z-index: 20;
 				padding: 0 2.125rem 0 0;
@@ -821,6 +820,37 @@
 				gap: 1rem;
 				margin-bottom: 2.125rem;
 				box-shadow: 5px 5px 10px rgba(0,0,0,0.5);
+
+				&:first-of-type {
+					margin-top: -4.5rem;
+					display: flex;
+					justify-content: center;
+					align-items: center;
+				}
+
+				.mg-items-library-launcher {
+					display: flex;
+					flex-direction: column;
+					align-items: center;
+					border-right: 2px solid $mg-blue-main-2;
+					padding: 1.125rem;
+					width: 100%;
+
+					button {
+						display: flex;
+						gap: .5rem;
+						justify-content: center;
+						align-items: center;
+
+						i {
+						margin: 0;
+						}
+					}
+
+					&:last-of-type {
+						border: none;
+					}
+				}				
 
 				.crew-lux {
 					padding: 1.125rem;
@@ -1392,11 +1422,23 @@
 									display: inline-flex;
 									align-items: center;
 									justify-content: center;
+									border: 2px solid transparent;
 
 									i {
 										margin: 0;
 										color: $mg-blue-2;
 									}
+
+									&:hover,
+									&:focus {
+										background: $mg-blue-5;
+										color: $mg-green;
+										border-color: $mg-green;
+
+										i {
+											color: $mg-blue-1;
+										}
+									}									
 								}
 							}
 						}

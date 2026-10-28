@@ -45,6 +45,18 @@
     </div>
 
     {{#if (or (eq itemType "weapon") (eq itemType "armor") (eq itemType "misc"))}}
+    <!--This is the optional Lux cost shown in shops-->
+    <div class="wrapper mg-content">
+      <div class="form-group">
+        <label>Shop Cost (Lux)</label>
+        <input type="number" name="system.luxCost" value="{{system.luxCost}}" min="0" step="1" placeholder="0" />
+      </div>
+      <p>Optional price per item. Leave at 0 to hide the cost in shops.</p>
+    </div>
+
+    {{/if}}
+
+    {{#if (or (eq itemType "weapon") (eq itemType "armor") (eq itemType "misc"))}}
       <div class="wrapper mg-content">
         <div class="form-group signature-check">
           <label>Favorite</label>

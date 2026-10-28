@@ -50,6 +50,119 @@ function mgGetItemSheetImage(item) {
 	return img;
 }
 
+// The same embedded inventory item creation dialog is used by characters and crews.
+export async function mgCreateInventoryItem(actor, { buttonLabel = text => text } = {}) {
+  if (!actor?.isOwner || !["character", "crew"].includes(actor.type)) return;
+  const allowAsset = actor.type === "crew";
+  const allowedTypes = allowAsset ? ["misc", "weapon", "armor", "asset"] : ["misc", "weapon", "armor"];
+  const result = await Dialog.wait({
+    title: "Create Inventory Item",
+    content: `
+      <form class="mg-create-item-dialog">
+        <div class="form-group">
+          <label>Item Name</label>
+          <input type="text" name="itemName" value="New Item" autofocus />
+        </div>
+
+        <div class="form-group">
+          <label>Item Type</label>
+          <select name="itemType">
+            <option value="misc">Misc</option>
+            <option value="weapon">Weapon</option>
+            <option value="armor">Armor</option>
+            ${allowAsset ? '<option value="asset">Asset</option>' : ""}
+          </select>
+        </div>
+      </form>
+    `,
+    buttons: {
+      create: {
+        label: buttonLabel("Create", "fa-plus"),
+        callback: (html) => {
+          const name = html.find('[name="itemName"]').val()?.trim();
+          const type = html.find('[name="itemType"]').val();
+
+          if (!name) return null;
+
+          return {
+            name,
+            type
+          };
+        }
+      },
+      cancel: {
+        label: buttonLabel("Cancel", "fa-circle-xmark"),
+        callback: () => null
+      }
+    },
+    default: "create"
+  });
+
+  if (!result || !allowedTypes.includes(result.type)) return;
+
+  const baseSystem = {
+    description: "",
+    tags: [],
+    quantity: 1,
+    equipped: false
+  };
+
+  if (result.type === "weapon") {
+    baseSystem.mortalStrainDamage = 0;
+    baseSystem.soulStrainDamage = 0;
+    baseSystem.strainDamage = 0;
+  }
+
+  if (result.type === "armor") {
+    baseSystem.mortalCapacity = 0;
+    baseSystem.soulCapacity = 0;
+    baseSystem.remainingCapacity = {
+      mortal: 0,
+      soul: 0
+    };
+  }
+
+  if (result.type === "misc") {
+    baseSystem.mortalStrainDamage = 0;
+    baseSystem.soulStrainDamage = 0;
+    baseSystem.strainDamage = 0;
+
+    baseSystem.mortalCapacity = 0;
+    baseSystem.soulCapacity = 0;
+    baseSystem.remainingCapacity = {
+      mortal: 0,
+      soul: 0
+    };
+  }
+
+  if (result.type === "asset") {
+    delete baseSystem.quantity;
+    delete baseSystem.equipped;
+    baseSystem.qty = 1;
+    baseSystem.notes = "";
+  }
+
+  const created = await actor.createEmbeddedDocuments("Item", [{
+    name: result.name,
+    type: result.type,
+    system: baseSystem,
+    flags: {
+      "midnight-gambit": {
+        inventoryCreated: true
+      }
+    }
+  }]);
+
+  const item = created?.[0];
+
+  actor.sheet?.render(false);
+
+  if (item?.sheet) {
+    item.sheet.render(true);
+  }
+  return item;
+}
+
 export async function mgGetUniqueGlobalItemName(name) {
 	const baseName = String(name ?? "Item").trim() || "Item";
 	const usedNames = new Set(

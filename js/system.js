@@ -425,8 +425,24 @@ Hooks.once("init", async () => {
     default: []
   });
 
+  game.settings.register("midnight-gambit", "compendiumLibraryConfig", {
+    name: "Compendium Categories and Icons",
+    scope: "world",
+    config: false,
+    type: Object,
+    default: {}
+  });
+
   game.settings.register("midnight-gambit", "libraryCompendiums", {
     name: "Library Compendiums",
+    scope: "world",
+    config: false,
+    type: Array,
+    default: []
+  });
+
+  game.settings.register("midnight-gambit", "excludedLibraryCompendiums", {
+    name: "Excluded Library Compendiums",
     scope: "world",
     config: false,
     type: Array,

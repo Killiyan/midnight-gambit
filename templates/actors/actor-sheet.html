@@ -806,6 +806,16 @@
         <div class="inventory-tab">
 
           <div class="inventory-toolbar">
+            <div class="inventory-create-wrap">
+              <button type="button" class="mg-open-items-library" title="Browse Item Shops"><i class="fa-solid fa-store"></i> Library</button>
+            </div>
+
+            <div class="inventory-create-wrap">
+              <button type="button" class="mg-create-item" title="Create Item"><i class="fa-solid fa-briefcase"></i>Create Item</button>
+            </div>            
+          </div>
+
+          <div class="inventory-toolbar">
             <div class="currency-field">
               <label for="lux">Lux</label>
               <div class="field-wrapper lux-controls">
@@ -824,13 +834,6 @@
               </div>
             </div>
 
-            <div class="inventory-create-wrap">
-              <label>Create Item</label>
-              <button type="button" class="mg-create-item" title="Create Item">
-                <i class="fa-solid fa-briefcase"></i>
-              </button>
-            </div>            
-
             <!-- Inventory search -->
             <div class="search-wrap">
               <label>Search Items</label>
@@ -846,7 +849,6 @@
               </div>
             </div>
           </div>
-
 
           <!-- Unified Inventory List -->
           <div class="inventory-section">
@@ -883,7 +885,7 @@
                         <img class="item-card-img" src="{{item.img}}" alt="{{item.name}}" />
                       </div>
 
-                      {{!-- Only show this block if any strain/capacity value is actually meaningful --}}
+                      <!--Only show this block if any strain/capacity value is actually meaningful-->
                       {{#if (or
                         (gt item.system.mortalStrainDamage 0)
                         (gt item.system.soulStrainDamage 0)
@@ -894,7 +896,7 @@
 
                           <div class="bubble-wrapper">
 
-                            {{!-- Mortal strain: prefer new field; fallback to legacy strainDamage --}}
+                            <!--Mortal strain: prefer new field; fallback to legacy strainDamage-->
                             <p class="strain-bubble">
                               <i class="fa-kit fa-mortal-strain"></i>
                               <span class="remaining-number">
@@ -909,7 +911,7 @@
                               </span>
                             </p>
 
-                            {{!-- Soul strain: new field only --}}
+                            <!--Soul strain: new field only-->
                             <p class="strain-bubble">
                               <i class="fa-kit fa-soul-strain"></i>
                               <span class="remaining-number">
@@ -1063,7 +1065,7 @@
                 </button>                
               </div>
 
-              {{!-- Weapons --}}
+              <!--Weapons-->
               {{#each (filterItems @root.actor.items "weapon") as |item|}}
                 {{#unless item.system.favorite}}
                   <div class="inventory-card mg-card-wrap" data-item-id="{{item._id}}" data-seeall-cap="375">
@@ -1206,7 +1208,7 @@
                 </button>                
               </div>      
 
-              {{!-- Armor --}}
+              <!--Armor-->
               {{#each (filterItems @root.actor.items "armor") as |item|}}
                 {{#unless item.system.favorite}}
                   <div class="inventory-card mg-card-wrap" data-item-id="{{item._id}}" data-seeall-cap="375">

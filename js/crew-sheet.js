@@ -8,7 +8,8 @@
 import { ASSET_TAGS, ITEM_TAGS } from "../config.js";
 import { MGInitiativeController } from "./initiative-controller.js";
 import { GambitDeckBuilderApplication } from "./gambit-deck-builder.js";
-import { mgSanitizeInventoryItemData } from "./item-sheet.js";
+import { ItemsLibraryApplication } from "./items-library.js";
+import { mgCreateInventoryItem, mgSanitizeInventoryItemData } from "./item-sheet.js";
 
 // v11-safe HTML escaper
 const ESC = (s) =>
@@ -40,7 +41,7 @@ function mgAssignedCharacterId(user) {
 	return typeof assigned === "string" ? assigned : assigned?.id ?? null;
 }
 
-export async function mgTransferInventoryItem(sourceItem, targetActor) {
+export async function mgTransferInventoryItem(sourceItem, targetActor, quantity = null) {
 	if (!sourceItem?.isEmbedded || !MG_CREW_ITEM_TYPES.has(sourceItem.type)) {
 		throw new Error("Only inventory items can be sent.");
 	}
@@ -51,9 +52,16 @@ export async function mgTransferInventoryItem(sourceItem, targetActor) {
 		throw new Error("The selected inventory destination is invalid.");
 	}
 
+	const available = Math.max(0, Math.trunc(Number(sourceItem.system?.quantity ?? 1)));
+	const amount = quantity ?? available;
+	if (!Number.isSafeInteger(amount) || amount < 1 || amount > available) {
+		throw new Error("The requested quantity is no longer available.");
+	}
+
 	const itemData = sourceItem.toObject();
 	delete itemData._id;
 	itemData.system ??= {};
+	itemData.system.quantity = amount;
 	itemData.system.favorite = false;
 	itemData.flags ??= {};
 	itemData.flags["midnight-gambit"] ??= {};
@@ -67,7 +75,8 @@ export async function mgTransferInventoryItem(sourceItem, targetActor) {
 	let created = null;
 	try {
 		[created] = await targetActor.createEmbeddedDocuments("Item", [itemData]);
-		await sourceItem.delete();
+		if (amount === available) await sourceItem.delete();
+		else await sourceItem.update({ "system.quantity": available - amount });
 		return created;
 	} catch (err) {
 		if (created) {
@@ -1328,6 +1337,15 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 
 	activateListeners(html) {
 	super.activateListeners(html);
+	html.find(".mg-create-item").off("click.mgCreateItem").on("click.mgCreateItem", async event => {
+		event.preventDefault();
+		event.stopPropagation();
+		await mgCreateInventoryItem(this.actor);
+	});
+	html.find(".mg-open-items-library").off("click.mgItemsLibrary").on("click.mgItemsLibrary", ev => {
+		ev.preventDefault();
+		new ItemsLibraryApplication(this.actor).render(true);
+	});
 	this._mgApplyTemplateStyles(html);
 	this._wirePartyStrainLiveRefresh();
 

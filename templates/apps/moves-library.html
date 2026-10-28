@@ -1,4 +1,5 @@
 <section class="mg-gambit-library mg-moves-library {{#if hasFocus}}is-focused{{/if}} {{#if suppressFocusFade}}is-focus-refresh{{/if}}">
+  <!--This is our library heading and window controls-->
   <header class="mg-gambit-library-header">
     <div>
       <h1>Moves Library</h1>
@@ -10,6 +11,7 @@
 
   <main class="mg-gambit-library-main">
     <section class="mg-gambit-library-stage">
+      <!--These are our library cards, filtered by the controls alongside them-->
       <div class="mg-gambit-library-grid">
         {{#each cards}}
           <button type="button"
@@ -40,9 +42,10 @@
         </div>
       {{/unless}}
 
+      <!--This is our selected card lightbox with its full description and actions-->
       {{#if selected}}
         <div class="mg-gambit-library-focus-backdrop"></div>
-        <article class="mg-gambit-library-focus">
+        <div class="mg-gambit-library-focus">
           <button type="button" class="mg-gambit-library-focus-close" title="Close Preview">
             <i class="fa-solid fa-xmark"></i>
           </button>
@@ -75,10 +78,11 @@
               </span>
             </button>
           </div>
-        </article>
+        </div>
       {{/if}}
     </section>
 
+    <!--These are our library search and filters-->
     <aside class="mg-gambit-library-filters">
       <div class="mg-gambit-library-search">
         <label>Search</label>

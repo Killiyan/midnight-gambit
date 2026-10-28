@@ -1,5 +1,5 @@
-/* Moves, Gambits, and Items Picker
-----------------------------------------------------------------------*/
+/* Gambit Deck Builder
+==============================================================================================================================================*/
 
 .gambit-tab {
   .mg-deck-builder-panel {
@@ -29,6 +29,8 @@
       color: $mg-blue-3;
     }
 
+    /* Deck Grid
+    ----------------------------------------------------------------------*/
     .mg-deck-slot-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -198,6 +200,8 @@
       }
     }
 
+    /* Deck Designs
+    ----------------------------------------------------------------------*/
     &.mg-deck-design-midnight {
       .mg-deck-slot-card {
         background-image: url("../assets/images/Gambits-Midnight.jpg");
@@ -224,6 +228,8 @@
   }
 }
 
+/* Library Window and Page Backdrop
+==============================================================================================================================================*/
 .mg-gambit-library-app {
   .window-header {
     display: none;
@@ -265,6 +271,8 @@
   z-index: 10070 !important;
 }
 
+/* Gambit Library
+==============================================================================================================================================*/
 .mg-gambit-library {
   height: 100%;
   min-height: 0;
@@ -320,6 +328,8 @@
     }
   }
 
+  /* Library Header
+  ----------------------------------------------------------------------*/
   .mg-gambit-library-header {
     min-height: 5.25rem;
     padding: 1.25rem 2rem;
@@ -432,7 +442,8 @@
       }
     }
 
-    .mg-gambit-library-window-close {
+    .mg-gambit-library-window-close,
+     .mg-items-library-back {
       aspect-ratio: 1/1;
       width: auto;
       margin: 0;
@@ -461,6 +472,8 @@
     }
   }
 
+  /* Library Layout
+  ----------------------------------------------------------------------*/
   .mg-gambit-library-main {
     min-height: 0;
     flex: 1;
@@ -477,6 +490,8 @@
       scrollbar-gutter: stable;
       background: $mg-blue-6;
 
+      /* Card Grid
+      ----------------------------------------------------------------------*/
       .mg-gambit-library-grid {
         display: grid;
         grid-template-columns: repeat(auto-fill, minmax(10.25rem, 1fr));
@@ -493,6 +508,8 @@
         }
       }
 
+      /* Library Cards
+      ----------------------------------------------------------------------*/
       .mg-gambit-library-card {
         width: 100%;
         aspect-ratio: 3 / 4.15;
@@ -538,6 +555,8 @@
         }
       }
 
+      /* Card Artwork and Captions
+      ----------------------------------------------------------------------*/
       .mg-gambit-library-card-art,
       .mg-gambit-library-focus-card {
         position: relative;
@@ -697,6 +716,8 @@
         color: $mg-blue-2;
       }
 
+      /* Selected Card Lightbox
+      ----------------------------------------------------------------------*/
       .mg-gambit-library-focus-backdrop {
         position: absolute;
         inset: var(--mg-gambit-library-overlay-top, 0px) 0 auto 0;
@@ -778,6 +799,29 @@
           align-items: flex-start;
           gap: 1rem;
           @include mg-shadow();
+
+          .mg-items-library-stats {
+            display: flex;
+            flex-wrap: wrap;
+            gap: .5rem;
+            width: auto;
+            background-color: transparent;
+
+            p {
+              border-radius: .5rem;
+              @include mg-border();
+              width: auto;
+              background: $mg-blue-4;
+
+              strong {
+                line-height: 1;
+              }
+
+              &:last-child {
+                @include mg-border();
+              }
+            }
+          }
         }
 
         .mg-gambit-library-focus-title {
@@ -880,9 +924,16 @@
             }
           }
         }
+
+        .mg-items-library-preview-image {
+          border-radius: .5rem;
+          @include mg-border();
+        }        
       }
     }
 
+    /* Search and Filters
+    ----------------------------------------------------------------------*/
     .mg-gambit-library-filters {
       grid-column: 1;
       grid-row: 1;
@@ -945,6 +996,8 @@
           appearance: none;
         }
 
+        /* Filter Toggles
+        ----------------------------------------------------------------------*/
         .mg-moves-library-toggle-list {
           display: flex;
           flex-direction: column;
@@ -1047,6 +1100,8 @@
           }
         }
 
+        /* Filter Pills
+        ----------------------------------------------------------------------*/
         .mg-moves-library-subtype-pills {
           display: flex;
           flex-direction: column;
@@ -1112,6 +1167,8 @@
     }
   }
 
+  /* Moves Library
+  ==============================================================================================================================================*/
   &.mg-moves-library {
     .mg-gambit-library-main {
       grid-template-columns: 17.5rem minmax(0, 1fr);
@@ -1127,6 +1184,8 @@
         grid-column: 2;
         grid-row: 1;
 
+        /* Item Tiles
+        ----------------------------------------------------------------------*/
         .mg-gambit-library-card {
           &.is-in-deck {
             .mg-gambit-library-card-art {
@@ -1196,8 +1255,448 @@
       }
     }
   }
+
+  /* Items Library
+  ==============================================================================================================================================*/
+  &.mg-items-library {
+    /* Shop Heading and Navigation
+    ----------------------------------------------------------------------*/
+    .mg-items-library-heading {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      min-width: 0;
+
+      h1 {
+        overflow-wrap: anywhere;
+      }
+
+      p {
+        margin: .35rem 0 0;
+        color: $mg-blue-2;
+        @include roboto();
+      }
+    }
+
+    .mg-items-library-back {
+      width: auto;
+      margin: 0;
+      padding: .65rem 1rem;
+      background: $mg-blue-4;
+      color: $mg-blue-1;
+      border: 2px solid $mg-blue-main-2;
+      border-radius: .5rem;
+      white-space: nowrap;
+
+      &:hover {
+        border-color: $mg-green;
+        color: $mg-green;
+      }
+    }
+
+    &.is-shop-selection {
+      .mg-gambit-library-main {
+        grid-template-columns: minmax(0, 1fr);
+
+        .mg-gambit-library-stage {
+          grid-column: 1;
+        }
+      }
+    }
+
+    /* Shop Selection Grid
+    ----------------------------------------------------------------------*/
+    .mg-gambit-library-filters {
+      .mg-items-library-back {
+        width: 100%;
+        margin-bottom: 1rem;
+      }
+    }
+
+    .mg-items-library-shops {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));
+      gap: 1.5rem;
+    }
+
+    /* Shop Tiles and Compendium Artwork
+    ----------------------------------------------------------------------*/
+    .mg-items-library-shop {
+      @include roboto();
+      text-transform: none;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 1rem;
+      min-height: 17rem;
+      padding: 2rem;
+      margin: 0;
+      border: 2px solid $mg-blue-main-2;
+      border-radius: .5rem;
+      position: relative;
+      isolation: isolate;
+      overflow: hidden;
+      background: $mg-blue-4;
+      color: $mg-blue-1;
+      box-shadow: 4px 4px 10px rgba(0,0,0,.5);
+
+      > img {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        border: 0;
+        z-index: -2;
+      }
+
+      &::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: $mg-blue-5;
+        opacity: .8;
+        pointer-events: none;
+        z-index: -1;
+        transition: background .5s ease, opacity .5s ease
+      }
+
+      > i,
+      h2,
+      i {
+        @include mg-shadow();
+        transition: color .5s ease;        
+      }
+
+      > i {
+        font-size: 2.5rem;
+        color: $mg-blue-3;
+      }
+
+      h2 {
+        @include tiller();
+        font-style: normal;
+        font-size: 1.45rem;
+        text-transform: none;
+        overflow-wrap: anywhere;
+
+        i {
+          color: $mg-blue-2;
+          font-size: 1rem;
+          color: $mg-green;
+        }
+      }
+
+
+      .mg-items-library-shop-open {
+        color: $mg-blue-2;
+      }
+
+      &:hover,
+      &:focus-visible {
+        border-color: $mg-green;
+        
+        &:before {
+          background: $mg-blue-6;
+          opacity: .8;
+        }        
+
+        h2 {
+          color: $mg-green;
+        }
+
+        i,
+        > i {
+          color: $mg-blue-1
+        }
+      }
+    }
+
+    .mg-gambit-library-main {
+      .mg-gambit-library-stage {
+        // The item type is plain text beside the heading; the heading supplies the divider.
+        .mg-gambit-library-focus-title {
+          @include tiller();
+          font-size: .875rem;
+          font-weight: 800;
+          color: $mg-blue-1;
+
+          h2 {
+            position: relative;
+            margin-right: 1rem;
+
+            &::after {
+              content: "";
+              position: absolute;
+              right: 0;
+              top: 50%;
+              height: .875rem;
+              border-right: 2px solid $mg-blue-main-2;
+              transform: translateY(-50%);
+            }
+          }
+        }
+
+        .mg-gambit-library-grid {
+          grid-template-columns: repeat(auto-fill, minmax(min(100%, 13rem), 1fr));
+          grid-auto-rows: 1fr;
+          align-items: stretch;
+
+          .mg-gambit-library-empty {
+            grid-column: 1 / -1;
+          }
+        }
+
+        .mg-gambit-library-card {
+          aspect-ratio: auto;
+          height: 100%;
+          box-sizing: border-box;
+          display: flex;
+          flex-direction: column;
+          padding: 0;
+          width: 100%;
+          margin: 0;
+          border: 2px solid $mg-blue-main-2;
+          border-radius: .5rem;
+          background: $mg-blue-main;
+          overflow: hidden;
+          box-shadow: 4px 4px 10px rgba(0,0,0,.5);
+          cursor: pointer;
+
+          h3 {
+            @include tiller();
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 1rem;
+            margin: 0;
+            padding: 1.25rem .5rem 1.25rem 1rem;
+            border: 0;
+            background: $mg-blue-main-2;
+            color: $mg-blue-1;
+            font-size: 1.25rem;
+            font-weight: 700;
+            line-height: 1.1;
+            text-transform: none;
+            transition: color .5s ease, background .5s ease;
+
+            word-break: normal;
+            overflow-wrap: anywhere;
+            min-height: 4.5rem;
+            box-sizing: border-box;
+
+            > i {
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              flex-shrink: 0;
+              padding: .5rem;
+              border-radius: .5rem;
+              background: $mg-blue-4;
+              color: $mg-blue-3;
+              font-size: 1.25rem;
+              line-height: 1;
+              transition: color .5s ease;
+              width: auto;
+            }
+
+            &:hover,
+            &:focus {
+              background: $mg-blue-main-2;
+              color: $mg-blue-1;
+
+              i {
+                color: $mg-blue-3;
+              }
+            }
+          }
+
+          &:hover,
+          &:focus-visible {
+            border-color: $mg-green;
+          }
+        }
+
+        .mg-items-library-card-overview {
+          display: flex;
+          flex-direction: column;
+          flex: 1;
+          min-width: 0;
+          align-items: stretch;
+          gap: 0;
+          padding: 0;
+          color: $mg-blue-2;
+          @include roboto();
+
+          > p {
+            display: -webkit-box;
+            -webkit-box-orient: vertical;
+            -webkit-line-clamp: 4;
+            overflow: hidden;
+            overflow-wrap: anywhere;
+            margin: 1rem;
+            font-size: .875rem;
+            line-height: 1.4;
+            padding: .5rem;
+            background: $mg-blue-4;
+            @include mg-border();
+            border-radius: .5rem;
+            width: calc(100% - 2rem);
+            box-sizing: border-box;
+            position: relative;
+
+            &:after {
+              content: "";
+              position: absolute;
+              left: 0;
+              right: 0;
+              bottom: 0;
+              height: 1rem;
+              pointer-events: none;
+              background: linear-gradient(to bottom, rgba(0,0,0,0) 0%, rgba($black, .3) 100%);
+              backdrop-filter: blur(1px);
+              transition: opacity .5s ease;
+              border-radius: .5rem;
+            }            
+          }
+
+          > img {
+            box-sizing: border-box;
+            flex-shrink: 0;
+            width: 100%;
+            object-fit: contain;
+            border: 0;
+            background: $mg-blue-4;
+            aspect-ratio: 1/1;
+            object-fit: cover;
+          }
+        }
+
+        /* Item Preview
+        ----------------------------------------------------------------------*/
+        .mg-items-library-preview-image {
+          width: 100%;
+          border: 2px solid $mg-blue-main-2;
+          border-radius: .5rem;
+          background: $mg-blue-main;
+          box-sizing: border-box;
+
+          img {
+            display: block;
+            width: 100%;
+            max-height: 20rem;
+            object-fit: contain;
+            border: 0;
+          }
+        }
+
+        /* Item Stats and Tags
+        ----------------------------------------------------------------------*/
+        .mg-items-library-stats {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          width: 100%;
+          color: $mg-blue-2;
+          background: $mg-blue-4;
+          @include oswald();
+          font-size: 1rem;
+          font-weight: 700;
+
+          p {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: .5rem;
+            margin: 0;
+            padding: .5rem 1rem;
+            border-top: 2px solid $mg-blue-main-2;
+            border-right: 2px solid $mg-blue-main-2;
+
+            &:only-child {
+              grid-column: 1 / -1;
+            }
+
+            &:last-child {
+              border-right: 0;
+            }
+          }
+
+          i {
+            color: $mg-blue-2;
+            font-size: 1.25rem;
+          }
+
+          label {
+            @include oswald();
+            color: $mg-blue-1;
+            font-size: 1rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            margin: 0;
+          }
+
+          strong {
+            color: $mg-blue-1;
+          }
+        }
+
+        .mg-items-library-price {
+          display: flex;
+          align-items: center;
+          gap: .5rem;
+          margin: 0;
+          padding: .75rem 1rem;
+          color: $mg-blue-1;
+          @include oswald();
+          font-weight: 700;
+
+          i {
+            color: $mg-ivory-2;
+          }
+        }
+
+        .mg-items-library-tags {
+          display: flex;
+          flex-wrap: wrap;
+          gap: .5rem;
+
+          span {
+            padding: .25rem .5rem;
+            border-radius: .35rem;
+            background: $mg-blue-main-2;
+            color: $mg-blue-1;
+            @include roboto();
+          }
+        }
+
+        /* Quantity and Add to Inventory
+        ----------------------------------------------------------------------*/
+        .mg-items-library-acquire {
+          display: flex;
+          flex-wrap: wrap;
+          align-items: end;
+          gap: 1rem;
+
+          label {
+            display: flex;
+            flex-direction: column;
+            gap: .35rem;
+            color: $mg-blue-2;
+          }
+
+          input {
+            width: 5rem;
+            text-align: center;
+          }
+        }
+      }
+    }
+  }
 }
 
+/* Lightbox Animations
+==============================================================================================================================================*/
 @keyframes mgGambitLibraryOverlayFadeIn {
   from {
     opacity: 0;
