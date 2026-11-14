@@ -1,3 +1,4 @@
+import { mgAuraReference, mgGetAuraEncounter, mgSetActiveAura, mgSetEncounterMember } from "./aura-encounter.js";
 import { mgBindNpcInventory, mgPrepareNpcInventory } from "../items/inventory.js";
 import { mgSanitizeInventoryItemData } from "../items/item-sheet.js";
 // npc-sheet.js
@@ -55,6 +56,11 @@ export class MidnightGambitNpcSheet extends ActorSheet {
     const context = await super.getData(options);
     context.actor = this.actor;
     context.system = this.actor.system ?? {};
+    const encounter = mgGetAuraEncounter();
+    const auraRef = mgAuraReference(this.actor);
+    context.auraActive = encounter.active === auraRef;
+    context.inAuraEncounter = encounter.entries.includes(auraRef);
+    context.canManageEncounter = game.user.isGM;
     context.canRecoverCapacity = this._mgCanRecoverCapacity();
     context.actorDisplayImg = mgGetActorPlacementImage(this.actor, "profile");
 
@@ -1010,29 +1016,19 @@ export class MidnightGambitNpcSheet extends ActorSheet {
   });
 
 
-  // NPC Aura Toggle
-  html.find(".mg-aura-toggle")
-    .off("click.mgAuraToggle")
-    .on("click.mgAuraToggle", async (ev) => {
-      ev.preventDefault();
-      ev.stopPropagation();
-
-      const btn = ev.currentTarget;
-      const next = !Boolean(this.actor.system?.aura?.enabled);
-
-      await this.actor.update({ "system.aura.enabled": next }, { render: false });
-
-      if (next) {
-        await game.settings.set("midnight-gambit", "activeAuraActorId", this.actor.id);
-      } else {
-        const current = game.settings.get("midnight-gambit", "activeAuraActorId");
-        if (current === this.actor.id) {
-          await game.settings.set("midnight-gambit", "activeAuraActorId", "");
-        }
-      }
-
-      btn.classList.toggle("is-active", next);
-    });
+  // Both controls use the same actor/token reference as the Director and rolls.
+  html.find(".mg-aura-toggle").off("click.mgAuraToggle").on("click.mgAuraToggle", async ev => {
+    ev.preventDefault();
+    if (!game.user.isGM) return;
+    await mgSetActiveAura(this.actor, mgGetAuraEncounter().active !== mgAuraReference(this.actor));
+    this.render(false);
+  });
+  html.find(".mg-encounter-toggle").off("click.mgEncounter").on("click.mgEncounter", async ev => {
+    ev.preventDefault();
+    if (!game.user.isGM) return;
+    await mgSetEncounterMember(this.actor, !mgGetAuraEncounter().entries.includes(mgAuraReference(this.actor)));
+    this.render(false);
+  });
 
   }
 

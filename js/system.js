@@ -390,6 +390,11 @@ Hooks.once("init", async () => {
     default: false
   });
 
+  game.settings.register("midnight-gambit", "auraEncounter", {
+    name: "Aura Encounter", scope: "world", config: false, type: Object,
+    default: { version: 0, entries: [], active: "" }
+  });
+
   //Enemy Aura register
   game.settings.register("midnight-gambit", "activeAuraActorId", {
     name: "Active Aura Actor ID",

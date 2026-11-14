@@ -24,7 +24,11 @@
 		padding: .5rem 1rem;
 	}
 
-	.mg-aura-toggle {
+	:is(.mg-aura-toggle, .mg-encounter-toggle) {
+		&.mg-encounter-toggle {
+			margin-top: .5rem;
+		}
+
 		position: relative;
 		width: 100%;
 		background: $mg-blue-main;

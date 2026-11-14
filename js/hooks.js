@@ -1,3 +1,4 @@
+import { mgResolveAura, mgSetActiveAura } from "./actors/aura-encounter.js";
 import { MidnightGambitCrewSheet, mgTransferInventoryItem } from "./actors/crew-sheet.js";
 import { mgGetUniqueGlobalItemName, mgSanitizeInventoryItemData } from "./items/item-sheet.js";
 import { MGInitiativeBar } from "./initiative/initiative-bar.js";
@@ -648,6 +649,24 @@ function mgActorUpdateTouchesGambitHand(changes = {}) {
   );
 }
 
+// Sync usage markers in place so both views retain their fade transitions.
+Hooks.on("updateActor", (actor, changes) => {
+  if (!foundry.utils.hasProperty(changes, "flags.midnight-gambit.disabledMoves")) return;
+  const disabled = new Set(actor.getFlag("midnight-gambit", "disabledMoves") ?? []);
+  for (const app of Object.values(actor.apps ?? {})) {
+    const root = app.element?.[0] ?? app.element;
+    root?.querySelectorAll?.('.tab-moves [data-move-use-id]').forEach(card => {
+      card.classList.toggle("disabled", disabled.has(card.dataset.moveUseId));
+    });
+  }
+  document.querySelectorAll('[data-mg-floating-gambit-hand]').forEach(hand => {
+    if (hand.dataset.actorId !== actor.id) return;
+    hand.querySelectorAll('[data-move-use-id]').forEach(card => {
+      card.classList.toggle("disabled", disabled.has(card.dataset.moveUseId));
+    });
+  });
+});
+
 Hooks.on("updateActor", (actor, changes) => {
   if (actor.id !== game.user.character?.id) return;
   if (!mgActorUpdateTouchesGambitHand(changes)) return;
@@ -1113,6 +1132,10 @@ function renderMoveHandCards(actor, cardsWrap, handHtml, moveItems) {
     const div = document.createElement("div");
     div.className = "gambit-hand-card gambit-move-hand-card";
     div.dataset.moveId = move.id;
+    const useId = actor.items.has(move.id) ? `item:${move.id}` : move.id;
+    div.dataset.moveUseId = useId;
+    div.classList.toggle("disabled", (actor.getFlag("midnight-gambit", "disabledMoves") ?? []).includes(useId));
+    div.title = "Right-click: preview. Shift + right-click: mark used/available.";
     div.dataset.moveKind = move.kind;
     div.style.setProperty("--stack-index", String(i + 1));
     div.innerHTML = `
@@ -1124,7 +1147,12 @@ function renderMoveHandCards(actor, cardsWrap, handHtml, moveItems) {
       ev.preventDefault();
       ev.stopPropagation();
       if (handHtml.classList.contains("is-transitioning")) return;
-      await mgPreviewMove(actor, move);
+      if (!ev.shiftKey) return mgPreviewMove(actor, move);
+      if (!actor.isOwner) return;
+      const disabled = new Set(actor.getFlag("midnight-gambit", "disabledMoves") ?? []);
+      if (disabled.has(useId)) disabled.delete(useId);
+      else disabled.add(useId);
+      await actor.update({ "flags.midnight-gambit.disabledMoves": [...disabled] }, { render: false });
     });
 
     div.addEventListener("click", async (ev) => {
@@ -1767,11 +1795,11 @@ Hooks.on("renderChatMessage", (message, html) => {
       strainEffects = null;
     }
 
-    const auraActor = game.actors.get(auraActorId);
+    const auraActor = btn.dataset.auraSourceUuid ? mgResolveAura(btn.dataset.auraSourceUuid) : game.actors.get(auraActorId);
     const rollActor = game.actors.get(rollActorId);
 
     if (auraActor) {
-      await auraActor.update({ "system.aura.enabled": false }, { render: false });
+      await mgSetActiveAura(auraActor, false);
     }
 
     const replayBreakdown = Array.isArray(modifierBreakdown) && modifierBreakdown.length
@@ -1794,6 +1822,7 @@ Hooks.on("renderChatMessage", (message, html) => {
     await evaluateRoll({
       formula,
       rollData: {},
+      groupCheck: message.getFlag("midnight-gambit", "groupCheck"),
       skillMod: replaySkillMod,
       modifierParts: replayParts,
       modifierBreakdown: replayBreakdown,
@@ -4106,6 +4135,8 @@ function mgBuildObscuredRollCard() {
 
 function mgBuildRestrictedChatData(sourceMessage, base = {}) {
   const data = { ...base };
+  const groupCheck = sourceMessage?.getFlag("midnight-gambit", "groupCheck");
+  if (groupCheck) data.flags = foundry.utils.mergeObject(data.flags ?? {}, { "midnight-gambit": { groupCheck } });
 
   if (sourceMessage?.blind) data.blind = true;
   if (Array.isArray(sourceMessage?.whisper) && sourceMessage.whisper.length) {
@@ -4922,6 +4953,7 @@ Hooks.on("renderChatMessage", (message, html) => {
           <button type="button"
             class="mg-roll-action mg-spend-sto sto-complication"
             data-actor-id="${actor.id}"
+            data-target="complication"
             data-spend="${needComp}"
             data-total="${newTotal}"
             data-strain-effects='${strainEffectsJson}'
@@ -4935,6 +4967,7 @@ Hooks.on("renderChatMessage", (message, html) => {
           <button type="button"
             class="mg-roll-action mg-spend-sto sto-flourish"
             data-actor-id="${actor.id}"
+            data-target="flourish"
             data-spend="${needFlourish}"
             data-total="${newTotal}"
             data-strain-effects='${strainEffectsJson}'
@@ -4953,6 +4986,7 @@ Hooks.on("renderChatMessage", (message, html) => {
           <button type="button"
             class="mg-roll-action mg-spend-sto sto-flourish"
             data-actor-id="${actor.id}"
+            data-target="flourish"
             data-spend="${needFlourish}"
             data-total="${newTotal}"
             data-strain-effects='${strainEffectsJson}'
@@ -5031,7 +5065,7 @@ Hooks.on("renderChatMessage", (message, html) => {
     const actor = game.actors.get(riskBtn.dataset.actorId);
     const locked = actor ? getRollStrainEffects(actor, riskBtn).stoRiskLocked : false;
     if (consumed || locked || hasFinalOutcome(riskBtn)) disableBtn(riskBtn);
-    else riskBtn.addEventListener("click", () => handleRiskClick(riskBtn), { once: true });
+    else riskBtn.addEventListener("click", () => mgRunGroupRollAction(message, () => handleRiskClick(riskBtn)), { once: true });
   }
 
   // 2) Each spawned "Risk Result" card can be used once as well
@@ -5041,7 +5075,7 @@ Hooks.on("renderChatMessage", (message, html) => {
     const actor = game.actors.get(riskAgainBtn.dataset.actorId);
     const locked = actor ? getRollStrainEffects(actor, riskAgainBtn).stoRiskLocked : false;
     if (consumed || locked || hasFinalOutcome(riskAgainBtn)) disableBtn(riskAgainBtn);
-    else riskAgainBtn.addEventListener("click", () => handleRiskClick(riskAgainBtn), { once: true });
+    else riskAgainBtn.addEventListener("click", () => mgRunGroupRollAction(message, () => handleRiskClick(riskAgainBtn)), { once: true });
   }
 
   root.querySelectorAll(".mg-spend-sto").forEach((btn) => {
@@ -5049,7 +5083,7 @@ Hooks.on("renderChatMessage", (message, html) => {
     if (hasFinalOutcome(btn) || (actor && getRollStrainEffects(actor, btn).stoRiskLocked)) disableBtn(btn);
   });
 
-  html.on("click", ".mg-spend-sto", async (event) => {
+  html.on("click", ".mg-spend-sto", (event) => mgRunGroupRollAction(message, async () => {
     event.preventDefault();
 
     const btn = event.currentTarget;
@@ -5156,7 +5190,7 @@ Hooks.on("renderChatMessage", (message, html) => {
       type: CONST.CHAT_MESSAGE_TYPES.OTHER
     }));
 
-  });
+  }));
 });
 
 
@@ -6613,3 +6647,10 @@ Hooks.on("preCreateToken", (tokenDoc, data, options, userId) => {
 
   if (Object.keys(updates).length) tokenDoc.updateSource(updates);
 });
+
+async function mgRunGroupRollAction(message, action) {
+ const link = message.getFlag("midnight-gambit", "groupCheck");
+ if (link) Hooks.callAll("mgGroupAction", true);
+ try { return await action(); }
+ finally { if (link) Hooks.callAll("mgGroupAction", false); }
+}

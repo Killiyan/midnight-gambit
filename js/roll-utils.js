@@ -67,6 +67,7 @@ export function mgGetStrainEffectBadge(effects, { includeGlobalLock = true, show
 }
 
 export async function evaluateRoll({
+  groupCheck = null,
   formula,
   rollData = {},
   skillMod = 0,
@@ -79,6 +80,7 @@ export async function evaluateRoll({
   auraAttrMod = 0,
   auraSourceActorId = "",
   auraSourceTokenId = "",
+  auraSourceUuid = "",
   auraIconClass = "fa-eye-evil",
   strainEffects = null
 }) {
@@ -219,6 +221,7 @@ export async function evaluateRoll({
           <button type="button"
             class="mg-remove-aura"
             data-aura-actor-id="${esc(auraSourceActorId)}"
+            data-aura-source-uuid="${esc(auraSourceUuid)}"
             data-roll-actor-id="${esc(actor?.id ?? "")}"
             data-label="${esc(label)}"
             data-formula="${esc(formula)}"
@@ -481,6 +484,7 @@ export async function evaluateRoll({
   }
 
   const msgData = {
+    flags: groupCheck ? { "midnight-gambit": { groupCheck } } : {},
     user: game.user.id,
     speaker: ChatMessage.getSpeaker({ actor }),
     content: chatContent,

@@ -1,3 +1,4 @@
+import { mgAuraDisplayName, mgAuraReference, mgResolveAura, mgGetAuraEncounter, mgGetAuraPenalty, mgSetActiveAura, mgSetEncounterMember, mgClearAuraEncounter, mgReorderAuraEncounter } from "../actors/aura-encounter.js";
 import { evaluateRoll, mgApplyStrainAttributePenalty, mgGetStrainEffectBadge, mgGetStrainRollEffects } from "../roll-utils.js";
 import { MGInitiativeController } from "../initiative/initiative-controller.js";
 
@@ -988,35 +989,7 @@ function mgRenderIconTrack({ kind, total, filled, dataAttr = "" }) {
 
 /* Adjusting the Attribute/Skill Rolls by Aura
 ----------------------------------------------------------------------*/
-function mgGetActiveAuraPenalty(attrKey) {
-	const empty = { value: 0, label: "", sourceActorId: "", sourceTokenId: "" };
-
-	let activeAuraActorId = "";
-	try {
-		activeAuraActorId = game.settings.get("midnight-gambit", "activeAuraActorId");
-	} catch (_) {
-		return empty;
-	}
-
-	if (!activeAuraActorId) return empty;
-
-	const actor = game.actors.get(activeAuraActorId);
-	if (!actor || actor.type !== "npc" || !actor.system?.aura?.enabled) return empty;
-
-	const npcAttr = Number(
-		actor.system?.attributes?.[attrKey] ??
-		actor.system?.baseAttributes?.[attrKey] ??
-		0
-	) || 0;
-	const label = String(actor.system?.aura?.label || "Oppressive Presence");
-
-	return {
-		value: -npcAttr,
-		label,
-		sourceActorId: actor.id,
-		sourceTokenId: ""
-	};
-}
+function mgGetActiveAuraPenalty(attrKey) { return mgGetAuraPenalty(attrKey); }
 
 function mgGetDifficultyModifier() {
 	try {
@@ -3343,7 +3316,7 @@ function mgRefreshCharacterEdgeButtons(actor, forcedState = null) {
 	}
 }
 
-async function mgRollAttribute(actor, attrKey) {
+export async function mgRollAttribute(actor, attrKey, options = {}) {
 	if (!actor || !attrKey) return;
 
 	const baseAttrMod = Number(actor.system?.attributes?.[attrKey] ?? 0);
@@ -3361,9 +3334,10 @@ async function mgRollAttribute(actor, attrKey) {
 	const strainedAttrMod = mgApplyStrainAttributePenalty(finalAttrMod, strainEffects);
 	const pool = 2 + Math.abs(strainedAttrMod);
 	const rollType = strainedAttrMod >= 0 ? "kh2" : "kl2";
-	const edge = !!actor.system?.edgeNext;
+	const edge = !!options.edge || !!actor.system?.edgeNext;
 
-	await evaluateRoll({
+	const message = await evaluateRoll({
+		groupCheck: options.groupCheck,
 		formula: `${pool}d6${rollType}`,
 		skillMod: auraAttrMod + difficultyMod,
 		modifierParts: [auraAttrMod, difficultyMod],
@@ -3388,6 +3362,7 @@ async function mgRollAttribute(actor, attrKey) {
 		auraAttrMod,
 		auraSourceActorId: aura.sourceActorId,
 		auraSourceTokenId: aura.sourceTokenId,
+        auraSourceUuid: aura.sourceUuid,
 		auraIconClass: "fa-eye-evil",
 		strainEffects
 	});
@@ -3396,6 +3371,7 @@ async function mgRollAttribute(actor, attrKey) {
 		await actor.update({ "system.edgeNext": false }, { render: false });
 		mgRefreshCharacterEdgeButtons(actor, false);
 	}
+	return message;
 }
 
 async function mgRollNpcAttribute(actor, attrKey) {
@@ -3412,7 +3388,7 @@ async function mgRollNpcAttribute(actor, attrKey) {
 	});
 }
 
-async function mgRollSkill(actor, skillKey) {
+export async function mgRollSkill(actor, skillKey, options = {}) {
 	if (!actor || !skillKey) return;
 	if (skillKey === "spark" && !mgActorHasSpark(actor)) {
 		ui.notifications?.warn("This character does not have access to Spark.");
@@ -3440,9 +3416,10 @@ async function mgRollSkill(actor, skillKey) {
 	const strainedAttrMod = mgApplyStrainAttributePenalty(finalAttrMod, strainEffects);
 	const pool = 2 + Math.abs(strainedAttrMod);
 	const rollType = strainedAttrMod >= 0 ? "kh2" : "kl2";
-	const edge = !!actor.system?.edgeNext;
+	const edge = !!options.edge || !!actor.system?.edgeNext;
 
-	await evaluateRoll({
+	const message = await evaluateRoll({
+		groupCheck: options.groupCheck,
 		formula: `${pool}d6${rollType}`,
 		skillMod: finalSkillMod,
 		modifierParts: [baseSkillMod, tempSkillMod, auraAttrMod, difficultyMod],
@@ -3459,6 +3436,7 @@ async function mgRollSkill(actor, skillKey) {
 		auraAttrMod,
 		auraSourceActorId: aura.sourceActorId,
 		auraSourceTokenId: aura.sourceTokenId,
+        auraSourceUuid: aura.sourceUuid,
 		strainEffects
 	});
 
@@ -3466,6 +3444,7 @@ async function mgRollSkill(actor, skillKey) {
 		await actor.update({ "system.edgeNext": false }, { render: false });
 		mgRefreshCharacterEdgeButtons(actor, false);
 	}
+	return message;
 }
 
 async function mgEditActorStat(actor, type, key, button) {
@@ -5177,45 +5156,51 @@ function mgBindGmSidebarContent(root) {
 		});
 	});
 
-	root?.querySelectorAll("[data-mg-open-aura-actor]").forEach(button => {
-		button.addEventListener("click", event => {
-			event.preventDefault();
-			event.stopPropagation();
-
-			const actor = game.actors.get(button.dataset.mgOpenAuraActor);
-			actor?.sheet?.render(true, { focus: true });
-		});
-	});
-
-	root?.querySelectorAll("[data-mg-clear-aura]").forEach(button => {
-		button.addEventListener("click", async event => {
-			event.preventDefault();
-			event.stopPropagation();
-
-			const actor = game.actors.get(button.dataset.mgClearAura);
-
-			if (actor?.type === "npc") {
-				await actor.update({ "system.aura.enabled": false }, { render: false });
-			}
-
-			const current = game.settings.get("midnight-gambit", "activeAuraActorId");
-			if (current === button.dataset.mgClearAura) {
-				await game.settings.set("midnight-gambit", "activeAuraActorId", "");
-			}
-
-			mgRefreshGmSidebarContent();
-		});
-	});
-
-	root?.querySelectorAll("[data-mg-roll-aura-attribute]").forEach(button => {
-		button.addEventListener("click", async event => {
-			event.preventDefault();
-			event.stopPropagation();
-
-			const actor = game.actors.get(button.dataset.mgAuraActor);
-			await mgRollNpcAttribute(actor, button.dataset.mgRollAuraAttribute);
-		});
-	});
+  const bind = (selector, handler) => root?.querySelectorAll(selector).forEach(button => button.addEventListener("click", async event => {
+    event.preventDefault(); event.stopPropagation(); await handler(button);
+  }));
+  bind("[data-mg-open-aura-actor]", button => mgResolveAura(button.dataset.mgOpenAuraActor)?.sheet?.render(true, { focus: true }));
+  bind("[data-mg-switch-aura]", button => {
+    const actor = mgResolveAura(button.dataset.mgSwitchAura);
+    if (actor) return mgSetActiveAura(actor, mgGetAuraEncounter().active !== mgAuraReference(actor));
+  });
+  bind("[data-mg-remove-encounter]", button => {
+    const actor = mgResolveAura(button.dataset.mgRemoveEncounter);
+    if (actor) return mgSetEncounterMember(actor, false);
+  });
+  bind("[data-mg-clear-encounter]", () => mgClearAuraEncounter());
+  bind("[data-mg-expand-aura]", button => {
+    const ref = button.dataset.mgExpandAura;
+    const expanded = !mgAuraExpanded.has(ref);
+    expanded ? mgAuraExpanded.add(ref) : mgAuraExpanded.delete(ref);
+    button.closest(".mg-director-aura-card").classList.toggle("is-expanded", expanded);
+    button.setAttribute("aria-expanded", String(expanded));
+  });
+  bind("[data-mg-roll-aura-attribute]", button => mgRollNpcAttribute(mgResolveAura(button.dataset.mgAuraRef), button.dataset.mgRollAuraAttribute));
+  const list = root?.querySelector("[data-mg-aura-list]");
+  let dragged = null;
+  list?.addEventListener("dragstart", event => {
+    dragged = event.target.closest("[data-aura-ref]");
+    if (!dragged) return;
+    event.stopPropagation();
+    event.dataTransfer.setData("application/x-mg-aura", dragged.dataset.auraRef);
+    dragged.classList.add("mg-dragging");
+  });
+  list?.addEventListener("dragover", event => {
+    if (!dragged) return;
+    event.preventDefault();
+    const target = event.target.closest("[data-aura-ref]");
+    if (!target || target === dragged) return;
+    const box = target.getBoundingClientRect();
+    list.insertBefore(dragged, event.clientY < box.top + box.height / 2 ? target : target.nextSibling);
+  });
+  const saveOrder = async () => {
+    if (!dragged) return;
+    dragged.classList.remove("mg-dragging"); dragged = null;
+    await mgReorderAuraEncounter([...list.querySelectorAll("[data-aura-ref]")].map(card => card.dataset.auraRef));
+  };
+  list?.addEventListener("drop", event => { if (dragged) { event.preventDefault(); event.stopPropagation(); saveOrder(); } });
+  list?.addEventListener("dragend", saveOrder);
 
 	mgBindPlaylistSidebarContent(root);
 }
@@ -5249,29 +5234,13 @@ function mgRenderDifficultyControl() {
 				${buttons}
 			</div>
 		</div>
+		<button type="button" class="mg-group-check-launch"><i class="fa-solid fa-users"></i> Group Check</button>
 	`;
 }
 
 /* Get Active Aura for GM Sidebar
 ----------------------------------------------------------------------*/
-function mgGetActiveAuraActor() {
-	let activeAuraActorId = "";
-
-	try {
-		activeAuraActorId = game.settings.get("midnight-gambit", "activeAuraActorId");
-	} catch (_) {
-		return null;
-	}
-
-	if (!activeAuraActorId) return null;
-
-	const actor = game.actors.get(activeAuraActorId);
-	if (!actor || actor.type !== "npc" || !actor.system?.aura?.enabled) return null;
-
-	return actor;
-}
-
-function mgRenderAuraAttributePills(actor) {
+function mgRenderAuraAttributePills(actor, ref = mgAuraReference(actor)) {
 	const attrs = actor?.system?.attributes ?? actor?.system?.baseAttributes ?? {};
 	const keys = ["tenacity", "finesse", "resolve", "guile", "instinct", "presence"];
 
@@ -5279,14 +5248,14 @@ function mgRenderAuraAttributePills(actor) {
 		<div class="mg-director-aura-pills" aria-label="Aura modifiers">
 			${keys.map(key => {
 				const npcValue = Number(attrs[key] ?? 0) || 0;
-				const rollValue = -npcValue;
-				const label = key.slice(0, 3).toUpperCase();
+				const rollValue = npcValue;
+				const label = mgCapitalize(key);
 
 				return `
 					<button
 						type="button"
 						class="mg-director-aura-pill ${rollValue === 0 ? "is-zero" : ""}"
-						data-mg-aura-actor="${actor.id}"
+						data-mg-aura-ref="${mgAttr(ref)}"
 						data-mg-roll-aura-attribute="${key}"
 						title="Roll ${mgCapitalize(key)} for ${mgAttr(actor.name)}"
 					>
@@ -5299,72 +5268,40 @@ function mgRenderAuraAttributePills(actor) {
 	`;
 }
 
-function mgRenderDirectorAuraActorRow(actor) {
-	const img = mgGetDirectorActorImage(actor);
-	const hasCrop = mgHasActorCrop(actor, "actorSidebar");
-	const cropVariables = hasCrop ? mgGetActorCropVariables(actor, "actorSidebar", [], { ignoreHeight: true }) : "";
-	const auraLabel = String(actor.system?.aura?.label || "Oppressive Presence");
+const mgAuraExpanded = new Set();
 
-	return `
-		<div class="mg-director-aura-card">
-			<article
-				class="mg-scene-row mg-actor-row mg-director-aura-row"
-				data-mg-active-actor-id="${actor.id}"
-				data-mg-actor-id="${actor.id}"
-				data-mg-actor-name="${mgAttr(actor.name)}"
-			>
-				<button type="button" class="mg-scene-row-main mg-actor-row-main" data-mg-open-aura-actor="${actor.id}">
-					<span class="mg-actor-row-image mg-cropbox ${hasCrop ? "is-cropped" : ""}" aria-hidden="true">
-						<img src="${mgEsc(img)}" alt="" style="${cropVariables}" />
-					</span>
-					<span class="mg-scene-row-scrim"></span>
-					<span class="mg-scene-row-title mg-actor-row-title">${mgEsc(actor.name)}</span>
-				</button>
-
-				<button
-					type="button"
-					class="mg-scene-context-button mg-actor-context-button mg-director-clear-aura"
-					data-mg-clear-aura="${actor.id}"
-					title="Clear active aura"
-					aria-label="Clear active aura from ${mgAttr(actor.name)}"
-				>
-					<i class="fa-solid fa-ban"></i>
-				</button>
-			</article>
-
-			<div class="mg-director-aura-meta">
-				<div class="mg-director-aura-label">
-					<i class="fa-solid fa-eye-evil"></i>
-					<span>${mgEsc(auraLabel)}</span>
-				</div>
-
-				${mgRenderAuraAttributePills(actor)}
-			</div>
+function mgRenderDirectorAuraActorRow(actor, ref = mgAuraReference(actor)) {
+  const active = mgGetAuraEncounter().active === ref;
+  const expanded = mgAuraExpanded.has(ref);
+  const img = mgGetDirectorActorImage(actor);
+  const hasCrop = mgHasActorCrop(actor, "actorSidebar");
+  const crop = hasCrop ? mgGetActorCropVariables(actor, "actorSidebar", [], { ignoreHeight: true }) : "";
+  return `<div class="mg-director-aura-card ${active ? "is-active" : ""} ${expanded ? "is-expanded" : ""}" data-aura-ref="${mgAttr(ref)}" draggable="true">
+    <article class="mg-scene-row mg-actor-row mg-director-aura-row">
+		<button type="button" class="mg-scene-row-main mg-actor-row-main" data-mg-open-aura-actor="${mgAttr(ref)}">
+			<span class="mg-actor-row-image mg-cropbox ${hasCrop ? "is-cropped" : ""}"><img src="${mgEsc(img)}" alt="" style="${crop}" /></span>
+			<span class="mg-scene-row-scrim"></span>
+			<span class="mg-scene-row-title mg-actor-row-title">${mgEsc(mgAuraDisplayName(ref, actor))}</span>
+		</button>
+		<div class="aura-buttons">
+			<button type="button" class="mg-scene-context-button mg-aura-switch ${active ? "is-active" : ""}" data-mg-switch-aura="${mgAttr(ref)}" aria-pressed="${active}" title="${active ? "Cancel Aura" : "Activate Aura"}"><i class="fa-solid ${active ? "fa-ban" : "fa-eye-evil"}"></i></button>
+			<button type="button" class="mg-scene-context-button" data-mg-expand-aura="${mgAttr(ref)}" aria-expanded="${expanded}" title="Expand / collapse stats"><i class="fa-solid fa-angle-down"></i></button>
 		</div>
-	`;
+	</article>
+    <div class="mg-aura-details"><div class="mg-aura-details-inner"><div class="mg-director-aura-meta">
+      ${mgRenderAuraAttributePills(actor, ref)}
+      <button type="button" data-mg-remove-encounter="${mgAttr(ref)}" class="mg-aura-remove">Remove from Encounter</button>
+    </div></div></div>
+  </div>`;
 }
 
 function mgRenderAuraControl() {
-	const actor = mgGetActiveAuraActor();
-
-	if (!actor) {
-		return `
-			<div class="mg-scene-directory mg-director-aura-directory">
-				<div class="mg-director-aura-empty">
-					<i class="fa-solid fa-eye-slash"></i>
-					<span>No active aura.</span>
-				</div>
-			</div>
-		`;
-	}
-
-	return `
-		<div class="mg-scene-directory mg-director-aura-directory" data-mg-director-aura-control>
-			<div class="mg-scene-list">
-				${mgRenderDirectorAuraActorRow(actor)}
-			</div>
-		</div>
-	`;
+  const entries = mgGetAuraEncounter().entries.map(ref => ({ ref, actor: mgResolveAura(ref) })).filter(entry => entry.actor);
+  return `<div class="mg-scene-directory mg-director-aura-directory" data-mg-director-aura-control>
+    <button type="button" class="mg-clear-encounter" data-mg-clear-encounter ${entries.length ? "" : "disabled"}><i class="fa-solid fa-broom"></i> Clear Encounter</button>
+    ${entries.length ? `<div class="mg-scene-list" data-mg-aura-list>${entries.map(({ actor, ref }) => mgRenderDirectorAuraActorRow(actor, ref)).join("")}</div>` : ""}
+    ${entries.length ? "" : '<div class="mg-director-aura-empty"><i class="fa-solid fa-square-exclamation"></i><span>Add NPCs from their sheets or activate an Aura.</span></div>'}
+  </div>`;
 }
 
 /* Render GM Sidebar
@@ -5888,7 +5825,8 @@ Hooks.on("updateSetting", setting => {
 Hooks.on("updateSetting", setting => {
 	if (
 		setting?.key === "midnight-gambit.gmDifficultyModifier" ||
-		setting?.key === "midnight-gambit.activeAuraActorId"
+		setting?.key === "midnight-gambit.activeAuraActorId" ||
+    setting?.key === "midnight-gambit.auraEncounter"
 	) {
 		mgRefreshGmSidebarContent();
 	}
@@ -6336,4 +6274,12 @@ Hooks.once("ready", () => {
 			mgCreateUiRoot();
 		}
   };
+});
+
+Hooks.on("mgAuraEncounterChanged", () => mgRefreshGmSidebarContent());
+Hooks.on("updateToken", (token, changes) => {
+  if (!mgGetAuraEncounter().entries.includes(token.uuid)) return;
+  if (changes.name !== undefined || changes.texture || changes.delta || changes.actorData) {
+    mgRefreshGmSidebarContent();
+  }
 });

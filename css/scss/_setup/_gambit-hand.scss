@@ -189,6 +189,16 @@ body .gambit-hand-ui {
 		}
 	}
 
+	.gambit-hand-cards .gambit-hand-card.gambit-move-hand-card {
+		transition: transform .24s ease, box-shadow .24s ease, opacity .5s ease, filter .5s ease;
+
+		&.disabled,
+		&.disabled:hover {
+			opacity: .65;
+			filter: grayscale(1);
+		}
+	}
+
 	.gambit-move-hand-card {
 		background-image:
 			linear-gradient(145deg, rgba($mg-blue-main, .35), rgba($mg-blue-4, .15)),

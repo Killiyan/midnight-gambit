@@ -1,3 +1,4 @@
+import { mgGetAuraPenalty } from "./aura-encounter.js";
 import { mgBindInventoryUI } from "../ui/inventory-ui.js";
 import { mgFindActorCrew, mgSendInventoryItem, mgResolvePrimaryGuise } from "../items/inventory-trade.js";
 import { mgPrepareInventoryCapacity, mgRepairInventoryItem } from "../items/inventory.js";
@@ -2407,6 +2408,27 @@ _mgOpenSidebarCropper() {
       }[c])
     );
 
+    // Manual scene/combat usage markers, stored per actor for all move sources.
+    const moveUseCards = html.find('.tab-moves [data-move-use-id]');
+    const disabledMoves = new Set(this.actor.getFlag("midnight-gambit", "disabledMoves") ?? []);
+    moveUseCards.each((_index, card) => {
+      card.classList.toggle("disabled", disabledMoves.has(card.dataset.moveUseId));
+    });
+    if (this.actor.isOwner && this.isEditable) {
+      moveUseCards.off("contextmenu.mgMoveUsage").on("contextmenu.mgMoveUsage", async event => {
+        event.preventDefault();
+        event.stopPropagation();
+        const card = event.currentTarget;
+        const moveId = card.dataset.moveUseId;
+        if (!moveId) return;
+        const current = new Set(this.actor.getFlag("midnight-gambit", "disabledMoves") ?? []);
+        if (current.has(moveId)) current.delete(moveId);
+        else current.add(moveId);
+        await this.actor.update({ "flags.midnight-gambit.disabledMoves": [...current] }, { render: false });
+        card.classList.toggle("disabled", current.has(moveId));
+      });
+    }
+
     const mgMoveTagIdsFromCard = (sourceEl, item) => {
       const itemTags = Array.isArray(item?.system?.tags) ? item.system.tags : [];
       const card = sourceEl.closest(".move-block, .signature-perk");
@@ -3659,6 +3681,7 @@ _mgOpenSidebarCropper() {
         auraAttrMod,
         auraSourceActorId: aura.sourceActorId,
         auraSourceTokenId: aura.sourceTokenId,
+        auraSourceUuid: aura.sourceUuid,
         auraIconClass: "fa-eye-evil",
         strainEffects
       });
@@ -3838,6 +3861,7 @@ _mgOpenSidebarCropper() {
           auraAttrMod,
           auraSourceActorId: aura.sourceActorId,
           auraSourceTokenId: aura.sourceTokenId,
+        auraSourceUuid: aura.sourceUuid,
           strainEffects
         });
 
@@ -5422,35 +5446,7 @@ _mgOpenSidebarCropper() {
 
   /** NPC Aura */
   _getActiveAuraPenalty(attrKey) {
-    const activeAuraActorId = game.settings.get("midnight-gambit", "activeAuraActorId");
-    if (!activeAuraActorId) {
-      return { value: 0, label: "", sourceActorId: "", sourceTokenId: "" };
-    }
-
-    const actor = game.actors.get(activeAuraActorId);
-    if (!actor || actor.type !== "npc") {
-      return { value: 0, label: "", sourceActorId: "", sourceTokenId: "" };
-    }
-
-    const enabled = !!actor.system?.aura?.enabled;
-    if (!enabled) {
-      return { value: 0, label: "", sourceActorId: "", sourceTokenId: "" };
-    }
-
-    const npcAttr = Number(
-      actor.system?.attributes?.[attrKey] ??
-      actor.system?.baseAttributes?.[attrKey] ??
-      0
-    );
-
-    const label = String(actor.system?.aura?.label || "Oppressive Presence");
-
-    return {
-      value: -npcAttr,
-      label,
-      sourceActorId: actor.id,
-      sourceTokenId: ""
-    };
+    return mgGetAuraPenalty(attrKey);
   }
 
   /** Compute the player's Gambit deck/hand max from the LEVELS table with robust fallbacks. */

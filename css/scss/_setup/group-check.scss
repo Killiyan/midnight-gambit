@@ -1,0 +1,304 @@
+/* Group Check
+----------------------------------------------------------------------*/
+.mg-group-check {
+	&.window-app {
+		min-width: 360px;
+		max-width: calc(100vw - 32px);
+		max-height: calc(100vh - 32px);
+	}
+
+	.window-content {
+		background: $mg-blue-4;
+		color: $mg-blue-1;
+		padding: 1rem;
+		overflow-y: auto;
+		max-height: none;
+		min-height: 0;
+	}
+
+	.dialog-content {
+		display: flex;
+		flex-direction: column;
+		gap: .75rem;
+		flex: 0 0 auto;
+		overflow: visible;
+
+		> button:not(.mg-group-row) {
+			@include mg-border();
+			color: $mg-blue-1;
+			background: $mg-blue-5;
+			border-radius: .5rem;
+			min-height: 2.5rem;
+			margin: 0;
+		}
+	}
+
+	/* Participant Cards
+	----------------------------------------------------------------------*/
+	.mg-group-row {
+		display: grid;
+		grid-template-columns: 4.875rem minmax(0, 1fr) auto;
+		width: 100%;
+		height: 4.875rem;
+		min-height: 4.875rem;
+		flex-shrink: 0;
+		gap: 0;
+		margin: 0;
+		padding: 0 1rem 0 0;
+		text-align: left;
+		background:
+			radial-gradient(circle at 50% 0%,
+				rgba($mg-blue-1, .22) 0%,
+				rgba($mg-blue-1, .10) 35%,
+				rgba($mg-blue-4, 0) 70%),
+			url("../assets/images/filigree.jpg");
+		background-size: cover, cover;
+		background-blend-mode: soft-light, multiply;
+		background-color: $mg-blue-4;
+		border: 1px solid rgba($mg-blue-1, .25);
+		border-radius: .625rem;
+		overflow: hidden;
+		align-items: stretch;
+		@include mg-shadow();
+
+		img {
+			display: block;
+			width: 4.875rem;
+			height: 4.875rem;
+			object-fit: cover;
+			border: 0;
+			border-right: 2px solid $mg-blue-main-2;
+			border-radius: 0;
+		}
+
+		.mg-group-identity {
+			display: flex;
+			flex-direction: column;
+			justify-content: center;
+			gap: .25rem;
+			padding: 0 1rem;
+			min-width: 0;
+			height: 100%;
+			overflow: hidden;
+
+			strong {
+				@include tiller();
+				font-size: 1.125rem;
+				font-weight: 700;
+				color: $mg-ivory;
+				text-transform: uppercase;
+				line-height: 1.25rem;
+				white-space: nowrap;
+				text-overflow: ellipsis;
+				overflow: hidden;
+			}
+
+			small {
+				@include roboto();
+				font-size: .875rem;
+				font-weight: 700;
+				font-style: italic;
+				line-height: 1.2;
+				color: $mg-blue-1;
+				white-space: nowrap;
+				text-overflow: ellipsis;
+				overflow: hidden;
+			}
+		}
+
+		.mg-group-result {
+			@include oswald();
+			display: flex;
+			align-items: center;
+			align-self: center;
+			gap: .5rem;
+			font-size: 1.25rem;
+			color: $mg-ivory;
+
+			i {
+				color: $mg-blue-1;
+				margin: 0;
+			}
+		}
+
+		&:hover,
+		&:focus-visible {
+			border-color: $mg-blue-2;
+			box-shadow: none;
+		}
+
+		&[aria-pressed="true"] {
+			border-color: $mg-green;
+			opacity: .65;
+
+			strong::after {
+				content: " \2713";
+				color: $mg-green;
+			}
+		}
+	}
+
+	.mg-group-picker {
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: .75rem;
+		max-height: none;
+		overflow: visible;
+	}
+
+	/* Attribute and Skill Picker
+	----------------------------------------------------------------------*/
+	.mg-group-skills {
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: 1rem;
+		margin-top: .75rem;
+
+		.mg-group-skill-section {
+			@include mg-border();
+			display: grid;
+			grid-template-columns: 4.25rem minmax(0, 1fr);
+			gap: 1rem;
+			padding: 1rem;
+			border-radius: .625rem;
+			background: $mg-blue-main;
+		}
+
+		.mg-group-skill-grid {
+			display: grid;
+			grid-template-columns: repeat(3, minmax(0, 1fr));
+			gap: .75rem;
+			min-width: 0;
+		}
+
+		.mg-group-attribute,
+		.mg-group-skill {
+			display: flex;
+			flex-direction: column;
+			justify-content: space-between;
+			gap: .5rem;
+			min-width: 0;
+
+			label {
+				@include roboto();
+				font-size: .675rem;
+				font-weight: 700;
+				color: $mg-blue-1;
+				text-align: center;
+				text-transform: none;
+				font-style: normal;
+				line-height: 1;
+				margin: 0;
+			}
+
+			button {
+				display: flex;
+				justify-content: center;
+				align-items: center;
+				width: 100%;
+				padding: .5rem;
+				margin: 0;
+				min-height: 1.875rem;
+				border: 0;
+				border-radius: .5rem;
+				background: $mg-blue-main-2;
+				color: $mg-blue-1;
+
+				i {
+					margin: 0;
+					font-size: .85rem;
+				}
+
+				&:hover,
+				&:focus-visible {
+					background: $mg-blue-3;
+					color: $mg-ivory;
+				}
+			}
+		}
+
+		.mg-group-attribute {
+			border-right: 2px solid $mg-blue-main-2;
+			padding-right: 1rem;
+
+			label {
+				@include oswald();
+				font-size: 1rem;
+				text-transform: uppercase;
+				text-align: left;
+			}
+		}
+	}
+
+	/* Player Actions and Shared Chat Roll
+	----------------------------------------------------------------------*/
+	.mg-group-actions {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: .5rem;
+
+		button {
+			@include mg-border();
+			color: $mg-blue-1;
+			background: $mg-blue-5;
+			border-radius: .5rem;
+			min-height: 2.5rem;
+			margin: 0;
+		}
+	}
+
+	.mg-group-actions button,
+	[data-keep],
+	[data-end] {
+		@include oswald();
+		text-transform: uppercase;
+
+		i {
+			color: $mg-blue-2;
+			margin-right: .5rem;
+		}
+	}
+
+	.mg-group-roll-body {
+		padding: 0;
+		min-width: 0;
+
+		.mg-roll-card {
+			margin: 0;
+		}
+
+		.mg-roll-header {
+			display: none;
+		}
+
+		.roll-wrapper {
+			margin-top: .5rem;
+
+			.mg-roll-math {
+				.mg-roll-expand-indicator {
+					left: 0;
+					width: 1.25rem;
+					padding: .125rem;
+				}
+
+				&.is-interactive .mg-roll-dice-list {
+					padding-left: 1.375rem;
+				}
+			}
+
+			.mg-roll-controls button {
+				min-height: 2.25rem;
+				border: 0;
+			}
+		}
+	}
+
+	.dialog-buttons:empty {
+		display: none;
+	}
+}
+
+.mg-group-check-launch {
+	width: 100%;
+	margin-top: .75rem;
+}

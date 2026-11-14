@@ -163,9 +163,13 @@
         </div>
 
         {{#if (eq actor.type "npc")}}
-          <button type="button" class="mg-aura-toggle {{#if system.aura.enabled}}is-active{{/if}}">
+          <button type="button" class="mg-aura-toggle {{#if auraActive}}is-active{{/if}}" aria-pressed="{{auraActive}}" {{#unless canManageEncounter}}disabled{{/unless}}>
             Aura
             <i class="fa-solid fa-eye-evil"></i>
+          </button>
+          <button type="button" class="mg-encounter-toggle {{#if inAuraEncounter}}is-active{{/if}}" aria-pressed="{{inAuraEncounter}}" {{#unless canManageEncounter}}disabled{{/unless}}>
+            {{#if inAuraEncounter}}Remove from Encounter{{else}}Add to Encounter{{/if}}
+            <i class="fa-solid fa-list"></i>
           </button>
         {{/if}}          
 

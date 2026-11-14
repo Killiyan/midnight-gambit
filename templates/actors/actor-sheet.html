@@ -357,7 +357,7 @@
 
             {{#if guise}}
               {{#each enrichedPrimarySignatureMoves}}
-                <div class="signature-perk" data-dropzone="signature">
+                <div class="signature-perk" data-dropzone="signature" data-move-use-id="{{this.handId}}">
                   <h3>
                     <span class="post-signature"
                           data-perk-name="{{this.name}}"
@@ -399,7 +399,7 @@
             {{#if (or enrichedSecondarySignatureMoves.length embeddedSignatureMoves.length)}}
               <div class="signature-secondary">
                 {{#each enrichedSecondarySignatureMoves}}
-                  <div class="signature-perk" data-item-id="{{this._id}}">
+                  <div class="signature-perk" data-item-id="{{this._id}}" data-move-use-id="{{this.handId}}">
                       <h3>
                         <span
                           class="post-signature"
@@ -441,7 +441,7 @@
                 {{/each}}
 
                 {{#each embeddedSignatureMoves}}
-                  <div class="signature-perk" data-item-id="{{this._id}}" draggable="true">
+                  <div class="signature-perk" data-item-id="{{this._id}}" data-move-use-id="item:{{this._id}}" draggable="true">
                       <h3>
                         <span
                           class="post-signature"
@@ -499,7 +499,7 @@
               <h3 class="mg-content"><i class="fa-kit fa-basic-move"></i>Basic Moves</h3>
               <div class="move-container">
                 {{#each enrichedMoves}}
-                  <div class="move-block" data-move-index="{{@index}}">
+                  <div class="move-block" data-move-index="{{@index}}" data-move-use-id="{{this.handId}}">
                     <strong class="post-move"
                             data-move-name="{{this.name}}"
                             data-move-description="{{this.description}}">
@@ -537,7 +537,7 @@
 
                 {{#if enrichedSecondaryBasicMoves.length}}
                       {{#each enrichedSecondaryBasicMoves}}
-                        <div class="move-block" data-item-id="{{this._id}}">
+                        <div class="move-block" data-item-id="{{this._id}}" data-move-use-id="{{this.handId}}">
                           <strong class="post-move"
                                   data-move-name="{{this.name}}"
                                   data-move-description="{{this.description}}">
@@ -585,7 +585,7 @@
           <div class="moves-grid" data-move-list>
             {{#each actor.items as |item|}}
               {{#if (and (eq item.type "move") item.system.learned (not item.system.isSignature))}}
-              <div class="move-block" data-item-id="{{item._id}}" draggable="true">
+              <div class="move-block" data-item-id="{{item._id}}" data-move-use-id="item:{{item._id}}" draggable="true">
                 <header class="move-header">
                   <span
                     class="move-name post-move"
