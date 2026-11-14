@@ -1,4 +1,4 @@
-// systems/midnight-gambit/js/initiative-sidebar.js
+// systems/midnight-gambit/js/initiative/initiative-sidebar.js
 import { MGInitiativeController } from "./initiative-controller.js";
 
 const MG_NS = "midnight-gambit";

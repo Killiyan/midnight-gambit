@@ -2457,7 +2457,7 @@ ol li {
 }
 
 .sheet .npc-sheet {
-  .tags-wrap {
+  .tags-wrap:not(.inventory-tab *) {
     padding: 0;
     margin: 1.25rem;
   }

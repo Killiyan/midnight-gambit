@@ -1,17 +1,17 @@
 import "./hooks.js";
-import "./mg-ui.js";
-import "./sidebar-actor.js";
-import "./sidebar-item.js";
-import "./sidebar-journal.js";
-import "./sidebar-compendium.js";
-import "./sidebar-playlist.js";
-import { MidnightGambitActor } from "./actor.js";
-import { MidnightGambitItem } from "./item.js";
-import { GuiseSheet } from "./guise-sheet.js";
-import { MidnightGambitActorSheet } from "./sheet.js";
-import { MidnightGambitItemSheet } from "./item-sheet.js";
-import { MidnightGambitCrewSheet } from "./crew-sheet.js";
-import { MidnightGambitNpcSheet } from "./npc-sheet.js";
+import "./ui/mg-ui.js";
+import "./ui/sidebar-actor.js";
+import "./ui/sidebar-item.js";
+import "./ui/sidebar-journal.js";
+import "./ui/sidebar-compendium.js";
+import "./ui/sidebar-playlist.js";
+import { MidnightGambitActor } from "./actors/actor.js";
+import { MidnightGambitItem } from "./items/item.js";
+import { GuiseSheet } from "./items/guise-sheet.js";
+import { MidnightGambitActorSheet } from "./actors/sheet.js";
+import { MidnightGambitItemSheet } from "./items/item-sheet.js";
+import { MidnightGambitCrewSheet } from "./actors/crew-sheet.js";
+import { MidnightGambitNpcSheet } from "./actors/npc-sheet.js";
 
 /* MG HUD Mode
 ==============================================================================================================================================*/

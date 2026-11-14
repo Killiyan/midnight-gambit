@@ -6,8 +6,8 @@ import {
   getGambitCostForTier,
   normalizeGambitTier,
   normalizeGambitType
-} from "../config.js";
-import { mgGetLibraryDocuments } from "./library-sources.js";
+} from "../../config.js";
+import { mgGetLibraryDocuments } from "../library/library-sources.js";
 
 const MG_DECK_CARD_IMAGES = {
   midnight: "systems/midnight-gambit/assets/images/Gambits-Midnight.jpg",

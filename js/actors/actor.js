@@ -1,4 +1,4 @@
-import { LEVEL_TABLE, getGambitDeckSlotsForLevel, getGambitPointsForLevel } from "../config.js";
+import { LEVEL_TABLE, getGambitDeckSlotsForLevel, getGambitPointsForLevel } from "../../config.js";
 
 export class MidnightGambitActor extends Actor {
   prepareData() {

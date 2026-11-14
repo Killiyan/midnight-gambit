@@ -1,4 +1,4 @@
-// systems/midnight-gambit/js/initiative-controller.js
+// systems/midnight-gambit/js/initiative/initiative-controller.js
 // Single source of truth + replicated signals for MG initiative.
 // Logic-only: no DOM, no animations, no UI.
 

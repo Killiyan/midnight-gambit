@@ -10,7 +10,7 @@ import {
 	normalizeMoveSubtype,
 	normalizeMoveSubtypes,
 	normalizeMoveType
-} from "../config.js";
+} from "../../config.js";
 
 const MG_ITEM_CARD_IMAGE = "systems/midnight-gambit/assets/images/items.jpg";
 const MG_ITEM_GUISE_IMAGE = "systems/midnight-gambit/assets/images/guise.jpg";
@@ -52,7 +52,7 @@ function mgGetItemSheetImage(item) {
 
 // The same embedded inventory item creation dialog is used by characters and crews.
 export async function mgCreateInventoryItem(actor, { buttonLabel = text => text } = {}) {
-  if (!actor?.isOwner || !["character", "crew"].includes(actor.type)) return;
+  if (!actor?.isOwner || !["character", "crew", "npc"].includes(actor.type)) return;
   const allowAsset = actor.type === "crew";
   const allowedTypes = allowAsset ? ["misc", "weapon", "armor", "asset"] : ["misc", "weapon", "armor"];
   const result = await Dialog.wait({
@@ -574,7 +574,7 @@ export class MidnightGambitItemSheet extends ItemSheet {
 			globalTags = CONFIG.MidnightGambit?.ASSET_TAGS;
 			if (!globalTags || globalTags.length === 0) {
 				try {
-				const mod = await import("../config.js");
+				const mod = await import("../../config.js");
 				globalTags = mod.ASSET_TAGS ?? [];
 				} catch (e) {
 				console.warn("Failed to load ASSET_TAGS dynamically in item-sheet.js", e);
@@ -585,7 +585,7 @@ export class MidnightGambitItemSheet extends ItemSheet {
 			globalTags = CONFIG.MidnightGambit?.ITEM_TAGS;
 			if (!globalTags || globalTags.length === 0) {
 				try {
-				const mod = await import("../config.js");
+				const mod = await import("../../config.js");
 				globalTags = mod.ITEM_TAGS ?? [];
 				} catch (e) {
 				console.warn("Failed to load ITEM_TAGS dynamically in item-sheet.js", e);

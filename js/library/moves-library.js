@@ -7,7 +7,7 @@ import {
   normalizeMoveSubtype,
   normalizeMoveSubtypes,
   normalizeMoveType
-} from "../config.js";
+} from "../../config.js";
 import { mgGetLibraryDocuments } from "./library-sources.js";
 
 const MG_MOVE_CARD_IMAGES = {

@@ -1,4 +1,4 @@
-import { mgGetCompendiumCategory } from "./library-sources.js";
+import { mgGetCompendiumCategory } from "../library/library-sources.js";
 import {
   getGambitCostForTier,
   normalizeGambitTier,
@@ -6,7 +6,7 @@ import {
   normalizeMoveSubtype,
   normalizeMoveSubtypes,
   normalizeMoveType
-} from "../config.js";
+} from "../../config.js";
 
 export class MidnightGambitItem extends Item {
   // Compendium creation uses only the item types allowed by its content type.

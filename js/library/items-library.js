@@ -1,6 +1,6 @@
 import { LibraryApplication } from "./library-application.js";
 import { MG_ITEM_LIBRARY_TYPES, mgCanReadItemShop, mgGetItemLibraryShops } from "./library-sources.js";
-import { mgSanitizeInventoryItemData } from "./item-sheet.js";
+import { mgSanitizeInventoryItemData } from "../items/item-sheet.js";
 
 function normalizeSearch(value) {
   return String(value ?? "").normalize("NFKD").replace(/[\u0300-\u036f]/g, "")
@@ -81,7 +81,7 @@ export class ItemsLibraryApplication extends LibraryApplication {
       } : null,
       hasFocus: Boolean(selected),
       suppressFocusFade: Boolean(selected && this._suppressFocusFade),
-      canAdd: this.actor?.isOwner === true && ["character", "crew"].includes(this.actor.type) && (selected?.type !== "asset" || this.actor.type === "crew"),
+      canAdd: this.actor?.isOwner === true && ["character", "crew", "npc"].includes(this.actor.type) && (selected?.type !== "asset" || this.actor.type === "crew"),
       quantity: this._quantity,
       typeFilters: MG_ITEM_LIBRARY_TYPES.map(type => ({ ...type, checked: this.filters.types.has(type.id) }))
     };
@@ -213,7 +213,7 @@ export class ItemsLibraryApplication extends LibraryApplication {
   }
 
   async _addToInventory() {
-    if (this._adding || !this.actor?.isOwner || !["character", "crew"].includes(this.actor.type)) return;
+    if (this._adding || !this.actor?.isOwner || !["character", "crew", "npc"].includes(this.actor.type)) return;
     this._adding = true;
     const button = this.element?.find?.("[data-add-library-item]");
     button?.prop("disabled", true);

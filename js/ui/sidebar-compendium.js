@@ -12,7 +12,7 @@ import {
 	mgIsLibraryCompendium,
 	mgSetCompendiumLibraryItems,
 	mgSetLibraryCompendium
-} from "./library-sources.js";
+} from "../library/library-sources.js";
 
 const MG_UI_NS = "midnight-gambit";
 const MG_COMPENDIUM_USER_ORDER_FLAG = "compendiumSidebarOrder";

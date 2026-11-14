@@ -1,8 +1,8 @@
-import { MidnightGambitCrewSheet, mgTransferInventoryItem } from "./crew-sheet.js";
-import { mgGetUniqueGlobalItemName, mgSanitizeInventoryItemData } from "./item-sheet.js";
-import { MGInitiativeBar } from "./initiative-bar.js";
-import { MGInitiativeSidebar } from "./initiative-sidebar.js";
-import { MGInitiativeController } from "./initiative-controller.js";
+import { MidnightGambitCrewSheet, mgTransferInventoryItem } from "./actors/crew-sheet.js";
+import { mgGetUniqueGlobalItemName, mgSanitizeInventoryItemData } from "./items/item-sheet.js";
+import { MGInitiativeBar } from "./initiative/initiative-bar.js";
+import { MGInitiativeSidebar } from "./initiative/initiative-sidebar.js";
+import { MGInitiativeController } from "./initiative/initiative-controller.js";
 import { evaluateRoll, mgGetStrainRollEffects } from "./roll-utils.js";
 import {
   getGambitCostForTier,
@@ -170,7 +170,7 @@ Hooks.once("ready", () => {
       sourceItem.isEmbedded &&
       ["weapon", "armor", "misc"].includes(sourceItem.type) &&
       sourceActor?.documentName === "Actor" &&
-      ["character", "crew"].includes(sourceActor.type) &&
+      ["character", "crew", "npc"].includes(sourceActor.type) &&
       sourceActor.testUserPermission(requestingUser, ownerLevel) &&
       targetActor?.documentName === "Actor" &&
       ["character", "crew"].includes(targetActor.type) &&
@@ -210,7 +210,9 @@ Hooks.once("ready", () => {
           throw new Error("That character is not a member of this Crew.");
         }
       } else {
-        const sourceCrew = getCharacterCrew(sourceActor);
+        const sourceCrew = sourceActor.type === "npc"
+          ? game.actors.get(game.settings.get("midnight-gambit", "crewActorId"))
+          : getCharacterCrew(sourceActor);
         const members = new Set(sourceCrew?.system?.party?.members ?? []);
         if (!sourceCrew || !members.has(targetActor.uuid)) {
           throw new Error("Items can only be offered to another member of this character's Crew.");
@@ -218,6 +220,13 @@ Hooks.once("ready", () => {
       }
 
       return { requestingUser, recipientUser, sourceItem, sourceActor, targetActor };
+    }
+
+    if (sourceActor.type === "npc") {
+      if (targetActor.id !== game.settings.get("midnight-gambit", "crewActorId")) {
+        throw new Error("NPC items can only be sent to the Primary Crew.");
+      }
+      return { requestingUser, recipientUser: null, sourceItem, sourceActor, targetActor };
     }
 
     if (sourceActor.type !== "character") {

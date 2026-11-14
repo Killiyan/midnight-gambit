@@ -3,6 +3,7 @@
   <!-- Tabs (same structure, just fewer) -->
   <nav class="sheet-tabs floating" data-group="main">
     <a class="item" data-tab="general"><i class="fas fa-user"></i> <span>General</span></a>
+    <a class="item" data-tab="inventory"><i class="fa-solid fa-treasure-chest"></i> <span>Inventory</span></a>
     <a class="item" data-tab="settings"><i class="fa-solid fa-gears"></i> <span>Settings</span></a>
   </nav>
 
@@ -413,6 +414,8 @@
         </div>        
       </div>
 
+
+      {{> "systems/midnight-gambit/templates/actors/parts/inventory.html"}}
 
       <!-- SETTINGS TAB (mirrors your character sheet settings structure) -->
       <div class="tab settings-tab" data-group="main" data-tab="settings">

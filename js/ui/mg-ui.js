@@ -1,5 +1,5 @@
-import { evaluateRoll, mgApplyStrainAttributePenalty, mgGetStrainEffectBadge, mgGetStrainRollEffects } from "./roll-utils.js";
-import { MGInitiativeController } from "./initiative-controller.js";
+import { evaluateRoll, mgApplyStrainAttributePenalty, mgGetStrainEffectBadge, mgGetStrainRollEffects } from "../roll-utils.js";
+import { MGInitiativeController } from "../initiative/initiative-controller.js";
 
 /* Midnight Gambit Custom UI
 ==============================================================================================================================================*/

@@ -5,11 +5,11 @@
 // - Double-click a card to open actor sheet
 // - Initiative tab: full-card drag reorder, persisted to system.initiative.order
 
-import { ASSET_TAGS, ITEM_TAGS } from "../config.js";
-import { MGInitiativeController } from "./initiative-controller.js";
-import { GambitDeckBuilderApplication } from "./gambit-deck-builder.js";
-import { ItemsLibraryApplication } from "./items-library.js";
-import { mgCreateInventoryItem, mgSanitizeInventoryItemData } from "./item-sheet.js";
+import { ASSET_TAGS, ITEM_TAGS } from "../../config.js";
+import { MGInitiativeController } from "../initiative/initiative-controller.js";
+import { GambitDeckBuilderApplication } from "../gambits/gambit-deck-builder.js";
+import { ItemsLibraryApplication } from "../library/items-library.js";
+import { mgCreateInventoryItem, mgSanitizeInventoryItemData } from "../items/item-sheet.js";
 
 // v11-safe HTML escaper
 const ESC = (s) =>

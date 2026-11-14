@@ -1,6 +1,8 @@
+import { mgBindNpcInventory, mgPrepareNpcInventory } from "../items/inventory.js";
+import { mgSanitizeInventoryItemData } from "../items/item-sheet.js";
 // npc-sheet.js
-import { evaluateRoll, mgGetStrainEffectBadge, mgGetStrainRollEffects } from "./roll-utils.js";
-import { MG_TOKEN_FRAMES, mgComposeAndStoreActorTokenImage, mgGetActorTokenPreviewBox, mgGetTokenFrame, mgGetTokenMinScale } from "./token-frame.js";
+import { evaluateRoll, mgGetStrainEffectBadge, mgGetStrainRollEffects } from "../roll-utils.js";
+import { MG_TOKEN_FRAMES, mgComposeAndStoreActorTokenImage, mgGetActorTokenPreviewBox, mgGetTokenFrame, mgGetTokenMinScale } from "../ui/token-frame.js";
 
 const MG_ACTOR_GUISE_IMAGE = "systems/midnight-gambit/assets/images/guise.jpg";
 const MG_ACTOR_DEFAULT_IMAGE = "icons/svg/mystery-man.svg";
@@ -136,12 +138,19 @@ export class MidnightGambitNpcSheet extends ActorSheet {
       });
     }
 
+    mgPrepareNpcInventory(this, context);
     return context;
+  }
+
+  async _onChangeInput(event) {
+    if (event.target?.matches?.(".item-quantity")) return;
+    return super._onChangeInput(event);
   }
 
   activateListeners(html) {
     super.activateListeners(html);
     this._mgBindNpcSheetWideDrop(html);
+    mgBindNpcInventory(this, html);
 
     // ----------------------------------------------------
     // Live refresh when embedded Items update (tags, desc, name, etc.)
@@ -394,7 +403,7 @@ export class MidnightGambitNpcSheet extends ActorSheet {
       };
 
       const refreshAll = () => {
-        const wraps = $root[0]?.querySelectorAll(".tags-wrap") || [];
+        const wraps = $root[0]?.querySelectorAll(".tags-wrap:not(.inventory-tab *)") || [];
         wraps.forEach(updateOne);
       };
 
@@ -413,7 +422,7 @@ export class MidnightGambitNpcSheet extends ActorSheet {
       // Click handler for chevron
       $root
         .off("click.mgNpcTagsToggle")
-        .on("click.mgNpcTagsToggle", ".tags-toggle", (ev) => {
+        .on("click.mgNpcTagsToggle", ".tags-toggle:not(.inventory-tab *)", (ev) => {
           ev.preventDefault();
           ev.stopPropagation();
 
@@ -1934,13 +1943,13 @@ export class MidnightGambitNpcSheet extends ActorSheet {
   }
 
   _mgNpcAllowedDropTypes() {
-    return new Set(["move", "signaturePerk"]);
+    return new Set(["move", "signaturePerk", "weapon", "armor", "misc"]);
   }
 
   _mgNpcBlockedDropMessage({ documentName, type, tier } = {}) {
     if (documentName === "Actor") return "Actors cannot be dropped onto NPC sheets.";
-    if (documentName === "Item" && type !== "move" && type !== "signaturePerk") {
-      return "NPC sheets only accept Moves and Signature Perks.";
+    if (documentName === "Item" && !this._mgNpcAllowedDropTypes().has(type)) {
+      return "NPC sheets accept Moves, Signature Perks, Weapons, Armor, and Misc items.";
     }
     return null;
   }
@@ -2291,19 +2300,19 @@ export class MidnightGambitNpcSheet extends ActorSheet {
       return ev?.target?.closest?.("[data-dropzone]")?.dataset?.dropzone ?? null;
     };
 
+    if (!this.isEditable || !this.actor.isOwner) return false;
     const dropzone = findDropzone(event);
-    console.log("MG NPC DROPZONE:", dropzone, "target:", event.target);
 
     // NPC sheets only accept Item drops of type "move" or "signaturePerk".
     let data;
     try {
       data = TextEditor.getDragEventData(event);
     } catch (_) {
-      ui.notifications?.warn("NPC sheets only accept Moves and Signature Perks.");
+      ui.notifications?.warn("NPC sheets accept Moves, Signature Perks, Weapons, Armor, and Misc items.");
       return false;
     }
     if (data?.type !== "Item") {
-      ui.notifications?.warn("NPC sheets only accept Moves and Signature Perks.");
+      ui.notifications?.warn("NPC sheets accept Moves, Signature Perks, Weapons, Armor, and Misc items.");
       return false;
     }
 
@@ -2319,9 +2328,18 @@ export class MidnightGambitNpcSheet extends ActorSheet {
       return false;
     }
 
+    if (["weapon", "armor", "misc"].includes(src.type)) {
+      if (src.parent?.uuid === this.actor.uuid) return false;
+      const inventoryData = mgSanitizeInventoryItemData(src);
+      delete inventoryData._id;
+      await this.actor.createEmbeddedDocuments("Item", [inventoryData]);
+      this.render(false);
+      return false;
+    }
+
     const dropped = src.toObject();
     if (dropped.type !== "move" && dropped.type !== "signaturePerk") {
-      ui.notifications?.warn("NPC sheets only accept Moves and Signature Perks.");
+      ui.notifications?.warn("NPC sheets accept Moves, Signature Perks, Weapons, Armor, and Misc items.");
       return false;
     }
 

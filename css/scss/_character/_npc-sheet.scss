@@ -141,7 +141,7 @@
 		bottom: 0;
 	}
 
-	.tags-wrap.expanded {
+	.tags-wrap:not(.inventory-tab *).expanded {
 	
 		.item-tags {
 		max-height: none;
@@ -152,18 +152,18 @@
 			}
 		}
 
-		.tags-toggle {
+		.tags-toggle:not(.inventory-tab *) {
 		bottom: -1rem;
 		}
 	}
 
-	.tags-wrap.short {
+	.tags-wrap:not(.inventory-tab *).short {
 		.item-tags::after { display: none; }
-		.tags-toggle { display: none !important; }
+		.tags-toggle:not(.inventory-tab *) { display: none !important; }
 		.item-tags { max-height: none; }
 	}
 
-	.tags-toggle {
+	.tags-toggle:not(.inventory-tab *) {
 		opacity: .85;
 		padding: .5rem;
 		border-radius: 8px;
@@ -191,7 +191,7 @@
 		}
 	}
 
-	.tags-wrap {
+	.tags-wrap:not(.inventory-tab *) {
 		position: relative;
 		padding: 0 1.25rem;
 		margin: 1.25rem 0;
