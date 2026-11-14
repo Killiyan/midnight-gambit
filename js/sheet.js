@@ -1979,8 +1979,21 @@ _mgOpenSidebarCropper() {
 
 
   /** Binds event listeners after rendering. This is the Event listener for most the system*/
+  // Inventory quantity has its own save handler, rather than submitting the actor form.
+  async _onChangeInput(event) {
+    if (event.target?.matches?.(".item-quantity")) return;
+    return super._onChangeInput(event);
+  }
+
   async activateListeners(html) {
     super.activateListeners(html);
+    html.find(".item-quantity").on("keydown.mgInventoryQuantity", event => {
+      if (event.key !== "Enter") return;
+      event.preventDefault();
+      event.stopPropagation();
+      event.currentTarget.blur();
+    });
+
 
     this._mgInitProfileCrop(html);
     html.find(".mg-open-image-options").off("click.mgImageOptions").on("click.mgImageOptions", (ev) => {
@@ -5468,7 +5481,7 @@ _mgOpenSidebarCropper() {
 
           rootEl._mgInvCardBumpCapture = (ev) => {
             const btn = ev.target?.closest?.(
-              ".tab-inventory .mg-seeall-toggle, .tab-inventory .tags-toggle"
+              ".tab-inventory .tags-toggle"
             );
             if (!btn) return;
 
@@ -5604,16 +5617,6 @@ _mgOpenSidebarCropper() {
           }, 0);
         });
 
-
-      // When Description/Notes expands/collapses inside a card, bump the card height if it’s expanded
-      $root
-        .off("click.mgInvCardInnerBump")
-        .on("click.mgInvCardInnerBump", ".tab-inventory .mg-seeall-toggle", (ev) => {
-          const card = ev.currentTarget.closest(".inventory-item.mg-card-wrap, .inventory-card.mg-card-wrap");
-          if (!card) return;
-          // let the inner seeall logic run first, then measure
-          setTimeout(() => bumpExpandedCard(card), 0);
-        });
 
       initCards();
     }
@@ -5799,7 +5802,7 @@ _mgOpenSidebarCropper() {
           const wrap = ev.currentTarget.closest(".mg-seeall-wrap");
           const content = wrap?.querySelector(".mg-seeall-content");
           const icon = ev.currentTarget.querySelector("i");
-          if (!wrap || !content) return;
+          if (!wrap || !content || wrap.classList.contains("animating")) return;
 
           const capAttr    = Number(wrap.dataset.seeallCap) || DEFAULT_CAP;
           const wasExpanded = wrap.classList.contains("expanded");
@@ -5808,6 +5811,10 @@ _mgOpenSidebarCropper() {
           const targetHeight = wasExpanded
             ? capAttr
             : Math.max(content.scrollHeight, startHeight);
+
+          // Follow the description's animated height without a second card transition.
+          const card = wrap.closest(".inventory-item.mg-card-wrap, .inventory-card.mg-card-wrap");
+          if (card?.classList.contains("expanded")) card.style.maxHeight = "none";
 
           // Start from current height
           content.style.maxHeight = `${startHeight}px`;
@@ -6764,18 +6771,24 @@ _mgOpenSidebarCropper() {
               });
             }
           },
-          cancel: {
-            label: this._mgBtn("Cancel", "fa-circle-xmark"),
-            callback: () => resolve(null)
+          clear: {
+            label: this._mgBtn("Clear", "fa-eraser")
           }
         },
-        default: "ok",
+        default: "",
+        close: () => resolve(null),
         render: (html) => {
           html.closest(".app").addClass("mg-temp-bonus");
+          // Replace Dialog's button handler so clearing does not submit or close it.
+          html.find('button[data-button="clear"]').off("click").on("click", event => {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            html.find(".mg-temp-attr-input, .mg-temp-skill-input").val(0);
+          });
         }
       });
 
-      dlg.render(true);
+      dlg.render(true, { focus: false });
     });
 
     if (result === null) return;
@@ -7776,6 +7789,7 @@ async _mgOpenStatPicker({ title, current }) {
     // Move reordering starts from inside the sheet. Do not let the sheet-wide catcher eat it.
     const path = event?.composedPath?.() ?? [];
     return path.some(el =>
+      el?.classList?.contains?.("mg-items-library") ||
       el?.classList?.contains?.("move-block") ||
       el?.classList?.contains?.("gambit-card") ||
       el?.classList?.contains?.("gambit-hand-card")

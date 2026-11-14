@@ -210,12 +210,14 @@
 						align-items: center;
 						height: auto;
 						width: auto;
+						z-index: 4;
 						transition: background .5s ease, color .5s ease;
 
 						i {
 							color: $mg-blue-3;
 							transition: color .5s ease;
 							margin: 0;
+							pointer-events: none;
 						}
 
 						&:hover,
@@ -282,34 +284,46 @@
 		----------------------------------------------------------------------*/		
 		.tab {
 			padding: 2.125rem;
-			background: $mg-blue-4;
+			// Match Character: blend decoration over transparency; sheet-body supplies the blue.
+			background: transparent;
 			height: 100%;
 			position: relative;
 			z-index: 20;
 			isolation: isolate;
 
 			&:before {
-			content: '';
-			position: absolute;
-			inset: 0;
-			z-index: 0;
-			opacity: .22; 
-			pointer-events: none;
+			  content: '';
+			  position: absolute;
+			  inset: 0;
+			  z-index: 0;
+			  opacity: .22; 
+			  pointer-events: none;
 
-			background:
-				/* subtle pearly sheen (top-center) */
-				radial-gradient(circle at 50% 0%,
-				rgba(197, 212, 236, 0.22) 0%,
-				rgba(197, 212, 236, 0.10) 35%,
-				rgba(18, 33, 55, 0.00) 70%
-				),
-				/* texture */
-				url("../assets/images/filigree.jpg");
+			  background:
+			    /* subtle pearly sheen (top-center) */
+			    radial-gradient(circle at 50% 0%,
+			      rgba(197, 212, 236, 0.22) 0%,
+			      rgba(197, 212, 236, 0.10) 35%,
+			      rgba(18, 33, 55, 0.00) 70%
+			    ),
+			    /* texture */
+			    url("../assets/images/filigree.jpg");
 
-			background-size: cover, cover;
-			background-position: center, center;
-			background-blend-mode: soft-light, multiply;
-			background-color: $mg-blue-4;
+			  // Fixed tile height keeps the artwork steady as descriptions expand.
+			  background-size: 100% 40rem, auto 40rem;
+			  background-position: center top, center top;
+			  background-repeat: repeat-y;
+			  background-blend-mode: soft-light, multiply;
+			  background-color: $mg-blue-4;
+			  // Fade each repeat into the sheet color at both edges.
+			  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 18%, #000 82%, transparent);
+			  mask-image: linear-gradient(to bottom, transparent, #000 18%, #000 82%, transparent);
+			  -webkit-mask-size: 100% 40rem;
+			  mask-size: 100% 40rem;
+			  -webkit-mask-repeat: repeat-y;
+			  mask-repeat: repeat-y;
+			  -webkit-mask-position: center top;
+			  mask-position: center top;
 			}
 
 			&::after {
@@ -320,7 +334,9 @@
 			pointer-events: none;
 
 			opacity: 0.62;
+			// Fine grain dithers the dark gradient to soften visible color steps.
 			background:
+				url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='128' height='128'%3E%3Cfilter id='n' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3CfeComponentTransfer%3E%3CfeFuncA type='linear' slope='.06'/%3E%3C/feComponentTransfer%3E%3C/filter%3E%3Cpath fill='%23808080' filter='url(%23n)' d='M0 0h128v128H0z'/%3E%3C/svg%3E"),
 				radial-gradient(circle at 50% 0%,
 				rgba(95, 160, 255, 0.28) 0%,
 				rgba(95, 160, 255, 0.14) 36%,
@@ -332,6 +348,8 @@
 				rgba(0, 0, 0, 0.65) 100%
 				);
 
+			background-size: 128px 128px, cover, cover;
+			background-repeat: repeat, no-repeat, no-repeat;
 			mix-blend-mode: color-dodge;
 			}
 
@@ -750,6 +768,10 @@
 						position: relative;
 						z-index: 4;
 						text-align: left;
+
+						.mg-member-name {
+							color: $mg-ivory;
+						}
 					}
 
 					.mg-trade-recipient-action {
@@ -760,12 +782,15 @@
 						height: 2.125rem;
 						display: grid;
 						place-items: center;
-						background: $mg-blue-main;
-						border-top: 2px solid $mg-blue-main-2;
+						background: $mg-blue-4;
+						color: $mg-ivory;
+						border-top: 2px solid $mg-blue-main-2; 
+						pointer-events: all;
 						z-index: 4;
 
 						i {
 							color: $mg-blue-2;
+							transition: color .5s ease;
 						}
 					}
 

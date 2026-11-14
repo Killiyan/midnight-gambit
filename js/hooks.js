@@ -5418,6 +5418,10 @@ Hooks.on("updateItem", (item, changes, options, userId) => {
     // Only sheet-visible item types.
     if (!mgItemTouchesCharacterSheet(item)) return;
 
+    // Inline controls already patch their DOM; preserve the initiating user's card state.
+    // Other clients still refresh so they see the saved item changes.
+    if (options?.render === false && userId === game.user.id) return;
+
     // Re-render every open sheet for this actor on this client.
     mgRenderOpenActorSheets(actor);
   } catch (err) {

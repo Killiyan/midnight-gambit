@@ -943,15 +943,17 @@ async function mgEditCompendium(pack, iconOnly = false) {
 					<button type="button" data-compendium-image-picker title="Choose Image"><i class="fa-solid fa-file-import"></i></button>
 				</div>
 			</div>
-			${isShop ? `<div class="form-group">
-				<label>Shop Icon</label>
-				<div class="form-fields">
-					<input name="icon" value="${mgAttr(current.icon)}" />
-				</div>
-			</div>
-			<p>Font Awesome classes, for example: fa-solid fa-store, fa-solid fa-sword, or fa-solid fa-gem.</p>` : ""}
+			${isShop ? `<div data-mg-shop-icon-picker></div>` : ""}
 		</form>`,
 		render: html => {
+      if (isShop) {
+        const host = html.find("[data-mg-shop-icon-picker]")[0];
+        const picker = globalThis.MGActorSidebar.createIconPicker({
+          name: "icon", value: current.icon, label: "Shop Icon", defaultLabel: "shop"
+        });
+        host?.appendChild(picker);
+      }
+
 			html.find("[data-compendium-image-picker]").on("click", () => {
 				const input = html.find('[name="image"]');
 				new FilePicker({ type: "image", current: input.val(), callback: path => input.val(path) }).browse();
@@ -961,7 +963,7 @@ async function mgEditCompendium(pack, iconOnly = false) {
 			save: {
 				label: "Save",
 				icon: '<i class="fa-solid fa-check"></i>',
-				callback: html => ({ label: html.find('[name="label"]').val(), image: html.find('[name="image"]').val(), icon: isShop ? html.find('[name="icon"]').val() : undefined })
+				callback: html => ({ label: html.find('[name="label"]').val(), image: html.find('[name="image"]').val(), icon: isShop ? (html.find('[name="icon"]').val() || "fa-solid fa-store") : undefined })
 			},
 			cancel: { label: "Cancel", callback: () => null }
 		},
@@ -1200,18 +1202,9 @@ function mgRenderCompendiumsCard() {
 }
 
 function mgBuildCompendiumFolderTree(packs, { showAllFolders = true } = {}) {
-	const visibleFolderIds = new Set();
-	for (const pack of packs) {
-		let folderId = mgGetPackFolderId(pack);
-		while (folderId) {
-			visibleFolderIds.add(folderId);
-			const folder = game.folders?.get(folderId);
-			folderId = folder?.folder?.id ?? folder?.folder ?? null;
-		}
-	}
 	const folders = Array.from(game.folders ?? [])
 		.filter(folder => folder.type === "Compendium")
-		.filter(folder => showAllFolders || visibleFolderIds.has(folder.id));
+		.filter(folder => showAllFolders || !!folder.getFlag?.(MG_UI_NS, "playersCanSeeFolder"));
 	const folderNodes = new Map(folders.map(folder => [
 		folder.id,
 		{ folder, folders: [], packs: [] }
@@ -1320,7 +1313,7 @@ function mgRenderCompendiumFolder(node, depth = 0) {
 				data-mg-compendium-folder-drop="${folder.id}"
 				aria-expanded="${isOpen ? "true" : "false"}"
 			>
-				<span><i class="fa-solid fa-folder" data-mg-compendium-folder-icon${iconStyle}></i>${mgEsc(folder.name)}</span>
+				<span><i class="${mgAttr(globalThis.MGActorSidebar?.getFolderIcon?.(folder) ?? "fa-solid fa-folder")}" data-mg-compendium-folder-icon${iconStyle}></i>${mgEsc(folder.name)}</span>
 				<i class="fa-solid fa-chevron-down mg-slide-toggle-chevron"></i>
 			</div>
 			<div class="mg-left-accordion-body" ${isOpen ? "" : "hidden"} style="max-height: ${isOpen ? "none" : "0px"};">

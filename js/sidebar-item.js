@@ -1140,18 +1140,9 @@ function mgCanUserSeeItem(item) {
 }
 
 function mgBuildItemFolderTree(items, { showAllFolders = true } = {}) {
-	const visibleItemFolderIds = new Set();
-	for (const item of items) {
-		let folderId = item.folder?.id ?? item.folder ?? null;
-		while (folderId) {
-			visibleItemFolderIds.add(folderId);
-			const folder = game.folders?.get(folderId);
-			folderId = folder?.folder?.id ?? folder?.folder ?? null;
-		}
-	}
 	const itemFolders = Array.from(game.folders ?? [])
 		.filter(folder => folder.type === "Item")
-		.filter(folder => showAllFolders || visibleItemFolderIds.has(folder.id));
+		.filter(folder => showAllFolders || !!folder.getFlag?.(MG_UI_NS, "playersCanSeeFolder"));
 	const folderNodes = new Map(itemFolders.map(folder => [
 		folder.id,
 		{ folder, folders: [], items: [] }
@@ -1251,7 +1242,7 @@ function mgRenderItemFolder(node, depth = 0) {
 				data-mg-item-folder-drop="${folder.id}"
 				aria-expanded="${isOpen ? "true" : "false"}"
 			>
-				<span><i class="fa-solid fa-folder" data-mg-item-folder-icon${iconStyle}></i>${mgEsc(folder.name)}</span>
+				<span><i class="${mgAttr(globalThis.MGActorSidebar?.getFolderIcon?.(folder) ?? "fa-solid fa-folder")}" data-mg-item-folder-icon${iconStyle}></i>${mgEsc(folder.name)}</span>
 				<i class="fa-solid fa-chevron-down mg-slide-toggle-chevron"></i>
 			</div>
 			<div class="mg-left-accordion-body" ${isOpen ? "" : "hidden"} style="max-height: ${isOpen ? "none" : "0px"};">

@@ -1233,7 +1233,7 @@ function mgRenderActorFolder(node, depth = 0) {
 				data-mg-actor-folder-drop="${folder.id}"
 				aria-expanded="${isOpen ? "true" : "false"}"
 			>
-				<span><i class="fa-solid fa-folder" data-mg-actor-folder-icon${iconStyle}></i>${mgEsc(folder.name)}</span>
+				<span><i class="${mgAttr(mgFolderIconClass(folder.getFlag?.(MG_UI_NS, "folderIcon")))}" data-mg-actor-folder-icon${iconStyle}></i>${mgEsc(folder.name)}</span>
 				<i class="fa-solid fa-chevron-down mg-slide-toggle-chevron"></i>
 			</div>
 			<div class="mg-left-accordion-body" ${isOpen ? "" : "hidden"} style="max-height: ${isOpen ? "none" : "0px"};">
@@ -1287,7 +1287,169 @@ function mgRenderActorRow(actor) {
 
 /* Actor folder config cleanup
 ----------------------------------------------------------------------*/
+// Seed the picker with icons already used by MG; extend it from readable icon stylesheets.
+const MG_FOLDER_ICON_NAMES = ["address-book","anchor","angle-down","angles-up","arrow-right","arrow-right-long","backpack","ban","block-brick","book","book-medical","book-open","bookmark","books","bow-arrow","box","box-archive","briefcase","bullseye","camera-movie","cards","check","chevron-down","chevron-left","chevron-right","chevron-up","circle","circle-user","clock","clock-rotate-left","coins","comment","compass","crop-simple","crown","cube","cubes","dice","dice-d20","door-closed","door-open","dragon","draw-polygon","dungeon","ellipsis-vertical","exclamation","expand","eye","eye-evil","eye-slash","file-export","file-import","fire","flag-checkered","flask","floppy-disk","folder","folder-open","folder-plus","folder-tree","font","forward-step","gamepad","gear","gears","gem","ghost","globe","grip-lines","hammer","hand-fist","handshake-angle","hat-wizard","headphones","heart","helmet-battle","icons","image","leaf","lightbulb","link","list-check","list-ol","location-dot","lock","magnifying-glass","map","messages","minus","moon","mountain","music","paper-plane","paw","pen","pen-to-square","pencil","people-arrows","people-group","play","plus","rectangles-mixed","repeat","right-from-bracket","rotate-left","ruler","ruler-combined","sack","scroll","scythe","shield","shield-halved","ship","signature","skull","slash","sliders","star","stop","store","sun","sword","swords","toolbox","tower-broadcast","trash","treasure-chest","up-right-from-square","user","user-group","user-plus","user-shield","users","vault","volume","volume-high","volume-low","wand-magic-sparkles","xmark"];
+let mgFolderIconNamesPromise;
+function mgFolderIconNames() {
+  // Share the completed list and any in-progress scan across all folder editors.
+  return mgFolderIconNamesPromise ??= mgScanFolderIconNames().catch(error => {
+    mgFolderIconNamesPromise = null;
+    throw error;
+  });
+}
+
+async function mgScanFolderIconNames() {
+  let batchStarted = performance.now();
+  const yieldToUI = async () => {
+    if (performance.now() - batchStarted < 4) return;
+    await new Promise(resolve => setTimeout(resolve, 0));
+    batchStarted = performance.now();
+  };
+  const names = new Set(MG_FOLDER_ICON_NAMES);
+  const visit = async rules => {
+    for (const rule of rules ?? []) {
+      if (rule.selectorText && /::?before/.test(rule.selectorText)) {
+        for (const match of rule.selectorText.matchAll(/\.fa-([a-z0-9-]+)(?=[:\s,.])/g)) names.add(match[1]);
+      }
+      if (rule.cssRules) await visit(rule.cssRules);
+      await yieldToUI();
+    }
+  };
+  for (const sheet of document.styleSheets) {
+    try { await visit(sheet.cssRules); } catch (_) { /* Remote kit styles can restrict CSS access. */ }
+  }
+  // CSS name lists include brands and other families. Verify each glyph in the
+  // loaded Classic Solid font instead of assuming every name exists in it.
+  await document.fonts.ready;
+  const probe = document.createElement("i");
+  probe.className = "fa-solid fa-folder";
+  probe.style.cssText = "position:fixed;left:-9999px;visibility:hidden";
+  document.body.appendChild(probe);
+  try {
+    const baseStyle = getComputedStyle(probe, "::before");
+    const family = baseStyle.fontFamily;
+    const font = `900 32px ${family}`;
+    await document.fonts.load(font);
+    const canvas = document.createElement("canvas");
+    canvas.width = canvas.height = 64;
+    const ctx = canvas.getContext("2d", { willReadFrequently: true });
+    if (!ctx) return [...MG_FOLDER_ICON_NAMES].sort();
+    ctx.font = font;
+    ctx.textBaseline = "middle";
+    const signature = text => {
+      ctx.clearRect(0, 0, 64, 64);
+      ctx.fillText(text, 4, 32);
+      return ctx.getImageData(0, 0, 64, 64).data;
+    };
+    const missing = signature(String.fromCodePoint(0x10ffff));
+    const blank = signature("");
+    const samePixels = (left, right) => {
+      // Only alpha varies when drawing black glyphs on a transparent canvas.
+      for (let i = 3; i < left.length; i += 4) if (left[i] !== right[i]) return false;
+      return true;
+    };
+    const glyphAvailability = new Map();
+    const available = [];
+    for (const name of [...names].sort()) {
+      await yieldToUI();
+      probe.className = "fa-solid fa-" + name;
+      const style = getComputedStyle(probe, "::before");
+      let glyph = style.content;
+      if (!glyph || glyph === "none" || glyph === "normal") continue;
+      glyph = glyph.replace(/^["']|["']$/g, "");
+      if (!glyphAvailability.has(glyph)) {
+        const rendered = signature(glyph);
+        glyphAvailability.set(glyph, !samePixels(rendered, missing) && !samePixels(rendered, blank));
+      }
+      if (glyphAvailability.get(glyph)) available.push(name);
+    }
+    return available;
+  } finally {
+    probe.remove();
+  }
+}
+
+function mgFolderIconClass(value) {
+  const styles = new Set(["fa", "fas", "far", "fab", "fal", "fat", "fad", "fa-solid", "fa-regular", "fa-brands", "fa-light", "fa-thin", "fa-duotone", "fa-kit", "fa-sharp", "fa-classic"]);
+  const icon = String(value ?? "").trim().split(/\s+/)
+    .find(token => /^fa-[a-z0-9-]+$/.test(token) && !styles.has(token));
+  return "fa-solid " + (icon ?? "fa-folder");
+}
+
+function mgCreateIconPicker({ name: iconFieldName, value: savedIcon = "", label = "Folder Icon", defaultLabel = "folder" } = {}) {
+    const field = document.createElement("div");
+    field.className = "form-group";
+    const savedName = String(savedIcon).split(/\s+/).find(token => token.startsWith("fa-") && !["fa-solid", "fa-regular", "fa-brands"].includes(token))?.replace(/^fa-/, "") ?? "";
+    field.innerHTML = `
+      <label>${mgEsc(label)}</label>
+      <div class="mg-folder-icon-picker">
+        <input type="hidden" name="${iconFieldName}" value="${mgAttr(savedIcon)}" />
+        <input type="search" class="mg-folder-icon-search" value="${mgAttr(savedName)}" placeholder="Search icons…" autocomplete="off" aria-label="${mgAttr(label)}" />
+        <div class="mg-folder-icon-results" hidden></div>
+      </div>
+      <p class="hint">Search by name and select an icon. Leave blank for the default ${mgEsc(defaultLabel)} icon.</p>
+    `;
+    const input = field.querySelector(".mg-folder-icon-search");
+    const valueInput = field.querySelector('input[type="hidden"]');
+    const results = field.querySelector(".mg-folder-icon-results");
+    let names = [];
+    let namesReady;
+    let searchRequest = 0;
+    const renderResults = async () => {
+      const request = ++searchRequest;
+      if (!namesReady) {
+        results.innerHTML = '<p class="hint">Loading icons…</p>';
+        results.hidden = false;
+        namesReady = mgFolderIconNames().then(available => { names = available; });
+      }
+      try { await namesReady; }
+      catch (error) {
+        namesReady = null;
+        if (request === searchRequest) results.innerHTML = '<p class="hint">Could not load icons. Focus the search to retry.</p>';
+        console.warn("MG | Folder icon discovery failed", error);
+        return;
+      }
+      if (request !== searchRequest || document.activeElement !== input) return;
+      const query = input.value.trim().toLowerCase().replace(/^fa-/, "").replace(/\s+/g, "-");
+      const matches = names.filter(name => name.includes(query));
+      results.innerHTML = matches.slice(0, 60).map(name => `
+        <button type="button" data-folder-icon="${mgAttr(name)}" title="${mgAttr(name)}" aria-label="${mgAttr(name)}" aria-pressed="${valueInput.value === 'fa-solid fa-' + name}">
+          <i class="fa-solid fa-${mgAttr(name)}" aria-hidden="true"></i><span>${mgEsc(name.replaceAll("-", " "))}</span>
+        </button>
+      `).join("") || '<p class="hint">No matching icons.</p>';
+      results.hidden = false;
+    };
+    input.addEventListener("focus", renderResults);
+    input.addEventListener("input", () => {
+      // Search text never becomes a saved icon until a result is selected.
+      if (!input.value.trim()) valueInput.value = "";
+      renderResults();
+    });
+    input.addEventListener("keydown", event => {
+      if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); results.hidden = true; }
+      if (event.key === "Enter") { event.preventDefault(); event.stopPropagation(); results.querySelector("button")?.click(); }
+    });
+    results.addEventListener("mousedown", event => event.preventDefault());
+    results.addEventListener("click", event => {
+      const button = event.target.closest("[data-folder-icon]");
+      if (!button) return;
+      event.preventDefault();
+      const name = button.dataset.folderIcon;
+      valueInput.value = "fa-solid fa-" + name;
+      input.value = name;
+      results.hidden = true;
+    });
+    field.addEventListener("focusout", event => {
+      if (!field.contains(event.relatedTarget)) results.hidden = true;
+    });
+    return field;
+}
+
 function mgTidyActorFolderConfig(html, folder) {
+	const documentLabel = ({ Actor: "actors", Item: "items", JournalEntry: "journals", Scene: "scenes", Playlist: "playlists", Compendium: "compendiums" })[folder?.type] ?? "documents";
+  const visibilityHint = folder?.type === "Scene"
+    ? "When unchecked, players still see navigation scenes inside this folder as loose scene cards."
+    : `When unchecked, players still see owned or visible ${documentLabel} inside this folder as loose cards.`;
 	const root = html?.jquery ? html[0] : html?.[0] ?? html;
 	if (!root?.querySelectorAll) return;
 
@@ -1302,7 +1464,7 @@ function mgTidyActorFolderConfig(html, folder) {
 			<div class="form-fields">
 				<input type="checkbox" name="${fieldName}" data-dtype="Boolean" ${folder?.getFlag?.(MG_UI_NS, MG_ACTOR_FOLDER_PLAYER_VISIBLE_FLAG) ? "checked" : ""} />
 			</div>
-			<p class="hint">When unchecked, players still see owned or visible actors inside this folder as loose actor cards.</p>
+			<p class="hint">${visibilityHint}</p>
 		`;
 
 		const colorInput = root.querySelector('[name="color"]');
@@ -1311,7 +1473,14 @@ function mgTidyActorFolderConfig(html, folder) {
 		else root.querySelector("form")?.prepend(field);
 	}
 
-	mgNormalizeActorFolderConfigLayout(root);
+	mgNormalizeActorFolderConfigLayout(root, visibilityHint);
+
+  const iconFieldName = `flags.${MG_UI_NS}.folderIcon`;
+  if (!root.querySelector(`[name="${iconFieldName}"]`)) {
+    const field = mgCreateIconPicker({ name: iconFieldName, value: folder?.getFlag?.(MG_UI_NS, "folderIcon") ?? "" });
+    field.classList.add("mg-scene-folder-config-block", "mg-actor-folder-config-block");
+    root.querySelector('[name="color"]')?.closest(".form-group")?.after(field);
+  }
 }
 
 function mgHideFolderConfigSorting(root) {
@@ -1333,7 +1502,7 @@ function mgHideFolderConfigField(element) {
 	group.style.display = "none";
 }
 
-function mgNormalizeActorFolderConfigLayout(root) {
+function mgNormalizeActorFolderConfigLayout(root, visibilityHint) {
 	const form = root.querySelector("form");
 	if (!form || form.dataset.mgActorFolderLayoutNormalized === "true") return;
 
@@ -1358,7 +1527,7 @@ function mgNormalizeActorFolderConfigLayout(root) {
 				? "Folder Color"
 				: "Players Can See Folder";
 		const hint = input.name.includes(MG_ACTOR_FOLDER_PLAYER_VISIBLE_FLAG)
-			? `<p class="hint">When unchecked, players still see owned or visible actors inside this folder as loose actor cards.</p>`
+			? `<p class="hint">${visibilityHint}</p>`
 			: "";
 
 		block.innerHTML = `
@@ -1381,5 +1550,7 @@ function mgNormalizeActorFolderConfigLayout(root) {
 globalThis.MGActorSidebar = {
 	bindContent: mgBindActorSidebarContent,
 	renderContent: mgRenderActorSidebarContent,
-	tidyFolderConfig: mgTidyActorFolderConfig
+	tidyFolderConfig: mgTidyActorFolderConfig,
+	createIconPicker: mgCreateIconPicker,
+	getFolderIcon: folder => mgFolderIconClass(folder?.getFlag?.(MG_UI_NS, "folderIcon"))
 };

@@ -6545,3 +6545,13 @@ body:not(.mg-hud-enabled) #mg-ui-root {
 		}
 	}
 }
+
+/* Folder icon search results */
+.mg-folder-icon-picker{width:100%;min-width:0}
+.mg-folder-icon-picker .mg-folder-icon-search{width:100%}
+.mg-folder-icon-results{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.375rem;max-height:15rem;overflow-y:auto;margin-top:.5rem;padding:.375rem;background:#0b1727;border:1px solid #25426c;border-radius:.375rem}
+.mg-folder-icon-results[hidden]{display:none}
+.mg-folder-icon-results button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.375rem;min-width:0;min-height:4rem;height:auto;margin:0;padding:.5rem .25rem;border:1px solid transparent;border-radius:.25rem;background:#122137;color:#c5d4ec;white-space:normal}
+.mg-folder-icon-results button i{font-size:1.25rem;pointer-events:none}
+.mg-folder-icon-results button span{font-size:.7rem;line-height:1.2;overflow-wrap:anywhere;pointer-events:none}
+.mg-folder-icon-results button:hover,.mg-folder-icon-results button:focus-visible,.mg-folder-icon-results button[aria-pressed="true"]{background:#25426c;border-color:#a2d729}

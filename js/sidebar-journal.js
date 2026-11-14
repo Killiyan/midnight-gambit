@@ -1073,18 +1073,9 @@ function mgCanUserSeeJournalEntry(journal) {
 }
 
 function mgBuildJournalEntryFolderTree(journals, { showAllFolders = true } = {}) {
-	const visibleJournalEntryFolderIds = new Set();
-	for (const journal of journals) {
-		let folderId = journal.folder?.id ?? journal.folder ?? null;
-		while (folderId) {
-			visibleJournalEntryFolderIds.add(folderId);
-			const folder = game.folders?.get(folderId);
-			folderId = folder?.folder?.id ?? folder?.folder ?? null;
-		}
-	}
 	const journalFolders = Array.from(game.folders ?? [])
 		.filter(folder => folder.type === "JournalEntry")
-		.filter(folder => showAllFolders || visibleJournalEntryFolderIds.has(folder.id));
+		.filter(folder => showAllFolders || !!folder.getFlag?.(MG_UI_NS, "playersCanSeeFolder"));
 	const folderNodes = new Map(journalFolders.map(folder => [
 		folder.id,
 		{ folder, folders: [], journals: [] }
@@ -1183,7 +1174,7 @@ function mgRenderJournalEntryFolder(node, depth = 0) {
 				data-mg-journal-folder-drop="${folder.id}"
 				aria-expanded="${isOpen ? "true" : "false"}"
 			>
-				<span><i class="fa-solid fa-folder" data-mg-journal-folder-icon${iconStyle}></i>${mgEsc(folder.name)}</span>
+				<span><i class="${mgAttr(globalThis.MGActorSidebar?.getFolderIcon?.(folder) ?? "fa-solid fa-folder")}" data-mg-journal-folder-icon${iconStyle}></i>${mgEsc(folder.name)}</span>
 				<i class="fa-solid fa-chevron-down mg-slide-toggle-chevron"></i>
 			</div>
 			<div class="mg-left-accordion-body" ${isOpen ? "" : "hidden"} style="max-height: ${isOpen ? "none" : "0px"};">

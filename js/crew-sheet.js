@@ -547,6 +547,7 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 		const path = event?.composedPath?.() ?? [];
 
 		return path.some(el =>
+      el?.classList?.contains?.("mg-items-library") ||
 			el?.classList?.contains?.("mg-init-card") ||
 			el?.classList?.contains?.("mg-init-placeholder") ||
 			el?.classList?.contains?.("mg-initiative-list")
@@ -1335,8 +1336,21 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 	}
 
 
+  // Inventory quantity has its own save handler, rather than submitting the actor form.
+  async _onChangeInput(event) {
+    if (event.target?.matches?.(".crew-item-quantity")) return;
+    return super._onChangeInput(event);
+  }
+
 	activateListeners(html) {
 	super.activateListeners(html);
+    html.find(".crew-item-quantity").on("keydown.mgInventoryQuantity", event => {
+      if (event.key !== "Enter") return;
+      event.preventDefault();
+      event.stopPropagation();
+      event.currentTarget.blur();
+    });
+
 	html.find(".mg-create-item").off("click.mgCreateItem").on("click.mgCreateItem", async event => {
 		event.preventDefault();
 		event.stopPropagation();
@@ -2366,11 +2380,7 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 				const wasExpanded = wrap.classList.contains("expanded");
 
 				// make sure we start from a numeric px height so transitions work
-				content.style.maxHeight = "";
-				// eslint-disable-next-line no-unused-expressions
-				content.offsetHeight;
-
-				const startPx = content.scrollHeight;
+				const startPx = content.clientHeight;
 				content.style.maxHeight = `${startPx}px`;
 				// eslint-disable-next-line no-unused-expressions
 				content.offsetHeight;
@@ -2382,6 +2392,10 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 				if (icon) icon.classList.toggle("rotated", !wasExpanded);
 
 				content.style.maxHeight = `${targetPx}px`;
+
+				// Follow the description's animated height without a second card transition.
+				const card = wrap.closest(".asset-card");
+				if (card?.classList.contains("expanded")) card.style.maxHeight = "none";
 
 				const onEnd = (e) => {
 				if (e && e.target !== content) return;
@@ -2526,7 +2540,7 @@ export class MidnightGambitCrewSheet extends ActorSheet {
 		// (This is what fixes "desc opens but card doesn't grow")
 		$root.off("click.mgAssetCardBumpOnInnerSeeAll").on(
 		"click.mgAssetCardBumpOnInnerSeeAll",
-		'.tab[data-tab="assets"] .mg-seeall-toggle, .tab[data-tab="assets"] .tags-toggle',
+		'.tab[data-tab="assets"] .tags-toggle',
 		(ev) => {
 			const card = ev.currentTarget.closest(".asset-card");
 			if (!card) return;

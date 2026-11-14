@@ -4970,7 +4970,7 @@ function mgRenderSceneFolder(node, depth = 0) {
 				data-mg-scene-folder-drop="${folder.id}"
 				aria-expanded="${isOpen ? "true" : "false"}"
 			>
-				<span><i class="fa-solid fa-folder" data-mg-scene-folder-icon${iconStyle}></i>${mgEsc(folder.name)}</span>
+				<span><i class="${mgAttr(globalThis.MGActorSidebar?.getFolderIcon?.(folder) ?? "fa-solid fa-folder")}" data-mg-scene-folder-icon${iconStyle}></i>${mgEsc(folder.name)}</span>
 				<i class="fa-solid fa-chevron-down mg-slide-toggle-chevron"></i>
 			</div>
 
@@ -5908,11 +5908,7 @@ Hooks.on("renderFolderConfig", (app, html) => {
 	mgNormalizeFolderColorConfig(html);
 	window.setTimeout(() => mgNormalizeFolderColorConfig(html), 0);
 
-	if (folder?.type === "Scene") {
-		mgTidySceneFolderConfig(html, folder);
-		window.setTimeout(() => mgTidySceneFolderConfig(html, folder), 0);
-	}
-	if (folder?.type === "Actor") {
+	if (["Actor", "Item", "JournalEntry", "Scene", "Playlist", "Compendium"].includes(folder?.type)) {
 		mgTidyActorFolderConfig(html, folder);
 		window.setTimeout(() => mgTidyActorFolderConfig(html, folder), 0);
 	}

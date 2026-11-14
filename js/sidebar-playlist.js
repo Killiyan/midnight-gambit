@@ -1291,18 +1291,9 @@ function mgCanUserSeePlaylist(playlist) {
 }
 
 function mgBuildPlaylistFolderTree(playlists, { showAllFolders = true } = {}) {
-	const visibleFolderIds = new Set();
-	for (const playlist of playlists) {
-		let folderId = playlist.folder?.id ?? playlist.folder ?? null;
-		while (folderId) {
-			visibleFolderIds.add(folderId);
-			const folder = game.folders?.get(folderId);
-			folderId = folder?.folder?.id ?? folder?.folder ?? null;
-		}
-	}
 	const playlistFolders = Array.from(game.folders ?? [])
 		.filter(folder => folder.type === "Playlist")
-		.filter(folder => showAllFolders || visibleFolderIds.has(folder.id));
+		.filter(folder => showAllFolders || !!folder.getFlag?.(MG_UI_NS, "playersCanSeeFolder"));
 	const folderNodes = new Map(playlistFolders.map(folder => [
 		folder.id,
 		{ folder, folders: [], playlists: [] }
@@ -1399,7 +1390,7 @@ function mgRenderPlaylistFolder(node, depth = 0) {
 				data-mg-playlist-folder-drop="${folder.id}"
 				aria-expanded="${isOpen ? "true" : "false"}"
 			>
-				<span><i class="fa-solid fa-folder" data-mg-playlist-folder-icon${iconStyle}></i>${mgEsc(folder.name)}</span>
+				<span><i class="${mgAttr(globalThis.MGActorSidebar?.getFolderIcon?.(folder) ?? "fa-solid fa-folder")}" data-mg-playlist-folder-icon${iconStyle}></i>${mgEsc(folder.name)}</span>
 				<i class="fa-solid fa-chevron-down mg-slide-toggle-chevron"></i>
 			</div>
 			<div class="mg-left-accordion-body" ${isOpen ? "" : "hidden"} style="max-height: ${isOpen ? "none" : "0px"};">

@@ -89,6 +89,11 @@ export class ItemsLibraryApplication extends LibraryApplication {
 
   activateListeners(html) {
     super.activateListeners(html);
+    // Items are added with the inventory button; suppress native card/image drags.
+    html.on("dragstart.mgItemsLibrary", event => {
+      event.preventDefault();
+      event.stopPropagation();
+    });
     html.find(".mg-gambit-library-window-close").on("click", () => this.close());
     html.find("[data-open-shop]").on("click", event => this._openShop(event.currentTarget.dataset.openShop));
     html.find("[data-choose-shop]").on("click", () => this._openShop(""));
