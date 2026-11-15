@@ -617,6 +617,8 @@ async function mgCreateJournalEntryFolder(parentId = null) {
 /* Journal context menus
 ----------------------------------------------------------------------*/
 function mgOpenJournalEntryContextMenu(journalId, anchor, row, event = null) {
+	const document = anchor?.ownerDocument ?? globalThis.document;
+	const window = document.defaultView;
 	const journal = mgGetJournalCollection()?.get(journalId);
 	if (!journal) return;
 
@@ -663,6 +665,8 @@ function mgOpenJournalEntryContextMenu(journalId, anchor, row, event = null) {
 }
 
 function mgOpenJournalEntryFolderContextMenu(folderId, anchor, event = null) {
+	const document = anchor?.ownerDocument ?? globalThis.document;
+	const window = document.defaultView;
 	const folder = game.folders?.get(folderId);
 	if (!folder || folder.type !== "JournalEntry" || !game.user?.isGM) return;
 

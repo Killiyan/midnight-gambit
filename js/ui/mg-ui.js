@@ -1,6 +1,8 @@
 import { mgAuraDisplayName, mgAuraReference, mgResolveAura, mgGetAuraEncounter, mgGetAuraPenalty, mgSetActiveAura, mgSetEncounterMember, mgClearAuraEncounter, mgReorderAuraEncounter } from "../actors/aura-encounter.js";
 import { evaluateRoll, mgApplyStrainAttributePenalty, mgGetStrainEffectBadge, mgGetStrainRollEffects } from "../roll-utils.js";
 import { MGInitiativeController } from "../initiative/initiative-controller.js";
+import { MGSidebarPopouts } from "./sidebar-popout.js";
+import { MGChatPopouts } from "./chat-popout.js";
 
 /* Midnight Gambit Custom UI
 ==============================================================================================================================================*/
@@ -31,6 +33,16 @@ let mgPlayersOriginalNextSibling = null;
 let mgSceneViewerRefreshTimer = null;
 let mgSceneViewerSignature = "";
 const mgLeftAccordionState = {};
+const mgSidebarPopouts = new MGSidebarPopouts({
+	getRoot: () => document.getElementById(MG_UI_ID),
+	render: tabId => mgRenderLeftSidebarContent(tabId),
+	bind: (root, tabId) => mgBindLeftSidebarContent(root, tabId),
+	tabs: () => mgGetVisibleLeftSidebarTabs(),
+	normalize: tabId => mgNormalizeLeftSidebarTabId(tabId)
+});
+
+function mgGetLeftSidebarRoot() { return mgSidebarPopouts.activeRoot; }
+const mgChatPopouts = new MGChatPopouts(mgSidebarPopouts);
 
 const MG_ATTRIBUTE_KEYS = ["tenacity", "finesse", "resolve", "guile", "instinct", "presence"];
 const MG_SKILL_BUCKETS = {
@@ -424,12 +436,17 @@ root.innerHTML = `
 function mgEnsureRightSidebarHeader() {
 	const sidebar = document.getElementById("sidebar");
 	if (!sidebar) return;
-	if (sidebar.querySelector(":scope > .mg-right-sidebar-header")) return;
+	const existingHeader = sidebar.querySelector(":scope > .mg-right-sidebar-header");
+	if (existingHeader) {
+		mgChatPopouts.bindHeader(existingHeader);
+		return;
+	}
 
 	const header = document.createElement("header");
 	header.className = "mg-right-sidebar-header";
 	header.innerHTML = `<h2>Chat</h2>`;
 	sidebar.insertBefore(header, sidebar.firstElementChild);
+	mgChatPopouts.bindHeader(header);
 }
 
 /**
@@ -1056,7 +1073,7 @@ function mgRenderLeftSidebarTabs() {
 }
 
 function mgRefreshLeftSidebarTabs() {
-	const root = document.getElementById(MG_UI_ID);
+	const root = mgGetLeftSidebarRoot();
 	const tabs = root?.querySelector("[data-sidebar-tabs]");
 	if (!root || !tabs) return;
 
@@ -1664,7 +1681,10 @@ function mgPositionSubbar(sourceButton, subrail, pointer) {
 /* Left Sidebar Binder
 ==============================================================================================================================================*/
 function mgBindLeftSidebar(root) {
+	mgSidebarPopouts.bindGestures(root);
 	root.querySelectorAll("[data-mg-left-tab]").forEach(button => {
+		if (button.dataset.mgTabBound) return;
+		button.dataset.mgTabBound = "true";
 		button.addEventListener("click", event => {
 			event.preventDefault();
 			event.stopPropagation();
@@ -1868,7 +1888,7 @@ function mgRestoreSidebarCollapseState() {
 }
 
 function mgSetLeftSidebarTab(tabId) {
-	const root = document.getElementById(MG_UI_ID);
+	const root = mgGetLeftSidebarRoot();
 	if (!root) return;
 
 	const normalizedTabId = mgNormalizeLeftSidebarTabId(tabId);
@@ -2702,9 +2722,12 @@ async function mgCreateSceneFolder(parentId = null) {
 /* Scene context menus
 ----------------------------------------------------------------------*/
 function mgCloseSceneContextMenu() {
-	document.querySelectorAll(".mg-scene-context-menu, .mg-scene-folder-context-menu").forEach(menu => menu.remove());
-	document.removeEventListener("click", mgCloseSceneContextMenu);
-	document.removeEventListener("keydown", mgCloseSceneContextMenuOnEscape);
+	const documents = [document, ...[...mgSidebarPopouts.views.values()].filter(view => !view.popup.closed).map(view => view.popup.document)];
+	for (const doc of documents) {
+		doc.querySelectorAll(".mg-scene-context-menu, .mg-scene-folder-context-menu").forEach(menu => menu.remove());
+		doc.removeEventListener("click", mgCloseSceneContextMenu);
+		doc.removeEventListener("keydown", mgCloseSceneContextMenuOnEscape);
+	}
 }
 
 function mgCloseSceneContextMenuOnEscape(event) {
@@ -2727,6 +2750,8 @@ globalThis.MGSidebarShared = {
 };
 
 function mgOpenSceneContextMenu(sceneId, anchor, row, event = null) {
+	const document = anchor?.ownerDocument ?? globalThis.document;
+	const window = document.defaultView;
 	const scene = game.scenes?.get(sceneId);
 	if (!scene) return;
 
@@ -2778,6 +2803,8 @@ function mgOpenSceneContextMenu(sceneId, anchor, row, event = null) {
 }
 
 function mgOpenSceneFolderContextMenu(folderId, anchor, event = null) {
+	const document = anchor?.ownerDocument ?? globalThis.document;
+	const window = document.defaultView;
 	const folder = game.folders?.get(folderId);
 	if (!folder || folder.type !== "Scene" || !game.user?.isGM) return;
 
@@ -3012,7 +3039,8 @@ function mgGetCharacterSidebarActor(root) {
 }
 
 function mgRefreshLeftSidebarContent() {
-	const root = document.getElementById(MG_UI_ID);
+	mgSidebarPopouts.refreshTabs();
+	const root = mgGetLeftSidebarRoot();
 	const body = root?.querySelector("[data-sidebar-body]");
 	if (!root || !body) return;
 
@@ -3103,7 +3131,8 @@ function mgRefreshGmSidebarContent() {
 globalThis.mgRefreshGmSidebarContent = mgRefreshGmSidebarContent;
 
 function mgRefreshCharacterSidebarActor(actorId) {
-	const root = document.getElementById(MG_UI_ID);
+	mgSidebarPopouts.refreshTabs("player");
+	const root = mgGetLeftSidebarRoot();
 	const panel = root?.querySelector(`[data-mg-character-sidebar="${mgCssEscape(actorId ?? "")}"]`);
 	const actor = actorId ? game.actors.get(actorId) : null;
 	if (!root || !panel || !actor) return false;
@@ -3765,11 +3794,11 @@ function mgRenderPlayersSidebarContent() {
 	`;
 }
 
-function mgDockFoundryPlayersBox(root = document.getElementById(MG_UI_ID)) {
+function mgDockFoundryPlayersBox(root = mgGetLeftSidebarRoot()) {
 	const dock = root?.querySelector("[data-mg-players-dock]");
 	if (!dock) return;
 
-	let players = document.getElementById("players");
+	let players = root.ownerDocument.getElementById("players") ?? document.getElementById("players");
 
 	if (!players) {
 		ui.players?.render?.(true);
@@ -3788,7 +3817,7 @@ function mgDockFoundryPlayersBox(root = document.getElementById(MG_UI_ID)) {
 }
 
 function mgUndockFoundryPlayersBox() {
-	const players = document.getElementById("players");
+	const players = mgGetLeftSidebarRoot()?.ownerDocument.getElementById("players") ?? document.getElementById("players");
 	if (!players?.classList.contains("mg-players-docked")) return;
 
 	players.classList.remove("mg-players-docked");
@@ -5807,6 +5836,19 @@ Hooks.on("renderSceneControls", () => {
 
 Hooks.on("renderSidebar", () => mgEnsureRightSidebarHeader());
 Hooks.on("renderSidebarTab", () => mgEnsureRightSidebarHeader());
+
+// Dedicated views refresh even when a different tab is selected in the main sidebar.
+let mgPopoutRefreshTimer = null;
+const mgPopoutRefreshHooks = [
+	"updateSetting", "updateUser", "canvasReady", "mgAuraEncounterChanged",
+	"globalPlaylistVolumeChanged", "globalAmbientVolumeChanged", "globalInterfaceVolumeChanged",
+	... ["Actor", "Item", "Folder", "Scene", "JournalEntry", "Playlist", "PlaylistSound", "Token", "Compendium", "CompendiumCollection"]
+		.flatMap(type => ["create", "update", "delete"].map(action => `${action}${type}`))
+];
+for (const hook of mgPopoutRefreshHooks) Hooks.on(hook, () => {
+	window.clearTimeout(mgPopoutRefreshTimer);
+	mgPopoutRefreshTimer = window.setTimeout(() => mgSidebarPopouts.refreshTabs(), 100);
+});
 Hooks.on("renderPlayers", mgRefreshDockedPlayersBox);
 Hooks.on("renderPlayerList", mgRefreshDockedPlayersBox);
 Hooks.on("updateActor", actor => {
@@ -6269,6 +6311,7 @@ Hooks.once("ready", () => {
 		})) ?? [],
 		closeSubbar: mgCloseSubbar,
 		rebuild: () => {
+			mgSidebarPopouts.closeAll();
 			mgUndockFoundryPlayersBox();
 			document.getElementById(MG_UI_ID)?.remove();
 			mgCreateUiRoot();

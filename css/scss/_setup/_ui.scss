@@ -274,7 +274,8 @@ body.mg-hud-enabled {
 		padding: 1rem 1rem 1rem 0;
 	}
 
-	#mg-initiative-sidebar.mg-ini-side {
+	#mg-initiative-sidebar.mg-ini-side,
+	[data-mg-initiative-copy].mg-ini-side {
 
 		.mg-ini-side-wrap {
 			margin-bottom: 1rem;
@@ -319,7 +320,7 @@ body.mg-hud-enabled {
 		}
 	}
 
-	#sidebar {
+	:is(#sidebar, .mg-chat-popout) {
 		display: flex;
 		flex-direction: column;
 		height: 100%;
@@ -375,7 +376,7 @@ body.mg-hud-enabled {
 			border-bottom: 1px solid rgba($mg-blue-1, .25);
 			display: flex;
 			align-items: center;
-			pointer-events: none;
+			pointer-events: auto;
 
 			h2 {
 				color: $mg-blue-1;

@@ -212,7 +212,7 @@ h3 {
 
 /* Sidebar Styling
 ==============================================================================================================================================*/
-#sidebar {
+:is(#sidebar, .mg-chat-copy-sidebar) {
   background: $mg-blue-main;
   border: 3px solid $mg-blue-main-2;
   position: relative;
@@ -1279,7 +1279,7 @@ h3 {
   @include roboto();
 }
 
-#sidebar .message-metadata .message-delete {
+:is(#sidebar, .mg-chat-copy-sidebar) .message-metadata .message-delete {
   position: absolute;
   right: 0;
   top: 0;

@@ -685,6 +685,8 @@ async function mgCreateItemFolder(parentId = null) {
 /* Item context menus
 ----------------------------------------------------------------------*/
 function mgOpenItemContextMenu(itemId, anchor, row, event = null) {
+	const document = anchor?.ownerDocument ?? globalThis.document;
+	const window = document.defaultView;
 	const item = game.items?.get(itemId);
 	if (!item) return;
 
@@ -731,6 +733,8 @@ function mgOpenItemContextMenu(itemId, anchor, row, event = null) {
 }
 
 function mgOpenItemFolderContextMenu(folderId, anchor, event = null) {
+	const document = anchor?.ownerDocument ?? globalThis.document;
+	const window = document.defaultView;
 	const folder = game.folders?.get(folderId);
 	if (!folder || folder.type !== "Item" || !game.user?.isGM) return;
 

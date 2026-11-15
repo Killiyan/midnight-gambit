@@ -650,6 +650,8 @@ async function mgCreateActorFolder(parentId = null) {
 /* Actor context menus
 ----------------------------------------------------------------------*/
 function mgOpenActorContextMenu(actorId, anchor, row, event = null) {
+	const document = anchor?.ownerDocument ?? globalThis.document;
+	const window = document.defaultView;
 	const actor = game.actors?.get(actorId);
 	if (!actor) return;
 
@@ -696,6 +698,8 @@ function mgOpenActorContextMenu(actorId, anchor, row, event = null) {
 }
 
 function mgOpenActorFolderContextMenu(folderId, anchor, event = null) {
+	const document = anchor?.ownerDocument ?? globalThis.document;
+	const window = document.defaultView;
 	const folder = game.folders?.get(folderId);
 	if (!folder || folder.type !== "Actor" || !game.user?.isGM) return;
 

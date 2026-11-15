@@ -794,6 +794,8 @@ async function mgCreateCompendiumFolder(parentId = null) {
 /* Compendium context menus
 ----------------------------------------------------------------------*/
 function mgOpenCompendiumContextMenu(packId, anchor, row, event = null) {
+	const document = anchor?.ownerDocument ?? globalThis.document;
+	const window = document.defaultView;
 	const pack = game.packs?.get(packId);
 	if (!pack) return;
 
@@ -846,6 +848,8 @@ function mgOpenCompendiumContextMenu(packId, anchor, row, event = null) {
 }
 
 function mgOpenCompendiumFolderContextMenu(folderId, anchor, event = null) {
+	const document = anchor?.ownerDocument ?? globalThis.document;
+	const window = document.defaultView;
 	const folder = game.folders?.get(folderId);
 	if (!folder || folder.type !== "Compendium" || !game.user?.isGM) return;
 

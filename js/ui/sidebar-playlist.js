@@ -836,6 +836,8 @@ async function mgCreatePlaylistFolder(parentId = null) {
 }
 
 function mgOpenPlaylistContextMenu(playlistId, anchor, row, event = null) {
+	const document = anchor?.ownerDocument ?? globalThis.document;
+	const window = document.defaultView;
 	const playlist = game.playlists?.get(playlistId);
 	if (!playlist) return;
 	mgCloseContextMenu();
@@ -911,6 +913,8 @@ function mgBindPlaylistConfigImageField(app, html) {
 }
 
 function mgOpenPlaylistSoundContextMenu(playlistId, soundId, anchor, event = null) {
+	const document = anchor?.ownerDocument ?? globalThis.document;
+	const window = document.defaultView;
 	const playlist = game.playlists?.get(playlistId);
 	const sound = playlist?.sounds?.get(soundId);
 	if (!sound || !game.user?.isGM) return;
@@ -941,6 +945,8 @@ function mgOpenPlaylistSoundContextMenu(playlistId, soundId, anchor, event = nul
 }
 
 function mgOpenPlaylistFolderContextMenu(folderId, anchor, event = null) {
+	const document = anchor?.ownerDocument ?? globalThis.document;
+	const window = document.defaultView;
 	const folder = game.folders?.get(folderId);
 	if (!folder || folder.type !== "Playlist" || !game.user?.isGM) return;
 	mgCloseContextMenu();

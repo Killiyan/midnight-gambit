@@ -1,0 +1,222 @@
+/* External left sidebar windows
+----------------------------------------------------------------------*/
+body.mg-sidebar-popout,
+.mg-sidebar-desktop-window .mg-sidebar-popout {
+	min-width: 0;
+	background: $mg-blue-4;
+	overflow: hidden;
+
+	#mg-ui-root,
+	.mg-ui-root {
+		position: static;
+		width: 100%;
+		height: 100%;
+	}
+
+	.mg-left-sidebar {
+		position: relative;
+		inset: auto;
+		margin: .5rem;
+		width: calc(100% - 1rem);
+		height: calc(100% - 1rem);
+		gap: .5rem;
+		transform: none;
+		transition: none;
+
+		.panel {
+			flex: 1;
+			min-width: 0;
+			width: auto;
+			max-width: 430px;
+		}
+
+		.sidebar-tabs {
+			position: static;
+			width: 46px;
+			flex-shrink: 0;
+			max-height: 100%;
+			overflow-x: hidden;
+			overflow-y: auto;
+			scrollbar-width: none;
+
+			&::-webkit-scrollbar {
+				display: none;
+				width: 0;
+				height: 0;
+			}
+		}
+	}
+}
+
+.mg-sidebar-desktop-window {
+	position: fixed;
+	left: 2rem;
+	top: 2rem;
+	height: min(850px, calc(100vh - 4rem));
+	max-height: calc(100vh - 1rem);
+	min-height: 180px;
+	min-width: 240px;
+	border: 1px solid rgba($mg-blue-1, .25);
+	border-radius: .5rem;
+	background: $mg-blue-4;
+	box-shadow: 0 .75rem 2rem rgba($black, .45);
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
+	resize: vertical;
+
+	.mg-popout-titlebar {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		flex: 0 0 30px;
+		padding: 0 .5rem;
+		color: $mg-blue-1;
+		border-bottom: 1px solid rgba($mg-blue-1, .25);
+		cursor: move;
+		touch-action: none;
+		user-select: none;
+
+		button {
+			width: 24px;
+			height: 24px;
+			padding: 0;
+			line-height: 20px;
+			margin: 0;
+			color: inherit;
+			background: transparent;
+			border: 0;
+			cursor: pointer;
+		}
+	}
+
+	.mg-popout-content {
+		flex: 1;
+		min-height: 0;
+	}
+}
+
+body.mg-left-sidebar-detached .left-sidebar-toggle {
+	display: none;
+}
+
+/* Chat copies and detached chat use the same window host.
+----------------------------------------------------------------------*/
+body.mg-hud-enabled .mg-right-sidebar-header {
+	pointer-events: auto;
+}
+
+body.mg-hud-enabled .mg-chat-popout {
+	display: flex;
+	flex-direction: column;
+	width: 100%;
+	height: 100%;
+	min-height: 0;
+	pointer-events: auto;
+	overflow: hidden;
+
+	#sidebar,
+	.window-app.chat-sidebar {
+		position: static !important;
+		inset: auto !important;
+		transform: none !important;
+		width: 100% !important;
+		min-width: 0;
+		max-width: none;
+		height: 100% !important;
+		max-height: 100%;
+		margin: 0;
+		opacity: 1;
+		visibility: visible;
+		pointer-events: auto;
+		flex: 1;
+		min-height: 0;
+	}
+
+	.window-app.chat-sidebar {
+		border: 0;
+		box-shadow: none;
+
+		> .window-header,
+		> .window-resizable-handle {
+			display: none;
+		}
+
+		.window-content {
+			padding: 0;
+			background: transparent;
+			min-height: 0;
+		}
+	}
+
+	.chat-sidebar,
+	.window-content {
+		display: flex;
+		flex-direction: column;
+		flex: 1;
+		min-height: 0;
+		min-width: 0;
+		max-width: 100%;
+		width: 100%;
+		box-sizing: border-box;
+	}
+
+	.window-content > .chat-sidebar {
+		border: 0;
+		border-radius: 0;
+		background: transparent;
+		box-shadow: none;
+		position: relative;
+	}
+
+	#chat-log {
+		flex: 1;
+		min-height: 0;
+		overflow-y: auto;
+	}
+
+	#chat-form {
+		flex: 0 0 auto;
+	}
+}
+
+body.mg-chat-detached .mg-right-sidebar-collapse-toggle {
+	display: none;
+}
+
+/* Reserve 366px for chat and 288px for initiative plus its handle.
+----------------------------------------------------------------------*/
+body.mg-hud-enabled .mg-chat-window-layout {
+	box-sizing: border-box;
+	display: grid;
+	grid-template-columns: minmax(0, 288px) minmax(0, 366px);
+	width: 100%;
+	height: 100%;
+	min-height: 0;
+	pointer-events: auto;
+
+	.mg-chat-popout {
+		box-sizing: border-box;
+		min-width: 0;
+		max-width: 366px;
+	}
+
+	.mg-chat-initiative-host {
+		position: relative;
+		min-width: 0;
+		height: 100%;
+		overflow: hidden;
+	}
+
+	.mg-ini-side {
+		position: absolute !important;
+		inset: 8px 0 auto auto !important;
+		width: 250px !important;
+		height: auto !important;
+		max-height: calc(100% - 16px);
+		transform: none !important;
+		opacity: 1;
+		visibility: visible;
+		z-index: 1 !important;
+	}
+}

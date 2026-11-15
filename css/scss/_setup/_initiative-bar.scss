@@ -1,6 +1,7 @@
 /* Sidebar Initiative
 ----------------------------------------------------------------------*/
-#mg-initiative-sidebar.mg-ini-side {
+#mg-initiative-sidebar.mg-ini-side,
+[data-mg-initiative-copy].mg-ini-side {
   // panel sizing
   --mg-ini-panel-w: 320px;
   --mg-ini-pad-l: 34px;

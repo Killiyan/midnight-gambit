@@ -69,6 +69,10 @@ export class MGInitiativeSidebar {
   }
 
   constructor() {
+    this._root = null;
+    this._liveHooks = [];
+    this._embedded = false;
+    this._collapsed = null;
     this._mounted = false;
     this._unsub = null;
     this._raf = null;
@@ -86,21 +90,25 @@ export class MGInitiativeSidebar {
   // -----------------------------
   // Mount / Unmount
   // -----------------------------
-  async mount() {
+  async mount({ host = null } = {}) {
     if (this._mounted) return;
 
     MGInitiativeController.instance.activate();
 
-    const host = document.getElementById("ui") || document.body;
+    this._embedded = !!host;
+    const target = host ?? document.getElementById("ui") ?? document.body;
 
-    let root = document.getElementById("mg-initiative-sidebar");
+    let root = host ? null : document.getElementById("mg-initiative-sidebar");
     if (!root) {
       root = document.createElement("section");
-      root.id = "mg-initiative-sidebar";
+      if (host) root.dataset.mgInitiativeCopy = "true";
+      else root.id = "mg-initiative-sidebar";
       root.classList.add("mg-ini-side");
-      host.appendChild(root);
+      target.appendChild(root);
     }
 
+    this._root = root;
+    if (host) this._collapsed = !!game.settings.get(MG_NS, "initiativeSidebarCollapsed");
     this._mounted = true;
     this._updateDockOffset();
 
@@ -118,8 +126,14 @@ export class MGInitiativeSidebar {
 
   async unmount() {
     this._mounted = false;
-    const root = document.getElementById("mg-initiative-sidebar");
+    const root = this._root;
     if (root) root.remove();
+    this._root = null;
+    this._bound = false;
+    if (this._raf) cancelAnimationFrame(this._raf);
+    for (const [name, id] of this._liveHooks) Hooks.off(name, id);
+    this._liveHooks = [];
+    this._liveHooksWired = false;
 
     if (this._unsub) {
       this._unsub();
@@ -131,8 +145,9 @@ export class MGInitiativeSidebar {
   // Docking
   // -----------------------------
   _updateDockOffset() {
-    const root = document.getElementById("mg-initiative-sidebar");
+    const root = this._root;
     if (!root) return;
+    if (this._embedded || root.closest(".mg-chat-window-layout")) return;
 
     const sidebar = document.getElementById("sidebar");
     const w = sidebar?.getBoundingClientRect?.().width ?? 300;
@@ -204,10 +219,10 @@ export class MGInitiativeSidebar {
   // Render
   // -----------------------------
   _renderShell() {
-    const root = document.getElementById("mg-initiative-sidebar");
+    const root = this._root;
     if (!root) return;
 
-    const collapsed = !!game.settings.get(MG_NS, "initiativeSidebarCollapsed");
+    const collapsed = this._collapsed ?? !!game.settings.get(MG_NS, "initiativeSidebarCollapsed");
     root.classList.toggle("is-collapsed", collapsed);
 
     // Build once
@@ -285,7 +300,7 @@ export class MGInitiativeSidebar {
   }
 
   _syncFoilToTopSlot({ reset = false, fade = false } = {}) {
-    const root = document.getElementById("mg-initiative-sidebar");
+    const root = this._root;
     const topSlot = root?.querySelector('.mg-ini-side-slot[data-slot="0"]');
     const slice = topSlot?.querySelector(".mg-ini-side-card") || topSlot?.querySelector(".mg-ini-slice");
 
@@ -301,7 +316,7 @@ export class MGInitiativeSidebar {
   _ensureFoilLayer() {
     this._ensureFoilCSS();
 
-    const root = document.getElementById("mg-initiative-sidebar");
+    const root = this._root;
     const stack = root?.querySelector(".mg-ini-side-stack");
     if (!stack) return null;
 
@@ -325,7 +340,7 @@ export class MGInitiativeSidebar {
   }
 
   _syncFoilToSlice(sliceEl, isFeatured) {
-    const root = document.getElementById("mg-initiative-sidebar");
+    const root = this._root;
     const stack = root?.querySelector(".mg-ini-side-stack");
     if (!stack) return;
 
@@ -565,7 +580,7 @@ export class MGInitiativeSidebar {
   }
 
   _refreshAllSidebarHoverStatsForActor(actorId) {
-    const root = document.getElementById("mg-initiative-sidebar");
+    const root = this._root;
     if (!root || !actorId) return;
 
     const slots = root.querySelectorAll(`.mg-ini-side-slot[data-actor-id="${actorId}"]`);
@@ -576,7 +591,7 @@ export class MGInitiativeSidebar {
   }
 
   refreshActorImages(actorId) {
-    const root = document.getElementById("mg-initiative-sidebar");
+    const root = this._root;
     if (!root || !actorId) return;
 
     const actor = game.actors.get(actorId);
@@ -611,12 +626,16 @@ export class MGInitiativeSidebar {
     imgWrap.removeAttribute("style");
   }
 
+  _onLiveHook(name, callback) {
+    this._liveHooks.push([name, Hooks.on(name, callback)]);
+  }
+
   _wireLiveActorRefresh() {
     if (this._liveHooksWired) return;
     this._liveHooksWired = true;
 
     // Actor sheet edits (capacity/track) -> update sidebar instantly
-    Hooks.on("updateActor", (actor, changed) => {
+    this._onLiveHook("updateActor", (actor, changed) => {
       if (!this._mounted) return;
       if (!actor?.id) return;
       if (!Array.isArray(this._ids) || !this._ids.includes(actor.id)) return;
@@ -640,7 +659,7 @@ export class MGInitiativeSidebar {
     });
 
     // Item changes (armor repair updates remainingCapacity) -> capacity recalc flows into actor -> refresh UI
-    Hooks.on("updateItem", (item, changed) => {
+    this._onLiveHook("updateItem", (item, changed) => {
       if (!this._mounted) return;
       const parent = item?.parent;
       if (!parent || parent.documentName !== "Actor") return;
@@ -703,7 +722,7 @@ export class MGInitiativeSidebar {
   }
 
   async _animateNextNameChange(newName) {
-    const root = document.getElementById("mg-initiative-sidebar");
+    const root = this._root;
     const label = root?.querySelector('[data-role="nextname"]');
     if (!label) return;
 
@@ -733,10 +752,10 @@ export class MGInitiativeSidebar {
   }
 
   _paintSlots(windowIdsOverride = null) {
-    const root = document.getElementById("mg-initiative-sidebar");
+    const root = this._root;
     if (!root) return;
 
-    const collapsed = !!game.settings.get(MG_NS, "initiativeSidebarCollapsed");
+    const collapsed = this._collapsed ?? !!game.settings.get(MG_NS, "initiativeSidebarCollapsed");
     root.classList.toggle("is-collapsed", collapsed);
 
     const handle = root.querySelector(".mg-ini-side-handle");
@@ -836,7 +855,7 @@ export class MGInitiativeSidebar {
     if (this._animating) return;
     this._animating = true;
 
-    const root = document.getElementById("mg-initiative-sidebar");
+    const root = this._root;
     if (!root) { this._animating = false; return; }
 
     const slots = Array.from(root.querySelectorAll(".mg-ini-side-slot"));
@@ -1085,8 +1104,9 @@ export class MGInitiativeSidebar {
       const action = btn.dataset.action;
 
       if (action === "toggle") {
-        const next = !game.settings.get(MG_NS, "initiativeSidebarCollapsed");
-        await game.settings.set(MG_NS, "initiativeSidebarCollapsed", next);
+        const next = !(this._collapsed ?? game.settings.get(MG_NS, "initiativeSidebarCollapsed"));
+        if (this._embedded) this._collapsed = next;
+        else await game.settings.set(MG_NS, "initiativeSidebarCollapsed", next);
         root.classList.toggle("is-collapsed", next);
         this._paintSlots();
         return;
