@@ -4845,27 +4845,27 @@ Hooks.on("renderChatMessage", (message, html) => {
   if (isAceNow) {
     resultLabel = "ACE!";
     resultDesc = "You steal the spotlight.";
-    resultIcon = "fa-star text-gold";
+    resultIcon = "fa-ace text-gold";
     resultClass = "result-ace";
   } else if (isCritNow) {
     resultLabel = "Critical Failure";
     resultDesc = "It goes horribly wrong.";
-    resultIcon = "fa-skull-crossbones";
+    resultIcon = "fa-crit-fail";
     resultClass = "result-crit";
   } else if (newTotal <= 6) {
     resultLabel = "Failure";
     resultDesc = "Something goes awry.";
-    resultIcon = "fa-fire-flame result-fail";
+    resultIcon = "fa-failure result-fail";
     resultClass = "result-fail";
   } else if (newTotal <= 10) {
     resultLabel = "Complication";
     resultDesc = "Success with a cost.";
-    resultIcon = "fa-swords result-mixed";
+    resultIcon = "fa-complication result-mixed";
     resultClass = "result-complication";
   } else {
     resultLabel = "Flourish";
     resultDesc = "Narrate your success.";
-    resultIcon = "fa-crown";
+    resultIcon = "fa-flourish";
     resultClass = "result-flourish";
   }
 
@@ -4928,7 +4928,7 @@ Hooks.on("renderChatMessage", (message, html) => {
       disabled
       aria-disabled="true"
       title="Upgrade to Complication unavailable">
-      <i class="fa-solid fa-swords"></i>
+      <i class="fa-kit fa-complication"></i>
     </button>`;
 
   let stoFlourishBtn = `
@@ -4937,7 +4937,7 @@ Hooks.on("renderChatMessage", (message, html) => {
       disabled
       aria-disabled="true"
       title="Upgrade to Flourish unavailable">
-      <i class="fa-solid fa-crown"></i>
+      <i class="fa-kit fa-flourish"></i>
     </button>`;
 
   const stoValue = Number(actor.system?.sto?.value ?? 0);
@@ -4958,7 +4958,7 @@ Hooks.on("renderChatMessage", (message, html) => {
             data-total="${newTotal}"
             data-strain-effects='${strainEffectsJson}'
             title="Upgrade to Complication">
-            <i class="fa-solid fa-swords"></i>
+            <i class="fa-kit fa-complication"></i>
           </button>`;
       }
 
@@ -4972,7 +4972,7 @@ Hooks.on("renderChatMessage", (message, html) => {
             data-total="${newTotal}"
             data-strain-effects='${strainEffectsJson}'
             title="Upgrade to Flourish">
-            <i class="fa-solid fa-crown"></i>
+            <i class="fa-kit fa-flourish"></i>
           </button>`;
       }
     }
@@ -4991,7 +4991,7 @@ Hooks.on("renderChatMessage", (message, html) => {
             data-total="${newTotal}"
             data-strain-effects='${strainEffectsJson}'
             title="Upgrade to Flourish">
-            <i class="fa-solid fa-crown"></i>
+            <i class="fa-kit fa-flourish"></i>
           </button>`;
       }
     }
@@ -5018,7 +5018,7 @@ Hooks.on("renderChatMessage", (message, html) => {
       <div class="roll-wrapper">
         <div class="mg-roll-outcome ${resultClass}">
           <div class="mg-roll-outcome-title">
-            <i class="fa-solid ${resultIcon}"></i>
+            <i class="fa-kit ${resultIcon}"></i>
             <strong>${resultLabel}</strong>
           </div>
 
@@ -5122,19 +5122,19 @@ Hooks.on("renderChatMessage", (message, html) => {
 
     if (finalTotal >= 11) {
       resultClass = "result-flourish";
-      resultIcon = "fa-crown";
+      resultIcon = "fa-flourish";
       resultLabel = "Flourish";
       resultText = "Narrate your success.";
     }
     else if (finalTotal >= 7) {
       resultClass = "result-complication";
-      resultIcon = "fa-swords";
+      resultIcon = "fa-complication";
       resultLabel = "Complication";
       resultText = "Success with a cost.";
     }
     else {
       resultClass = "result-fail";
-      resultIcon = "fa-fire-flame";
+      resultIcon = "fa-failure";
       resultLabel = "Failure";
       resultText = "Something goes awry.";
     }
@@ -5154,7 +5154,7 @@ Hooks.on("renderChatMessage", (message, html) => {
           <div class="roll-wrapper">
             <div class="mg-roll-outcome ${resultClass}">
               <div class="mg-roll-outcome-title">
-                <i class="fa-solid ${resultIcon}" aria-hidden="true"></i>
+                <i class="fa-kit ${resultIcon}" aria-hidden="true"></i>
                 <strong>${resultLabel}</strong>
               </div>
 
@@ -5193,6 +5193,32 @@ Hooks.on("renderChatMessage", (message, html) => {
   }));
 });
 
+
+// Refresh outcome icons on previously saved chat cards as well as new rolls.
+Hooks.on("renderChatMessage", (_message, html) => {
+  const root = html[0];
+  if (!root) return;
+  const outcomes = {
+    "result-crit": "fa-crit-fail",
+    "result-fail": "fa-failure",
+    "result-complication": "fa-complication",
+    "result-flourish": "fa-flourish",
+    "result-ace": "fa-ace"
+  };
+  const replaceIcon = (icon, name) => {
+    if (!icon) return;
+    icon.classList.remove("fa-solid", "fa-skull-crossbones", "fa-fire-flame", "fa-swords", "fa-crown", "fa-star");
+    icon.classList.add("fa-kit", name);
+  };
+  for (const [outcome, icon] of Object.entries(outcomes)) {
+    root.querySelectorAll(`.mg-roll-card .mg-roll-outcome.${outcome} .mg-roll-outcome-title i`)
+      .forEach(element => replaceIcon(element, icon));
+  }
+  root.querySelectorAll(".mg-roll-card .sto-complication i, .mg-roll-card button[title^='Upgrade to Complication'] i")
+    .forEach(element => replaceIcon(element, "fa-complication"));
+  root.querySelectorAll(".mg-roll-card .sto-flourish i, .mg-roll-card button[title^='Upgrade to Flourish'] i")
+    .forEach(element => replaceIcon(element, "fa-flourish"));
+});
 
 // --- Edge: click a box to reveal its kept dice (chat only) ---
 Hooks.on("renderChatMessage", (_message, html) => {

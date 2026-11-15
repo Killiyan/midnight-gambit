@@ -1,22 +1,59 @@
 /* Group Check
 ----------------------------------------------------------------------*/
 .mg-group-check {
-	&.window-app {
-		min-width: 360px;
-		max-width: calc(100vw - 32px);
-		max-height: calc(100vh - 32px);
+	@include mg-border();
+	@include mg-shadow();
+	position: fixed;
+	z-index: 110;
+	display: flex;
+	flex-direction: column;
+	width: 420px;
+	max-width: calc(100vw - 32px);
+	max-height: calc(100vh - 32px);
+	border-radius: .625rem;
+	background: $mg-blue-4;
+	overflow: hidden;
+	pointer-events: auto;
+
+	&.is-setup {
+		width: 760px;
 	}
 
-	.window-content {
+	&.is-awaiting-roll {
+		border-color: $mg-blue-2;
+		box-shadow: 0 0 .75rem rgba($mg-blue-2, .35),
+			0 0 1.5rem rgba($mg-blue-3, .2);
+	}
+
+	/* Slim Drag Handle
+	----------------------------------------------------------------------*/
+	.mg-group-drag-handle {
+		flex: 0 0 1rem;
+		height: 1rem;
+		min-height: 1rem;
+		padding: 0;
+		margin: 0;
+		background: $mg-blue-main;
+		border: 0;
+		border-bottom: 2px solid $mg-blue-main-2;
+		cursor: move;
+		touch-action: none;
+		user-select: none;
+
+	}
+
+
+	.mg-group-body {
 		background: $mg-blue-4;
 		color: $mg-blue-1;
 		padding: 1rem;
 		overflow-y: auto;
 		max-height: none;
 		min-height: 0;
+		flex: 1 1 auto;
 	}
 
-	.dialog-content {
+	.mg-group-content {
 		display: flex;
 		flex-direction: column;
 		gap: .75rem;
@@ -83,11 +120,12 @@
 
 			strong {
 				@include tiller();
-				font-size: 1.125rem;
+				font-size: 1.25rem;
+				text-transform: initial;
+				font-style: normal;
 				font-weight: 700;
 				color: $mg-ivory;
-				text-transform: uppercase;
-				line-height: 1.25rem;
+				line-height: 1rem;
 				white-space: nowrap;
 				text-overflow: ellipsis;
 				overflow: hidden;
@@ -97,9 +135,10 @@
 				@include roboto();
 				font-size: .875rem;
 				font-weight: 700;
+				text-transform: initial;
 				font-style: italic;
 				line-height: 1.2;
-				color: $mg-blue-1;
+				color: $mg-blue-2;
 				white-space: nowrap;
 				text-overflow: ellipsis;
 				overflow: hidden;
@@ -114,9 +153,12 @@
 			gap: .5rem;
 			font-size: 1.25rem;
 			color: $mg-ivory;
+			padding: .5rem;
+			font-style: normal;
 
 			i {
-				color: $mg-blue-1;
+				color: $mg-blue-2;
+				font-size: 1.75rem;
 				margin: 0;
 			}
 		}
@@ -130,11 +172,6 @@
 		&[aria-pressed="true"] {
 			border-color: $mg-green;
 			opacity: .65;
-
-			strong::after {
-				content: " \2713";
-				color: $mg-green;
-			}
 		}
 	}
 
@@ -223,9 +260,9 @@
 
 			label {
 				@include oswald();
-				font-size: 1rem;
+				font-size: .85rem;
 				text-transform: uppercase;
-				text-align: left;
+				text-align: center;
 			}
 		}
 	}
@@ -293,9 +330,181 @@
 		}
 	}
 
-	.dialog-buttons:empty {
+	.mg-group-footer:empty {
 		display: none;
 	}
+
+	.mg-group-footer {
+		display: flex;
+		gap: .5rem;
+		flex: 0 0 auto;
+		margin-top: .75rem;
+
+		button {
+			flex: 1;
+			width: auto;
+			margin: 0;
+			@include mg-border();
+			@include oswald();
+			background: $mg-blue-main;
+			color: $mg-blue-1;
+			border-radius: .5rem;
+			min-height: 2.25rem;
+			text-transform: uppercase;
+
+			&:hover,
+			&:focus-visible {
+				background: $mg-blue-main-2;
+				color: $mg-ivory;
+			}
+		}
+	}
+
+	/* Live Result Tally
+	----------------------------------------------------------------------*/
+	.mg-group-tally {
+		@include mg-border();
+		display: grid;
+		grid-template-columns: repeat(5, minmax(0, 1fr));
+		gap: .5rem;
+		padding: 1.25rem .75rem;
+		border-radius: .625rem;
+		background:
+			radial-gradient(circle at 50% 0%,
+				rgba($mg-blue-1, .22) 0%,
+				rgba($mg-blue-1, .10) 35%,
+				rgba($mg-blue-4, 0) 70%),
+			url("../assets/images/filigree.jpg");
+		background-size: cover, cover;
+		background-blend-mode: soft-light, multiply;
+		background-color: $mg-blue-4;
+		border: 1px solid rgba($mg-blue-1, .25);
+		@include mg-shadow();
+
+		.mg-group-tally-item {
+			@include oswald();
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			justify-content: center;
+			gap: .5rem;
+			padding: .25rem;
+			min-width: 0;
+			font-size: 1.25rem;
+			color: $mg-blue-2;
+			min-height: 5.625rem;
+			transition: color .5s ease, font-size .5s ease;
+
+			i {
+				display: inline-block;
+				font-size: 2rem;
+				color: $mg-blue-1;
+				transform: scale(1);
+				transform-origin: center;
+				transition: color .5s ease, transform .5s ease;
+			}
+
+			.mg-group-tally-count {
+				font-size: inherit;
+				font-weight: 600;
+				line-height: 1.2;
+			}
+
+			.mg-group-slide-tally {
+				display: flex;
+				justify-content: center;
+				min-width: 1.5em;
+			}
+
+
+			&.is-leading {
+				font-size: 1.75rem;
+				color: $mg-ivory;
+
+				i {
+					transform: scale(1.25);
+					color: $mg-green;
+				}
+			}
+		}
+	}
+
+	/* Pending Roll Activity
+	----------------------------------------------------------------------*/
+	.mg-group-slide-slot {
+		position: relative;
+		overflow: hidden;
+		min-width: 0;
+
+		&.mg-group-slide-status {
+			display: flex;
+			font-size: .875rem;
+			line-height: 1.2;
+			height: 1.2em;
+			flex: 0 0 auto;
+		}
+
+		&.mg-group-slide-result {
+			align-self: center;
+		}
+
+		> .is-entering {
+			display: flex;
+			animation: mg-group-slide-in .5s ease both;
+		}
+
+		> .is-leaving {
+			position: absolute;
+			top: 0;
+			left: 0;
+			width: 100%;
+			pointer-events: none;
+			animation: mg-group-slide-out .5s ease both;
+		}
+	}
+
+	.mg-group-row[data-reopen] {
+		&[data-state="rolling"],
+		&[data-state="modifying"] {
+			.mg-group-identity small::after {
+				content: "";
+				display: inline-block;
+				width: 1.5em;
+				margin-left: .25em;
+				animation: mg-group-waiting-dots 2.4s step-end infinite;
+			}
+		}
+
+		.mg-group-waiting-dots {
+			display: inline-block;
+			width: 1.5em;
+			text-align: left;
+
+			&::after {
+				content: "";
+				animation: mg-group-waiting-dots 2.4s step-end infinite;
+			}
+		}
+	}
+}
+
+@keyframes mg-group-slide-in {
+	0% { transform: translateX(.75rem); opacity: 0; }
+	30% { opacity: 0; }
+	100% { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes mg-group-slide-out {
+	0% { transform: translateX(0); opacity: 1; }
+	40% { opacity: 0; }
+	100% { transform: translateX(-.75rem); opacity: 0; }
+}
+
+@keyframes mg-group-waiting-dots {
+	0%, 100% { content: ""; }
+	25% { content: "."; }
+	50% { content: ". ."; }
+	75% { content: ". . ."; }
 }
 
 .mg-group-check-launch {

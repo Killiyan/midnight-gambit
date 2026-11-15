@@ -137,27 +137,27 @@ export async function evaluateRoll({
   if (isAce) {
     resultLabel = "ACE!";
     resultDesc = "You steal the spotlight.";
-    resultIcon = "fa-star text-gold";
+    resultIcon = "fa-ace text-gold";
     resultClass = "result-ace";
   } else if (isCrit) {
     resultLabel = "Critical Failure";
     resultDesc = "It goes horribly wrong.";
-    resultIcon = "fa-skull-crossbones";
+    resultIcon = "fa-crit-fail";
     resultClass = "result-crit";
   } else if (isFail) {
     resultLabel = "Failure";
     resultDesc = "Something goes awry.";
-    resultIcon = "fa-fire-flame result-fail";
+    resultIcon = "fa-failure result-fail";
     resultClass = "result-fail";
   } else if (isComp) {
     resultLabel = "Complication";
     resultDesc = "You achieve with a minor setback.";
-    resultIcon = "fa-swords result-mixed";
+    resultIcon = "fa-complication result-mixed";
     resultClass = "result-complication";
   } else {
     resultLabel = "Flourish";
     resultDesc = "Narrate your success.";
-    resultIcon = "fa-crown flourish-animate";
+    resultIcon = "fa-flourish flourish-animate";
     resultClass = "result-flourish";
   }
 
@@ -191,7 +191,7 @@ export async function evaluateRoll({
       data-target="complication"
       ${canStoComp ? "" : 'disabled aria-disabled="true"'}
       title="Upgrade to Complication">
-      <i class="fa-solid fa-swords"></i>
+      <i class="fa-kit fa-complication"></i>
     </button>
   `;
 
@@ -203,7 +203,7 @@ export async function evaluateRoll({
       data-target="flourish"
       ${canStoFlourish ? "" : 'disabled aria-disabled="true"'}
       title="Upgrade to Flourish">
-      <i class="fa-solid fa-crown"></i>
+      <i class="fa-kit fa-flourish"></i>
     </button>
   `;
 
@@ -435,7 +435,7 @@ export async function evaluateRoll({
       <div class="roll-wrapper">
         <div class="mg-roll-outcome ${resultClass}">
           <div class="mg-roll-outcome-title">
-            <i class="fa-solid ${resultIcon}"></i>
+            <i class="fa-kit ${resultIcon}"></i>
             <strong>${resultLabel}</strong>
           </div>
           <div class="mg-roll-outcome-text">${resultDesc}</div>

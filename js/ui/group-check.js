@@ -20,10 +20,166 @@ const esc = value => String(value ?? "").replace(/[&<>"']/g, character => ({
 const title = key => key.charAt(0).toUpperCase() + key.slice(1);
 const state = () => game.settings.get(NS, "groupCheck");
 const authority = () => game.users.find(u => u.active && u.isGM)?.id;
-let windowInstance;
+let panelInstance;
+let setupPanel;
 let queue = Promise.resolve();
 let renderVersion = 0;
 let busy = false;
+let notifiedCheckId = null;
+const trackerSnapshots = new Map();
+
+// A standalone DOM panel, independent of Foundry Application and Dialog windows.
+class GroupCheckPanel {
+  constructor(data, { setup = false } = {}) {
+    this.data = data;
+    this.setup = setup;
+    this.root = null;
+    this.position = null;
+    this.positionFlag = setup ? "groupCheckSetupPos" : "groupCheckPanelPos";
+    this.onResize = () => this.setPosition();
+  }
+
+  render() {
+    if (!this.root) {
+      const saved = game.user.getFlag(NS, this.positionFlag);
+      if (Number.isFinite(saved?.left) && Number.isFinite(saved?.top)) {
+        this.position = { left: saved.left, top: saved.top };
+      }
+      this.root = document.createElement("section");
+      this.root.className = `mg-group-check${this.setup ? " is-setup" : ""}`;
+      this.root.setAttribute("role", "dialog");
+      this.root.setAttribute("aria-label", this.data.title || "Group Check");
+      this.root.innerHTML = '<div class="mg-group-drag-handle" title="Drag to reposition"></div><div class="mg-group-body"><div class="mg-group-content"></div><div class="mg-group-footer"><button type="button" data-panel-close><i class="fa-solid fa-xmark" aria-hidden="true"></i> Close</button></div></div>';
+      this.root.querySelector("[data-panel-close]").addEventListener("click", () => this.close());
+      const handle = this.root.querySelector(".mg-group-drag-handle");
+      let drag;
+      handle.addEventListener("pointerdown", event => {
+        if (event.button !== 0) return;
+        const rect = this.root.getBoundingClientRect();
+        drag = { x: event.clientX, y: event.clientY, left: rect.left, top: rect.top };
+        handle.setPointerCapture(event.pointerId);
+        event.preventDefault();
+      });
+      handle.addEventListener("pointermove", event => {
+        if (!drag) return;
+        this.position = { left: drag.left + event.clientX - drag.x, top: drag.top + event.clientY - drag.y };
+        this.setPosition();
+      });
+      const release = () => {
+        if (!drag) return;
+        drag = null;
+        if (!this.position) return;
+        const position = { left: parseFloat(this.root.style.left), top: parseFloat(this.root.style.top) };
+        this.position = position;
+        game.user.setFlag(NS, this.positionFlag, position)
+          .catch(error => console.warn("MG Group Check: could not save panel position", error));
+      };
+      handle.addEventListener("pointerup", release);
+      handle.addEventListener("pointercancel", release);
+      handle.addEventListener("lostpointercapture", release);
+      document.body.append(this.root);
+      window.addEventListener("resize", this.onResize);
+      this.observer = new ResizeObserver(() => this.setPosition());
+      this.observer.observe(this.root);
+    }
+    const content = this.root.querySelector(".mg-group-content");
+    content.innerHTML = this.data.content;
+    const footer = this.root.querySelector(".mg-group-footer");
+    footer.querySelector("[data-end]")?.remove();
+    const endButton = content.querySelector("[data-end]");
+    if (endButton) footer.prepend(endButton);
+    Promise.resolve(this.data.render?.($(content))).catch(error => console.error("MG Group Check panel", error));
+    this.setPosition();
+    return this;
+  }
+
+  setPosition() {
+    if (!this.root) return;
+    const rect = this.root.getBoundingClientRect();
+    const position = this.position ?? { left: (window.innerWidth - rect.width) / 2, top: (window.innerHeight - rect.height) / 2 };
+    const left = Math.max(16, Math.min(position.left, window.innerWidth - rect.width - 16));
+    const top = Math.max(16, Math.min(position.top, window.innerHeight - rect.height - 16));
+    this.root.style.left = `${left}px`;
+    this.root.style.top = `${top}px`;
+  }
+
+  close() {
+    window.removeEventListener("resize", this.onResize);
+    this.observer?.disconnect();
+    this.root?.remove();
+    this.root = null;
+  }
+}
+
+function animateTrackerChanges(root, checkId) {
+  root.querySelectorAll(".mg-group-row[data-reopen]").forEach(card => {
+    const key = `${checkId}:${card.dataset.reopen}`;
+    const status = card.querySelector(".mg-group-identity small");
+    const result = card.querySelector(".mg-group-result");
+    if (!status || !result) return;
+    const previous = trackerSnapshots.get(key);
+    const next = { state: card.dataset.state, status: status.cloneNode(true), result: result.cloneNode(true) };
+    trackerSnapshots.set(key, next);
+    if (!previous) return;
+    const changedState = previous.state !== next.state;
+    for (const [part, element] of [["status", status], ["result", result]]) {
+      if (!changedState && previous[part].innerHTML === next[part].innerHTML) continue;
+      slideTrackerValue(element, previous[part], part);
+    }
+  });
+}
+
+function slideTrackerValue(element, previous, part) {
+      const slot = document.createElement("div");
+      slot.className = `mg-group-slide-slot mg-group-slide-${part}`;
+      element.replaceWith(slot);
+      const outgoing = previous.cloneNode(true);
+      outgoing.classList.add("is-leaving");
+      outgoing.setAttribute("aria-hidden", "true");
+      element.classList.add("is-entering");
+      slot.append(outgoing, element);
+      element.addEventListener("animationend", event => {
+        if (event.target !== element) return;
+        slot.replaceWith(element);
+        element.classList.remove("is-entering");
+      }, { once: true });
+}
+
+const TALLY_BRACKETS = [
+  ["Critical Failure", "fa-crit-fail"],
+  ["Failure", "fa-failure"],
+  ["Complication", "fa-complication"],
+  ["Flourish", "fa-flourish"],
+  ["ACE!", "fa-ace"]
+];
+
+function renderTally(participants) {
+  const counts = TALLY_BRACKETS.map(([label]) => participants.filter(p =>
+    ["Modifying", "Kept"].includes(p.status) && String(p.bracket).toUpperCase() === label.toUpperCase()
+  ).length);
+  const leading = Math.max(0, ...counts);
+  return `<div class="mg-group-tally" aria-label="Group result tally">${TALLY_BRACKETS.map(([label, icon], index) =>
+    `<div class="mg-group-tally-item${counts[index] > 0 && counts[index] === leading ? " is-leading" : ""}" data-tally="${icon}" aria-label="${esc(label)}: ${counts[index]}" title="${esc(label)}: ${counts[index]}"><i class="fa-kit ${icon}" aria-hidden="true"></i><b class="mg-group-tally-count">${counts[index]}</b></div>`
+  ).join("")}</div>`;
+}
+
+function animateTallyChanges(root, checkId) {
+  root.querySelectorAll("[data-tally]").forEach(item => {
+    const key = `${checkId}:tally:${item.dataset.tally}`;
+    const count = item.querySelector(".mg-group-tally-count");
+    const leading = item.classList.contains("is-leading");
+    const previous = trackerSnapshots.get(key);
+    trackerSnapshots.set(key, { count: count.cloneNode(true), leading });
+    if (!previous) return;
+    if (previous.count.textContent !== count.textContent) slideTrackerValue(count, previous.count, "tally");
+    if (previous.leading !== leading) {
+      item.classList.toggle("is-leading", previous.leading);
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        if (item.isConnected) item.classList.toggle("is-leading", leading);
+      }));
+    }
+  });
+}
 
 function onlineRoller(actor) {
   const canRoll = user => user.active && !user.isGM && actor.testUserPermission(user, "OWNER");
@@ -42,7 +198,9 @@ function primaryCrewCharacters() {
 }
 
 function row(actor, status, total = "...", attrs = "", icon = "") {
-  return `<button type="button" class="mg-group-row" ${attrs}><img src="${esc(actor?.img)}" alt=""><span class="mg-group-identity"><strong>${esc(actor?.name)}</strong><small>${esc(status)}</small></span><b class="mg-group-result">${icon ? `<i class="fa-solid ${esc(icon)}" aria-hidden="true"></i>` : ""}${esc(total)}</b></button>`;
+  const waiting = attrs.includes('data-reopen=') && attrs.includes('data-state="rolling"');
+  const result = waiting ? '<span class="mg-group-waiting-dots" aria-label="Waiting for roll"></span>' : esc(total);
+  return `<button type="button" class="mg-group-row" ${attrs}><img src="${esc(actor?.img)}" alt=""><span class="mg-group-identity"><strong>${esc(actor?.name)}</strong><small>${esc(status)}</small></span><b class="mg-group-result">${icon ? `<i class="${icon.startsWith("fa-kit ") ? esc(icon) : `fa-solid ${esc(icon)}`}" aria-hidden="true"></i>` : ""}${result}</b></button>`;
 }
 
 function request(action, data = {}) {
@@ -112,10 +270,11 @@ export function openGroupCheck() {
   const actors = primaryCrewCharacters();
   if (!actors.length) return ui.notifications.warn("No Primary Crew characters have an online player with permission to roll them.");
   const selected = new Set(actors.filter(a => game.users.some(u => u.active && !u.isGM && u.character?.id === a.id)).map(a => a.id));
-  new Dialog({
+  setupPanel?.close();
+  setupPanel = new GroupCheckPanel({
     title: "Group Check",
     content: `<div class="mg-group-picker">${actors.map(a => row(a, "", "", `data-actor="${a.id}" aria-pressed="${selected.has(a.id)}"`)).join("")}</div><div class="mg-group-skills">${Object.entries(SKILLS).map(([attr, skills]) => `<section class="mg-group-skill-section"><div class="mg-group-attribute"><label>${title(attr)}</label><button type="button" data-key="${attr}" data-attribute="true" aria-label="Roll ${title(attr)}"><i class="fa-solid fa-dice" aria-hidden="true"></i></button></div><div class="mg-group-skill-grid">${skills.map(key => `<div class="mg-group-skill"><label>${title(key)}</label><button type="button" data-key="${key}" aria-label="Roll ${title(key)}"><i class="fa-solid fa-dice" aria-hidden="true"></i></button></div>`).join("")}</div></section>`).join("")}</div>`,
-    buttons: {},
+    
     render: html => {
       html.find("[data-actor]").on("click", event => {
         const button = event.currentTarget;
@@ -126,22 +285,32 @@ export function openGroupCheck() {
         if (!selected.size) return ui.notifications.warn("Select at least one character.");
         const button = event.currentTarget;
         request("start", { actorIds: [...selected], key: button.dataset.key, attribute: button.dataset.attribute === "true" });
-        html.closest(".app").find(".header-button.close").trigger("click");
+        setupPanel?.close();
       });
     }
-  }, { classes: ["mg-group-check"], width: 760, height: "auto", resizable: true }).render(true);
+  }, { setup: true }).render(true);
 }
 
 async function renderCheck() {
   const version = ++renderVersion;
   const check = state();
   if (!check?.active) {
-    await windowInstance?.close();
-    windowInstance = null;
+    trackerSnapshots.clear();
+    await panelInstance?.close();
+    panelInstance = null;
     return;
   }
   const own = check.participants.find(p => p.userId === game.user.id && !["Kept", "Skipped"].includes(p.status));
   const participant = !game.user.isGM ? own : check.participants.find(p => p.userId === game.user.id && !["Kept", "Skipped"].includes(p.status));
+  if (participant?.status === "Rolling" && notifiedCheckId !== check.id) {
+    notifiedCheckId = check.id;
+    Promise.resolve(AudioHelper.play({
+      src: "systems/midnight-gambit/assets/sounds/info.mp3",
+      volume: .6,
+      autoplay: true,
+      loop: false
+    }, false)).catch(error => console.warn("MG Group Check: prompt sound unavailable", error));
+  }
   const tracker = !participant;
   const complete = check.participants.every(p => ["Kept", "Skipped"].includes(p.status));
   const actor = participant && game.actors.get(participant.actorId);
@@ -149,10 +318,11 @@ async function renderCheck() {
   if (tracker) {
     content = check.participants.map(p => {
       const done = ["Kept", "Skipped"].includes(p.status);
-      const icons = { "Failure": "fa-fire-flame", "Critical Failure": "fa-skull-crossbones", "Complication": "fa-swords", "Flourish": "fa-crown", "ACE!": "fa-star", "Ace!": "fa-star" };
+      const icons = { "Failure": "fa-kit fa-failure", "Critical Failure": "fa-kit fa-crit-fail", "Complication": "fa-kit fa-complication", "Flourish": "fa-kit fa-flourish", "ACE!": "fa-kit fa-ace", "Ace!": "fa-kit fa-ace" };
       const icon = p.status === "Skipped" ? "fa-forward" : icons[p.bracket] ?? "fa-dice";
       return row(game.actors.get(p.actorId), p.status === "Kept" ? p.bracket : p.status, p.status === "Skipped" ? "-" : p.total ?? ".", `data-reopen="${p.actorId}" data-state="${p.status.toLowerCase()}" data-complete="${done}" title="${game.user.isGM ? "Click a finished result to reprompt" : ""}"`, icon);
     }).join("");
+    content += renderTally(check.participants);
     if (game.user.isGM) content += '<button type="button" data-end>× End Check</button>';
   } else {
     content = row(actor, `+ ${title(check.key)}`, "", `data-roll data-state="${participant.status.toLowerCase()}"`, "fa-dice");
@@ -162,13 +332,19 @@ async function renderCheck() {
   }
   const bind = async html => {
     const root = html[0];
+    panelInstance.root.classList.toggle("is-awaiting-roll", participant?.status === "Rolling");
     root.classList.toggle("is-complete", complete);
     root.classList.toggle("is-pending", !complete);
     root.classList.toggle("is-tracker", tracker);
     root.dataset.state = complete ? "complete" : "pending";
-    windowInstance?.setPosition({ height: "auto" });
+    if (tracker) {
+      animateTrackerChanges(root, check.id);
+      animateTallyChanges(root, check.id);
+    }
+    else trackerSnapshots.clear();
+    panelInstance?.setPosition({ height: "auto" });
     const send = (action, extra = {}) => request(action, { checkId: check.id, actorId: participant?.actorId, revision: participant?.revision, ...extra });
-    root.querySelector("[data-end]")?.addEventListener("click", () => send("end"));
+    panelInstance.root.querySelector("[data-end]")?.addEventListener("click", () => send("end"));
     root.querySelectorAll("[data-reopen]").forEach(button => button.addEventListener("click", () => {
       if (game.user.isGM) send("reopen", { actorId: button.dataset.reopen });
     }));
@@ -195,7 +371,7 @@ async function renderCheck() {
       const card = rendered[0].querySelector(".mg-roll-card");
       if (target && card) {
         target.append(card);
-        windowInstance?.setPosition({ height: "auto" });
+        panelInstance?.setPosition({ height: "auto" });
         // Native listeners are attached by getHTML; retain the delegated listeners too.
         target.addEventListener("click", async event => {
           const button = event.target.closest(".mg-risk-it, .mg-risk-again, .mg-spend-sto, .mg-remove-aura");
@@ -215,9 +391,9 @@ async function renderCheck() {
     }
   };
   if (version !== renderVersion) return;
-  if (!windowInstance) windowInstance = new Dialog({ title: `Group Check · ${title(check.key)}`, content, buttons: {}, render: bind }, { classes: ["mg-group-check"], width: 420, height: "auto", resizable: true });
-  else Object.assign(windowInstance.data, { content, render: bind });
-  windowInstance.render(true);
+  if (!panelInstance) panelInstance = new GroupCheckPanel({ title: `Group Check · ${title(check.key)}`, content,  render: bind }, {});
+  else Object.assign(panelInstance.data, { content, render: bind });
+  panelInstance.render(true);
 }
 
 Hooks.once("init", () => {
