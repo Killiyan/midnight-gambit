@@ -1159,6 +1159,7 @@ function renderMoveHandCards(actor, cardsWrap, handHtml, moveItems) {
       ev.preventDefault();
       ev.stopPropagation();
       if (handHtml.classList.contains("is-transitioning")) return;
+      if ((actor.getFlag("midnight-gambit", "disabledMoves") ?? []).includes(useId)) return;
       await mgPostMove(actor, move);
     });
 

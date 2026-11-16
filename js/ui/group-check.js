@@ -18,6 +18,8 @@ const esc = value => String(value ?? "").replace(/[&<>"']/g, character => ({
   "'": "&#39;"
 }[character]));
 const title = key => key.charAt(0).toUpperCase() + key.slice(1);
+const checkOptions = check => check.options ?? [{ key: check.key, attribute: !!check.attribute }];
+const validOption = option => option && (option.attribute ? Object.hasOwn(SKILLS, option.key) : Object.values(SKILLS).flat().includes(option.key));
 const state = () => game.settings.get(NS, "groupCheck");
 const authority = () => game.users.find(u => u.active && u.isGM)?.id;
 let panelInstance;
@@ -227,8 +229,9 @@ async function applyAction(packet) {
       const owner = onlineRoller(actor);
       return { actorId: actor.id, userId: owner.id, status: "Rolling", messageId: null, revision: 0 };
     });
-    if (!participants.length || !Object.values(SKILLS).flat().concat(Object.keys(SKILLS)).includes(packet.key)) return;
-    await game.settings.set(NS, "groupCheck", { id: foundry.utils.randomID(), active: true, key: packet.key, attribute: !!packet.attribute, participants });
+    const options = checkOptions(packet).filter(validOption).filter((option, index, all) => all.findIndex(other => other.key === option.key) === index);
+    if (!participants.length || !options.length) return;
+    await game.settings.set(NS, "groupCheck", { id: foundry.utils.randomID(), active: true, options, participants });
     return;
   }
   const check = foundry.utils.deepClone(state());
@@ -251,6 +254,8 @@ async function applyAction(packet) {
       const message = game.messages.get(packet.messageId);
       const link = message?.getFlag(NS, "groupCheck");
       if (!link || link.checkId !== check.id || link.actorId !== participant.actorId || link.revision !== participant.revision) return;
+      const choice = checkOptions(check).find(option => option.key === (link.key ?? participant.key ?? check.key));
+      if (!choice || (participant.key && participant.key !== choice.key)) return;
       if ((message.user?.id ?? message.user) !== participant.userId && !user.isGM) return;
       const doc = new DOMParser().parseFromString(message.content, "text/html");
       const card = doc.querySelector(".mg-roll-card");
@@ -258,6 +263,7 @@ async function applyAction(packet) {
       participant.total = Number(card.dataset.total);
       participant.bracket = card.querySelector(".mg-roll-outcome-title strong")?.textContent?.trim() ?? "";
       participant.messageId = message.id;
+      participant.key = choice.key;
       participant.status = "Modifying";
     } else return;
   }
@@ -270,6 +276,7 @@ export function openGroupCheck() {
   const actors = primaryCrewCharacters();
   if (!actors.length) return ui.notifications.warn("No Primary Crew characters have an online player with permission to roll them.");
   const selected = new Set(actors.filter(a => game.users.some(u => u.active && !u.isGM && u.character?.id === a.id)).map(a => a.id));
+  const selectedOptions = new Map();
   setupPanel?.close();
   setupPanel = new GroupCheckPanel({
     title: "Group Check",
@@ -282,9 +289,23 @@ export function openGroupCheck() {
         button.setAttribute("aria-pressed", selected.has(button.dataset.actor));
       });
       html.find("[data-key]").on("click", event => {
-        if (!selected.size) return ui.notifications.warn("Select at least one character.");
         const button = event.currentTarget;
-        request("start", { actorIds: [...selected], key: button.dataset.key, attribute: button.dataset.attribute === "true" });
+        const key = button.dataset.key;
+        if (selectedOptions.has(key)) selectedOptions.delete(key);
+        else selectedOptions.set(key, { key, attribute: button.dataset.attribute === "true" });
+        button.setAttribute("aria-checked", String(selectedOptions.has(key)));
+      });
+      html.find("[data-key]").attr({ role: "checkbox", "aria-checked": "false" });
+      html.find("[data-key]").each((_, button) => button.setAttribute("aria-label", `Offer ${title(button.dataset.key)}`));
+      const start = document.createElement("button");
+      start.type = "button";
+      start.dataset.start = "";
+      start.innerHTML = '<i class="fa-solid fa-users" aria-hidden="true"></i> Group Check';
+      html[0].append(start);
+      start.addEventListener("click", () => {
+        if (!selected.size) return ui.notifications.warn("Select at least one character.");
+        if (!selectedOptions.size) return ui.notifications.warn("Select at least one attribute or skill.");
+        request("start", { actorIds: [...selected], options: [...selectedOptions.values()] });
         setupPanel?.close();
       });
     }
@@ -325,7 +346,8 @@ async function renderCheck() {
     content += renderTally(check.participants);
     if (game.user.isGM) content += '<button type="button" data-end>× End Check</button>';
   } else {
-    content = row(actor, `+ ${title(check.key)}`, "", `data-roll data-state="${participant.status.toLowerCase()}"`, "fa-dice");
+    const choices = participant.status === "Rolling" ? checkOptions(check) : [{ key: participant.key ?? check.key }];
+    content = choices.map(option => row(actor, `+ ${title(option.key)}`, "", `data-roll="${esc(option.key)}" data-state="${participant.status.toLowerCase()}"`, "fa-dice")).join("");
     if (participant.status === "Rolling") content += '<div class="mg-group-actions"><button type="button" data-edge><i class="fa-solid fa-scythe" aria-hidden="true"></i> Edge</button><button type="button" data-skip><i class="fa-solid fa-forward" aria-hidden="true"></i> Skip</button></div>';
     else content += '<div class="mg-last-roll-body mg-group-roll-body" data-roll-content></div><button type="button" data-keep><i class="fa-solid fa-lock"></i> Keep</button>';
     if (game.user.isGM) content += '<button type="button" data-end>× End Check</button>';
@@ -350,19 +372,27 @@ async function renderCheck() {
     }));
     root.querySelector("[data-skip]")?.addEventListener("click", () => send("skip"));
     root.querySelector("[data-keep]")?.addEventListener("click", () => { if (!busy) send("keep"); });
-    const roll = async edge => {
+    let edge = false;
+    const roll = async key => {
       if (busy || participant.status !== "Rolling") return;
+      const option = checkOptions(check).find(option => option.key === key);
+      if (!option) return;
       busy = true;
       root.querySelectorAll("button").forEach(b => b.disabled = true);
       try {
-        await (check.attribute ? mgRollAttribute : mgRollSkill)(actor, check.key, { edge, groupCheck: { checkId: check.id, actorId: actor.id, revision: participant.revision } });
+        await (option.attribute ? mgRollAttribute : mgRollSkill)(actor, option.key, { edge, groupCheck: { checkId: check.id, actorId: actor.id, revision: participant.revision, key: option.key } });
       } catch (error) {
         console.error("MG Group Check roll", error);
         ui.notifications.error("Could not roll the group check.");
       } finally { busy = false; renderCheck(); }
     };
-    root.querySelector("[data-roll]")?.addEventListener("click", () => roll(false));
-    root.querySelector("[data-edge]")?.addEventListener("click", () => roll(true));
+    root.querySelectorAll("[data-roll]").forEach(button => button.addEventListener("click", () => roll(button.dataset.roll)));
+    const edgeButton = root.querySelector("[data-edge]");
+    edgeButton?.setAttribute("aria-pressed", "false");
+    edgeButton?.addEventListener("click", () => {
+      edge = !edge;
+      edgeButton.setAttribute("aria-pressed", String(edge));
+    });
     if (participant?.messageId) {
       const message = game.messages.get(participant.messageId);
       const rendered = await message?.getHTML();
@@ -391,7 +421,7 @@ async function renderCheck() {
     }
   };
   if (version !== renderVersion) return;
-  if (!panelInstance) panelInstance = new GroupCheckPanel({ title: `Group Check · ${title(check.key)}`, content,  render: bind }, {});
+  if (!panelInstance) panelInstance = new GroupCheckPanel({ title: "Group Check", content, render: bind }, {});
   else Object.assign(panelInstance.data, { content, render: bind });
   panelInstance.render(true);
 }

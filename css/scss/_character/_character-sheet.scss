@@ -1971,6 +1971,7 @@ ol li {
       box-shadow: 5px 5px 10px rgba(0,0,0,0.5);
       position: relative;
       overflow: hidden;
+      transition: opacity .5s ease;
 
       &::after {
         width: 100%;
@@ -1983,9 +1984,8 @@ ol li {
         transition: opacity .5s ease;
         background: $mg-blue-6;
         z-index: 2;
+        pointer-events: none;
       }
-
-			transition: opacity .5s ease;
 
 			// Manually marked scene/combat moves
 			&.disabled {
@@ -1994,6 +1994,7 @@ ol li {
         &:after {
           opacity: .8;
           backdrop-filter: blur(1px);
+          pointer-events: all;
         }
 			}
 

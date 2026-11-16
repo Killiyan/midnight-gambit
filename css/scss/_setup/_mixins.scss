@@ -72,10 +72,21 @@
 		border-top: 0;
         padding: 1.25rem .5rem 1.25rem 1rem;
         border: 0;
-		word-break: break-all;
+		word-break: normal;
+
+		.clickable-item {
+			display: block;
+			flex: 1 1 auto;
+			min-width: 0;
+			white-space: normal;
+			overflow-wrap: normal;
+			overflow: hidden;
+			text-overflow: ellipsis;
+		}
 
 		.item-type {
 			display: flex;
+			flex: 0 0 auto;
 			justify-content: center;
 			align-items: center;
 			background: $mg-blue-4;

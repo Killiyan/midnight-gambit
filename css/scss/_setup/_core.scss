@@ -1161,9 +1161,11 @@ h3 {
           width: 100%;
           margin: 0;
           background: $mg-blue-main;
+          font-size: 1.25rem;
 
           i {
             color: $mg-blue-2;
+            margin: 0;
           }
 
           &:first-of-type {
