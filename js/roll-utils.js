@@ -1,3 +1,5 @@
+import { previewDiceRoll } from "./ui/dice-preview.js";
+
 const MG_MORTAL_ATTRS = new Set(["tenacity", "finesse", "resolve"]);
 const MG_SOUL_ATTRS = new Set(["guile", "instinct", "presence"]);
 
@@ -498,6 +500,11 @@ export async function evaluateRoll({
   }
 
   const msg = await ChatMessage.create(msgData);
+
+  if (msg?.isContentVisible && !game.dice3d) {
+    previewDiceRoll(rollB ? [rollA, rollB] : [rollA], keptRoll)
+      .catch(error => console.warn("Midnight Gambit dice preview failed", error));
+  }
 
   if (usesRiskSto && pendingSTODelta) {
     if (game.dice3d?.waitFor3DAnimationByMessageID) {
