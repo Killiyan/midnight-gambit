@@ -1,15 +1,54 @@
-import { CORNERS, FACES, OUTLINE, planDiceRoll, rotate, stepDice, tossDie } from "./dice-tray.js";
+import { DICE_SHAPES, planDiceRoll, rotate, stepDice, tossDie } from "./dice-tray.js";
 
 const SIZE = 250;
 const ROOT = "systems/midnight-gambit/assets/images/";
 const CAMERA_LIFT = 0.24;
-const CAMERA_DEPTH = Math.sqrt(1 - CAMERA_LIFT ** 2);
-const FACE_MARK_WIDTH = 1.2;
-const SHADOW_VERTICES = CORNERS.flat();
+const D4_CAMERA_LIFT = 0.6;
+const cameraLift = die => die.sides === 4 ? D4_CAMERA_LIFT : CAMERA_LIFT;
 const KEPT_GLOW = "#A2D729";
+const KEPT_NUMBER_GLOW = [14, 6]; // Outer halo, then brighter inner halo (px).
+const KEPT_BORDER_GLOW = [18, 7]; // Outer halo, then brighter inner halo (px).
 const KEPT_BORDER_PERIOD = 3800;
 
 const ACE_GLYPH = "\uE012";
+const ACE_ASPECT_RATIO = 101 / 119;
+
+function scaleAceMark(ink, face, angle, glyphWidth, glyphHeight) {
+  const origin = face([0, 0]);
+  const axisLength = point => Math.hypot(...face(point).map((component, i) => component - origin[i]));
+  const cos = Math.cos(angle);
+  const sin = Math.sin(angle);
+  const width = glyphWidth * axisLength([cos, sin]);
+  const height = glyphHeight * axisLength([-sin, cos]);
+  if (width <= 0 || height <= 0) return;
+  const correction = ACE_ASPECT_RATIO / (width / height);
+  ink.scale(Math.min(1, correction), Math.min(1, 1 / correction));
+}
+
+// Column, row, and clockwise quarter turns for faces 1–6 on the unfolded cube.
+const D6_FILIGREE_NET = [[1, 3, 0], [2, 2, 1], [1, 2, 0], [1, 0, 0], [0, 2, -1], [1, 1, 2]];
+
+function drawFiligree(ctx, image, faceCount, index) {
+  ctx.save();
+  ctx.globalAlpha = 1;
+  if (faceCount === 6) {
+    const [column, row, turns] = D6_FILIGREE_NET[index];
+    const tile = Math.min(image.width / 3, image.height / 4);
+    const x = (image.width - tile * 3) / 2 + column * tile;
+    const y = (image.height - tile * 4) / 2 + row * tile;
+    ctx.translate(SIZE / 2, SIZE / 2);
+    ctx.rotate(turns * Math.PI / 2);
+    ctx.drawImage(image, x, y, tile, tile, -SIZE / 2, -SIZE / 2, SIZE, SIZE);
+  } else {
+    const zoomedFace = faceCount === 4 || faceCount >= 8;
+    const tile = Math.min(image.width, image.height) / (zoomedFace ? 2 : 1);
+    const offset = index / (faceCount - 1);
+    const x = zoomedFace ? (image.width - tile) / 2 : (image.width - tile) * offset;
+    ctx.drawImage(image, x, (image.height - tile) * offset,
+      tile, tile, 0, 0, SIZE, SIZE);
+  }
+  ctx.restore();
+}
 
 async function loadAceFont() {
   const probe = document.createElement("i");
@@ -47,50 +86,65 @@ async function createArtwork() {
     document.fonts.load("bold 96px tiller").catch(() => [])
   ]);
 
-  return FACES.map((_, index) => {
-    const texture = document.createElement("canvas");
-    texture.width = texture.height = SIZE;
-    const ctx = texture.getContext("2d");
-    ctx.fillStyle = "#090f18";
-    ctx.fillRect(0, 0, SIZE, SIZE);
-    if (filigree) {
-      const size = Math.min(filigree.width, filigree.height);
-      const offset = index / (FACES.length - 1);
-      ctx.globalAlpha = 0.65;
-      ctx.drawImage(filigree, (filigree.width - size) * offset,
-        (filigree.height - size) * offset, size, size, 0, 0, SIZE, SIZE);
-      ctx.globalAlpha = 1;
-    }
-    const mark = document.createElement("canvas");
-    mark.width = mark.height = SIZE;
-    const ink = mark.getContext("2d");
-    ink.fillStyle = "#ffeedb";
-    ink.textAlign = "center";
-    ink.textBaseline = "middle";
-    ink.translate(SIZE / 2, SIZE / 2);
-    ink.scale(FACE_MARK_WIDTH, 1);
-    if (index === 5 && aceFont) {
-      ink.font = aceFont;
-      ink.textAlign = "left";
-      ink.textBaseline = "alphabetic";
-      const bounds = ink.measureText(ACE_GLYPH);
-      ink.fillText(ACE_GLYPH,
-        (bounds.actualBoundingBoxLeft - bounds.actualBoundingBoxRight) / 2,
-        (bounds.actualBoundingBoxAscent - bounds.actualBoundingBoxDescent) / 2);
-    } else {
-      ink.font = "bold 96px tiller, Georgia, serif";
-      ink.fillText(String(index + 1), 0, 0);
-    }
-    return {texture, mark};
-  });
+  const faceSets = [...Object.entries(DICE_SHAPES),
+    ["percentileTens", DICE_SHAPES[10]], ["percentileOnes", DICE_SHAPES[10]],
+    ["percentileAce", DICE_SHAPES[10]]];
+  return Object.fromEntries(faceSets.map(([faceSet, shape]) => [faceSet,
+    shape.faces.map((_, index) => {
+      const texture = document.createElement("canvas");
+      texture.width = texture.height = SIZE;
+      const ctx = texture.getContext("2d");
+      ctx.fillStyle = "#1A2E4C";
+      ctx.fillRect(0, 0, SIZE, SIZE);
+      if (filigree) drawFiligree(ctx, filigree, shape.faces.length, index);
+      const corners = shape.corners?.[index];
+      const marks = (corners ?? [index]).map((labelIndex, corner) => {
+        const canvas = document.createElement("canvas");
+        canvas.width = canvas.height = SIZE;
+        const ink = canvas.getContext("2d");
+        ink.fillStyle = "#ffeedb";
+        const percentile = faceSet.startsWith("percentile");
+        const useAce = labelIndex === shape.faces.length - 1 && aceFont &&
+          (!percentile || faceSet === "percentileAce");
+        const digit = (labelIndex + 1) % 10;
+        const label = useAce ? ACE_GLYPH : !percentile ? String(labelIndex + 1)
+          : faceSet === "percentileOnes" ? String(digit) : `${digit}0`;
+        ink.font = useAce ? aceFont : "bold 96px tiller, Georgia, serif";
+        ink.textAlign = "left";
+        ink.textBaseline = "alphabetic";
+        const {actualBoundingBoxLeft: left, actualBoundingBoxRight: right,
+          actualBoundingBoxAscent: ascent, actualBoundingBoxDescent: descent} = ink.measureText(label);
+        const angle = corners ? corner * 2 * Math.PI / 3 : 0;
+        if (corners) {
+          const [x, y] = shape.outline[corner];
+          ink.translate(SIZE * (0.5 + 0.26 * x), SIZE * (0.5 + 0.26 * y + 0.07));
+          ink.rotate(angle);
+          ink.scale(0.42, 0.42);
+        } else if (shape.faces.length === 8 || shape.faces.length === 20) {
+          ink.translate(SIZE / 2, SIZE * (0.5 + shape.outline[1][1] / 6));
+          ink.scale(0.72, 0.72);
+        } else if (shape.faces.length === 10) {
+          ink.translate(SIZE / 2, SIZE * 0.64);
+          ink.scale(0.68, 0.68);
+        } else {
+          ink.translate(SIZE / 2, SIZE / 2);
+        }
+        if (useAce) scaleAceMark(ink, shape.faces[index], angle, left + right, ascent + descent);
+        ink.fillText(label, (left - right) / 2, (ascent - descent) / 2);
+        return {canvas, value: labelIndex + 1};
+      });
+      return {texture, marks};
+    })
+  ]));
 }
 
 function drawGroundShadow(ctx, die, fade, pixelScale) {
   const {p: [cx, cy, cz], q, scale} = die;
-  const points = SHADOW_VERTICES.map(point => {
+  const depth = Math.sqrt(1 - cameraLift(die) ** 2);
+  const points = die.shape.vertices.map(point => {
     const [x, y, z] = rotate(q, point);
     const height = Math.max(0, cz + z * scale);
-    return [cx + x * scale + height * 0.22, cy + y * scale * CAMERA_DEPTH + height * 0.16];
+    return [cx + x * scale + height * 0.22, cy + y * scale * depth + height * 0.16];
   }).sort(([ax, ay], [bx, by]) => ax - bx || ay - by);
   const buildEdge = sorted => {
     const edge = [];
@@ -119,10 +173,12 @@ function drawGroundShadow(ctx, die, fade, pixelScale) {
 }
 
 function drawDie(ctx, textures, die, mark, reveal, phase, pixelScale) {
-  const { p: [cx, cy, cz], q, scale } = die;
+  const { p: [cx, cy, cz], q, scale, shape } = die;
+  const lift = cameraLift(die);
+  const depth = Math.sqrt(1 - lift ** 2);
   const view = point => {
     const [x, y, z] = rotate(q, rotate(mark, point));
-    return [cx + x * scale, cy + y * scale * CAMERA_DEPTH - (cz + z * scale) * CAMERA_LIFT];
+    return [cx + x * scale, cy + y * scale * depth - (cz + z * scale) * lift];
   };
   const hitFaces = [];
   const trace = points => {
@@ -135,7 +191,7 @@ function drawDie(ctx, textures, die, mark, reveal, phase, pixelScale) {
     return (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]) > 0;
   };
 
-  for (const corner of CORNERS) {
+  for (const corner of shape.sides) {
     const points = corner.map(view);
     if (!visible(points)) continue;
     hitFaces.push(points);
@@ -144,33 +200,56 @@ function drawDie(ctx, textures, die, mark, reveal, phase, pixelScale) {
     ctx.fill();
   }
 
-  FACES.forEach((face, index) => {
-    const points = OUTLINE.map(point => view(face(point)));
+  let readableFace = -1;
+  if (die.sides === 4 && die.kept && reveal > 0) {
+    let bestFacing = 0;
+    shape.normals.forEach((normal, index) => {
+      if (index === die.value - 1) return;
+      const [, y, z] = rotate(q, rotate(mark, normal));
+      const facing = y * lift + z * depth;
+      if (facing <= bestFacing) return;
+      bestFacing = facing;
+      readableFace = index;
+    });
+  }
+  shape.faces.forEach((face, index) => {
+    const points = shape.outline.map(point => view(face(point)));
     if (!visible(points)) return;
     hitFaces.push(points);
     trace(points);
     ctx.fillStyle = "#101c2d";
     ctx.fill();
-    const inset = OUTLINE.map(([u, v]) => view(face([u * 0.94, v * 0.94]).map(n => n * 0.997)));
-    const highlighted = die.kept && index === die.value - 1 && reveal > 0;
+    const inset = shape.outline.map(([u, v]) => view(face([u * 0.94, v * 0.94]).map(n => n * 0.997)));
+    const {texture, marks} = textures[index];
+    const highlighted = die.kept && reveal > 0 &&
+      (die.sides === 4 ? index === readableFace : index === die.value - 1);
     const [a, b, c] = [[-1, -1], [1, -1], [-1, 1]].map(point => view(face(point)));
     ctx.save();
     trace(inset);
     ctx.clip();
     ctx.transform((b[0] - a[0]) / SIZE, (b[1] - a[1]) / SIZE,
       (c[0] - a[0]) / SIZE, (c[1] - a[1]) / SIZE, a[0], a[1]);
-    ctx.drawImage(textures[index].texture, 0, 0);
-    if (highlighted) {
-      ctx.shadowColor = KEPT_GLOW;
-      ctx.shadowBlur = 8 * reveal * pixelScale;
+    ctx.drawImage(texture, 0, 0);
+    for (const {canvas, value} of marks) {
+      if (highlighted && value === die.value) {
+        ctx.save();
+        const alpha = Math.round(255 * reveal).toString(16).padStart(2, "0");
+        ctx.shadowColor = KEPT_GLOW + alpha;
+        for (const blur of KEPT_NUMBER_GLOW) {
+          ctx.shadowBlur = blur * pixelScale;
+          ctx.drawImage(canvas, 0, 0);
+        }
+        ctx.restore();
+      } else {
+        ctx.drawImage(canvas, 0, 0);
+      }
     }
-    ctx.drawImage(textures[index].mark, 0, 0);
     ctx.restore();
     trace(inset);
     ctx.lineWidth = 2 * scale * 3 / SIZE;
     ctx.strokeStyle = "#4775ad";
     ctx.stroke();
-    if (highlighted) {
+    if (highlighted && die.sides !== 4) {
       const perimeter = inset.reduce((length, [x, y], i) => {
         const [nextX, nextY] = inset[(i + 1) % inset.length];
         return length + Math.hypot(nextX - x, nextY - y);
@@ -181,10 +260,12 @@ function drawDie(ctx, textures, die, mark, reveal, phase, pixelScale) {
       ctx.lineWidth = 2 * scale * 5 / SIZE;
       ctx.lineCap = "round";
       ctx.shadowColor = KEPT_GLOW;
-      ctx.shadowBlur = 5 * pixelScale;
       ctx.setLineDash([perimeter * 0.19, perimeter * 0.81]);
       ctx.lineDashOffset = -phase * perimeter;
-      ctx.stroke();
+      for (const blur of KEPT_BORDER_GLOW) {
+        ctx.shadowBlur = blur * pixelScale;
+        ctx.stroke();
+      }
       ctx.restore();
     }
   });
@@ -217,10 +298,18 @@ function trayEdges(width) {
 let current;
 export async function previewDiceRoll(rolls, keptRoll) {
   const pools = rolls.map(roll => (roll.dice ?? [])
-    .filter(term => term.faces === 6)
+    .filter(term => term.faces === 100 || Object.hasOwn(DICE_SHAPES, term.faces))
     .flatMap(term => term.results
-      .filter(({ result }) => Number.isInteger(result) && result >= 1 && result <= 6)
-      .map(({ result, active }) => ({ value: result, kept: roll === keptRoll && active }))))
+      .filter(({ result }) => Number.isInteger(result) && result >= 1 && result <= term.faces)
+      .flatMap(({ result, active }) => {
+        const kept = roll === keptRoll && active;
+        if (term.faces !== 100) return [{sides: term.faces, value: result, kept}];
+        return [
+          {sides: 10, value: Math.floor(result / 10) % 10 || 10, kept,
+            faceSet: result === 100 ? "percentileAce" : "percentileTens"},
+          {sides: 10, value: result % 10 || 10, kept, faceSet: "percentileOnes"}
+        ];
+      })))
     .filter(pool => pool.length);
   if (!pools.length) return;
   artwork ??= createArtwork();
@@ -278,7 +367,7 @@ export async function previewDiceRoll(rolls, keptRoll) {
     const height = Math.max(z, die.scale * 1.45);
     drag = {
       die, pointer: event.pointerId,
-      offsetX: x - pointerX, offsetY: y - pointerY + (height - z) * CAMERA_LIFT,
+      offsetX: x - pointerX, offsetY: y - pointerY + (height - z) * cameraLift(die),
       last: event.timeStamp, vx: 0, vy: 0
     };
     die.bounds = layout.bounds;
@@ -398,10 +487,20 @@ export async function previewDiceRoll(rolls, keptRoll) {
     drawOrder = [...dice].sort((a, b) => Number(!!a.held) - Number(!!b.held) || a.p[1] - b.p[1]);
     for (const die of drawOrder) {
       ctx.globalAlpha = fade * (die.kept ? 1 : 1 - 0.55 * reveal);
-      drawDie(ctx, textures, die, marks[dice.indexOf(die)], reveal, phase, ratio * scale);
+      drawDie(ctx, textures[die.faceSet ?? die.sides], die, marks[dice.indexOf(die)], reveal, phase, ratio * scale);
     }
     ctx.restore();
     requestAnimationFrame(frame);
   }
   requestAnimationFrame(frame);
 }
+
+// Rail and chat rolls use this hook. MG skill rolls supply their own kept pool.
+Hooks.on("createChatMessage", (message, _options, userId) => {
+  if (userId !== game.user.id || !message.isContentVisible || game.dice3d ||
+    message.content?.includes("mg-roll-card")) return;
+  const roll = message.rolls?.[0];
+  if (!roll) return;
+  previewDiceRoll([roll], roll)
+    .catch(error => console.warn("Midnight Gambit dice preview failed", error));
+});
