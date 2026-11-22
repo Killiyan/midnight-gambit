@@ -3,6 +3,7 @@ import { evaluateRoll, mgApplyStrainAttributePenalty, mgGetStrainEffectBadge, mg
 import { MGInitiativeController } from "../initiative/initiative-controller.js";
 import { MGSidebarPopouts } from "./sidebar-popout.js";
 import { MGChatPopouts } from "./chat-popout.js";
+import { openDiceDesign } from "./dice-preview.js";
 
 /* Midnight Gambit Custom UI
 ==============================================================================================================================================*/
@@ -2175,6 +2176,10 @@ function mgBindLeftSidebarContent(root, tabId) {
 			ui.notifications?.warn("Could not open User Management.");
 			console.warn("MG UI | User Management failed.", err);
 		}
+	});
+
+	root.querySelector("[data-mg-settings-dice]")?.addEventListener("click", () => {
+		openDiceDesign(true);
 	});
 
 	root.querySelector("[data-mg-settings-invites]")?.addEventListener("click", () => {
@@ -5391,6 +5396,13 @@ function mgRenderSettingsSidebarContent() {
 			<i class="fa-solid fa-users"></i>
 			User Management
 		</button>
+
+		${game.user.isGM ? `
+			<button type="button" class="mg-left-action" data-mg-settings-dice>
+				<i class="fa-solid fa-dice-d20"></i>
+				Default Dice Style
+			</button>
+		` : ""}
 	`;
 
 	const accessLogout = `

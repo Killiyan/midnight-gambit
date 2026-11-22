@@ -13,7 +13,7 @@ const KEPT_BORDER_PERIOD = 3800;
 const ACE_GLYPH = "\uE012";
 const ACE_ASPECT_RATIO = 101 / 119;
 
-function scaleAceMark(ink, face, angle, glyphWidth, glyphHeight) {
+function scaleAceMark(ink, face, angle, glyphWidth, glyphHeight, aspectRatio = ACE_ASPECT_RATIO) {
   const origin = face([0, 0]);
   const axisLength = point => Math.hypot(...face(point).map((component, i) => component - origin[i]));
   const cos = Math.cos(angle);
@@ -21,17 +21,21 @@ function scaleAceMark(ink, face, angle, glyphWidth, glyphHeight) {
   const width = glyphWidth * axisLength([cos, sin]);
   const height = glyphHeight * axisLength([-sin, cos]);
   if (width <= 0 || height <= 0) return;
-  const correction = ACE_ASPECT_RATIO / (width / height);
+  const correction = aspectRatio / (width / height);
   ink.scale(Math.min(1, correction), Math.min(1, 1 / correction));
 }
 
 // Column, row, and clockwise quarter turns for faces 1–6 on the unfolded cube.
 const D6_FILIGREE_NET = [[1, 3, 0], [2, 2, 1], [1, 2, 0], [1, 0, 0], [0, 2, -1], [1, 1, 2]];
 
-function drawFiligree(ctx, image, faceCount, index) {
+function drawFiligree(ctx, image, faceCount, index, perFace) {
   ctx.save();
   ctx.globalAlpha = 1;
-  if (faceCount === 6) {
+  if (perFace) {
+    const tile = Math.min(image.width, image.height);
+    ctx.drawImage(image, (image.width - tile) / 2, (image.height - tile) / 2,
+      tile, tile, 0, 0, SIZE, SIZE);
+  } else if (faceCount === 6) {
     const [column, row, turns] = D6_FILIGREE_NET[index];
     const tile = Math.min(image.width / 3, image.height / 4);
     const x = (image.width - tile * 3) / 2 + column * tile;
@@ -74,19 +78,91 @@ function loadImage(path) {
     const image = new Image();
     image.onload = () => resolve(image);
     image.onerror = () => resolve(null);
-    image.src = ROOT + path;
+    image.src = path;
   });
 }
 
+const DEFAULT_DICE_DESIGN = {image: "", number: "#ffeedb", border: "#4775ad", numberShadow: false, perFace: false, aceImage: ""};
+const DICE_DESIGN_FLAG = "diceDesign";
+const WORLD_DICE_DESIGN = "defaultDiceDesign";
+const ALLOW_PLAYER_DICE_DESIGNS = "allowPlayerDiceDesigns";
+
+export function canUsePersonalDiceDesign(user = game.user) {
+  return !!user && (user.isGM || game.settings.get("midnight-gambit", ALLOW_PLAYER_DICE_DESIGNS));
+}
+
+Hooks.once("init", () => {
+  game.settings.register("midnight-gambit", ALLOW_PLAYER_DICE_DESIGNS, {
+    name: "Allow Player Dice Designs",
+    hint: "When disabled, players use the campaign dice style and cannot edit their personal design.",
+    scope: "world", config: true, type: Boolean, default: true,
+    onChange: () => {
+      const allowed = canUsePersonalDiceDesign();
+      for (const section of document.querySelectorAll("[data-mg-personal-dice-section]")) {
+        section.hidden = !allowed;
+      }
+      if (!allowed) diceDesignDialog?.close();
+    }
+  });
+  game.settings.register("midnight-gambit", WORLD_DICE_DESIGN, {
+    scope: "world", config: false, type: Object, default: DEFAULT_DICE_DESIGN
+  });
+  game.settings.registerMenu("midnight-gambit", WORLD_DICE_DESIGN, {
+    name: "Default Dice Style",
+    label: "Default Dice Style",
+    hint: "Set the campaign dice style and ACE image.",
+    icon: "fas fa-dice-d20",
+    restricted: true,
+    type: class extends FormApplication {
+      render() {
+        if (game.user.isGM) openDiceDesign(true);
+        return this;
+      }
+    }
+  });
+});
+let defaultFiligree;
+let customFiligree;
 let artwork;
-async function createArtwork() {
-  const [filigree, aceFont] = await Promise.all([
-    loadImage("filigree-vert-blue.png"),
+let artworkKey;
+
+function getDiceDesign(user = game.user, campaign = false) {
+  const world = game.settings.get("midnight-gambit", WORLD_DICE_DESIGN);
+  const personal = !campaign && canUsePersonalDiceDesign(user) ? user.getFlag("midnight-gambit", DICE_DESIGN_FLAG) : null;
+  const saved = personal ?? world;
+  const color = (value, fallback) => /^#[\da-f]{6}$/i.test(value ?? "") ? value : fallback;
+  return {
+    image: typeof saved?.image === "string" ? saved.image : "",
+    number: color(saved?.number, DEFAULT_DICE_DESIGN.number),
+    border: color(saved?.border, DEFAULT_DICE_DESIGN.border),
+    numberShadow: saved?.numberShadow === true,
+    perFace: saved?.perFace === true,
+    aceImage: typeof world?.aceImage === "string" ? world.aceImage : ""
+  };
+}
+
+function loadCustomFiligree(path) {
+  if (!path) return Promise.resolve(null);
+  if (customFiligree?.path !== path) {
+    const image = loadImage(path).then(result => {
+      if (!result && customFiligree?.image === image) customFiligree = null;
+      return result;
+    });
+    customFiligree = {path, image};
+  }
+  return customFiligree.image;
+}
+
+async function createArtwork(design, previewOnly = false) {
+  defaultFiligree ??= loadImage(ROOT + "filigree-vert-blue.png");
+  const [filigree, aceFont, aceImage] = await Promise.all([
+    loadCustomFiligree(design.image).then(image => image ?? defaultFiligree),
     loadAceFont(),
+    design.aceImage ? loadImage(design.aceImage) : null,
     document.fonts.load("bold 96px tiller").catch(() => [])
   ]);
 
-  const faceSets = [...Object.entries(DICE_SHAPES),
+  const faceSets = previewOnly ? [["6", DICE_SHAPES[6]]] : [...Object.entries(DICE_SHAPES),
     ["percentileTens", DICE_SHAPES[10]], ["percentileOnes", DICE_SHAPES[10]],
     ["percentileAce", DICE_SHAPES[10]]];
   return Object.fromEntries(faceSets.map(([faceSet, shape]) => [faceSet,
@@ -96,20 +172,20 @@ async function createArtwork() {
       const ctx = texture.getContext("2d");
       ctx.fillStyle = "#1A2E4C";
       ctx.fillRect(0, 0, SIZE, SIZE);
-      if (filigree) drawFiligree(ctx, filigree, shape.faces.length, index);
+      if (filigree) drawFiligree(ctx, filigree, shape.faces.length, index, design.perFace);
       const corners = shape.corners?.[index];
       const marks = (corners ?? [index]).map((labelIndex, corner) => {
         const canvas = document.createElement("canvas");
         canvas.width = canvas.height = SIZE;
         const ink = canvas.getContext("2d");
-        ink.fillStyle = "#ffeedb";
+        ink.fillStyle = design.number;
         const percentile = faceSet.startsWith("percentile");
-        const useAce = labelIndex === shape.faces.length - 1 && aceFont &&
+        const useAce = labelIndex === shape.faces.length - 1 && (aceFont || aceImage) &&
           (!percentile || faceSet === "percentileAce");
         const digit = (labelIndex + 1) % 10;
         const label = useAce ? ACE_GLYPH : !percentile ? String(labelIndex + 1)
           : faceSet === "percentileOnes" ? String(digit) : `${digit}0`;
-        ink.font = useAce ? aceFont : "bold 96px tiller, Georgia, serif";
+        ink.font = useAce && aceFont ? aceFont : "bold 96px tiller, Georgia, serif";
         ink.textAlign = "left";
         ink.textBaseline = "alphabetic";
         const {actualBoundingBoxLeft: left, actualBoundingBoxRight: right,
@@ -129,11 +205,19 @@ async function createArtwork() {
         } else {
           ink.translate(SIZE / 2, SIZE / 2);
         }
-        if (useAce) scaleAceMark(ink, shape.faces[index], angle, left + right, ascent + descent);
-        ink.fillText(label, (left - right) / 2, (ascent - descent) / 2);
+        if (useAce && aceImage) {
+          const scale = 120 / Math.max(aceImage.width, aceImage.height);
+          const width = aceImage.width * scale;
+          const height = aceImage.height * scale;
+          scaleAceMark(ink, shape.faces[index], angle, width, height, width / height);
+          ink.drawImage(aceImage, -width / 2, -height / 2, width, height);
+        } else {
+          if (useAce) scaleAceMark(ink, shape.faces[index], angle, left + right, ascent + descent);
+          ink.fillText(label, (left - right) / 2, (ascent - descent) / 2);
+        }
         return {canvas, value: labelIndex + 1};
       });
-      return {texture, marks};
+      return {texture, marks, border: design.border, numberShadow: design.numberShadow};
     })
   ]));
 }
@@ -220,7 +304,7 @@ function drawDie(ctx, textures, die, mark, reveal, phase, pixelScale) {
     ctx.fillStyle = "#101c2d";
     ctx.fill();
     const inset = shape.outline.map(([u, v]) => view(face([u * 0.94, v * 0.94]).map(n => n * 0.997)));
-    const {texture, marks} = textures[index];
+    const {texture, marks, border, numberShadow} = textures[index];
     const highlighted = die.kept && reveal > 0 &&
       (die.sides === 4 ? index === readableFace : index === die.value - 1);
     const [a, b, c] = [[-1, -1], [1, -1], [-1, 1]].map(point => view(face(point)));
@@ -230,6 +314,11 @@ function drawDie(ctx, textures, die, mark, reveal, phase, pixelScale) {
     ctx.transform((b[0] - a[0]) / SIZE, (b[1] - a[1]) / SIZE,
       (c[0] - a[0]) / SIZE, (c[1] - a[1]) / SIZE, a[0], a[1]);
     ctx.drawImage(texture, 0, 0);
+    if (numberShadow) {
+      // Match mg-shadow() at the current canvas pixel density.
+      const shadowSize = `${2 * pixelScale}px`;
+      ctx.filter = `drop-shadow(${shadowSize} ${shadowSize} ${shadowSize} #000)`;
+    }
     for (const {canvas, value} of marks) {
       if (highlighted && value === die.value) {
         ctx.save();
@@ -247,7 +336,7 @@ function drawDie(ctx, textures, die, mark, reveal, phase, pixelScale) {
     ctx.restore();
     trace(inset);
     ctx.lineWidth = 2 * scale * 3 / SIZE;
-    ctx.strokeStyle = "#4775ad";
+    ctx.strokeStyle = border;
     ctx.stroke();
     if (highlighted && die.sides !== 4) {
       const perimeter = inset.reduce((length, [x, y], i) => {
@@ -295,8 +384,207 @@ function trayEdges(width) {
   return [Math.max(0, left?.right ?? 0), Math.min(width, chat?.left ?? width, initiative?.left ?? width)];
 }
 
+let diceDesignDialog;
+
+export function openDiceDesign(campaign = false) {
+  if (campaign ? !game.user.isGM : !canUsePersonalDiceDesign()) return;
+  if (diceDesignDialog) {
+    diceDesignDialog.bringToTop();
+    return;
+  }
+
+  const saved = getDiceDesign(game.user, campaign);
+  let closed = false;
+  let timer;
+  let revision = 0;
+  const dialog = new Dialog({
+    title: campaign ? "Default Dice Style" : "Dice Design",
+    content: `
+      <div class="mg-dice-design">
+        <canvas width="480" height="330" role="img" aria-label="Dice appearance preview"></canvas>
+        <div class="mg-dice-design-fields">
+          <div class="mg-dice-design-row mg-dice-design-background">
+            <label id="mg-dice-image-label">Background image</label>
+            <div class="mg-dice-design-image">
+              <input name="image" type="text" aria-labelledby="mg-dice-image-label" placeholder="Default filigree">
+              <button type="button" data-browse aria-label="Browse images" title="Browse images">
+                <i class="fa-solid fa-file-image" aria-hidden="true"></i>
+              </button>
+            </div>
+          </div>
+          <div class="mg-dice-design-row">
+            <label id="mg-dice-number-label">Number color</label>
+            <span class="mg-dice-design-color"><span data-number-hex></span><input name="number" type="color" aria-labelledby="mg-dice-number-label"></span>
+          </div>
+          <div class="mg-dice-design-row">
+            <label id="mg-dice-border-label">Border color</label>
+            <span class="mg-dice-design-color"><span data-border-hex></span><input name="border" type="color" aria-labelledby="mg-dice-border-label"></span>
+          </div>
+          <div class="mg-dice-design-row">
+            <label id="mg-dice-shadow-label">Number drop shadow</label>
+            <span class="mg-dice-design-switch">
+              <input name="numberShadow" type="checkbox" role="switch" aria-labelledby="mg-dice-shadow-label">
+              <span class="mg-primary-toggle-track" aria-hidden="true"><span class="mg-primary-toggle-knob"></span></span>
+            </span>
+          </div>
+          <div class="mg-dice-design-row">
+            <label id="mg-dice-repeat-label">Repeat image on each face</label>
+            <span class="mg-dice-design-switch">
+              <input name="perFace" type="checkbox" role="switch" aria-labelledby="mg-dice-repeat-label">
+              <span class="mg-primary-toggle-track" aria-hidden="true"><span class="mg-primary-toggle-knob"></span></span>
+            </span>
+          </div>
+          <p data-status role="status" hidden></p>
+          ${campaign ? `
+          <div class="mg-dice-design-row mg-dice-design-background">
+            <label id="mg-dice-ace-label">ACE image</label>
+            <div class="mg-dice-design-image">
+              <input name="aceImage" type="text" aria-labelledby="mg-dice-ace-label" placeholder="Default ACE icon">
+              <button type="button" data-browse-ace aria-label="Browse ACE images" title="Browse ACE images">
+                <i class="fa-solid fa-file-image" aria-hidden="true"></i>
+              </button>
+            </div>
+          </div>` : ""}
+          <button class="dice-reset" type="button" data-reset>Reset</button>
+        </div>
+        <footer>
+          <button type="button" data-save>Save</button>
+          <button type="button" data-cancel>Cancel</button>
+        </footer>
+      </div>`,
+    buttons: {},
+    render: html => {
+      const root = html[0].querySelector(".mg-dice-design");
+      const canvas = root.querySelector("canvas");
+      const ctx = canvas.getContext("2d");
+      const image = root.querySelector('[name="image"]');
+      const aceImage = root.querySelector('[name="aceImage"]');
+      const number = root.querySelector('[name="number"]');
+      const border = root.querySelector('[name="border"]');
+      const numberHex = root.querySelector("[data-number-hex]");
+      const borderHex = root.querySelector("[data-border-hex]");
+      const numberShadow = root.querySelector('[name="numberShadow"]');
+      const perFace = root.querySelector('[name="perFace"]');
+      const browse = root.querySelector("[data-browse]");
+      const save = root.querySelector("[data-save]");
+      const cancel = root.querySelector("[data-cancel]");
+      const status = root.querySelector("[data-status]");
+      const writeDraft = design => {
+        image.value = design.image;
+        if (aceImage) aceImage.value = design.aceImage;
+        number.value = design.number;
+        border.value = design.border;
+        numberShadow.checked = design.numberShadow;
+        perFace.checked = design.perFace;
+      };
+      writeDraft(saved);
+      const readDraft = () => ({
+        image: image.value.trim(), number: number.value, border: border.value,
+        numberShadow: numberShadow.checked, perFace: perFace.checked,
+        aceImage: aceImage ? aceImage.value.trim() : saved.aceImage
+      });
+      const showStatus = message => {
+        status.textContent = message;
+        status.hidden = !message;
+      };
+      const {dice, marks} = planDiceRoll([[{sides: 6, value: 4}, {sides: 6, value: 6}]], 240, 165, true);
+      dice.forEach((die, i) => {
+        die.scale = 38;
+        die.p = [69 + i * 102, 88, 38];
+        die.q = [0.08, 0.13, i ? 0.13 : -0.13, Math.sqrt(1 - 0.08 ** 2 - 2 * 0.13 ** 2)];
+      });
+      const refresh = (delay = 0) => {
+        clearTimeout(timer);
+        const token = ++revision;
+        const draft = readDraft();
+        numberHex.textContent = draft.number.toUpperCase();
+        borderHex.textContent = draft.border.toUpperCase();
+        number.style.setProperty("--mg-dice-swatch", draft.number);
+        border.style.setProperty("--mg-dice-swatch", draft.border);
+        timer = setTimeout(async () => {
+          try {
+            const textures = await createArtwork(draft, true);
+            if (closed || token !== revision || !ctx) return;
+            ctx.setTransform(2, 0, 0, 2, 0, 0);
+            ctx.clearRect(0, 0, 240, 165);
+            dice.forEach((die, i) => {
+              drawGroundShadow(ctx, die, 1, 2);
+              drawDie(ctx, textures[6], die, marks[i], 0, 0, 2);
+            });
+          } catch (error) {
+            if (!closed && token === revision) showStatus("Could not render the dice preview.");
+            console.warn("Midnight Gambit dice design preview failed", error);
+          }
+        }, delay);
+      };
+      root.addEventListener("input", event => {
+        showStatus("");
+        refresh(event.target === image || event.target === aceImage ? 180 : 0);
+      });
+      const bindPicker = (button, input) => {
+        button.hidden = game.user.can?.("FILES_BROWSE") === false;
+        button.addEventListener("click", () => new FilePicker({
+        type: "image",
+        current: input.value,
+        callback: path => {
+          if (closed) return;
+          input.value = path;
+          showStatus("");
+          refresh();
+        }
+        }).render(true));
+      };
+      bindPicker(browse, image);
+      if (aceImage) bindPicker(root.querySelector("[data-browse-ace]"), aceImage);
+      cancel.addEventListener("click", () => dialog.close());
+      root.querySelector("[data-reset]").addEventListener("click", () => {
+        writeDraft(campaign ? DEFAULT_DICE_DESIGN : getDiceDesign(null));
+        showStatus("");
+        refresh();
+      });
+      save.addEventListener("click", async () => {
+        const draft = readDraft();
+        save.disabled = true;
+        try {
+          if (draft.image && !await loadCustomFiligree(draft.image)) {
+            if (!closed) showStatus("Could not load that image. Choose another image or clear the field.");
+            return;
+          }
+          if (campaign && draft.aceImage && !await loadImage(draft.aceImage)) {
+            if (!closed) showStatus("Could not load the ACE image. Choose another image or clear the field.");
+            return;
+          }
+          if (closed || (!campaign && !canUsePersonalDiceDesign()) ||
+            JSON.stringify(draft) !== JSON.stringify(readDraft())) return;
+          cancel.disabled = true;
+          if (campaign) {
+            await game.settings.set("midnight-gambit", WORLD_DICE_DESIGN, draft);
+          } else {
+            const {aceImage: _campaignAce, ...personal} = draft;
+            await game.user.setFlag("midnight-gambit", DICE_DESIGN_FLAG, personal);
+          }
+          if (!closed) dialog.close();
+        } catch (error) {
+          if (!closed) showStatus("Could not save your dice design.");
+          console.warn("Midnight Gambit dice design save failed", error);
+        } finally {
+          save.disabled = cancel.disabled = false;
+        }
+      });
+      refresh();
+    },
+    close: () => {
+      closed = true;
+      clearTimeout(timer);
+      diceDesignDialog = null;
+    }
+  }, {width: 560});
+  diceDesignDialog = dialog;
+  dialog.render(true);
+}
+
 let current;
-export async function previewDiceRoll(rolls, keptRoll) {
+export async function previewDiceRoll(rolls, keptRoll, roller = game.user) {
   const pools = rolls.map(roll => (roll.dice ?? [])
     .filter(term => term.faces === 100 || Object.hasOwn(DICE_SHAPES, term.faces))
     .flatMap(term => term.results
@@ -312,7 +600,12 @@ export async function previewDiceRoll(rolls, keptRoll) {
       })))
     .filter(pool => pool.length);
   if (!pools.length) return;
-  artwork ??= createArtwork();
+  const design = getDiceDesign(roller);
+  const key = JSON.stringify(design);
+  if (key !== artworkKey) {
+    artworkKey = key;
+    artwork = createArtwork(design);
+  }
   const textures = await artwork;
 
   current?.close();
@@ -495,12 +788,14 @@ export async function previewDiceRoll(rolls, keptRoll) {
   requestAnimationFrame(frame);
 }
 
-// Rail and chat rolls use this hook. MG skill rolls supply their own kept pool.
-Hooks.on("createChatMessage", (message, _options, userId) => {
-  if (userId !== game.user.id || !message.isContentVisible || game.dice3d ||
-    message.content?.includes("mg-roll-card")) return;
-  const roll = message.rolls?.[0];
-  if (!roll) return;
-  previewDiceRoll([roll], roll)
+// Every connected client can animate a newly created roll it is allowed to see.
+Hooks.on("createChatMessage", message => {
+  if (!message.isContentVisible || game.dice3d) return;
+  const rolls = message.rolls;
+  if (!rolls?.length) return;
+  const keptIndex = message.getFlag("midnight-gambit", "keptRollIndex");
+  const rollerId = message.user?.id ?? message.user;
+  const roller = game.users.get(rollerId) ?? null;
+  previewDiceRoll(rolls, rolls[keptIndex] ?? rolls[0], roller)
     .catch(error => console.warn("Midnight Gambit dice preview failed", error));
 });

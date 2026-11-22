@@ -1078,7 +1078,7 @@ h3 {
           justify-content: center;
           align-items: center;
           width: 20%;
-          @include oswald();
+          @include tiller();
           font-weight: 600;
           font-size: 1.15rem;
           background: $mg-blue-main-2;

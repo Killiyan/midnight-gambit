@@ -1,4 +1,5 @@
 import { mgGetAuraPenalty } from "./aura-encounter.js";
+import { canUsePersonalDiceDesign, openDiceDesign } from "../ui/dice-preview.js";
 import { mgBindInventoryUI } from "../ui/inventory-ui.js";
 import { mgFindActorCrew, mgSendInventoryItem, mgResolvePrimaryGuise } from "../items/inventory-trade.js";
 import { mgPrepareInventoryCapacity, mgRepairInventoryItem } from "../items/inventory.js";
@@ -152,6 +153,7 @@ export class MidnightGambitActorSheet extends ActorSheet {
     //Grabbing all the actor data information to create the initial sheet
     async getData(options) {
       const context = await super.getData(options);
+      context.canUsePersonalDiceDesign = canUsePersonalDiceDesign();
 
       // Make sure the actor is available in the template
       context.actor = this.actor;
@@ -1901,6 +1903,10 @@ _mgOpenSidebarCropper() {
 
   async activateListeners(html) {
     super.activateListeners(html);
+    html.find("[data-mg-dice-design]").on("click", event => {
+      event.preventDefault();
+      openDiceDesign();
+    });
     html.find(".item-quantity").on("keydown.mgInventoryQuantity", event => {
       if (event.key !== "Enter") return;
       event.preventDefault();
