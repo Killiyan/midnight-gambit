@@ -1,10 +1,15 @@
 import { DICE_SHAPES, planDiceRoll, rotate, stepDice, tossDie } from "./dice-tray.js";
 
+/* Dice Appearance and Rendering Constants
+==============================================================================================================================================*/
+// SIZE is face texture resolution. Change the displayed die size in createDiceTray instead.
 const SIZE = 250;
 const ROOT = "systems/midnight-gambit/assets/images/";
+// Raise the lift for a more side-on view. The d4 has its own camera tilt.
 const CAMERA_LIFT = 0.24;
 const D4_CAMERA_LIFT = 0.6;
 const cameraLift = die => die.sides === 4 ? D4_CAMERA_LIFT : CAMERA_LIFT;
+// Tune kept-result color, halo sizes, and the border’s lap time in milliseconds.
 const KEPT_GLOW = "#A2D729";
 const KEPT_NUMBER_GLOW = [14, 6]; // Outer halo, then brighter inner halo (px).
 const KEPT_BORDER_GLOW = [18, 7]; // Outer halo, then brighter inner halo (px).
@@ -13,6 +18,9 @@ const KEPT_BORDER_PERIOD = 3800;
 const ACE_GLYPH = "\uE012";
 const ACE_ASPECT_RATIO = 101 / 119;
 
+/* ACE Glyph and Face Backgrounds
+==============================================================================================================================================*/
+// Adjust image crop and d6 wrap here. ACE scaling corrects for the dimensions of the physical face.
 function scaleAceMark(ink, face, angle, glyphWidth, glyphHeight, aspectRatio = ACE_ASPECT_RATIO) {
   const origin = face([0, 0]);
   const axisLength = point => Math.hypot(...face(point).map((component, i) => component - origin[i]));
@@ -54,6 +62,9 @@ function drawFiligree(ctx, image, faceCount, index, perFace) {
   ctx.restore();
 }
 
+/* Fonts and Image Loading
+==============================================================================================================================================*/
+// Load the kit glyph with a numeral fallback, and resolve missing images to null.
 async function loadAceFont() {
   const probe = document.createElement("i");
   probe.className = "fa-kit fa-ace";
@@ -82,6 +93,9 @@ function loadImage(path) {
   });
 }
 
+/* Campaign Defaults and Player Permissions
+==============================================================================================================================================*/
+// Edit the built-in colors, image defaults, and settings here. Personal designs are stored on the User document.
 const DEFAULT_DICE_DESIGN = {image: "", number: "#ffeedb", border: "#4775ad", numberShadow: false, perFace: false, aceImage: ""};
 const DICE_DESIGN_FLAG = "diceDesign";
 const WORLD_DICE_DESIGN = "defaultDiceDesign";
@@ -121,6 +135,9 @@ Hooks.once("init", () => {
     }
   });
 });
+/* Dice Artwork Cache
+==============================================================================================================================================*/
+// Each client keeps a limited cache of rendered face sets keyed by the roller’s design and die type.
 let defaultFiligree;
 let customFiligree;
 const artworkCache = new Map();
@@ -143,6 +160,9 @@ function getCachedArtwork(design, faceSet) {
   return entry;
 }
 
+/* Effective Dice Design
+==============================================================================================================================================*/
+// Choose the roller’s allowed personal design or the campaign defaults. ACE art comes from the campaign.
 function getDiceDesign(user = game.user, campaign = false) {
   const world = game.settings.get("midnight-gambit", WORLD_DICE_DESIGN);
   const personal = !campaign && canUsePersonalDiceDesign(user) ? user.getFlag("midnight-gambit", DICE_DESIGN_FLAG) : null;
@@ -170,6 +190,9 @@ function loadCustomFiligree(path) {
   return customFiligree.image;
 }
 
+/* Face Texture Generation
+==============================================================================================================================================*/
+// Build one die type at a time. Face images and marks remain separate so shadows and kept effects can be drawn independently.
 async function createArtwork(design, faceSet) {
   defaultFiligree ??= loadImage(ROOT + "filigree-vert-blue.png");
   const [filigree, aceFont, aceImage] = await Promise.all([
@@ -235,6 +258,9 @@ async function createArtwork(design, faceSet) {
   });
 }
 
+/* Ground Shadow and Face Rendering
+==============================================================================================================================================*/
+// Project the real die geometry onto the canvas, then paint the face, numbers, and kept-result effects.
 function drawGroundShadow(ctx, die, fade, pixelScale) {
   const {p: [cx, cy, cz], q, scale} = die;
   const depth = Math.sqrt(1 - cameraLift(die) ** 2);
@@ -317,6 +343,7 @@ function drawDie(ctx, textures, die, mark, reveal, phase, pixelScale) {
     ctx.fillStyle = "#101c2d";
     ctx.fill();
     const inset = shape.outline.map(([u, v]) => view(face([u * 0.94, v * 0.94]).map(n => n * 0.997)));
+    // The normal face border uses the saved style. The kept highlight is drawn separately.
     const {texture, marks, border, numberShadow} = textures[index];
     const highlighted = die.kept && reveal > 0 &&
       (die.sides === 4 ? index === readableFace : index === die.value - 1);
@@ -374,6 +401,9 @@ function drawDie(ctx, textures, die, mark, reveal, phase, pixelScale) {
   die.hitFaces = hitFaces;
 }
 
+/* Pointer Hit Testing and Tray Bounds
+==============================================================================================================================================*/
+// Use visible face polygons for grabs. Visible docked sidebars define the roll and drag area.
 function containsPoint(points, x, y) {
   return points.every(([ax, ay], i) => {
     const [bx, by] = points[(i + 1) % points.length];
@@ -397,6 +427,9 @@ function trayEdges(width) {
   return [Math.max(0, left?.right ?? 0), Math.min(width, chat?.left ?? width, initiative?.left ?? width)];
 }
 
+/* Dice Design Dialog
+==============================================================================================================================================*/
+// Preview a draft locally. Save commits it to the campaign setting or the current user. Reset changes the draft until saved.
 let diceDesignDialog;
 
 export function openDiceDesign(campaign = false) {
@@ -506,6 +539,7 @@ export function openDiceDesign(campaign = false) {
         die.p = [69 + i * 102, 88, 38];
         die.q = [0.08, 0.13, i ? 0.13 : -0.13, Math.sqrt(1 - 0.08 ** 2 - 2 * 0.13 ** 2)];
       });
+      // Debounce image edits and ignore preview results from older drafts.
       const refresh = (delay = 0) => {
         clearTimeout(timer);
         const token = ++revision;
@@ -598,8 +632,12 @@ export function openDiceDesign(campaign = false) {
   dialog.render(true);
 }
 
+/* Roll Preparation and Playback
+==============================================================================================================================================*/
+// Translate Foundry results into physics dice, load their textures, then run playback and pointer interaction.
 let current;
 export async function previewDiceRoll(rolls, keptRoll, roller = game.user) {
+  // Expand a d100 into tens and ones while preserving whether the original result was kept.
   const pools = rolls.map(roll => (roll.dice ?? [])
     .filter(term => term.faces === 100 || Object.hasOwn(DICE_SHAPES, term.faces))
     .flatMap(term => term.results
@@ -660,6 +698,7 @@ export async function previewDiceRoll(rolls, keptRoll, roller = game.user) {
     event.stopImmediatePropagation();
   };
 
+  // Grab and move settled dice. Releasing a fast drag applies a flick to the live physics tray.
   window.addEventListener("pointerdown", event => {
     if (!landed || reducedMotion || drag || !layout || event.button !== 0 ||
       event.clientX < layout.left || event.clientX >= layout.right) return;
@@ -719,6 +758,7 @@ export async function previewDiceRoll(rolls, keptRoll, roller = game.user) {
     if (event.key === "Escape") preview.close();
   }, {signal: listeners.signal});
 
+  // Fit the canvas to the viewport and clip drawing to the currently visible tray.
   function frame(now) {
     if (current !== preview) return;
     if (!drag && now >= expires) {
@@ -764,6 +804,7 @@ export async function previewDiceRoll(rolls, keptRoll, roller = game.user) {
     ctx.translate(origin, 0);
     ctx.scale(scale, scale);
 
+    // Play back the simulated poses, then resume live physics for flicked dice.
     const elapsed = Math.max(0, now - started);
     const tick = elapsed * 0.12;
     if (!landed && frames.length) {
@@ -786,6 +827,7 @@ export async function previewDiceRoll(rolls, keptRoll, roller = game.user) {
         lastStep++;
       }
     }
+    // Fade in kept-result feedback after landing and draw ground shadows underneath the dice.
     const reveal = Math.min(1, Math.max(0, (elapsed - duration) / 180));
     const phase = reducedMotion ? 0 : (Math.max(0, elapsed - duration) % KEPT_BORDER_PERIOD) / KEPT_BORDER_PERIOD;
     const fade = drag ? 1 : Math.min(1, (expires - now) / 240);
@@ -802,6 +844,9 @@ export async function previewDiceRoll(rolls, keptRoll, roller = game.user) {
 }
 
 // Every connected client can animate a newly created roll it is allowed to see.
+/* Shared Chat Roll Hook
+==============================================================================================================================================*/
+// Play a new visible roll on each client using its author’s appearance and the saved kept-pool index.
 Hooks.on("createChatMessage", message => {
   if (!message.isContentVisible || game.dice3d) return;
   const rolls = message.rolls;

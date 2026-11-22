@@ -1,3 +1,6 @@
+/* D6 Geometry
+==============================================================================================================================================*/
+// CORNER_CUT controls the chamfer. Face functions map flat artwork coordinates onto the die.
 export const CORNER_CUT = 0.28;
 export const OUTLINE = [[-1 + CORNER_CUT, -1], [1 - CORNER_CUT, -1], [1, -1 + CORNER_CUT], [1, 1 - CORNER_CUT],
   [1 - CORNER_CUT, 1], [-1 + CORNER_CUT, 1], [-1, 1 - CORNER_CUT], [-1, -1 + CORNER_CUT]];
@@ -22,6 +25,9 @@ for (const x of [-1, 1]) {
 const VERTICES = CORNERS.flat();
 const PLANES = [...NORMALS, ...CORNERS.map(([a]) => a.map(value => Math.sign(value) / Math.sqrt(3)))];
 const OFFSETS = PLANES.map((_, i) => i < 6 ? 1 : (3 - CORNER_CUT) / Math.sqrt(3));
+/* D2 Geometry and Shape Registry
+==============================================================================================================================================*/
+// Adjust coin thickness here. The registry pairs each visible shape with its collision hull.
 const COIN_THICKNESS = 0.1;
 const coinOutline = Array.from({length: 16}, (_, i) => {
   const angle = i * Math.PI / 8;
@@ -51,6 +57,9 @@ export const DICE_SHAPES = {
   6: {faces: FACES, outline: OUTLINE, sides: CORNERS, vertices: VERTICES,
     normals: NORMALS, planes: PLANES, offsets: OFFSETS, restHeight: 1}
 };
+/* Physics Step and Vector Math
+==============================================================================================================================================*/
+// STEP controls simulation tick length in seconds. Playback in dice-preview.js assumes 120 ticks per second.
 const STEP = 1 / 120;
 const UP = [0, 0, 1];
 
@@ -63,6 +72,9 @@ const length = a => Math.hypot(...a);
 const unit = a => mul(a, 1 / length(a));
 const identity = [0, 0, 0, 1];
 
+/* D4 Geometry
+==============================================================================================================================================*/
+// The three marks on each triangular face belong to its vertices. The upright vertex reads the result.
 // Each face omits the vertex directly opposite it. That vertex reads the result.
 const d4Vertices = [[1, 1, 1], [1, -1, -1], [-1, 1, -1], [-1, -1, 1]].map(v => mul(v, 0.9));
 const d4Normals = d4Vertices.map(v => mul(unit(v), -1));
@@ -88,6 +100,9 @@ DICE_SHAPES[4] = {
   restHeight: 0.9 / Math.sqrt(3)
 };
 
+/* D8 Geometry
+==============================================================================================================================================*/
+// Build an octahedron with opposite face values that sum to nine.
 const D8_RADIUS = 1.55;
 const d8Half = [[1, 1, 1], [-1, 1, 1], [-1, -1, 1], [1, -1, 1]];
 const d8Directions = [...d8Half, ...d8Half.slice().reverse().map(v => mul(v, -1))];
@@ -109,6 +124,9 @@ DICE_SHAPES[8] = {
   offsets: d8Normals.map(() => d8RestHeight),
   restHeight: d8RestHeight
 };
+/* D10 and Percentile Geometry
+==============================================================================================================================================*/
+// Tip length and ring radius define the kite faces used by both the d10 and the d100 pair.
 const D10_TIP = 1.48;
 const D10_RING = 1.25;
 const D10_STEP = Math.PI * 2 / 5;
@@ -146,6 +164,9 @@ DICE_SHAPES[10] = {
   restHeight: d10RestHeight
 };
 
+/* D12 Geometry
+==============================================================================================================================================*/
+// Build each pentagonal face from a normal and two axes in its plane.
 const PHI = (1 + Math.sqrt(5)) / 2;
 const cycle = ([x, y, z]) => [[x, y, z], [z, x, y], [y, z, x]];
 const d12Vertices = [...d4Vertices.map(v => mul(v, 1 / 0.9)),
@@ -176,6 +197,9 @@ DICE_SHAPES[12] = {
   restHeight: d12RestHeight
 };
 
+/* D20 Geometry
+==============================================================================================================================================*/
+// Use the dual of the d12 to build the triangular faces and pair opposing values.
 const d20Vertices = d12Normals.map(normal => mul(normal, 1.55));
 const d20Half = d12Vertices.filter(v => (v.find(x => x !== 0) ?? 0) > 0).map(unit);
 const d20Normals = [...d20Half, ...d20Half.slice().reverse().map(n => mul(n, -1))];
@@ -195,6 +219,9 @@ DICE_SHAPES[20] = {
   restHeight: d20RestHeight
 };
 
+/* Quaternion Rotation
+==============================================================================================================================================*/
+// Compose, apply, and align orientations for the simulation and artwork mapping.
 function multiply(a, b) {
   const av = a.slice(0, 3), bv = b.slice(0, 3);
   return [...add(add(mul(bv, a[3]), mul(av, b[3])), cross(av, bv)), a[3] * b[3] - dot(av, bv)];
@@ -215,6 +242,9 @@ function align(a, b) {
   return unit([...cross(a, b), 1 + d]);
 }
 
+/* Landing Face and Result Mapping
+==============================================================================================================================================*/
+// Find the resting face and rotate the artwork by a shape symmetry to display the result Foundry already rolled.
 function faceUp({q, shape}) {
   const sign = shape.corners ? -1 : 1;
   return shape.normals.reduce((best, n, i) => sign * (rotate(q, n)[2] - rotate(q, shape.normals[best])[2]) > 0 ? i : best, 0);
@@ -259,8 +289,12 @@ function artworkRotation(die) {
   return align(from, to);
 }
 
+/* Tray Layout and Starting Throws
+==============================================================================================================================================*/
+// Edit the size cap and gap limits here. Starting velocity and spin control the throw’s feel.
 export function createDiceTray(pools, width, height, reducedMotion) {
   const lane = height * 0.60 / pools.length;
+  // Tune the size cap first. The other limits let dice fit narrower trays or larger pools.
   const scale = Math.min(40, width * 0.19 / Math.max(...pools.map(pool => pool.length)), lane * 0.16);
   return pools.flatMap((pool, row) => pool.map((die, index) => {
     const direction = row % 2 ? -1 : 1;
@@ -280,6 +314,9 @@ export function createDiceTray(pools, width, height, reducedMotion) {
   }));
 }
 
+/* Collision Impulses and Tray Contacts
+==============================================================================================================================================*/
+// Apply bounce and friction at the point of contact with the floor or walls.
 function impulse(body, offset, force) {
   body.v = add(body.v, force);
   body.w = add(body.w, mul(cross(offset, force), body.inertia));
@@ -294,6 +331,7 @@ function effectiveMass(body, offset, axis) {
 }
 
 function planeContact(body, offset, normal, depth) {
+  // Bounce above the impact speed threshold and use friction to reduce sideways slide.
   const speed = dot(velocityAt(body, offset), normal);
   const bounce = speed < -85 ? 0.36 : 0;
   const force = Math.max(0, -(1 + bounce) * speed + Math.max(0, depth - 0.15) * 25)
@@ -332,6 +370,9 @@ function contactWithTray(hull) {
   }
 }
 
+/* Die-to-Die Collisions
+==============================================================================================================================================*/
+// Look for overlap between hulls and apply impulses to both dice.
 function vertexContact(a, b) {
   let contact;
   const delta = sub(a.die.p, b.die.p);
@@ -374,9 +415,13 @@ function collide(a, b) {
   impulse(b.die, point, mul(axis, -magnitude));
 }
 
+/* Physics Tick and Settling
+==============================================================================================================================================*/
+// Integrate movement, resolve contacts, and put dice to sleep after they come to rest.
 export function stepDice(dice) {
   for (const die of dice) {
     if (die.asleep || die.held) continue;
+    // This is the gravity strength. Angular damping below controls how quickly spin dies out.
     die.v[2] -= 1650 * STEP;
     die.p = add(die.p, mul(die.v, STEP));
     die.q = unit(add(die.q, mul(multiply([...die.w, 0], die.q), STEP / 2)));
@@ -404,6 +449,9 @@ export function stepDice(dice) {
   }
 }
 
+/* Precomputed Throw and Static Fallback
+==============================================================================================================================================*/
+// Record the frames before playback. Retries handle throws that fail to settle, with a static landing as the fallback.
 export function planDiceRoll(pools, width, height, reducedMotion) {
   if (!reducedMotion) {
     for (let attempt = 0; attempt < 3; attempt++) {
@@ -440,6 +488,9 @@ export function planDiceRoll(pools, width, height, reducedMotion) {
   return {dice, frames: [], marks: dice.map(artworkRotation)};
 }
 
+/* Drag Release and Flick
+==============================================================================================================================================*/
+// Wake the die and apply the velocity and spin from the pointer release.
 export function tossDie(die, dx, dy, lift) {
   die.asleep = false;
   die.quiet = 0;
