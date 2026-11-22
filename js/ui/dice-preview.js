@@ -123,8 +123,25 @@ Hooks.once("init", () => {
 });
 let defaultFiligree;
 let customFiligree;
-let artwork;
-let artworkKey;
+const artworkCache = new Map();
+const ARTWORK_CACHE_LIMIT = 16;
+
+function getCachedArtwork(design, faceSet) {
+  const key = JSON.stringify([faceSet, design]);
+  let entry = artworkCache.get(key);
+  artworkCache.delete(key);
+  if (!entry) {
+    entry = createArtwork(design, faceSet).catch(error => {
+      if (artworkCache.get(key) === entry) artworkCache.delete(key);
+      throw error;
+    });
+  }
+  artworkCache.set(key, entry);
+  if (artworkCache.size > ARTWORK_CACHE_LIMIT) {
+    artworkCache.delete(artworkCache.keys().next().value);
+  }
+  return entry;
+}
 
 function getDiceDesign(user = game.user, campaign = false) {
   const world = game.settings.get("midnight-gambit", WORLD_DICE_DESIGN);
@@ -153,7 +170,7 @@ function loadCustomFiligree(path) {
   return customFiligree.image;
 }
 
-async function createArtwork(design, previewOnly = false) {
+async function createArtwork(design, faceSet) {
   defaultFiligree ??= loadImage(ROOT + "filigree-vert-blue.png");
   const [filigree, aceFont, aceImage] = await Promise.all([
     loadCustomFiligree(design.image).then(image => image ?? defaultFiligree),
@@ -162,64 +179,60 @@ async function createArtwork(design, previewOnly = false) {
     document.fonts.load("bold 96px tiller").catch(() => [])
   ]);
 
-  const faceSets = previewOnly ? [["6", DICE_SHAPES[6]]] : [...Object.entries(DICE_SHAPES),
-    ["percentileTens", DICE_SHAPES[10]], ["percentileOnes", DICE_SHAPES[10]],
-    ["percentileAce", DICE_SHAPES[10]]];
-  return Object.fromEntries(faceSets.map(([faceSet, shape]) => [faceSet,
-    shape.faces.map((_, index) => {
-      const texture = document.createElement("canvas");
-      texture.width = texture.height = SIZE;
-      const ctx = texture.getContext("2d");
-      ctx.fillStyle = "#1A2E4C";
-      ctx.fillRect(0, 0, SIZE, SIZE);
-      if (filigree) drawFiligree(ctx, filigree, shape.faces.length, index, design.perFace);
-      const corners = shape.corners?.[index];
-      const marks = (corners ?? [index]).map((labelIndex, corner) => {
-        const canvas = document.createElement("canvas");
-        canvas.width = canvas.height = SIZE;
-        const ink = canvas.getContext("2d");
-        ink.fillStyle = design.number;
-        const percentile = faceSet.startsWith("percentile");
-        const useAce = labelIndex === shape.faces.length - 1 && (aceFont || aceImage) &&
-          (!percentile || faceSet === "percentileAce");
-        const digit = (labelIndex + 1) % 10;
-        const label = useAce ? ACE_GLYPH : !percentile ? String(labelIndex + 1)
-          : faceSet === "percentileOnes" ? String(digit) : `${digit}0`;
-        ink.font = useAce && aceFont ? aceFont : "bold 96px tiller, Georgia, serif";
-        ink.textAlign = "left";
-        ink.textBaseline = "alphabetic";
-        const {actualBoundingBoxLeft: left, actualBoundingBoxRight: right,
-          actualBoundingBoxAscent: ascent, actualBoundingBoxDescent: descent} = ink.measureText(label);
-        const angle = corners ? corner * 2 * Math.PI / 3 : 0;
-        if (corners) {
-          const [x, y] = shape.outline[corner];
-          ink.translate(SIZE * (0.5 + 0.26 * x), SIZE * (0.5 + 0.26 * y + 0.07));
-          ink.rotate(angle);
-          ink.scale(0.42, 0.42);
-        } else if (shape.faces.length === 8 || shape.faces.length === 20) {
-          ink.translate(SIZE / 2, SIZE * (0.5 + shape.outline[1][1] / 6));
-          ink.scale(0.72, 0.72);
-        } else if (shape.faces.length === 10) {
-          ink.translate(SIZE / 2, SIZE * 0.64);
-          ink.scale(0.68, 0.68);
-        } else {
-          ink.translate(SIZE / 2, SIZE / 2);
-        }
-        if (useAce && aceImage) {
-          const scale = 120 / Math.max(aceImage.width, aceImage.height);
-          const width = aceImage.width * scale;
-          const height = aceImage.height * scale;
-          scaleAceMark(ink, shape.faces[index], angle, width, height, width / height);
-          ink.drawImage(aceImage, -width / 2, -height / 2, width, height);
-        } else {
-          if (useAce) scaleAceMark(ink, shape.faces[index], angle, left + right, ascent + descent);
-          ink.fillText(label, (left - right) / 2, (ascent - descent) / 2);
-        }
-        return {canvas, value: labelIndex + 1};
-      });
-      return {texture, marks, border: design.border, numberShadow: design.numberShadow};
-    })
-  ]));
+  const percentile = faceSet.startsWith("percentile");
+  const shape = DICE_SHAPES[percentile ? 10 : faceSet];
+  return shape.faces.map((_, index) => {
+    const texture = document.createElement("canvas");
+    texture.width = texture.height = SIZE;
+    const ctx = texture.getContext("2d");
+    ctx.fillStyle = "#1A2E4C";
+    ctx.fillRect(0, 0, SIZE, SIZE);
+    if (filigree) drawFiligree(ctx, filigree, shape.faces.length, index, design.perFace);
+    const corners = shape.corners?.[index];
+    const marks = (corners ?? [index]).map((labelIndex, corner) => {
+      const canvas = document.createElement("canvas");
+      canvas.width = canvas.height = SIZE;
+      const ink = canvas.getContext("2d");
+      ink.fillStyle = design.number;
+      const useAce = labelIndex === shape.faces.length - 1 && (aceFont || aceImage) &&
+        (!percentile || faceSet === "percentileAce");
+      const digit = (labelIndex + 1) % 10;
+      const label = useAce ? ACE_GLYPH : !percentile ? String(labelIndex + 1)
+        : faceSet === "percentileOnes" ? String(digit) : `${digit}0`;
+      ink.font = useAce && aceFont ? aceFont : "bold 96px tiller, Georgia, serif";
+      ink.textAlign = "left";
+      ink.textBaseline = "alphabetic";
+      const {actualBoundingBoxLeft: left, actualBoundingBoxRight: right,
+        actualBoundingBoxAscent: ascent, actualBoundingBoxDescent: descent} = ink.measureText(label);
+      const angle = corners ? corner * 2 * Math.PI / 3 : 0;
+      if (corners) {
+        const [x, y] = shape.outline[corner];
+        ink.translate(SIZE * (0.5 + 0.26 * x), SIZE * (0.5 + 0.26 * y + 0.07));
+        ink.rotate(angle);
+        ink.scale(0.42, 0.42);
+      } else if (shape.faces.length === 8 || shape.faces.length === 20) {
+        ink.translate(SIZE / 2, SIZE * (0.5 + shape.outline[1][1] / 6));
+        ink.scale(0.72, 0.72);
+      } else if (shape.faces.length === 10) {
+        ink.translate(SIZE / 2, SIZE * 0.64);
+        ink.scale(0.68, 0.68);
+      } else {
+        ink.translate(SIZE / 2, SIZE / 2);
+      }
+      if (useAce && aceImage) {
+        const scale = 120 / Math.max(aceImage.width, aceImage.height);
+        const width = aceImage.width * scale;
+        const height = aceImage.height * scale;
+        scaleAceMark(ink, shape.faces[index], angle, width, height, width / height);
+        ink.drawImage(aceImage, -width / 2, -height / 2, width, height);
+      } else {
+        if (useAce) scaleAceMark(ink, shape.faces[index], angle, left + right, ascent + descent);
+        ink.fillText(label, (left - right) / 2, (ascent - descent) / 2);
+      }
+      return {canvas, value: labelIndex + 1};
+    });
+    return {texture, marks, border: design.border, numberShadow: design.numberShadow};
+  });
 }
 
 function drawGroundShadow(ctx, die, fade, pixelScale) {
@@ -503,13 +516,13 @@ export function openDiceDesign(campaign = false) {
         border.style.setProperty("--mg-dice-swatch", draft.border);
         timer = setTimeout(async () => {
           try {
-            const textures = await createArtwork(draft, true);
+            const textures = await createArtwork(draft, "6");
             if (closed || token !== revision || !ctx) return;
             ctx.setTransform(2, 0, 0, 2, 0, 0);
             ctx.clearRect(0, 0, 240, 165);
             dice.forEach((die, i) => {
               drawGroundShadow(ctx, die, 1, 2);
-              drawDie(ctx, textures[6], die, marks[i], 0, 0, 2);
+              drawDie(ctx, textures, die, marks[i], 0, 0, 2);
             });
           } catch (error) {
             if (!closed && token === revision) showStatus("Could not render the dice preview.");
@@ -563,6 +576,8 @@ export function openDiceDesign(campaign = false) {
             const {aceImage: _campaignAce, ...personal} = draft;
             await game.user.setFlag("midnight-gambit", DICE_DESIGN_FLAG, personal);
           }
+          void getCachedArtwork(getDiceDesign(game.user, campaign), "6")
+            .catch(error => console.warn("Midnight Gambit could not prepare saved dice artwork", error));
           if (!closed) dialog.close();
         } catch (error) {
           if (!closed) showStatus("Could not save your dice design.");
@@ -601,12 +616,10 @@ export async function previewDiceRoll(rolls, keptRoll, roller = game.user) {
     .filter(pool => pool.length);
   if (!pools.length) return;
   const design = getDiceDesign(roller);
-  const key = JSON.stringify(design);
-  if (key !== artworkKey) {
-    artworkKey = key;
-    artwork = createArtwork(design);
-  }
-  const textures = await artwork;
+  const faceSets = new Set(pools.flat().map(die => String(die.faceSet ?? die.sides)));
+  const textures = Object.fromEntries(await Promise.all(
+    [...faceSets].map(async faceSet => [faceSet, await getCachedArtwork(design, faceSet)])
+  ));
 
   current?.close();
   const [initialLeft, initialRight] = trayEdges(window.innerWidth);
