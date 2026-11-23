@@ -1,6 +1,7 @@
 import { mgGetAuraPenalty } from "./aura-encounter.js";
 import { canUsePersonalDiceDesign, openDiceDesign } from "../ui/dice-preview.js";
 import { mgBindInventoryUI } from "../ui/inventory-ui.js";
+import { openCompanionDialog } from "../ui/companion.js";
 import { mgFindActorCrew, mgSendInventoryItem, mgResolvePrimaryGuise } from "../items/inventory-trade.js";
 import { mgPrepareInventoryCapacity, mgRepairInventoryItem } from "../items/inventory.js";
 import { evaluateRoll, mgApplyStrainAttributePenalty, mgGetStrainEffectBadge, mgGetStrainRollEffects } from "../roll-utils.js";
@@ -182,6 +183,9 @@ export class MidnightGambitActorSheet extends ActorSheet {
   }
 
   setPosition(position = {}) {
+    if (this.isCompanionView) {
+      return super.setPosition({ ...position, width: window.innerWidth, height: window.innerHeight, left: 0, top: 0 });
+    }
     if (this.actor.type !== "character") return super.setPosition(position);
 
     const slim = game.settings.get("midnight-gambit", "characterSheetMode") === "slim";
@@ -768,7 +772,8 @@ export class MidnightGambitActorSheet extends ActorSheet {
       }));
 
       const gambitCardDesign = this.actor.system?.gambits?.cardDesign || "midnight";
-      context.isSlimSheet = game.settings.get("midnight-gambit", "characterSheetMode") === "slim";
+      context.isCompanionView = Boolean(this.isCompanionView);
+      context.isSlimSheet = context.isCompanionView || game.settings.get("midnight-gambit", "characterSheetMode") === "slim";
       context.characterSheetModes = [
         { id: "slim", name: "Slim", isSelected: context.isSlimSheet },
         { id: "full", name: "Full", isSelected: !context.isSlimSheet }
@@ -1963,6 +1968,22 @@ _mgOpenSidebarCropper() {
 
   async activateListeners(html) {
     super.activateListeners(html);
+    const companionMenu = html.find(".mg-companion-menu");
+    if (companionMenu.length) {
+      const toggle = companionMenu.find(".mg-companion-menu-toggle");
+      const panel = companionMenu.find(".mg-companion-menu-panel");
+      const setOpen = open => {
+        toggle.attr("aria-expanded", String(open));
+        panel.prop("inert", !open);
+      };
+      toggle.on("click", () => setOpen(toggle.attr("aria-expanded") !== "true"));
+      companionMenu.find(".sheet-tabs .item").on("click", () => {
+        toggle[0].focus({ preventScroll: true });
+        setOpen(false);
+        companionMenu.closest(".window-content")[0]?.scrollTo({ top: 0 });
+      });
+    }
+    html.find(".mg-open-companion").on("click", () => openCompanionDialog(this.actor));
 
     html.find(".mg-sheet-mode-toggle").on("click", async (event) => {
       const button = event.currentTarget;
@@ -2326,7 +2347,7 @@ _mgOpenSidebarCropper() {
     const group = groupEl?.getAttribute("data-group") || "main";
 
     // Unique key per actor + viewer (and per tab group if you add more later)
-    const TAB_KEY = `mg.tab.${this.actor.id}.${game.user.id}.${group}`;
+    const TAB_KEY = this._mgSheetTabStorageKey(group);
     const initialTab = localStorage.getItem(TAB_KEY) || "general";
 
     // Keep the active tab per-actor/per-user
@@ -5272,11 +5293,12 @@ _mgOpenSidebarCropper() {
     return this.element?.closest?.(".window-app")?.[0] ?? this.element?.[0] ?? null;
   }
 
-  _mgSheetTabStorageKey() {
+  _mgSheetTabStorageKey(group) {
     const root = this._mgSheetRoot();
     const groupEl = root?.querySelector?.("nav.sheet-tabs");
-    const group = groupEl?.getAttribute("data-group") || "main";
-    return `mg.tab.${this.actor.id}.${game.user.id}.${group}`;
+    const tabGroup = group ?? (groupEl?.getAttribute("data-group") || "main");
+    const scope = this.isCompanionView ? "mg.companion.tab" : "mg.tab";
+    return `${scope}.${this.actor.id}.${game.user.id}.${tabGroup}`;
   }
 
   _mgGetActiveSheetTab() {

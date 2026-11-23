@@ -745,7 +745,7 @@ ol li {
         color:$mg-ivory;
 
         // Character sheet button tweak. Remove later if I don't like
-        button:not(.tox-tbtn):not(.inventory-bucket-toggle):not(.crew-inventory-bucket-toggle):not(.mg-card-toggle):not(.post-gambit):not(.status-buttons button):not(.delete-move):not(.mg-hand-order-eye):not(.mg-primary-toggle):not(.mg-seeall-toggle):not(.mg-card-toggle):not(.item-filter-toggle):not(.edge-button):not(.mg-init-actions button):not(:where(.is-slim .strain-container .cap-tick)),
+        button:not(.tox-tbtn):not(.inventory-bucket-toggle):not(.crew-inventory-bucket-toggle):not(.mg-card-toggle):not(.post-gambit):not(.status-buttons button):not(.delete-move):not(.mg-hand-order-eye):not(.mg-primary-toggle):not(.mg-seeall-toggle):not(.mg-card-toggle):not(.item-filter-toggle):not(.edge-button):not(.mg-init-actions button):not(:where(.is-slim .strain-container .cap-tick)):not(.mg-companion-menu-toggle ),
         form button,
         .dialog-button {
           background: $mg-blue-4;

@@ -1,3 +1,4 @@
+import "./js/ui/companion.js";
 import "./js/system.js";
 import "./js/actors/actor.js";
 import "./js/hooks.js";

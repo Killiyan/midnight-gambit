@@ -6652,6 +6652,7 @@ Hooks.once("ready", () => {
   notifications.fetch = function (...args) {
     const previous = this.active?.at(-1);
     const result = fetchNotification.apply(this, args);
+    if (document.body.classList.contains("mg-companion-view")) return result;
     const current = this.active?.at(-1);
     if (current && current !== previous) {
       const sound = current.hasClass("error") ? "Alert.mp3"

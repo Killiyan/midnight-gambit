@@ -1,13 +1,29 @@
-<form class="sheet actor {{#if isSlimSheet}}is-slim{{/if}}" data-actor-id="{{actor._id}}" autocomplete="off">
+<form class="sheet actor {{#if isSlimSheet}}is-slim{{/if}} {{#if isCompanionView}}is-companion{{/if}}" data-actor-id="{{actor._id}}" autocomplete="off">
 
-  <nav class="sheet-tabs floating" data-group="main">
+  {{#if isCompanionView}}
+  <div class="mg-companion-menu">
+    <button type="button" class="mg-companion-menu-toggle" aria-expanded="false" aria-controls="mg-companion-tabs-{{actor._id}}">
+      <i class="fa-solid fa-bars" aria-hidden="true"></i> Menu
+      <i class="fa-solid fa-angle-down mg-companion-menu-chevron" aria-hidden="true"></i>
+    </button>
+    <div class="mg-companion-menu-reveal">
+      <div class="mg-companion-menu-panel" id="mg-companion-tabs-{{actor._id}}" inert>
+  {{/if}}
+  <nav class="sheet-tabs {{#unless isCompanionView}}floating{{/unless}}" data-group="main" aria-label="Character sheet tabs">
     <a class="item" data-tab="general"><i class="fas fa-user"></i> <span>General</span></a>
     <a class="item" data-tab="moves"><i class="fa-kit fa-mortal-strain"></i> <span>Moves</span></a>
     <a class="item" data-tab="gambits"><i class="fa-solid fa-cards"></i> <span>Gambits</span></a>
     <a class="item" data-tab="inventory"><i class="fa-solid fa-treasure-chest"></i> <span>Inventory</span></a>
     <a class="item" data-tab="journal"><i class="fa-solid fa-book-open-cover"></i> <span>Journal</span></a>
+    {{#unless isCompanionView}}
     <a class="item" data-tab="settings"><i class="fa-solid fa-gears"></i> <span>Settings</span></a>
+    {{/unless}}
   </nav>
+  {{#if isCompanionView}}
+      </div>
+    </div>
+  </div>
+  {{/if}}
 
   <div class="sheet-body">
 
@@ -1174,6 +1190,13 @@
                   </div>
                 {{/each}}
               </div>
+            </div>
+          </section>
+
+          <section class="mg-setting-section">
+            <h3>Companion</h3>
+            <div class="wrapper">
+              <button type="button" class="mg-open-companion"><i class="fa-solid fa-qrcode" aria-hidden="true"></i> Open on Phone</button>
             </div>
           </section>
 
