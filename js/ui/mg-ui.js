@@ -3,6 +3,7 @@ import { evaluateRoll, mgApplyStrainAttributePenalty, mgGetStrainEffectBadge, mg
 import { MGInitiativeController } from "../initiative/initiative-controller.js";
 import { MGSidebarPopouts } from "./sidebar-popout.js";
 import { MGChatPopouts } from "./chat-popout.js";
+import { bindSheetPopouts } from "./sheet-popout.js";
 import { openDiceDesign } from "./dice-preview.js";
 
 /* Midnight Gambit Custom UI
@@ -44,6 +45,7 @@ const mgSidebarPopouts = new MGSidebarPopouts({
 
 function mgGetLeftSidebarRoot() { return mgSidebarPopouts.activeRoot; }
 const mgChatPopouts = new MGChatPopouts(mgSidebarPopouts);
+bindSheetPopouts(mgSidebarPopouts);
 
 const MG_ATTRIBUTE_KEYS = ["tenacity", "finesse", "resolve", "guile", "instinct", "presence"];
 const MG_SKILL_BUCKETS = {

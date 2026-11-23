@@ -34,13 +34,13 @@ export class MGSidebarPopouts {
 		});
 	}
 
-	createWindow(title, key, { width = key === "sidebar" ? 500 : 446 } = {}) {
+	createWindow(title, key, { width = key === "sidebar" ? 500 : 446, limitWidth = true } = {}) {
 		const desktop = /Electron\//i.test(navigator.userAgent);
 		const popup = desktop
 			? this.createDesktopWindow(title, width)
 			: window.open("", "", `popup,width=${width},height=850,resizable=yes,scrollbars=yes`);
 		if (!popup) {
-			ui.notifications.warn("The browser blocked the sidebar window. Allow popups for this Foundry address and try again.");
+			ui.notifications.warn("The browser blocked the popout window. Allow popups for this Foundry address and try again.");
 			return null;
 		}
 		const doc = popup.document;
@@ -52,10 +52,10 @@ export class MGSidebarPopouts {
 			for (const style of document.querySelectorAll('link[rel="stylesheet"], style')) doc.head.appendChild(style.cloneNode(true));
 			doc.documentElement.className = document.documentElement.className;
 			doc.body.className = "mg-hud-enabled mg-sidebar-popout";
-			const limitWidth = () => {
+			const clampWidth = () => {
 				if (popup.innerWidth > width) popup.resizeTo(width + popup.outerWidth - popup.innerWidth, popup.outerHeight);
 			};
-			popup.addEventListener("resize", limitWidth);
+			if (limitWidth) popup.addEventListener("resize", clampWidth);
 		}
 		const root = doc.createElement("div");
 		if (!desktop) root.id = "mg-ui-root";

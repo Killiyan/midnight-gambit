@@ -96,6 +96,20 @@ body.mg-sidebar-popout,
 	}
 }
 
+/* Character and crew sheets inside a popout */
+.mg-sidebar-popout .mg-sheet-popout > .window-app {
+	position: relative;
+	inset: auto !important;
+	width: calc(100% - 4rem) !important; // Leave room for floating sheet tabs.
+	height: 100% !important;
+	max-height: none;
+	margin: 0;
+
+	.window-resizable-handle {
+		display: none;
+	}
+}
+
 body.mg-left-sidebar-detached .left-sidebar-toggle {
 	display: none;
 }
