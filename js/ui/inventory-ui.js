@@ -448,7 +448,7 @@ export function mgBindInventoryUI(html) {
         // ------------------------------------------------------------
         {
           const $root = html instanceof jQuery ? html : $(html);
-          const $tabs = $root.find(".tab-inventory, .tab-gambits");
+          const $tabs = $root.find(".tab-inventory, .tab-gambits, .tab-moves");
           if (!$tabs.length) return;
 
           const BUCKET_MS = 500; // keep in sync with your other inventory transitions
@@ -514,18 +514,21 @@ export function mgBindInventoryUI(html) {
 
                 const body = document.createElement("div");
 
-                // IMPORTANT: keep your existing grid layout so cards don’t get weird
-                body.classList.add("inventory-bucket-body", "inventory-grid");
+                body.classList.add("inventory-bucket-body");
                 body.style.width = "100%";
                 body.style.overflow = "hidden";
 
+                // Animate the outer clip without resizing the card layout inside it.
+                const grid = document.createElement("div");
+                grid.classList.add("inventory-grid");
+                body.appendChild(grid);
                 title.insertAdjacentElement("afterend", body);
 
                 // Move everything until the next title into the body
                 while (next && !next.classList.contains("inventory-bucket-title")) {
                   const move = next;
                   next = next.nextElementSibling;
-                  body.appendChild(move);
+                  grid.appendChild(move);
                 }
               }
             }
@@ -536,9 +539,11 @@ export function mgBindInventoryUI(html) {
             titleEl.classList.toggle("active", !collapsed);
             const icon = titleEl.querySelector(".inventory-bucket-toggle i");
             if (icon) icon.classList.toggle("rotated", !collapsed); // rotated = expanded
+            titleEl.querySelector(".inventory-bucket-toggle")?.setAttribute("aria-expanded", String(!collapsed));
           };
 
           const bucketHasItems = (body) =>
+            body?.classList.contains("mg-move-accordion-body") ||
             !!body?.querySelector?.(".inventory-card, .inventory-item, .gambit-card, .mg-deck-slot-card, .mg-hand-order-card");
 
           // Smooth max-height animation + stable end state (hidden=true when collapsed)
@@ -642,7 +647,12 @@ export function mgBindInventoryUI(html) {
           // Click handler
           $root
             .off("click.mgInvBucketToggle")
-            .on("click.mgInvBucketToggle", ".tab-inventory .inventory-bucket-toggle, .tab-gambits .inventory-bucket-toggle", async (ev) => {
+            .on("click.mgInvBucketToggle", ".tab-inventory .inventory-bucket-toggle, .tab-gambits .inventory-bucket-toggle, .mg-move-accordion-title .inventory-bucket-toggle", async (ev) => {
+              const title = ev.currentTarget.closest(".inventory-bucket-title");
+              if (!title) return;
+              // The mode class can be on the delegation root, so check it after the click matches.
+              if (title.classList.contains("mg-move-accordion-title") && !title.closest(".sheet.actor.is-slim")) return;
+
               ev.preventDefault();
               ev.stopPropagation();
 
@@ -653,11 +663,9 @@ export function mgBindInventoryUI(html) {
                 : "";
               if (q.length) return;
 
-              const title = ev.currentTarget.closest(".inventory-bucket-title");
-              if (!title) return;
-
               const body = title.nextElementSibling;
               if (!body || !body.classList.contains("inventory-bucket-body")) return;
+              if (body.dataset.animating === "1") return;
 
               const key = getBucketKey(title);
               if (!key) return;

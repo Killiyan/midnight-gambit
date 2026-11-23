@@ -12,7 +12,38 @@ import { mgCreateInventoryItem, mgSanitizeInventoryItemData } from "../items/ite
 
 const MG_ACTOR_GUISE_IMAGE = "systems/midnight-gambit/assets/images/guise.jpg";
 const MG_ACTOR_DEFAULT_IMAGE = "icons/svg/mystery-man.svg";
+const MG_SLIM_SHEET_MAX_WIDTH = 386;
 const MG_ATTRIBUTE_KEYS = ["tenacity", "finesse", "resolve", "guile", "instinct", "presence"];
+
+// Finish the Settings switch transitions before the actor update redraws the sheet.
+async function mgSaveSheetToggle(button, enabled, save) {
+  const toggles = Array.from(button.closest(".guise-toggles").querySelectorAll(".mg-primary-toggle"));
+  const previous = toggles.map(toggle => toggle.getAttribute("aria-pressed") === "true");
+
+  function setPressed(toggle, pressed) {
+    toggle.classList.toggle("is-on", pressed);
+    toggle.classList.toggle("is-off", !pressed);
+    toggle.setAttribute("aria-pressed", String(pressed));
+  }
+
+  toggles.forEach(toggle => {
+    toggle.disabled = true;
+    setPressed(toggle, toggle === button && enabled);
+  });
+
+  try {
+    const animations = toggles.flatMap(toggle =>
+      toggle.querySelector(".mg-primary-toggle-track").getAnimations({ subtree: true })
+    );
+    await Promise.allSettled(animations.map(animation => animation.finished));
+    await save();
+  } catch (error) {
+    toggles.forEach((toggle, index) => setPressed(toggle, previous[index]));
+    throw error;
+  } finally {
+    toggles.forEach(toggle => toggle.disabled = false);
+  }
+}
 
 function mgGetActorSheetImage(actor) {
   const img = String(actor?.img ?? "").trim();
@@ -150,6 +181,26 @@ export class MidnightGambitActorSheet extends ActorSheet {
     });
   }
 
+  setPosition(position = {}) {
+    if (this.actor.type !== "character") return super.setPosition(position);
+
+    const slim = game.settings.get("midnight-gambit", "characterSheetMode") === "slim";
+    if (slim) {
+      const width = position.width ?? this.position.width ?? this.options.width;
+      this._mgFullSheetWidth ??= this.position.width ?? this.options.width;
+      return super.setPosition({
+        ...position,
+        width: typeof width === "number" ? Math.min(width, MG_SLIM_SHEET_MAX_WIDTH) : MG_SLIM_SHEET_MAX_WIDTH
+      });
+    }
+
+    if (this._mgFullSheetWidth != null) {
+      position = { ...position, width: this._mgFullSheetWidth };
+      this._mgFullSheetWidth = null;
+    }
+    return super.setPosition(position);
+  }
+
     //Grabbing all the actor data information to create the initial sheet
     async getData(options) {
       const context = await super.getData(options);
@@ -159,6 +210,7 @@ export class MidnightGambitActorSheet extends ActorSheet {
       context.actor = this.actor;
       context.system = this.actor.system;
       context.actorDisplayImg = mgGetActorPlacementImage(this.actor, "profile");
+      context.slimDisplayImg = mgGetActorPlacementImage(this.actor, "slim", context.actorDisplayImg);
       context.canSendInventoryItems = Boolean(mgFindActorCrew(this.actor));
 
       context.sparkAttribute = this.actor.system.sparkAttribute ?? "guile";
@@ -716,6 +768,11 @@ export class MidnightGambitActorSheet extends ActorSheet {
       }));
 
       const gambitCardDesign = this.actor.system?.gambits?.cardDesign || "midnight";
+      context.isSlimSheet = game.settings.get("midnight-gambit", "characterSheetMode") === "slim";
+      context.characterSheetModes = [
+        { id: "slim", name: "Slim", isSelected: context.isSlimSheet },
+        { id: "full", name: "Full", isSelected: !context.isSlimSheet }
+      ];
       context.gambitHandUiEnabled = this.actor.system?.gambits?.handUiEnabled !== false;
       context.gambitCardDesigns = [
         { id: "midnight", name: "Midnight", isSelected: gambitCardDesign === "midnight" },
@@ -796,28 +853,21 @@ export class MidnightGambitActorSheet extends ActorSheet {
     /** Wrap the profile img in a cropbox and apply saved vars from flags. */
     _mgInitProfileCrop(html) {
       const $root = html instanceof jQuery ? html : $(html);
-      const $img = $root.find("img.mg-profile-img").first();
-      if (!$img.length) return;
-
-      // Wrap once
-      let $wrap = $img.closest(".mg-profile-crop.mg-cropbox");
-      if (!$wrap.length) {
-        $wrap = $(`<div class="mg-profile-crop mg-cropbox"></div>`);
-        $img.wrap($wrap);
-        $wrap = $img.closest(".mg-profile-crop.mg-cropbox");
-      }
-
-      // Apply from flags
       const crops = this.actor.getFlag("midnight-gambit", "crops") || {};
-      const crop = crops.profile?.css || {};
-      $img.attr("src", mgGetActorPlacementImage(this.actor, "profile"));
-      const x = Number.isFinite(crop.x) ? crop.x : 50;
-      const y = Number.isFinite(crop.y) ? crop.y : 50;
-      const s = Number.isFinite(crop.scale) ? crop.scale : 1;
-
-      $wrap[0].style.setProperty("--mg-crop-x", String(x));
-      $wrap[0].style.setProperty("--mg-crop-y", String(y));
-      $wrap[0].style.setProperty("--mg-crop-scale", String(s));
+      const profileSrc = mgGetActorPlacementImage(this.actor, "profile");
+      $root.find("img.mg-profile-img").each((_, img) => {
+        const key = img.dataset.mgPortraitPlacement || "profile";
+        const crop = crops[key]?.css || {};
+        const $img = $(img);
+        if (!$img.parent().is(".mg-profile-crop.mg-cropbox")) {
+          $img.wrap('<div class="mg-profile-crop mg-cropbox"></div>');
+        }
+        img.src = mgGetActorPlacementImage(this.actor, key, profileSrc);
+        const style = img.parentElement.style;
+        style.setProperty("--mg-crop-x", String(Number.isFinite(crop.x) ? crop.x : 50));
+        style.setProperty("--mg-crop-y", String(Number.isFinite(crop.y) ? crop.y : 50));
+        style.setProperty("--mg-crop-scale", String(Number.isFinite(crop.scale) ? crop.scale : 1));
+      });
     }
 
     _mgGetImageCropPlacements(html) {
@@ -835,6 +885,16 @@ export class MidnightGambitActorSheet extends ActorSheet {
           src: sheetSrc,
           className: "",
           defaultsFrom: []
+        },
+        {
+          key: "slim",
+          label: "Slim Sheet",
+          icon: "fa-solid fa-id-badge",
+          title: "Frame Slim Sheet Portrait",
+          hint: "Drag to pan - Mouse wheel to zoom - Esc to cancel",
+          description: "Frame the square portrait in the Slim sheet header.",
+          src: mgGetActorPlacementImage(this.actor, "profile"),
+          className: "slim-portrait-crop"
         },
         {
           key: "chat",
@@ -1542,7 +1602,7 @@ export class MidnightGambitActorSheet extends ActorSheet {
 	    }
 
     _mgRefreshImagePlacement(key, html) {
-      if (key === "profile") this._mgInitProfileCrop(html);
+      if (key === "profile" || key === "slim") this._mgInitProfileCrop(html);
       if (key === "chat") ui.chat?.render?.(true);
 
       if (["sidebar", "actorSidebar", "crewSidebar", "crewInitiative", "crewSheet", "crewSheetInitiative"].includes(key)) {
@@ -1581,7 +1641,7 @@ export class MidnightGambitActorSheet extends ActorSheet {
 	    /** Modal cropper: drag to pan, wheel to zoom; saves to flags on Save. */
     _mgOpenProfileCropper(html) {
       const $root = html instanceof jQuery ? html : $(html);
-      const $img = $root.find("img.mg-profile-img").first();
+      const $img = $root.find("img.mg-profile-img:not([data-mg-portrait-placement])").first();
       const src = $img.attr("src");
       if (!src) return;
 
@@ -1903,6 +1963,32 @@ _mgOpenSidebarCropper() {
 
   async activateListeners(html) {
     super.activateListeners(html);
+
+    html.find(".mg-sheet-mode-toggle").on("click", async (event) => {
+      const button = event.currentTarget;
+      if (button.getAttribute("aria-pressed") === "true") return;
+
+      const toggles = html.find(".mg-sheet-mode-toggle").prop("disabled", true);
+      try {
+        await game.settings.set("midnight-gambit", "characterSheetMode", button.dataset.sheetMode);
+        const slim = button.dataset.sheetMode === "slim";
+        html.find("form.sheet.actor").addBack("form.sheet.actor")
+          .toggleClass("is-slim", slim);
+        html.find("[data-mg-slim-portrait]").prop("hidden", !slim);
+        html.find("[data-mg-full-portrait]").prop("hidden", slim);
+        html.find("[data-mg-slim-skills]").prop("hidden", !slim);
+        html.find("[data-mg-full-skills]").prop("hidden", slim);
+        this.setPosition();
+        toggles.each((_, toggle) => {
+          const selected = toggle === button;
+          toggle.classList.toggle("is-on", selected);
+          toggle.classList.toggle("is-off", !selected);
+          toggle.setAttribute("aria-pressed", String(selected));
+        });
+      } finally {
+        toggles.prop("disabled", false);
+      }
+    });
     html.find("[data-mg-dice-design]").on("click", event => {
       event.preventDefault();
       openDiceDesign();
@@ -2060,8 +2146,7 @@ _mgOpenSidebarCropper() {
       await this.actor.update({ "system.edgeNext": !cur }, { render: false });
 
       // Update UI immediately without re-render
-      const btn = ev.currentTarget;
-      btn.classList.toggle("is-active", !cur);
+      html.find(".mg-edge-toggle").toggleClass("is-active", !cur);
     });
 
     const refreshStrainEffectBadges = () => {
@@ -3480,7 +3565,7 @@ _mgOpenSidebarCropper() {
     // -------------------------
     // Settings tab: swap primary guise (toggle UI)
     // -------------------------
-    html.find(".mg-primary-toggle")
+    html.find(".mg-primary-toggle[data-guise-id]")
       .off("click.mgPrimaryGuise")
       .on("click.mgPrimaryGuise", async (ev) => {
         ev.preventDefault();
@@ -3529,27 +3614,7 @@ _mgOpenSidebarCropper() {
         // Max 2 guises total: keep one secondary
         nextSecondary = nextSecondary.slice(0, 1);
 
-        // Prevent spam-clicking during transition
-        const wrap = clicked.closest(".mg-guise-toggle-list");
-        const toggles = wrap ? Array.from(wrap.querySelectorAll(".mg-primary-toggle")) : [];
-        toggles.forEach(btn => btn.disabled = true);
-
-        // --- Optimistic UI update first so CSS transition can actually run ---
-        toggles.forEach(btn => {
-          btn.classList.remove("is-on");
-          btn.classList.add("is-off");
-          btn.setAttribute("aria-pressed", "false");
-        });
-
-        clicked.classList.remove("is-off");
-        clicked.classList.add("is-on");
-        clicked.setAttribute("aria-pressed", "true");
-
-        // Let the browser paint the class change, then give the transition a moment
-        await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-        await new Promise(resolve => setTimeout(resolve, 160));
-
-        try {
+        await mgSaveSheetToggle(clicked, true, async () => {
           const nextBaseAttributes = mgBuildBaseAttributesForPrimaryGuiseSwap(this.actor, currentPrimaryId);
 
           await this.actor.update({
@@ -3561,9 +3626,7 @@ _mgOpenSidebarCropper() {
           });
 
           this.render(true);
-        } finally {
-          toggles.forEach(btn => btn.disabled = false);
-        }
+        });
       });
 
     html.find(".mg-gambit-design-toggle")
@@ -3576,16 +3639,10 @@ _mgOpenSidebarCropper() {
         const allowed = ["pearl", "cobalt", "midnight", "noir"];
         if (!allowed.includes(design)) return;
 
-        const wrap = clicked.closest(".gambit-design-toggles");
-        const toggles = wrap ? Array.from(wrap.querySelectorAll(".mg-gambit-design-toggle")) : [];
-
-        toggles.forEach(btn => {
-          btn.classList.toggle("is-on", btn === clicked);
-          btn.classList.toggle("is-off", btn !== clicked);
-          btn.setAttribute("aria-pressed", btn === clicked ? "true" : "false");
-        });
-
-        await this.actor.update({ "system.gambits.cardDesign": design });
+        if (clicked.getAttribute("aria-pressed") === "true") return;
+        await mgSaveSheetToggle(clicked, true, () =>
+          this.actor.update({ "system.gambits.cardDesign": design })
+        );
       });
 
     html.find(".mg-gambit-hand-ui-toggle")
@@ -3596,12 +3653,10 @@ _mgOpenSidebarCropper() {
         const clicked = ev.currentTarget;
         const enabled = clicked.getAttribute("aria-pressed") !== "true";
 
-        clicked.classList.toggle("is-on", enabled);
-        clicked.classList.toggle("is-off", !enabled);
-        clicked.setAttribute("aria-pressed", enabled ? "true" : "false");
-        clicked.title = enabled ? "Hide Gambit hand UI" : "Show Gambit hand UI";
-
-        await this.actor.update({ "system.gambits.handUiEnabled": enabled });
+        await mgSaveSheetToggle(clicked, enabled, async () => {
+          await this.actor.update({ "system.gambits.handUiEnabled": enabled });
+          clicked.title = enabled ? "Hide Gambit hand UI" : "Show Gambit hand UI";
+        });
       });
 
     // Attribute edit: pick the visible value, then store the base minus primary Guise modifier.
@@ -3631,9 +3686,9 @@ _mgOpenSidebarCropper() {
 
       await this.actor.update({ [`system.baseAttributes.${key}`]: nextBase }, { render: false });
 
-      el.setAttribute("data-base", String(nextBase));
-      el.setAttribute("data-current", String(displayedNext));
-      el.textContent = this._mgFormatSigned(displayedNext);
+      html.find(".attribute-modifier").filter((_, control) => control.dataset.key === key)
+        .attr({ "data-base": String(nextBase), "data-current": String(displayedNext) })
+        .text(this._mgFormatSigned(displayedNext));
     });
 
     html.find(".attribute-modifier").on("click", async (event) => {
@@ -3694,8 +3749,7 @@ _mgOpenSidebarCropper() {
 
       if (edge) {
         await this.actor.update({ "system.edgeNext": false }, { render: false });
-        const btn = html.find(".mg-edge-toggle")[0];
-        if (btn) btn.classList.remove("is-active");
+        html.find(".mg-edge-toggle").removeClass("is-active");
       }
     });
 
@@ -3873,8 +3927,7 @@ _mgOpenSidebarCropper() {
 
         if (edge) {
           await this.actor.update({ "system.edgeNext": false }, { render: false });
-          const btn = html.find(".mg-edge-toggle")[0];
-          if (btn) btn.classList.remove("is-active");
+          html.find(".mg-edge-toggle").removeClass("is-active");
         }
     });
 
@@ -3897,8 +3950,13 @@ _mgOpenSidebarCropper() {
 
       await this.actor.update({ [`system.skills.${key}`]: next }, { render: false });
 
-      el.setAttribute("data-base", String(next));
-      el.textContent = String(next);
+      html.find(".skill-value").filter((_, control) => control.dataset.key === key)
+        .attr("data-base", String(next))
+        .each((_, control) => {
+          const bonus = control.querySelector(".skill-temp-bonus");
+          control.replaceChildren(String(next));
+          if (bonus) control.append(bonus);
+        });
     });
 
     // Setting values before Foundry Sheet refresh - Fixes Mortal and Soul Capacity

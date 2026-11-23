@@ -390,6 +390,13 @@ Hooks.once("init", async () => {
     default: false
   });
 
+  game.settings.register("midnight-gambit", "characterSheetMode", {
+    scope: "client",
+    config: false,
+    type: String,
+    default: "full"
+  });
+
   game.settings.register("midnight-gambit", "auraEncounter", {
     name: "Aura Encounter", scope: "world", config: false, type: Object,
     default: { version: 0, entries: [], active: "" }

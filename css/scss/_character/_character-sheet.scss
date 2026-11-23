@@ -745,7 +745,7 @@ ol li {
         color:$mg-ivory;
 
         // Character sheet button tweak. Remove later if I don't like
-        button:not(.tox-tbtn):not(.inventory-bucket-toggle):not(.crew-inventory-bucket-toggle):not(.mg-card-toggle):not(.post-gambit):not(.status-buttons button):not(.delete-move):not(.mg-hand-order-eye):not(.mg-primary-toggle):not(.mg-seeall-toggle):not(.mg-card-toggle):not(.item-filter-toggle):not(.edge-button):not(.mg-init-actions button),
+        button:not(.tox-tbtn):not(.inventory-bucket-toggle):not(.crew-inventory-bucket-toggle):not(.mg-card-toggle):not(.post-gambit):not(.status-buttons button):not(.delete-move):not(.mg-hand-order-eye):not(.mg-primary-toggle):not(.mg-seeall-toggle):not(.mg-card-toggle):not(.item-filter-toggle):not(.edge-button):not(.mg-init-actions button):not(:where(.is-slim .strain-container .cap-tick)),
         form button,
         .dialog-button {
           background: $mg-blue-4;
@@ -880,6 +880,7 @@ ol li {
             height: 40%;
             width: 100%;
             background: linear-gradient(0deg, rgba(18, 33, 55, 0.00) 46.83%, rgba(18, 33, 55, 0.50) 100%);
+            pointer-events: none;
           }
 
           .name {
@@ -922,7 +923,7 @@ ol li {
               height: auto;
               width: auto;
               z-index: 4;
-              transition: background .5s ease, color .5s ease;
+              transition: background .5s ease, color .5s ease, border .5s ease;
 
               i {
                 color: $mg-blue-3;
@@ -1058,7 +1059,7 @@ ol li {
             }
           }
 
-          .strain-container {
+          .strain-container:not(.is-slim .strain-container) {
             display: flex;
             align-items: center;
             justify-content: space-between;
@@ -1666,6 +1667,10 @@ ol li {
         padding: 1rem;
         border-right: 2px solid $mg-blue-main-2;
         background: $mg-blue-main;
+
+        .spark-label-slim {
+          display: none;
+        }
       }
 
       .spark-skill-row {

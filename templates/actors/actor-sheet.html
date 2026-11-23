@@ -1,4 +1,4 @@
-<form class="sheet actor" data-actor-id="{{actor._id}}" autocomplete="off">
+<form class="sheet actor {{#if isSlimSheet}}is-slim{{/if}}" data-actor-id="{{actor._id}}" autocomplete="off">
 
   <nav class="sheet-tabs floating" data-group="main">
     <a class="item" data-tab="general"><i class="fas fa-user"></i> <span>General</span></a>
@@ -15,6 +15,11 @@
 
       <div class="personal-info">
         <div class="name">
+
+          <div class="mg-slim-portrait" data-mg-slim-portrait {{#unless isSlimSheet}}hidden{{/unless}}>
+            <img class="mg-profile-img" data-mg-portrait-placement="slim" src="{{slimDisplayImg}}" alt="{{actor.name}}" />
+          </div>
+
           <!-- Character header title with edit button -->
           <div class="mg-name-wrap" data-mg-nameblock>
             <h1 class="mg-name-view">{{actor.name}}</h1>
@@ -128,7 +133,7 @@
         </div> 
       </div>
 
-      <div class="profile-image">
+      <div class="profile-image" data-mg-full-portrait {{#if isSlimSheet}}hidden{{/if}}>
         <img class="mg-profile-img" src="{{actorDisplayImg}}" data-edit="img" title="{{actor.name}}" />
       </div>
     </div>
@@ -137,8 +142,23 @@
       
       <!--This is our General tab where Image, and general gameplay goes-->
       <div class="tab" data-group="main" data-tab="general" >
+
+        <!-- Slim sheet actions above attributes -->
+        <div class="button-wrapper mg-content slim-buttons">
+          <button type="button" class="edge-button mg-edge-toggle {{#if system.edgeNext}}is-active{{/if}}" title="Edge: your next Skill or Attribute roll is rolled twice">
+            <i class="fa-solid fa-scythe"></i>
+          </button>
+
+          <button type="button" class="mg-temp-skill-bonuses">
+            <i class="fa-solid fa-handshake-angle"></i>
+          </button>
+
+          <button type="button" data-tooltip="Recover" class="long-rest-button">
+            <i class="fas fa-bed"></i>
+          </button>
+        </div>
         
-        <div class="attribute-container">
+        <div class="attribute-container" data-mg-full-skills {{#if isSlimSheet}}hidden{{/if}}>
           {{#each attributeKeys as |key|}}
 
             <div class="attribute-column" data-attr="{{key}}">
@@ -213,7 +233,77 @@
           {{/each}}
         </div>
 
-        <div class="button-wrapper mg-content">
+        <div class="mg-slim-skills" data-mg-slim-skills {{#unless isSlimSheet}}hidden{{/unless}}>
+          {{#each attributeKeys as |key|}}
+
+            <div class="attribute-column" data-attr="{{key}}">
+              {{#with (lookup ../strainAttributeEffects key) as |effect|}}
+                <span class="mg-strain-warning-badge {{effect.tree}}"
+                      data-tooltip="{{effect.title}}">
+                  <i class="fa-solid fa-exclamation"></i>
+                </span>
+              {{/with}}
+
+              <div class="mg-slim-attribute">
+                <span class="mg-slim-attribute-label">{{key}}</span>
+                <div class="mg-slim-attribute-value">
+                  <span class="attribute-modifier"
+                        data-tooltip="Click to roll | Right click to edit Attribute"
+                        data-key="{{key}}"
+                        data-current="{{lookup ../system.attributes key}}"
+                        data-base="{{lookup ../system.baseAttributes key}}">
+                    {{#if (gte (lookup ../system.attributes key) 0)}}
+                      +{{lookup ../system.attributes key}}
+                    {{else}}
+                      {{lookup ../system.attributes key}}
+                    {{/if}}
+                  </span>
+
+                  {{#if (lookup ../tempAttributeBonuses key)}}
+                    <span class="attribute-temp-bonus"
+                          data-tooltip="Temporary Attribute Bonus">
+                      {{#if (gte (lookup ../tempAttributeBonuses key) 0)}}
+                        +{{lookup ../tempAttributeBonuses key}}
+                      {{else}}
+                        {{lookup ../tempAttributeBonuses key}}
+                      {{/if}}
+                    </span>
+                  {{/if}}
+                </div>
+              </div>
+
+              <div class="mg-slim-skill-grid">
+                {{#each (lookup ../skillBuckets key) as |skillKey|}}
+                  <div class="mg-slim-skill">
+                    <div class="skill-name" data-key="{{skillKey}}">
+                      {{lookup ../../skillLabels skillKey}}
+                    </div>
+
+                    <div class="skill-value"
+                        data-key="{{skillKey}}"
+                        data-base="{{lookup ../../system.skills skillKey}}">
+                      {{lookup ../../system.skills skillKey}}
+
+                      {{#if (lookup ../../tempSkillBonuses skillKey)}}
+                        <span class="skill-temp-bonus"
+                              data-tooltip="Temporary Skill Bonus">
+                          {{#if (gte (lookup ../../tempSkillBonuses skillKey) 0)}}
+                            +{{lookup ../../tempSkillBonuses skillKey}}
+                          {{else}}
+                            {{lookup ../../tempSkillBonuses skillKey}}
+                          {{/if}}
+                        </span>
+                      {{/if}}
+                    </div>
+                  </div>
+                {{/each}}
+              </div>
+            </div>
+
+          {{/each}}
+        </div>
+
+        <div class="button-wrapper mg-content full-buttons">
           <button type="button" class="edge-button mg-edge-toggle {{#if system.edgeNext}}is-active{{/if}}" title="Edge: your next Skill or Attribute roll is rolled twice">
             <i class="fa-solid fa-scythe"></i>
             Edge
@@ -263,7 +353,10 @@
 
         {{#if (or isFullCaster isHalfCaster)}}
           <div class="spark-container">
-            <label class="spark-label" data-tooltip="Spark slots represent mystical charges or energy. Click to spend or restore.">Sparks</label>
+            <label class="spark-label" data-tooltip="Spark slots represent mystical charges or energy. Click to spend or restore.">
+              <span class="spark-label-full">Sparks</span>
+              <span class="spark-label-slim">Spark</span>
+            </label>
 
             <div class="spark-skill-row">
               <div class="skill-value"
@@ -277,7 +370,7 @@
             {{#if isFullCaster}}
               <div class="spark-school-selectors">
                 <label for="sparkSchool1">Schools</label>
-                <select id="spark-school-1" name="system.sparkSchool1">
+                <select id="spark-school-1" name="system.sparkSchool1" aria-label="First Spark school">
                   <option value="">-- Select --</option>
                   <option value="veiling" {{#if (eq system.sparkSchool1 "veiling")}}selected{{/if}}>Veiling</option>
                   <option value="sundering" {{#if (eq system.sparkSchool1 "sundering")}}selected{{/if}}>Sundering</option>
@@ -290,7 +383,7 @@
                   <option value="life" {{#if (or (eq system.sparkSchool1 "life") (eq system.sparkSchool1 "ember"))}}selected{{/if}}>Life</option>
                 </select>
 
-                <select id="spark-school-2" class="spark-select" name="system.sparkSchool2">
+                <select id="spark-school-2" class="spark-select" name="system.sparkSchool2" aria-label="Second Spark school">
                   <option value="">-- Select --</option>
                   <option value="veiling" {{#if (eq system.sparkSchool2 "veiling")}}selected{{/if}}>Veiling</option>
                   <option value="sundering" {{#if (eq system.sparkSchool2 "sundering")}}selected{{/if}}>Sundering</option>
@@ -308,7 +401,7 @@
             {{else if isHalfCaster}}
               <div class="spark-school-selectors">
                 <label for="sparkSchool1">Spark School</label>
-                <select class="spark-select" name="system.sparkSchool1">
+                <select class="spark-select" name="system.sparkSchool1" aria-label="Spark school">
                   <option value="">Select</option>
                   <option value="veiling" {{#if (eq system.sparkSchool1 "veiling")}}selected{{/if}}>Veiling</option>
                   <option value="sundering" {{#if (eq system.sparkSchool1 "sundering")}}selected{{/if}}>Sundering</option>
@@ -345,14 +438,21 @@
       <!--This is our Moves tab. It shows Signature Perk, and moves on the character sheet-->
       <div class="tab tab-moves" data-tab="moves">
         <div class="moves-settings">
-          <button type="button" class="mg-open-moves-library">
-            <i class="fa-solid fa-book-open"></i>
-            Moves Library
+          <button type="button" class="mg-open-moves-library" title="Moves Library" aria-label="Moves Library">
+            <i class="fa-solid fa-book-open" aria-hidden="true"></i>
+            <span class="mg-toolbar-label">Moves Library</span>
           </button>
         </div>
 
-        <div>
-          <h2 class="mg-content"><i class="fa-kit fa-signature-perk"></i> Signature Perk</h2>
+        <div class="mg-move-accordions">
+        <section class="mg-move-accordion">
+        <div class="inventory-bucket-title mg-content mg-move-accordion-title" data-bucket="move-signature">
+          <span class="item-icon"><i class="fa-kit fa-signature-perk"></i></span>
+          <h2>Signature Perk</h2>
+          <button type="button" class="inventory-bucket-toggle" aria-label="Toggle Signature Perk"><i class="fa-solid fa-angle-down"></i></button>
+        </div>
+        <div class="inventory-bucket-body mg-move-accordion-body">
+          <h2 class="mg-content mg-full-move-heading"><i class="fa-kit fa-signature-perk"></i> Signature Perk</h2>
           <div class="signature-wrapper">
 
             {{#if guise}}
@@ -494,9 +594,18 @@
             {{/if}}
           </div>
 
-          {{#if guise}}
-            <div class="basic-moves">
-              <h3 class="mg-content"><i class="fa-kit fa-basic-move"></i>Basic Moves</h3>
+        </div>
+        </section>
+
+        <section class="mg-move-accordion">
+            <div class="inventory-bucket-title mg-content mg-move-accordion-title" data-bucket="move-basic">
+              <span class="item-icon"><i class="fa-kit fa-basic-move"></i></span>
+              <h2>Moves</h2>
+              <button type="button" class="inventory-bucket-toggle" aria-label="Toggle Moves"><i class="fa-solid fa-angle-down"></i></button>
+            </div>
+            <div class="basic-moves inventory-bucket-body mg-move-accordion-body">
+            {{#if guise}}
+              <h3 class="mg-content mg-full-move-heading"><i class="fa-kit fa-basic-move"></i>Basic Moves</h3>
               <div class="move-container">
                 {{#each enrichedMoves}}
                   <div class="move-block" data-move-index="{{@index}}" data-move-use-id="{{this.handId}}">
@@ -574,14 +683,20 @@
                       {{/each}}
                 {{/if}}                 
               </div>
-            </div>        
-          {{else}}
-            <p>No guise assigned. Assign one to gain moves.</p>
-          {{/if}}
-        </div>
+            {{else}}
+              <p>No guise assigned. Assign one to gain moves.</p>
+            {{/if}}
+            </div>
+        </section>
 
-        <div class="moves-section">
-          <h3 class="mg-content"><i class="fa-kit fa-learned-moves"></i> Learned Moves</h3>
+        <section class="mg-move-accordion">
+        <div class="inventory-bucket-title mg-content mg-move-accordion-title" data-bucket="move-learned">
+          <span class="item-icon"><i class="fa-kit fa-learned-moves"></i></span>
+          <h2>Learned Moves</h2>
+          <button type="button" class="inventory-bucket-toggle" aria-label="Toggle Learned Moves"><i class="fa-solid fa-angle-down"></i></button>
+        </div>
+        <div class="moves-section inventory-bucket-body mg-move-accordion-body">
+          <h3 class="mg-content mg-full-move-heading"><i class="fa-kit fa-learned-moves"></i> Learned Moves</h3>
           <div class="moves-grid" data-move-list>
             {{#each actor.items as |item|}}
               {{#if (and (eq item.type "move") item.system.learned (not item.system.isSignature))}}
@@ -608,9 +723,17 @@
           </div>
         </div>
 
+        </section>
+
         {{#if moveHandControls.length}}
-          <div class="moves-section mg-move-hand-order-section">
-            <h3 class="mg-content"><i class="fa-solid fa-layer-group"></i> Move Hand Order</h3>
+        <section class="mg-move-accordion">
+          <div class="inventory-bucket-title mg-content mg-move-accordion-title" data-bucket="move-hand-order">
+            <span class="item-icon"><i class="fa-solid fa-layer-group"></i></span>
+            <h2>Move Hand Order</h2>
+            <button type="button" class="inventory-bucket-toggle" aria-label="Toggle Move Hand Order"><i class="fa-solid fa-angle-down"></i></button>
+          </div>
+          <div class="moves-section mg-move-hand-order-section inventory-bucket-body mg-move-accordion-body">
+            <h3 class="mg-content mg-full-move-heading"><i class="fa-solid fa-layer-group"></i> Move Hand Order</h3>
 
             <div class="mg-hand-order-list" data-mg-order-list="move-hand">
               {{#each moveHandControls as |move|}}
@@ -640,8 +763,9 @@
               {{/each}}
             </div>
           </div>
+        </section>
         {{/if}}
-
+        </div>
       </div>
 
       <!--This is our Deck, and currently drawn Gambits-->
@@ -649,7 +773,10 @@
         <div class="gambit-tab">
 
           <div class="gambit-settings">
-            <button type="button" class="reset-gambit-deck"><i class="fa-solid fa-arrows-spin"></i> Reset Deck</button>
+            <button type="button" class="reset-gambit-deck" title="Reset Deck" aria-label="Reset Deck">
+              <i class="fa-solid fa-arrows-spin" aria-hidden="true"></i>
+              <span class="mg-toolbar-label">Reset Deck</span>
+            </button>
           </div>
 
           <div class="inventory-section gambit-accordion-section">
@@ -897,11 +1024,13 @@
       <div class="tab settings-tab" data-group="main" data-tab="settings">
         {{#if hasActiveGuise}}
           <div class="level-controls">
-            <button type="button" class="mg-level-up {{#unless canLevelUp}}disabled{{/unless}}">
-              <i class="fa-solid fa-angles-up"></i> Level Up
+            <button type="button" class="mg-level-up {{#unless canLevelUp}}disabled{{/unless}}" title="Level Up" aria-label="Level Up">
+              <i class="fa-solid fa-angles-up" aria-hidden="true"></i>
+              <span class="mg-toolbar-label">Level Up</span>
             </button>
-            <button type="button" class="mg-undo-level {{#unless canLevelDown}}disabled{{/unless}}">
-              <i class="fa-solid fa-rotate-left"></i> Undo Level
+            <button type="button" class="mg-undo-level {{#unless canLevelDown}}disabled{{/unless}}" title="Undo Level" aria-label="Undo Level">
+              <i class="fa-solid fa-rotate-left" aria-hidden="true"></i>
+              <span class="mg-toolbar-label">Undo Level</span>
             </button>
           </div>
         {{else}}
@@ -1014,13 +1143,37 @@
             </div>
           </section>
 
-          <!-- Dice Design-->
+          <!-- Dice Design -->
           <section class="mg-setting-section" data-mg-personal-dice-section {{#unless canUsePersonalDiceDesign}}hidden{{/unless}}>
             <h3>Dice Style Design</h3>
 
             <div class="wrapper">
               <p class="mg-muted">Style your dice to personally fit the feel of your character.</p>
               <button type="button" data-mg-dice-design><i class="fa-solid fa-dice-d20" aria-hidden="true"></i> Edit Dice Design</button>
+            </div>
+          </section>
+
+          <!-- Slim Sheet -->
+          <section class="mg-setting-section">
+            <h3>Sheet Type</h3>
+
+            <div class="wrapper">
+              <div class="guise-toggles">
+                {{#each characterSheetModes as |mode|}}
+                  <div class="guise-toggle-row">
+                    <span class="guise-toggle-name">{{mode.name}}</span>
+                    <button type="button"
+                            class="mg-primary-toggle mg-sheet-mode-toggle {{#if mode.isSelected}}is-on{{else}}is-off{{/if}}"
+                            data-sheet-mode="{{mode.id}}"
+                            aria-label="{{mode.name}} sheet"
+                            aria-pressed="{{#if mode.isSelected}}true{{else}}false{{/if}}">
+                      <span class="mg-primary-toggle-track">
+                        <span class="mg-primary-toggle-knob"></span>
+                      </span>
+                    </button>
+                  </div>
+                {{/each}}
+              </div>
             </div>
           </section>
 
