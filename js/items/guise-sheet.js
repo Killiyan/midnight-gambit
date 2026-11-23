@@ -1,3 +1,4 @@
+import { MG_ATTRIBUTE_KEYS } from "../attributes.js";
 const MG_GUISE_IMAGE = "systems/midnight-gambit/assets/images/guise.jpg";
 const MG_ITEM_DEFAULT_IMAGE = "icons/svg/item-bag.svg";
 
@@ -88,7 +89,7 @@ export class GuiseSheet extends ItemSheet {
     const moveTagSelected = sys.moves.map(m => Object.fromEntries((m.tags || []).map(id => [id, true])));
 
     base.system = sys;
-    base.attributeKeys = ["tenacity","finesse","resolve","guile","instinct","presence"];
+    base.attributeKeys = MG_ATTRIBUTE_KEYS;
 
     // NEW template context
     base.tags = tagList;

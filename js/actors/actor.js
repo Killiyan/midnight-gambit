@@ -1,3 +1,4 @@
+import { MG_ATTRIBUTE_KEYS } from "../attributes.js";
 import { LEVEL_TABLE, getGambitDeckSlotsForLevel, getGambitPointsForLevel } from "../../config.js";
 
 export class MidnightGambitActor extends Actor {
@@ -6,7 +7,7 @@ export class MidnightGambitActor extends Actor {
     const data = this.system;
 
     // === Initialize attribute and strain structures ===
-    const ATTR_KEYS = ["tenacity","finesse","resolve","guile","instinct","presence"];
+    const ATTR_KEYS = this.type === "character" ? MG_ATTRIBUTE_KEYS : MG_ATTRIBUTE_KEYS.filter(key => key !== "react");
 
     // Ensure baseAttributes exists AND each key is a finite number
     data.baseAttributes ??= {};
@@ -305,7 +306,7 @@ export class MidnightGambitActor extends Actor {
       sparkSlots: base?.sparkSlots ?? 0,
       expertise: base?.expertise ?? 0,
       signaturePerk: base?.signaturePerk ?? 0,
-      skills: 0
+      skills: base?.skills ?? 0
     };
     for (const k of Object.keys(p)) {
       const n = Number(p[k]); p[k] = Number.isFinite(n) ? n : 0;
@@ -324,6 +325,7 @@ export class MidnightGambitActor extends Actor {
 
     return {
       attributes: Number(g.attributePoints || 0),
+      skills:     Number(g.skillPoints || 0),
       moves:      Number(g.moves || 0),
       sparkSlots: isCaster ? Number(g.sparkSlots || 0) : 0,
       expertise:  Number(g.expertise || 0),
@@ -383,6 +385,7 @@ export class MidnightGambitActor extends Actor {
     const pendingPrev = this._ensurePending(prevFlags.pending ?? {});
     const pendingNext = this._ensurePending({
       attributes: pendingPrev.attributes + grants.attributes,
+      skills:     pendingPrev.skills     + grants.skills,
       moves:      pendingPrev.moves      + grants.moves,
       sparkSlots: pendingPrev.sparkSlots + grants.sparkSlots,
       expertise:  pendingPrev.expertise  + (grants.expertise || 0),
@@ -396,6 +399,7 @@ export class MidnightGambitActor extends Actor {
     // ---- Announce in chat ----
     const gainBits = [];
     if (grants.attributes) gainBits.push(`+${grants.attributes} Attribute`);
+    if (grants.skills)     gainBits.push(`+${grants.skills} Skill Point`);
     if (grants.moves)      gainBits.push(`+${grants.moves} Learned Move`);
     if (grants.sparkSlots) gainBits.push(`+${grants.sparkSlots} Spark Slot`);
     if (grants.gambitPoints) gainBits.push(`+${grants.gambitPoints} Gambit Point`);

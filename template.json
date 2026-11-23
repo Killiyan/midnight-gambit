@@ -183,7 +183,8 @@
 			"resolve": 0,
 			"guile": 0,
 			"instinct": 0,
-			"presence": 0
+			"presence": 0,
+			"react": 0
 		},
 		"skills": {
 			"brawl": 0,

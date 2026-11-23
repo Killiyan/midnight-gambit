@@ -1,3 +1,4 @@
+import { MG_ATTRIBUTE_KEYS, MG_SKILL_BUCKETS, mgGetSkillAttribute } from "../attributes.js";
 import { mgGetAuraPenalty } from "./aura-encounter.js";
 import { canUsePersonalDiceDesign, openDiceDesign } from "../ui/dice-preview.js";
 import { mgBindInventoryUI } from "../ui/inventory-ui.js";
@@ -14,7 +15,6 @@ import { mgCreateInventoryItem, mgSanitizeInventoryItemData } from "../items/ite
 const MG_ACTOR_GUISE_IMAGE = "systems/midnight-gambit/assets/images/guise.jpg";
 const MG_ACTOR_DEFAULT_IMAGE = "icons/svg/mystery-man.svg";
 const MG_SLIM_SHEET_MAX_WIDTH = 386;
-const MG_ATTRIBUTE_KEYS = ["tenacity", "finesse", "resolve", "guile", "instinct", "presence"];
 
 // Finish the Settings switch transitions before the actor update redraws the sheet.
 async function mgSaveSheetToggle(button, enabled, save) {
@@ -308,24 +308,8 @@ export class MidnightGambitActorSheet extends ActorSheet {
         return super.getData(options);
       }
 
-      context.attributeKeys = [
-        "tenacity",
-        "finesse",
-        "resolve",
-        "guile",
-        "instinct",
-        "presence"
-      ];
-
-      // Skill buckets for the new under-attribute layout
-      context.skillBuckets = {
-        tenacity: ["brawl", "athletics", "endure"],
-        finesse:  ["aim", "stealth", "sleight"],
-        resolve:  ["will", "composure", "grit"],
-        guile:    ["lore", "investigate", "deceive"],
-        instinct: ["survey", "hunt", "nature"],
-        presence: ["command", "charm", "perform"]
-      };
+      context.attributeKeys = MG_ATTRIBUTE_KEYS;
+      context.skillBuckets = MG_SKILL_BUCKETS;
 
       // Human-friendly labels (keeps template clean)
       context.skillLabels = {
@@ -3803,29 +3787,6 @@ _mgOpenSidebarCropper() {
     // Run it once on render to sync state
     updateSparkOptions();
 
-    //Adding Skill rolling logic based off Attributes + and adding Skill +
-    const skillAttributeMap = {
-      brawl: "tenacity", endure: "tenacity", athletics: "tenacity",
-      aim: "finesse", stealth: "finesse", sleight: "finesse",
-      will: "resolve", grit: "resolve", composure: "resolve",
-      lore: "guile", investigate: "guile", deceive: "guile",
-      survey: "instinct", hunt: "instinct", nature: "instinct",
-      command: "presence", charm: "presence", perform: "presence",
-
-      // Spark: still mapped for now until we implement Guise casting attribute
-      spark: "guile"
-    };
-
-
-    const skillAttributeDisplay = {
-      brawl: "Ten", endure: "Ten", athletics: "Ten",
-      aim: "Fin", stealth: "Fin", sleight: "Fin",
-      will: "Res", grit: "Res",
-      lore: "Gui", investigate: "Gui", deceive: "Gui", spark: "Gui",
-      survey: "Ins", hunt: "Ins", nature: "Ins",
-      command: "Pre", charm: "Pre", perform: "Pre"
-    };
-
     const skillLabels = {
       brawl: "Brawl",
       endure: "Endure",
@@ -3868,7 +3829,7 @@ _mgOpenSidebarCropper() {
         const baseSkillMod = Number(this.actor.system.skills?.[skillKey] ?? 0);
         const tempSkillMod = Number(this.actor.system.tempSkillBonuses?.[skillKey] ?? 0);
 
-        let attrKey = skillAttributeMap[skillKey];
+        let attrKey = mgGetSkillAttribute(skillKey, event.currentTarget.closest(".attribute-column")?.dataset.attr);
 
         // Spark is Guise-dependent
         if (skillKey === "spark") {
@@ -3935,7 +3896,7 @@ _mgOpenSidebarCropper() {
               value: difficultyMod
             }
           ],
-          label: `Skill Roll: ${skillLabel}`,
+          label: `Skill Roll: ${attrKey === "react" && skillKey !== "spark" ? "React " : ""}${skillLabel}`,
           actor: this.actor,
           edge,
           auraLabel: aura.label,
@@ -5359,23 +5320,8 @@ _mgOpenSidebarCropper() {
 
   /** Temp Skill bonus */
   async _mgOpenTempSkillBonusesDialog() {
-    const attributeKeys = [
-      "tenacity",
-      "finesse",
-      "resolve",
-      "guile",
-      "instinct",
-      "presence"
-    ];
-
-    const skillBuckets = {
-      tenacity: ["brawl", "athletics", "endure"],
-      finesse: ["aim", "stealth", "sleight"],
-      resolve: ["will", "composure", "grit"],
-      guile: ["lore", "investigate", "deceive"],
-      instinct: ["survey", "hunt", "nature"],
-      presence: ["command", "charm", "perform"]
-    };
+    const attributeKeys = MG_ATTRIBUTE_KEYS;
+    const skillBuckets = MG_SKILL_BUCKETS;
 
     const skillLabels = {
       brawl: "Brawl",
@@ -5406,8 +5352,8 @@ _mgOpenSidebarCropper() {
 
     const columnsHtml = `
       <div class="attribute-container mg-temp-bonus-modal">
-        ${attributeKeys.map((attrKey) => {
-          const skills = skillBuckets[attrKey] ?? [];
+        ${attributeKeys.filter(key => key !== "react").map((attrKey) => {
+          const skills = skillBuckets[attrKey];
 
           return `
             <div class="attribute-column" data-attr="${attrKey}">
@@ -5467,14 +5413,22 @@ _mgOpenSidebarCropper() {
               Set temporary bonuses or penalties that apply automatically when a skill is rolled.
             </p>
             ${columnsHtml}
-            ${isCaster ? `
-              <div class="spark-container">
-                <label class="spark-label" for="temp-spark">Sparks</label>
-                <div class="spark-skill-row">
-                  <input class="skill-value mg-temp-skill-input" id="temp-spark" name="temp-spark" type="number" value="${Number(current.spark ?? 0)}" step="1" />
+            <div class="mg-temp-bonus-row">
+              <div class="mg-temp-bonus-stat">
+                <label for="temp-attr-react">React</label>
+                <div class="mg-temp-bonus-value">
+                  <input class="mg-temp-attr-input" id="temp-attr-react" name="temp-attr-react" type="number" value="${Number(currentAttrBonuses.react ?? 0)}" step="1" />
                 </div>
               </div>
-            ` : ""}
+              ${isCaster ? `
+                <div class="mg-temp-bonus-stat">
+                  <label for="temp-spark">Sparks</label>
+                  <div class="mg-temp-bonus-value">
+                    <input class="mg-temp-skill-input" id="temp-spark" name="temp-spark" type="number" value="${Number(current.spark ?? 0)}" step="1" />
+                  </div>
+                </div>
+              ` : ""}
+            </div>
           </div>
         `,
         buttons: {
@@ -5487,7 +5441,8 @@ _mgOpenSidebarCropper() {
               for (const attrKey of attributeKeys) {
                 attrOut[attrKey] = Number(html.find(`input[name="temp-attr-${attrKey}"]`).val() ?? 0) || 0;
 
-                for (const skillKey of (skillBuckets[attrKey] ?? [])) {
+                if (attrKey === "react") continue;
+                for (const skillKey of skillBuckets[attrKey]) {
                   skillOut[skillKey] = Number(html.find(`input[name="temp-${skillKey}"]`).val() ?? 0) || 0;
                 }
               }
@@ -6059,6 +6014,7 @@ async _mgOpenStatPicker({ title, current }) {
 
     const fmt = (p) => [
       p.attributes ? `${p.attributes} Attribute` : null,
+      p.skills ? `${p.skills} Skill Point` : null,
       p.moves ? `${p.moves} Learned Move` : null,
       p.sparkSlots ? `${p.sparkSlots} Spark Slot` : null,
       p.gambitPoints ? `${p.gambitPoints} Gambit Point` : null,
@@ -6072,6 +6028,7 @@ async _mgOpenStatPicker({ title, current }) {
       const p = s?.pending || {};
       return {
         attributes: Number(p.attributes||0),
+        skills: Number(p.skills||0),
         moves: Number(p.moves||0),
         sparkSlots: Number(p.sparkSlots||0),
         expertise: Number(p.expertise||0),
@@ -6108,8 +6065,7 @@ async _mgOpenStatPicker({ title, current }) {
 
     // 2) Spend Attribute Points
     while ((pending = await readPending()).attributes > 0) {
-      const keys = ["tenacity","finesse","resolve","guile","instinct","presence"]
-        .filter(k => Number(actor.system?.attributes?.[k] ?? actor.system?.baseAttributes?.[k] ?? 0) < 3);
+      const keys = MG_ATTRIBUTE_KEYS.filter(k => Number(actor.system?.baseAttributes?.[k] ?? 0) < 3);
 
       if (!keys.length) {
         ui.notifications.warn("All Attributes are already at the maximum of +3.");
@@ -6117,7 +6073,7 @@ async _mgOpenStatPicker({ title, current }) {
       }
 
       const options = keys
-        .map(k => `<option value="${k}">${k.toUpperCase()} (${this._mgFormatSigned(actor.system?.attributes?.[k] ?? actor.system?.baseAttributes?.[k] ?? 0)})</option>`)
+        .map(k => `<option value="${k}">${k.toUpperCase()} (${this._mgFormatSigned(actor.system?.baseAttributes?.[k] ?? 0)})</option>`)
         .join("");
       const content = `
         <p>Spend 1 <strong>Attribute</strong> point:</p>
@@ -6137,6 +6093,33 @@ async _mgOpenStatPicker({ title, current }) {
       });
       if (!chosen) break; // user closed → leave as pending
       try { await actor.mgSpendPending("attribute", { key: chosen }); } catch (e) { ui.notifications.error(e.message); break; }
+    }
+
+    // 3) Spend shared Skill Points
+    while ((pending = await readPending()).skills > 0) {
+      const groups = Object.entries(MG_SKILL_BUCKETS).map(([attr, skills]) => {
+        const options = skills.filter(key => Number(actor.system.skills?.[key] ?? 0) < 3)
+          .map(key => `<option value="${key}">${key.toUpperCase()} (${this._mgFormatSigned(actor.system.skills?.[key] ?? 0)})</option>`)
+          .join("");
+        return options ? `<optgroup label="${attr.toUpperCase()}">${options}</optgroup>` : "";
+      }).join("");
+
+      if (!groups) {
+        ui.notifications.warn("All Skills are already at the maximum of +3.");
+        break;
+      }
+
+      const chosen = await this._mgPrompt({
+        title: "Spend Skill Point",
+        bodyHtml: `<p>Spend 1 <strong>Skill</strong> point.</p><select name="skillKey">${groups}</select>`,
+        okText: "Apply",
+        okIcon: "fa-check",
+        cancelText: "Later",
+        cancelIcon: "fa-clock",
+        getValue: html => html.find('select[name="skillKey"]').val()
+      });
+      if (!chosen) break;
+      try { await actor.mgSpendPending("skill", { key: chosen }); } catch (e) { ui.notifications.error(e.message); break; }
     }
 
     // 4) Apply Spark Slots (casters only — they’re the only ones who got these pending)

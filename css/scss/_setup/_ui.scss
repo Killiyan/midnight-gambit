@@ -2529,6 +2529,16 @@ body.mg-hud-enabled {
 				}
 			}
 
+			// Align React with the first row of its two-row skill grid.
+			.attribute-card[data-attr="react"] .attribute-roll {
+				justify-content: flex-start;
+
+				.attribute-container {
+					height: auto;
+					min-height: 2rem;
+				}
+			}
+
 			.skill-grid {
 				display: grid;
 				grid-template-columns: repeat(3, minmax(0, 1fr));

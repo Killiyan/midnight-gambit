@@ -1,3 +1,4 @@
+import { MG_ATTRIBUTE_KEYS, MG_SKILL_BUCKETS, mgGetSkillAttribute } from "../attributes.js";
 import { mgAuraDisplayName, mgAuraReference, mgResolveAura, mgGetAuraEncounter, mgGetAuraPenalty, mgSetActiveAura, mgSetEncounterMember, mgClearAuraEncounter, mgReorderAuraEncounter } from "../actors/aura-encounter.js";
 import { evaluateRoll, mgApplyStrainAttributePenalty, mgGetStrainEffectBadge, mgGetStrainRollEffects } from "../roll-utils.js";
 import { MGInitiativeController } from "../initiative/initiative-controller.js";
@@ -47,24 +48,6 @@ function mgGetLeftSidebarRoot() { return mgSidebarPopouts.activeRoot; }
 const mgChatPopouts = new MGChatPopouts(mgSidebarPopouts);
 bindSheetPopouts(mgSidebarPopouts);
 
-const MG_ATTRIBUTE_KEYS = ["tenacity", "finesse", "resolve", "guile", "instinct", "presence"];
-const MG_SKILL_BUCKETS = {
-	tenacity: ["brawl", "athletics", "endure"],
-	finesse: ["aim", "stealth", "sleight"],
-	resolve: ["will", "composure", "grit"],
-	guile: ["lore", "investigate", "deceive"],
-	instinct: ["survey", "hunt", "nature"],
-	presence: ["command", "charm", "perform"]
-};
-const MG_SKILL_ATTRIBUTE_MAP = {
-	brawl: "tenacity", endure: "tenacity", athletics: "tenacity",
-	aim: "finesse", stealth: "finesse", sleight: "finesse",
-	will: "resolve", grit: "resolve", composure: "resolve",
-	lore: "guile", investigate: "guile", deceive: "guile",
-	survey: "instinct", hunt: "instinct", nature: "instinct",
-	command: "presence", charm: "presence", perform: "presence",
-	spark: "guile"
-};
 
 function mgRenderStrainEffectBadge(effects) {
 	const badge = mgGetStrainEffectBadge(effects, { includeGlobalLock: false });
@@ -3176,7 +3159,7 @@ function mgBindCharacterSidebarContent(root) {
 	root.querySelectorAll("[data-mg-roll-skill]").forEach(button => {
 		button.addEventListener("click", async event => {
 			event.preventDefault();
-			await mgRollSkill(actor, button.dataset.mgRollSkill);
+			await mgRollSkill(actor, button.dataset.mgRollSkill, { attribute: button.closest(".attribute-card")?.dataset.attr });
 		});
 
 		button.addEventListener("contextmenu", async event => {
@@ -3433,7 +3416,7 @@ export async function mgRollSkill(actor, skillKey, options = {}) {
 
 	const baseSkillMod = Number(actor.system?.skills?.[skillKey] ?? 0);
 	const tempSkillMod = Number(actor.system?.tempSkillBonuses?.[skillKey] ?? 0);
-	let attrKey = MG_SKILL_ATTRIBUTE_MAP[skillKey] ?? "guile";
+	let attrKey = mgGetSkillAttribute(skillKey, options.attribute) ?? "guile";
 	if (skillKey === "spark") attrKey = actor.system?.sparkAttribute ?? "guile";
 
 	const baseAttrMod = Number(actor.system?.attributes?.[attrKey] ?? 0);
@@ -3465,7 +3448,7 @@ export async function mgRollSkill(actor, skillKey, options = {}) {
 			{ key: "aura", label: aura.label || "Aura Modifier", icon: "fa-eye-evil", value: auraAttrMod },
 			{ key: "difficulty", label: "Difficulty", icon: "fa-camera-movie", value: difficultyMod }
 		],
-		label: `Skill Roll: ${MG_SKILL_LABELS[skillKey] ?? skillKey}`,
+		label: `Skill Roll: ${attrKey === "react" && skillKey !== "spark" ? "React " : ""}${MG_SKILL_LABELS[skillKey] ?? skillKey}`,
 		actor,
 		edge,
 		auraLabel: aura.label,
@@ -3497,7 +3480,7 @@ async function mgEditActorStat(actor, type, key, button) {
 
 	const value = mgClampStatValue(next);
 	const path = type === "attribute" ? `system.baseAttributes.${key}` : `system.skills.${key}`;
-	await actor.update({ [path]: value }, { render: false });
+	await actor.update({ [path]: value });
 	mgRefreshLeftSidebarContent();
 }
 

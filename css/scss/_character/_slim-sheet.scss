@@ -530,9 +530,16 @@ body.mg-companion-view {
 					background: $mg-blue-main;
 				}
 
+				.attribute-column[data-attr="react"] .mg-slim-attribute {
+					display: flex;
+					flex-direction: column;
+				}
+
 				.mg-slim-attribute-value {
 					position: relative;
 					display: grid;
+					height: auto;
+					min-height: 2.5rem;
 				}
 
 				.mg-slim-skill-grid {

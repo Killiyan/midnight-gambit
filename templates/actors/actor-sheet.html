@@ -185,11 +185,13 @@
                 </span>
               {{/with}}
 
-              <label class="attribute-label"><span>{{key}}</span></label>
+              {{#unless (eq key "react")}}<label class="attribute-label"><span>{{key}}</span></label>{{/unless}}
 
               <div class="attribute-interior">
                 <!-- Attribute Header -->
                 <div class="attribute">
+                  {{#if (eq key "react")}}<label class="attribute-label">React</label>{{/if}}
+                  {{#if (eq key "react")}}<div class="react-attribute-value">{{/if}}
                   <span class="attribute-modifier"
                         data-tooltip="Click to roll | Right click to edit Attribute"
                         data-key="{{key}}"
@@ -203,7 +205,7 @@
                   </span>
 
                   {{#if (lookup ../tempAttributeBonuses key)}}
-                    <span class="attribute-temp-bonus"
+                    <span class="{{#if (eq key "react")}}skill-temp-bonus{{else}}attribute-temp-bonus{{/if}}"
                           data-tooltip="Temporary Attribute Bonus">
                       {{#if (gte (lookup ../tempAttributeBonuses key) 0)}}
                         +{{lookup ../tempAttributeBonuses key}}
@@ -212,6 +214,7 @@
                       {{/if}}
                     </span>
                   {{/if}}
+                  {{#if (eq key "react")}}</div>{{/if}}
                 </div>
 
                 <hr>

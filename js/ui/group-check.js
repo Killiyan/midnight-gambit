@@ -1,3 +1,4 @@
+import { MG_REACT_SKILLS } from "../attributes.js";
 import { mgRollAttribute, mgRollSkill } from "./mg-ui.js";
 
 const NS = "midnight-gambit";
@@ -8,7 +9,8 @@ const SKILLS = {
   resolve: ["will", "grit", "composure"],
   guile: ["lore", "investigate", "deceive"],
   instinct: ["survey", "hunt", "nature"],
-  presence: ["command", "charm", "perform"]
+  presence: ["command", "charm", "perform"],
+  react: MG_REACT_SKILLS
 };
 const esc = value => String(value ?? "").replace(/[&<>"']/g, character => ({
   "&": "&amp;",
@@ -19,7 +21,14 @@ const esc = value => String(value ?? "").replace(/[&<>"']/g, character => ({
 }[character]));
 const title = key => key.charAt(0).toUpperCase() + key.slice(1);
 const checkOptions = check => check.options ?? [{ key: check.key, attribute: !!check.attribute }];
-const validOption = option => option && (option.attribute ? Object.hasOwn(SKILLS, option.key) : Object.values(SKILLS).flat().includes(option.key));
+const skillKey = key => key.startsWith("react-") ? key.slice("react-".length) : key;
+const optionTitle = key => key.startsWith("react-") ? `React ${title(skillKey(key))}` : title(key);
+const validOption = option => {
+  if (typeof option?.key !== "string") return false;
+  if (option.attribute) return Object.hasOwn(SKILLS, option.key);
+  if (option.key.startsWith("react-")) return MG_REACT_SKILLS.includes(skillKey(option.key));
+  return Object.values(SKILLS).some(skills => skills.includes(option.key));
+};
 const state = () => game.settings.get(NS, "groupCheck");
 const authority = () => game.users.find(u => u.active && u.isGM)?.id;
 let panelInstance;
@@ -277,10 +286,31 @@ export function openGroupCheck() {
   if (!actors.length) return ui.notifications.warn("No Primary Crew characters have an online player with permission to roll them.");
   const selected = new Set(actors.filter(a => game.users.some(u => u.active && !u.isGM && u.character?.id === a.id)).map(a => a.id));
   const selectedOptions = new Map();
+  const groups = Object.entries(SKILLS).map(([attribute, skills]) => {
+    const choices = skills.map(key => {
+      const optionKey = attribute === "react" ? `react-${key}` : key;
+      return `<div class="mg-group-skill">
+        <label>${title(key)}</label>
+        <button type="button" data-key="${optionKey}" aria-label="Roll ${optionTitle(optionKey)}">
+          <i class="fa-solid fa-dice" aria-hidden="true"></i>
+        </button>
+      </div>`;
+    }).join("");
+    return `<section class="mg-group-skill-section">
+      <div class="mg-group-attribute">
+        <label>${title(attribute)}</label>
+        <button type="button" data-key="${attribute}" data-attribute="true" aria-label="Roll ${title(attribute)}">
+          <i class="fa-solid fa-dice" aria-hidden="true"></i>
+        </button>
+      </div>
+      <div class="mg-group-skill-grid">${choices}</div>
+    </section>`;
+  }).join("");
+
   setupPanel?.close();
   setupPanel = new GroupCheckPanel({
     title: "Group Check",
-    content: `<div class="mg-group-picker">${actors.map(a => row(a, "", "", `data-actor="${a.id}" aria-pressed="${selected.has(a.id)}"`)).join("")}</div><div class="mg-group-skills">${Object.entries(SKILLS).map(([attr, skills]) => `<section class="mg-group-skill-section"><div class="mg-group-attribute"><label>${title(attr)}</label><button type="button" data-key="${attr}" data-attribute="true" aria-label="Roll ${title(attr)}"><i class="fa-solid fa-dice" aria-hidden="true"></i></button></div><div class="mg-group-skill-grid">${skills.map(key => `<div class="mg-group-skill"><label>${title(key)}</label><button type="button" data-key="${key}" aria-label="Roll ${title(key)}"><i class="fa-solid fa-dice" aria-hidden="true"></i></button></div>`).join("")}</div></section>`).join("")}</div>`,
+    content: `<div class="mg-group-picker">${actors.map(a => row(a, "", "", `data-actor="${a.id}" aria-pressed="${selected.has(a.id)}"`)).join("")}</div><div class="mg-group-skills">${groups}</div>`,
     
     render: html => {
       html.find("[data-actor]").on("click", event => {
@@ -296,7 +326,7 @@ export function openGroupCheck() {
         button.setAttribute("aria-checked", String(selectedOptions.has(key)));
       });
       html.find("[data-key]").attr({ role: "checkbox", "aria-checked": "false" });
-      html.find("[data-key]").each((_, button) => button.setAttribute("aria-label", `Offer ${title(button.dataset.key)}`));
+      html.find("[data-key]").each((_, button) => button.setAttribute("aria-label", `Offer ${optionTitle(button.dataset.key)}`));
       const start = document.createElement("button");
       start.type = "button";
       start.dataset.start = "";
@@ -347,7 +377,7 @@ async function renderCheck() {
     if (game.user.isGM) content += '<button type="button" data-end>× End Check</button>';
   } else {
     const choices = participant.status === "Rolling" ? checkOptions(check) : [{ key: participant.key ?? check.key }];
-    content = choices.map(option => row(actor, `+ ${title(option.key)}`, "", `data-roll="${esc(option.key)}" data-state="${participant.status.toLowerCase()}"`, "fa-dice")).join("");
+    content = choices.map(option => row(actor, `+ ${optionTitle(option.key)}`, "", `data-roll="${esc(option.key)}" data-state="${participant.status.toLowerCase()}"`, "fa-dice")).join("");
     if (participant.status === "Rolling") content += '<div class="mg-group-actions"><button type="button" data-edge><i class="fa-solid fa-scythe" aria-hidden="true"></i> Edge</button><button type="button" data-skip><i class="fa-solid fa-forward" aria-hidden="true"></i> Skip</button></div>';
     else content += '<div class="mg-last-roll-body mg-group-roll-body" data-roll-content></div><button type="button" data-keep><i class="fa-solid fa-lock"></i> Keep</button>';
     if (game.user.isGM) content += '<button type="button" data-end>× End Check</button>';
@@ -380,7 +410,13 @@ async function renderCheck() {
       busy = true;
       root.querySelectorAll("button").forEach(b => b.disabled = true);
       try {
-        await (option.attribute ? mgRollAttribute : mgRollSkill)(actor, option.key, { edge, groupCheck: { checkId: check.id, actorId: actor.id, revision: participant.revision, key: option.key } });
+        const groupCheck = { checkId: check.id, actorId: actor.id, revision: participant.revision, key: option.key };
+        if (option.attribute) await mgRollAttribute(actor, option.key, { edge, groupCheck });
+        else await mgRollSkill(actor, skillKey(option.key), {
+          edge,
+          groupCheck,
+          attribute: option.key.startsWith("react-") ? "react" : undefined
+        });
       } catch (error) {
         console.error("MG Group Check roll", error);
         ui.notifications.error("Could not roll the group check.");
