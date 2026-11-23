@@ -69,12 +69,12 @@ function getCompanionRequest() {
 
 let loadingScreen;
 
-function dismissCompanionLoading() {
+function dismissLoadingScreen() {
   if (!loadingScreen) return;
   const screen = loadingScreen;
   loadingScreen = null;
   const animation = screen.animate([{ opacity: 1 }, { opacity: 0 }], {
-    duration: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 400,
+    duration: reducedMotion ? 0 : (companionLoading ? 400 : 1000),
     easing: "ease",
     fill: "forwards"
   });
@@ -82,24 +82,66 @@ function dismissCompanionLoading() {
 }
 
 // System modules load before Foundry's init hook.
-if (getCompanionRequest()) {
-  loadingScreen = document.createElement("dialog");
-  loadingScreen.className = "mg-companion-loading";
-  loadingScreen.setAttribute("aria-label", "Loading Midnight Gambit Companion");
-  const logo = document.createElement("img");
-  logo.src = new URL("../../assets/images/MG-Logo.png", import.meta.url).href;
-  logo.alt = "Midnight Gambit";
+const companionLoading = Boolean(getCompanionRequest());
+const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+loadingScreen = document.createElement("dialog");
+loadingScreen.className = companionLoading ? "mg-companion-loading" : "mg-world-loading";
+loadingScreen.setAttribute("aria-label", companionLoading ? "Loading Midnight Gambit Companion" : "Loading Midnight Gambit");
+const logo = document.createElement("img");
+// Reserve the logo aspect ratio while the image downloads.
+logo.width = 5000;
+logo.height = 5000;
+logo.fetchPriority = "high";
+logo.src = new URL("../../assets/images/MG-Logo.png", import.meta.url).href;
+logo.alt = "Midnight Gambit";
+
+let progressFill;
+let progressAnimation;
+if (companionLoading) {
   loadingScreen.append(logo);
-  document.body.append(loadingScreen);
-  loadingScreen.showModal();
+} else {
+  const content = document.createElement("div");
+  content.className = "mg-world-loading-content";
+  const track = document.createElement("div");
+  track.className = "mg-world-loading-track";
+  // The bar is decorative. The dialog announces the loading state.
+  track.setAttribute("aria-hidden", "true");
+  progressFill = document.createElement("div");
+  track.append(progressFill);
+  content.append(logo, track);
+  loadingScreen.append(content);
+  loadingScreen.addEventListener("cancel", event => event.preventDefault());
 }
 
-Hooks.once("ready", () => {
+document.body.append(loadingScreen);
+loadingScreen.showModal();
+// Hand off the initial CSS cover only after the dialog enters the top layer.
+document.documentElement.classList.add("mg-loading-dialog-shown");
+
+if (progressFill && !reducedMotion) {
+  progressAnimation = progressFill.animate([{ transform: "scaleX(0)" }, { transform: "scaleX(.9)" }], {
+    duration: 9000,
+    easing: "cubic-bezier(.15, .65, .35, 1)",
+    fill: "forwards"
+  });
+}
+
+Hooks.once("ready", async () => {
   const request = getCompanionRequest();
-  if (!request) return dismissCompanionLoading();
+  if (!request && progressFill) {
+    const from = getComputedStyle(progressFill).transform;
+    progressAnimation?.cancel();
+    await progressFill.animate([{ transform: from }, { transform: "scaleX(1)" }], {
+      duration: reducedMotion ? 0 : 300,
+      easing: "ease-out",
+      fill: "forwards"
+    }).finished.catch(() => {});
+    return dismissLoadingScreen();
+  }
+  if (!request) return dismissLoadingScreen();
   if (request.world !== game.world.id) {
     ui.notifications.warn("This Companion link is for a different Foundry world.");
-    return dismissCompanionLoading();
+    return dismissLoadingScreen();
   }
 
   for (const storageName of ["sessionStorage", "localStorage"]) {
@@ -112,7 +154,7 @@ Hooks.once("ready", () => {
   const actor = game.actors.get(request.actor);
   if (!actor?.isOwner || actor.type !== "character") {
     ui.notifications.warn("This character is unavailable to your Foundry user.");
-    return dismissCompanionLoading();
+    return dismissLoadingScreen();
   }
   const sheet = actor.sheet;
   if (!document.querySelector('meta[name="viewport"]')) {
@@ -131,12 +173,12 @@ Hooks.once("ready", () => {
     if (app !== sheet) return;
     Hooks.off("renderMidnightGambitActorSheet", rendered);
     clearTimeout(renderTimeout);
-    requestAnimationFrame(() => setTimeout(dismissCompanionLoading, 1000));
+    requestAnimationFrame(() => setTimeout(dismissLoadingScreen, 1000));
   });
   // Release the splash if a render hook never fires.
   const renderTimeout = setTimeout(() => {
     Hooks.off("renderMidnightGambitActorSheet", rendered);
-    dismissCompanionLoading();
+    dismissLoadingScreen();
   }, 10000);
   sheet.render(true);
 });

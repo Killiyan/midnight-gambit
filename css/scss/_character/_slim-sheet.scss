@@ -3,13 +3,14 @@
 
 /* Phone Companion
 ----------------------------------------------------------------------*/
-.mg-companion-loading {
+.mg-companion-loading,
+.mg-world-loading {
 	position: fixed;
 	inset: 0;
 	z-index: 2147483647;
 	display: grid;
 	place-items: center;
-	background: #fff;
+	background: $mg-blue-5;
 
 	img {
 		display: block;
@@ -34,6 +35,46 @@
 
 		&:not([open]) {
 			display: none;
+		}
+	}
+}
+
+/* World loading screen
+----------------------------------------------------------------------*/
+// Cover the Foundry game view on first paint, before system modules run.
+html:not(.mg-loading-dialog-shown):has(body > #interface)::before {
+	content: "";
+	position: fixed;
+	inset: 0;
+	z-index: 2147483647;
+	background: $mg-blue-5;
+}
+
+.mg-world-loading {
+	.mg-world-loading-content {
+		display: grid;
+		justify-items: center;
+		gap: 1.5rem;
+		padding: 2.125rem;
+		@include mg-border();
+		border-radius: .5rem;
+		background: $white;
+	}
+
+	.mg-world-loading-track {
+		width: min(62vw, 16rem);
+		height: .375rem;
+		border-radius: 1rem;
+		overflow: hidden;
+		background: $mg-blue-1;
+
+		> div {
+			width: 100%;
+			height: 100%;
+			border-radius: inherit;
+			background: $mg-blue-3;
+			transform: scaleX(0);
+			transform-origin: left;
 		}
 	}
 }
